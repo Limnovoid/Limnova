@@ -1,0 +1,3 @@
+[submodule "Limnova/thirdparty/spdlog"]
+	path = Limnova/thirdparty/spdlog
+	url = https://github.com/gabime/spdlog
