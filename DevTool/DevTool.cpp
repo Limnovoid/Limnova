@@ -16,7 +16,9 @@ public:
 };
 
 
+#include <stdio.h>
 Limnova::Application* Limnova::CreateApplication()
 {
+	printf("Creating Application.\n");
 	return new Limnova::Application();
 }
