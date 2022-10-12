@@ -4,6 +4,15 @@ add_library(${PROJECT_NAME} SHARED
 	"src/Application.cpp"
 	"src/EntryPoint.h"
 	"src/Log.cpp"
+	"src/Events/Event.h"
+	"src/Events/KeyEvent.h"
+	"src/Events/MouseEvent.h"
+	"src/Events/ApplicationEvent.h"
+)
+
+target_include_directories(${PROJECT_NAME}
+	PRIVATE
+		"${PROJECT_SOURCE_DIR}/src"
 )
 
 # Definitions

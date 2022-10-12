@@ -1,7 +1,8 @@
 #include "Application.h"
 
 
-#include "spdlog/spdlog.h"
+#include "Log.h"
+#include "Events/ApplicationEvent.h"
 
 namespace Limnova
 {

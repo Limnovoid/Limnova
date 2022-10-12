@@ -6,12 +6,10 @@ class DevApp : public Limnova::Application
 public:
 	DevApp()
 	{
-
 	}
 
 	~DevApp()
 	{
-
 	}
 };
 
