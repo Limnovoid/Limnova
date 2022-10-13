@@ -15,6 +15,24 @@ target_include_directories(${PROJECT_NAME}
 		"${PROJECT_SOURCE_DIR}/src"
 )
 
+# Precompiled header
+target_precompile_headers(${PROJECT_NAME}
+	PRIVATE
+		<iostream>
+		<memory>
+		<utility>
+		<algorithm>
+		<functional>
+
+		<string>
+		<sstream>
+		<vector>
+		<unordered_map>
+		<unordered_set>
+
+		$<${MSVC}:Windows.h>
+)
+
 # Definitions
 add_compile_definitions(
 	LV_BUILD_DLL

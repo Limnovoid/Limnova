@@ -17,6 +17,9 @@ namespace Limnova
 
 	void Application::run()
 	{
+		WindowResizeEvent e(1920, 1080);
+		LV_TRACE(e);
+
 		while (true);
 	}//run()
 
