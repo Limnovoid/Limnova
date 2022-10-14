@@ -1,13 +1,17 @@
 project(Limnova)
 
 add_library(${PROJECT_NAME} SHARED
-	"src/Application.cpp"
-	"src/EntryPoint.h"
-	"src/Log.cpp"
-	"src/Events/Event.h"
-	"src/Events/KeyEvent.h"
-	"src/Events/MouseEvent.h"
-	"src/Events/ApplicationEvent.h"
+	"${PROJECT_SOURCE_DIR}/src/Application.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Application.h"
+	"${PROJECT_SOURCE_DIR}/src/EntryPoint.h"
+	"${PROJECT_SOURCE_DIR}/src/Log.cpp"
+
+	"${PROJECT_SOURCE_DIR}/src/Events/Event.h"
+	"${PROJECT_SOURCE_DIR}/src/Events/KeyEvent.h"
+	"${PROJECT_SOURCE_DIR}/src/Events/MouseEvent.h"
+	"${PROJECT_SOURCE_DIR}/src/Events/ApplicationEvent.h"
+
+	"${PROJECT_SOURCE_DIR}/src/Platform/Windows/WindowsWindow.cpp"
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -30,19 +34,30 @@ target_precompile_headers(${PROJECT_NAME}
 		<unordered_map>
 		<unordered_set>
 
-		$<${MSVC}:Windows.h>
+		$<${MSVC}:<Windows.h$<ANGLE-R>>
+
+		"${PROJECT_SOURCE_DIR}/src/Log.h"
 )
 
 # Definitions
 add_compile_definitions(
 	LV_BUILD_DLL
 )
-configure_file("src/Core.h.in" "${PROJECT_SOURCE_DIR}/src/Core.h")
+configure_file("${PROJECT_SOURCE_DIR}/src/Core.h.in" "${PROJECT_SOURCE_DIR}/src/Core.h")
 
-# Third party
+
+# Third party:
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
-		"${CMAKE_SOURCE_DIR}/Limnova/thirdparty/spdlog/include"
+		"${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
+		"${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
+)
+
+add_subdirectory(thirdparty/glfw)
+
+target_link_libraries(${PROJECT_NAME}
+	PRIVATE
+		glfw
 )
 
 
@@ -51,4 +66,4 @@ add_custom_command(TARGET Limnova POST_BUILD COMMAND
 	${CMAKE_COMMAND} -E copy_if_different
 	${PROJECT_BINARY_DIR}/Limnova.dll
 	${CMAKE_BINARY_DIR}/DevTool
-	)
+)

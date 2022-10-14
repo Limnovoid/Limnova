@@ -1,4 +1,4 @@
-#include "Log.h"
+#include <Log.h>
 
 #include "spdlog/sinks/stdout_color_sinks.h"
 
@@ -8,6 +8,9 @@ namespace Limnova
 
 	std::shared_ptr<spdlog::logger> Log::s_CoreLogger;
 	std::shared_ptr<spdlog::logger> Log::s_ClientLogger;
+
+	std::shared_ptr<spdlog::logger>& Log::GetCoreLogger() { return s_CoreLogger; }
+	std::shared_ptr<spdlog::logger>& Log::GetClientLogger() { return s_ClientLogger; }
 
 	void Log::Init()
 	{

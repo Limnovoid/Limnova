@@ -13,3 +13,5 @@ target_link_libraries(${PROJECT_NAME}
 	PRIVATE
 		Limnova
 )
+
+target_precompile_headers(${PROJECT_NAME} REUSE_FROM Limnova)

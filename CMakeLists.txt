@@ -1,21 +1,18 @@
 cmake_minimum_required(VERSION 3.21)
 project(LimnovaEngine)
 
-# Platform specifics.
-if (MSVC)
-	add_compile_definitions(
-		LV_PLATFORM_WINDOWS
-	)
-else ()
-
-endif ()
-
-# Configuration specifics.
+# Definitions.
 add_compile_definitions(
+	# Platform
+	$<${MSVC}:LV_PLATFORM_WINDOWS>
+
+	# Build configuration
 	$<$<CONFIG:Debug>:LV_DEBUG>
 	$<$<CONFIG:Release>:LV_RELEASE>
+
+	LV_ENABLE_ASSERTS
 )
 
-# Binaries.
+# Projects.
 add_subdirectory(Limnova)
 add_subdirectory(DevTool)
