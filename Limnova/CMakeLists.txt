@@ -2,7 +2,6 @@ project(Limnova)
 
 add_library(${PROJECT_NAME} SHARED
 	"${PROJECT_SOURCE_DIR}/src/Application.cpp"
-	"${PROJECT_SOURCE_DIR}/src/Application.h"
 	"${PROJECT_SOURCE_DIR}/src/EntryPoint.h"
 	"${PROJECT_SOURCE_DIR}/src/Log.cpp"
 
@@ -58,6 +57,7 @@ add_subdirectory(thirdparty/glfw)
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE
 		glfw
+		opengl32.lib
 )
 
 
