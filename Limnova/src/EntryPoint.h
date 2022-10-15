@@ -9,7 +9,7 @@ int main(int argc, char** arvc)
 	Limnova::Log::Init();
 
 	auto app = Limnova::CreateApplication();
-	app->run();
+	app->Run();
 	delete app;
 
 	return 0;
