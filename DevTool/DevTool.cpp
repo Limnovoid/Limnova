@@ -16,5 +16,5 @@ public:
 
 Limnova::Application* Limnova::CreateApplication()
 {
-	return new Limnova::Application();
+	return new DevApp();
 }
