@@ -10,9 +10,9 @@ namespace Limnova
 
 	static bool s_GLFWInitialized = false;
 
-	static void GLFWErrorCallback(int error, const char* description)
+	static void GLFWErrorCallback(int code, const char* description)
 	{
-		LV_CORE_ERROR("GLFW Error ({0}): {1}", error, description);
+		LV_CORE_ERROR("GLFW Error ({0}): {1}", code, description);
 	}
 
 

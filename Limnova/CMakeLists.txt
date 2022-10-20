@@ -4,6 +4,8 @@ add_library(${PROJECT_NAME} SHARED
 	"${PROJECT_SOURCE_DIR}/src/Application.cpp"
 	"${PROJECT_SOURCE_DIR}/src/EntryPoint.h"
 	"${PROJECT_SOURCE_DIR}/src/Log.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Layer.cpp"
+	"${PROJECT_SOURCE_DIR}/src/LayerStack.cpp"
 
 	"${PROJECT_SOURCE_DIR}/src/Events/Event.h"
 	"${PROJECT_SOURCE_DIR}/src/Events/KeyEvent.h"
@@ -11,12 +13,24 @@ add_library(${PROJECT_NAME} SHARED
 	"${PROJECT_SOURCE_DIR}/src/Events/ApplicationEvent.h"
 
 	"${PROJECT_SOURCE_DIR}/src/Platform/Windows/WindowsWindow.cpp"
-)
+  )
 
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
 		"${PROJECT_SOURCE_DIR}/src"
 )
+
+
+# Definitions
+add_compile_definitions(
+	LV_BUILD_DLL
+)
+
+# Build properties
+set_property(TARGET ${PROJECT_NAME} PROPERTY
+  MSVC_RUNTIME_LIBRARY "MultiThreaded$<IF:$<CONFIG:Debug>,DebugDLL,DLL>"
+)
+
 
 # Precompiled header
 target_precompile_headers(${PROJECT_NAME}
@@ -38,10 +52,7 @@ target_precompile_headers(${PROJECT_NAME}
 		"${PROJECT_SOURCE_DIR}/src/Log.h"
 )
 
-# Definitions
-add_compile_definitions(
-	LV_BUILD_DLL
-)
+# Core.h config
 configure_file("${PROJECT_SOURCE_DIR}/src/Core.h.in" "${PROJECT_SOURCE_DIR}/src/Core.h")
 
 
@@ -64,6 +75,6 @@ target_link_libraries(${PROJECT_NAME}
 # Copy Limnova.dll to dependent executable directories.
 add_custom_command(TARGET Limnova POST_BUILD COMMAND
 	${CMAKE_COMMAND} -E copy_if_different
-	${PROJECT_BINARY_DIR}/Limnova.dll
-	${CMAKE_BINARY_DIR}/DevTool
+	${PROJECT_BINARY_DIR}/Limnova.dll	# File to copy
+	${CMAKE_BINARY_DIR}/DevTool			# Destination
 )

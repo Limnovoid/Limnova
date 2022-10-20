@@ -4,6 +4,7 @@
 /*** For Limnova applications. ***/
 
 #include "src/Application.h"
+#include "src/Layer.h"
 #include "src/Log.h"
 
 
