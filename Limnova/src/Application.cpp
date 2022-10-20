@@ -1,6 +1,6 @@
 #include "Application.h"
 
-#include "GLFW/glfw3.h"
+#include <glad/glad.h>
 
 
 namespace Limnova
@@ -49,10 +49,11 @@ namespace Limnova
 
 	void Application::OnEvent(Event& e)
 	{
+		LV_CORE_TRACE("{0}", e);
+
 		EventDispatcher dispatcher(e);
 		dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(OnWindowClose));
 
-		LV_CORE_TRACE("{0}", e);
 
 		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); )
 		{

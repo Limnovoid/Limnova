@@ -28,7 +28,7 @@ add_compile_definitions(
 
 # Build properties
 set_property(TARGET ${PROJECT_NAME} PROPERTY
-  MSVC_RUNTIME_LIBRARY "MultiThreaded$<IF:$<CONFIG:Debug>,DebugDLL,DLL>"
+	MSVC_RUNTIME_LIBRARY "MultiThreaded$<IF:$<CONFIG:Debug>,DebugDLL,DLL>"
 )
 
 
@@ -59,16 +59,23 @@ configure_file("${PROJECT_SOURCE_DIR}/src/Core.h.in" "${PROJECT_SOURCE_DIR}/src/
 # Third party:
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
-		"${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
+		"${PROJECT_SOURCE_DIR}/thirdparty/glad/include"
 		"${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
+		"${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
 )
 
-add_subdirectory(thirdparty/glfw)
+add_subdirectory(thirdparty/Glad)
+add_subdirectory(thirdparty/GLFW)
 
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE
-		glfw
+		Glad
+		GLFW
 		opengl32.lib
+)
+
+add_compile_definitions(
+	GLFW_INCLUDE_NONE
 )
 
 
