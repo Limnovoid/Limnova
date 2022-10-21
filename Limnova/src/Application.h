@@ -3,8 +3,8 @@
 #include "Core.h"
 #include "Events/Event.h"
 #include "Window.h"
-#include "Events/ApplicationEvent.h"
 #include "LayerStack.h"
+#include "Events/ApplicationEvent.h"
 
 
 namespace Limnova
@@ -22,13 +22,19 @@ namespace Limnova
 
 		void PushLayer(Layer* layer);
 		void PushOverlay(Layer* overlay);
+
+		inline Window& GetWindow() { return *m_Window; }
+
+		static Application& Get();
 	private:
 		std::unique_ptr<Window> m_Window;
 		bool m_Running = true;
 		LayerStack m_LayerStack;
 
 		bool OnWindowClose(WindowCloseEvent& e);
-	};//Application
+	private:
+		static Application* s_Instance;
+	};
 
 	// To be defined in CLIENT.
 	Application* CreateApplication();

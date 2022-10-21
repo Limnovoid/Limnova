@@ -1,19 +1,24 @@
 project(Limnova)
 
 add_library(${PROJECT_NAME} SHARED
-	"${PROJECT_SOURCE_DIR}/src/Application.cpp"
-	"${PROJECT_SOURCE_DIR}/src/EntryPoint.h"
-	"${PROJECT_SOURCE_DIR}/src/Log.cpp"
-	"${PROJECT_SOURCE_DIR}/src/Layer.cpp"
-	"${PROJECT_SOURCE_DIR}/src/LayerStack.cpp"
+	"src/Application.cpp"
+	"src/EntryPoint.h"
+	"src/Log.cpp"
+	"src/Layer.cpp"
+	"src/LayerStack.cpp"
 
-	"${PROJECT_SOURCE_DIR}/src/Events/Event.h"
-	"${PROJECT_SOURCE_DIR}/src/Events/KeyEvent.h"
-	"${PROJECT_SOURCE_DIR}/src/Events/MouseEvent.h"
-	"${PROJECT_SOURCE_DIR}/src/Events/ApplicationEvent.h"
+	"src/Events/Event.h"
+	"src/Events/KeyEvent.h"
+	"src/Events/MouseEvent.h"
+	"src/Events/ApplicationEvent.h"
 
-	"${PROJECT_SOURCE_DIR}/src/Platform/Windows/WindowsWindow.cpp"
-  )
+	"src/Platform/Windows/WindowsWindow.cpp"
+    "src/Platform/OpenGL/imgui_impl_opengl3.cpp"
+
+	"src/ImGui/ImGuiLayer.h"
+	"src/ImGui/ImGuiLayer.cpp"
+)
+
 
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
@@ -21,18 +26,16 @@ target_include_directories(${PROJECT_NAME}
 )
 
 
-# Definitions
 add_compile_definitions(
 	LV_BUILD_DLL
 )
 
-# Build properties
+
 set_property(TARGET ${PROJECT_NAME} PROPERTY
-	MSVC_RUNTIME_LIBRARY "MultiThreaded$<IF:$<CONFIG:Debug>,DebugDLL,DLL>"
+	MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
 )
 
 
-# Precompiled header
 target_precompile_headers(${PROJECT_NAME}
 	PRIVATE
 		<iostream>
@@ -56,21 +59,24 @@ target_precompile_headers(${PROJECT_NAME}
 configure_file("${PROJECT_SOURCE_DIR}/src/Core.h.in" "${PROJECT_SOURCE_DIR}/src/Core.h")
 
 
-# Third party:
+# Third party libs:
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
 		"${PROJECT_SOURCE_DIR}/thirdparty/glad/include"
 		"${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
+		"${PROJECT_SOURCE_DIR}/thirdparty/imgui"
 		"${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
 )
 
-add_subdirectory(thirdparty/Glad)
-add_subdirectory(thirdparty/GLFW)
+add_subdirectory(thirdparty/glad)
+add_subdirectory(thirdparty/glfw)
+add_subdirectory(thirdparty/imgui)
 
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE
 		Glad
 		GLFW
+		ImGui
 		opengl32.lib
 )
 

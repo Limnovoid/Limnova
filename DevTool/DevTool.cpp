@@ -1,7 +1,7 @@
 #include "Limnova.h"
 
 
-class DevLayer : public Limnova::Layer
+class LIMNOVA_API DevLayer : public Limnova::Layer
 {
 public:
 	DevLayer()
@@ -11,7 +11,6 @@ public:
 
 	void OnUpdate() override
 	{
-		LV_INFO("DevLayer::Update");
 	}
 
 	void OnEvent(Limnova::Event& event) override
@@ -21,12 +20,13 @@ public:
 };
 
 
-class DevApp : public Limnova::Application
+class LIMNOVA_API DevApp : public Limnova::Application
 {
 public:
 	DevApp()
 	{
 		PushLayer(new DevLayer());
+		PushOverlay(new Limnova::ImGuiLayer());
 	}
 
 	~DevApp()

@@ -39,6 +39,9 @@ namespace Limnova
 		virtual void SetVSync(bool enabled) = 0;
 		virtual bool IsVSync() const = 0;
 
+		virtual void SetClipboardText(void* userdata, const char* text) = 0;
+		virtual const char* GetClipboardText(void* userdata) = 0;
+
 		static Window* Create(const WindowProps& props = WindowProps());
 	};
 
