@@ -1,6 +1,7 @@
 #include "Application.h"
 
 #include <glad/glad.h>
+#include "Input.h"
 
 
 namespace Limnova

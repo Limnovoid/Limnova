@@ -13,6 +13,7 @@ add_library(${PROJECT_NAME} SHARED
 	"src/Events/ApplicationEvent.h"
 
 	"src/Platform/Windows/WindowsWindow.cpp"
+	"src/Platform/Windows/WindowsInput.cpp"
     "src/Platform/OpenGL/imgui_impl_opengl3.cpp"
 
 	"src/ImGui/ImGuiLayer.h"
@@ -31,8 +32,11 @@ add_compile_definitions(
 )
 
 
-set_property(TARGET ${PROJECT_NAME} PROPERTY
-	MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+set_property(TARGET ${PROJECT_NAME}
+	PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+)
+set_property(TARGET ${PROJECT_NAME}
+	PROPERTY CXX_STANDARD 17	
 )
 
 

@@ -25,7 +25,9 @@ namespace Limnova
 		inline bool IsVSync() const override { return m_Data.VSync; }
 
 		inline void SetClipboardText(void* userdata, const char* text) override { glfwSetClipboardString(m_Window, text); }
-		inline const char* GetClipboardText(void* userdata) override { return glfwGetClipboardString(m_Window); }
+		inline const char* GetClipboardText(void* userdata) const override { return glfwGetClipboardString(m_Window); }
+
+		inline void* GetNativeWindow() const override { return m_Window; }
 	private:
 		virtual void Init(const WindowProps& props);
 		virtual void Shutdown();

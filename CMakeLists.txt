@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.21)
-project(LimnovaEngine)
+
+project(LimnovaEngine 
+	LANGUAGES CXX
+)
+
 
 # Definitions
 add_compile_definitions(
@@ -7,8 +11,6 @@ add_compile_definitions(
 
 	$<$<CONFIG:Debug>:LV_DEBUG>
 	$<$<CONFIG:Release>:LV_RELEASE>
-
-	$<$<CONFIG:Debug>:LV_ENABLE_ASSERTS>	
 )
 
 # Projects.

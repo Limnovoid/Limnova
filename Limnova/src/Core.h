@@ -9,6 +9,10 @@
 #endif
 
 
+#ifdef LV_DEBUG
+	#define LV_ENABLE_ASSERTS
+#endif
+
 #ifdef LV_ENABLE_ASSERTS
 	#define LV_ASSERT(x, ...) { if(!(x)) { LV_ERROR("Assertion failed: {0}", __VA_ARGS__); __debugbreak(); } }
 	#define LV_CORE_ASSERT(x, ...) { if(!(x)) { LV_CORE_ERROR("Assertion failed: {0}", __VA_ARGS__); __debugbreak(); } }
