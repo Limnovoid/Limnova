@@ -23,7 +23,6 @@ namespace Limnova
 		LStack::iterator end() { return m_Layers.end(); }
 	private:
 		LStack m_Layers;
-		LStack::iterator m_LayerInsert;
 		int m_LayerInsertOff;
 	};
 

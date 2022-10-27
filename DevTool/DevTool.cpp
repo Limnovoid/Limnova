@@ -1,5 +1,7 @@
 #include "Limnova.h"
 
+#include "imgui/imgui.h"
+
 
 class LIMNOVA_API DevLayer : public Limnova::Layer
 {
@@ -11,6 +13,14 @@ public:
 
 	void OnUpdate() override
 	{
+	}
+
+	void OnImGuiRender() override
+	{
+		// TODO : HOMEWORK - solve these linking errors
+		ImGui::Begin("Test");
+		ImGui::Text("Hello from DevTool!");
+		ImGui::End();
 	}
 
 	void OnEvent(Limnova::Event& event) override
@@ -25,7 +35,6 @@ public:
 	DevApp()
 	{
 		PushLayer(new DevLayer());
-		PushOverlay(new Limnova::ImGuiLayer());
 	}
 
 	~DevApp()

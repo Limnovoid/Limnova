@@ -8,7 +8,6 @@ namespace Limnova
 
 	class Quaternion
 	{
-		friend void quaternion_tests();
 	public:
 		Quaternion();
 		Quaternion(Vector3 axis, float angleDegrees);
@@ -29,7 +28,6 @@ namespace Limnova
 		float w;
 
 		void Normalize();
-
 	};
 
 

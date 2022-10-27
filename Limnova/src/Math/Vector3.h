@@ -14,8 +14,9 @@ namespace Limnova
 
 		inline float SqrMagnitude() const { return x * x + y * y + z * z; }
 
-		// Normalise in-place.
+		// Normalized() returns a normalized copy of a vector.
 		Vector3 Normalized() const;
+		// Normalize() normalizes a vector in-place and returns it by reference.
 		Vector3& Normalize();
 
 		float Dot(const Vector3 rhs) const;

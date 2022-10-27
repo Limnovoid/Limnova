@@ -5,8 +5,8 @@ namespace Limnova
 {
 
 	LayerStack::LayerStack()
+		: m_LayerInsertOff(0)
 	{
-		m_LayerInsertOff = 0;
 	}
 
 	LayerStack::~LayerStack()
