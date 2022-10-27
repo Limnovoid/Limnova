@@ -18,7 +18,7 @@ add_library(${PROJECT_NAME} SHARED
 
 	"src/ImGui/ImGuiLayer.h"
 	"src/ImGui/ImGuiLayer.cpp"
-)
+ )
 
 
 target_include_directories(${PROJECT_NAME}
@@ -58,6 +58,7 @@ target_precompile_headers(${PROJECT_NAME}
 
 		"${PROJECT_SOURCE_DIR}/src/Log.h"
 )
+
 
 # Core.h config
 configure_file("${PROJECT_SOURCE_DIR}/src/Core.h.in" "${PROJECT_SOURCE_DIR}/src/Core.h")

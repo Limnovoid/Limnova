@@ -2,6 +2,7 @@
 
 #include <glad/glad.h>
 #include "Input.h"
+#include "KeyCodes.h"
 
 
 namespace Limnova
@@ -57,8 +58,6 @@ namespace Limnova
 
 	void Application::OnEvent(Event& e)
 	{
-		LV_CORE_TRACE("{0}", e);
-
 		EventDispatcher dispatcher(e);
 		dispatcher.Dispatch<WindowCloseEvent>(LV_BIND_EVENT_FN(Application::OnWindowClose));
 

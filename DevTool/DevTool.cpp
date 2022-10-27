@@ -15,7 +15,6 @@ public:
 
 	void OnEvent(Limnova::Event& event) override
 	{
-		LV_TRACE("{0}", event);
 	}
 };
 
