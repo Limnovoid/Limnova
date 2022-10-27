@@ -13,6 +13,9 @@
 
 #include "src/ImGui/ImGuiLayer.h"
 
+#include "src/Math/glm.h"
+#include "src/Math/Math.h"
+
 
 // Entry point ------------
 #include "src/EntryPoint.h"

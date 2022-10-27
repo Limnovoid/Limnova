@@ -12,13 +12,15 @@ add_library(${PROJECT_NAME} SHARED
 	"src/Events/MouseEvent.h"
 	"src/Events/ApplicationEvent.h"
 
+	"src/Math/glm.h"
+
 	"src/Platform/Windows/WindowsWindow.cpp"
 	"src/Platform/Windows/WindowsInput.cpp"
     "src/Platform/OpenGL/imgui_impl_opengl3.cpp"
 
 	"src/ImGui/ImGuiLayer.h"
 	"src/ImGui/ImGuiLayer.cpp"
- )
+ "src/Math/MathConstants.h" "src/Math/Vector3.cpp" "src/Math/Vector3.h" "src/Math/Quaternion.cpp" "src/Math/Quaternion.h" "src/Math/Math.h" "src/Math/Math.cpp")
 
 
 target_include_directories(${PROJECT_NAME}
@@ -67,6 +69,7 @@ configure_file("${PROJECT_SOURCE_DIR}/src/Core.h.in" "${PROJECT_SOURCE_DIR}/src/
 # Third party libs:
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
+		"${PROJECT_SOURCE_DIR}/thirdparty"
 		"${PROJECT_SOURCE_DIR}/thirdparty/glad/include"
 		"${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
 		"${PROJECT_SOURCE_DIR}/thirdparty/imgui"

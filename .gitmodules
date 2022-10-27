@@ -7,3 +7,6 @@
 [submodule "Limnova/thirdparty/imgui"]
 	path = Limnova/thirdparty/imgui
 	url = https://github.com/ocornut/imgui
+[submodule "Limnova/thirdparty/glm"]
+	path = Limnova/thirdparty/glm
+	url = https://github.com/g-truc/glm
