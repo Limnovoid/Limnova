@@ -6,7 +6,10 @@
 class LIMNOVA_API DevLayer : public Limnova::Layer
 {
 public:
-    DevLayer() = delete;
+    DevLayer()
+        : Layer("DevLayer")
+    {
+    }
     DevLayer(ImGuiContext* p_ImGuiCtx, ImGuiMemAllocFunc p_Alloc, ImGuiMemFreeFunc p_Free, void* p_Data)
         : Layer("DevLayer")
     {
@@ -36,13 +39,14 @@ class LIMNOVA_API DevApp : public Limnova::Application
 public:
     DevApp()
     {
-        void* p_ImGuiDllCtx = GetImGuiContext();
-        ImGuiMemAllocFunc alloc;
-        ImGuiMemFreeFunc free;
-        void* p_Data;
-        GetAllocatorFunctions((void*)&alloc, (void*)&free, &p_Data);
-        PushLayer(new DevLayer((ImGuiContext*)p_ImGuiDllCtx, alloc, free, p_Data));
-    } 
+        //void* p_ImGuiDllCtx = GetImGuiContext();
+        //ImGuiMemAllocFunc alloc;
+        //ImGuiMemFreeFunc free;
+        //void* p_Data;
+        //GetAllocatorFunctions((void*)&alloc, (void*)&free, &p_Data);
+        //PushLayer(new DevLayer((ImGuiContext*)p_ImGuiDllCtx, alloc, free, p_Data));
+        PushLayer(new DevLayer());
+    }
 
     ~DevApp()
     {

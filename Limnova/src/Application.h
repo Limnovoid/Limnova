@@ -28,8 +28,8 @@ namespace Limnova
 
         static Application& Get();
     protected:
-        inline void* GetImGuiContext() { m_ImGuiLayer->GetImGuiContext(); }
-        inline void GetAllocatorFunctions(void* p_Alloc, void* p_Free, void** p_Data) { m_ImGuiLayer->GetAllocatorFunctions(p_Alloc, p_Free, p_Data); }
+        //inline void* GetImGuiContext() { return m_ImGuiLayer->GetImGuiContext(); }
+        //inline void GetAllocatorFunctions(void* p_Alloc, void* p_Free, void** p_Data) { m_ImGuiLayer->GetAllocatorFunctions(p_Alloc, p_Free, p_Data); }
     private:
         ImGuiLayer* m_ImGuiLayer;
         std::unique_ptr<Window> m_Window;

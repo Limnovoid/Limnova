@@ -96,15 +96,10 @@ namespace Limnova
     {
         static bool show = true;
         ImGui::ShowDemoWindow(&show);
-
-        // test
-        ImGui::Begin("Test 2");
-        ImGui::Text("Hello from Limnova!");
-        ImGui::End();
     }
 
 
-    void* ImGuiLayer::GetImGuiContext()
+    /*void* ImGuiLayer::GetImGuiContext()
     {
         return (void*)ImGui::GetCurrentContext();
     }
@@ -113,6 +108,6 @@ namespace Limnova
     void ImGuiLayer::GetAllocatorFunctions(void* p_Alloc, void* p_Free, void** p_Data)
     {
         ImGui::GetAllocatorFunctions((ImGuiMemAllocFunc*)p_Alloc, (ImGuiMemFreeFunc*)p_Free, p_Data);
-    }
+    }*/
 
 }

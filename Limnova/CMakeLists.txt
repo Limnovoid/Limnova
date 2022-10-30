@@ -1,6 +1,6 @@
 project(Limnova)
 
-add_library(${PROJECT_NAME} SHARED
+add_library(${PROJECT_NAME} STATIC
     "src/Application.cpp"
     "src/EntryPoint.h"
     "src/Log.cpp"
@@ -33,9 +33,9 @@ target_include_directories(${PROJECT_NAME}
 )
 
 
-add_compile_definitions(
-    LV_BUILD_DLL
-)
+#add_compile_definitions(
+#    LV_BUILD_DLL
+#)
 
 
 set_property(TARGET ${PROJECT_NAME}
@@ -99,8 +99,8 @@ add_compile_definitions(
 
 
 # Copy Limnova.dll to dependent executable directories.
-add_custom_command(TARGET Limnova POST_BUILD COMMAND
-    ${CMAKE_COMMAND} -E copy_if_different
-    ${PROJECT_BINARY_DIR}/Limnova.dll	# File to copy
-    ${CMAKE_BINARY_DIR}/DevTool			# Destination
-)
+#add_custom_command(TARGET Limnova POST_BUILD COMMAND
+#    ${CMAKE_COMMAND} -E copy_if_different
+#    ${PROJECT_BINARY_DIR}/Limnova.dll   # File to copy
+#    ${CMAKE_BINARY_DIR}/DevTool         # Destination
+#)

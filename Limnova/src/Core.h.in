@@ -2,7 +2,7 @@
     #ifdef LV_BUILD_DLL
         #define LIMNOVA_API __declspec(dllexport)
     #else
-        #define LIMNOVA_API __declspec(dllimport)
+        #define LIMNOVA_API //__declspec(dllimport)
     #endif
 #else
     #error Limnova only supports Windows!
