@@ -11,37 +11,37 @@
 namespace Limnova
 {
 
-	class LIMNOVA_API Application
-	{
-	public:
-		Application();
-		virtual ~Application();
+    class LIMNOVA_API Application
+    {
+    public:
+        Application();
+        virtual ~Application();
 
-		void Run();
+        void Run();
 
-		void OnEvent(Event& e);
+        void OnEvent(Event& e);
 
-		void PushLayer(Layer* layer);
-		void PushOverlay(Layer* overlay);
+        void PushLayer(Layer* layer);
+        void PushOverlay(Layer* overlay);
 
-		inline Window& GetWindow() { return *m_Window; }
+        inline Window& GetWindow() { return *m_Window; }
 
-		static Application& Get();
-	protected:
-		inline void* GetImGuiContext() { m_ImGuiLayer->GetImGuiContext(); }
-		inline void GetAllocatorFunctions(void* p_Alloc, void* p_Free, void** p_Data) { m_ImGuiLayer->GetAllocatorFunctions(p_Alloc, p_Free, p_Data); }
-	private:
-		ImGuiLayer* m_ImGuiLayer;
-		std::unique_ptr<Window> m_Window;
-		bool m_Running = true;
-		LayerStack m_LayerStack;
+        static Application& Get();
+    protected:
+        inline void* GetImGuiContext() { m_ImGuiLayer->GetImGuiContext(); }
+        inline void GetAllocatorFunctions(void* p_Alloc, void* p_Free, void** p_Data) { m_ImGuiLayer->GetAllocatorFunctions(p_Alloc, p_Free, p_Data); }
+    private:
+        ImGuiLayer* m_ImGuiLayer;
+        std::unique_ptr<Window> m_Window;
+        bool m_Running = true;
+        LayerStack m_LayerStack;
 
-		bool OnWindowClose(WindowCloseEvent& e);
-	private:
-		static Application* s_Instance;
-	};
+        bool OnWindowClose(WindowCloseEvent& e);
+    private:
+        static Application* s_Instance;
+    };
 
-	// To be defined in CLIENT.
-	Application* CreateApplication();
+    // To be defined in CLIENT.
+    Application* CreateApplication();
 
 }

@@ -1,16 +1,16 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(LimnovaEngine 
-	LANGUAGES CXX
+    LANGUAGES CXX
 )
 
 
 # Definitions
 add_compile_definitions(
-	$<${MSVC}:LV_PLATFORM_WINDOWS>
+    $<${MSVC}:LV_PLATFORM_WINDOWS>
 
-	$<$<CONFIG:Debug>:LV_DEBUG>
-	$<$<CONFIG:Release>:LV_RELEASE>
+    $<$<CONFIG:Debug>:LV_DEBUG>
+    $<$<CONFIG:Release>:LV_RELEASE>
 )
 
 # Projects.

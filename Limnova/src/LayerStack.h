@@ -7,23 +7,23 @@
 namespace Limnova
 {
 
-	class LIMNOVA_API LayerStack
-	{
-	public:
-		LayerStack();
-		~LayerStack();
+    class LIMNOVA_API LayerStack
+    {
+    public:
+        LayerStack();
+        ~LayerStack();
 
-		void PushLayer(Layer* layer);
-		void PushOverlay(Layer* overlay);
-		void PopLayer(Layer* layer);
-		void PopOverlay(Layer* overlay);
+        void PushLayer(Layer* layer);
+        void PushOverlay(Layer* overlay);
+        void PopLayer(Layer* layer);
+        void PopOverlay(Layer* overlay);
 
-		using LStack = std::vector<Layer*>;
-		LStack::iterator begin() { return m_Layers.begin(); }
-		LStack::iterator end() { return m_Layers.end(); }
-	private:
-		LStack m_Layers;
-		int m_LayerInsertOff;
-	};
+        using LStack = std::vector<Layer*>;
+        LStack::iterator begin() { return m_Layers.begin(); }
+        LStack::iterator end() { return m_Layers.end(); }
+    private:
+        LStack m_Layers;
+        int m_LayerInsertOff;
+    };
 
 }

@@ -1,24 +1,24 @@
 #ifdef LV_PLATFORM_WINDOWS
-	#ifdef LV_BUILD_DLL
-		#define LIMNOVA_API __declspec(dllexport)
-	#else
-		#define LIMNOVA_API __declspec(dllimport)
-	#endif
+    #ifdef LV_BUILD_DLL
+        #define LIMNOVA_API __declspec(dllexport)
+    #else
+        #define LIMNOVA_API __declspec(dllimport)
+    #endif
 #else
-	#error Limnova only supports Windows!
+    #error Limnova only supports Windows!
 #endif
 
 
 #ifdef LV_DEBUG
-	#define LV_ENABLE_ASSERTS
+    #define LV_ENABLE_ASSERTS
 #endif
 
 #ifdef LV_ENABLE_ASSERTS
-	#define LV_ASSERT(x, ...) { if(!(x)) { LV_ERROR("Assertion failed: {0}", __VA_ARGS__); __debugbreak(); } }
-	#define LV_CORE_ASSERT(x, ...) { if(!(x)) { LV_CORE_ERROR("Assertion failed: {0}", __VA_ARGS__); __debugbreak(); } }
+    #define LV_ASSERT(x, ...) { if(!(x)) { LV_ERROR("Assertion failed: {0}", __VA_ARGS__); __debugbreak(); } }
+    #define LV_CORE_ASSERT(x, ...) { if(!(x)) { LV_CORE_ERROR("Assertion failed: {0}", __VA_ARGS__); __debugbreak(); } }
 #else
-	#define LV_ASSERT(x, ...)
-	#define LV_CORE_ASSERT(x, ...)
+    #define LV_ASSERT(x, ...)
+    #define LV_CORE_ASSERT(x, ...)
 #endif
 
 
