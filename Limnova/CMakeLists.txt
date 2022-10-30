@@ -88,8 +88,9 @@ target_link_libraries(${PROJECT_NAME}
 	PRIVATE
 		Glad
 		GLFW
-		ImGui
 		opengl32.lib
+	PUBLIC
+		ImGui
 )
 
 add_compile_definitions(

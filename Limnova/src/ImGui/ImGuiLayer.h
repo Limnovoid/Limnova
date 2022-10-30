@@ -22,6 +22,9 @@ namespace Limnova
 
 		void Begin();
 		void End();
+
+		void* GetImGuiContext();
+		void GetAllocatorFunctions(void* p_Alloc, void* p_Free, void** p_Data);
 	private:
 		float m_Time = 0.f;
 	};
