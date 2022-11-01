@@ -12,6 +12,10 @@ add_library(${PROJECT_NAME} STATIC
     "src/Events/MouseEvent.h"
     "src/Events/ApplicationEvent.h"
 
+    "src/ImGui/ImGuiBuild.cpp"
+    "src/ImGui/ImGuiLayer.h"
+    "src/ImGui/ImGuiLayer.cpp"
+
     "src/Math/glm.h"
     "src/Math/Math.cpp"
     "src/Math/Vector3.cpp"
@@ -19,11 +23,17 @@ add_library(${PROJECT_NAME} STATIC
 
     "src/Platform/Windows/WindowsWindow.cpp"
     "src/Platform/Windows/WindowsInput.cpp"
-    
+    "src/Platform/OpenGL/OpenGLContext.cpp"
+    "src/Platform/Vulkan/VulkanContext.cpp"
+    "src/Platform/Vulkan/vktostring.h"
+    "src/Platform/Vulkan/vktostring.cpp"
 
-    "src/ImGui/ImGuiBuild.cpp"
-    "src/ImGui/ImGuiLayer.h"
-    "src/ImGui/ImGuiLayer.cpp"
+    "src/Renderer/RenderingContext.h"
+)
+
+
+set_property(TARGET ${PROJECT_NAME}
+    PROPERTY CXX_STANDARD 17
 )
 
 
@@ -38,14 +48,6 @@ target_include_directories(${PROJECT_NAME}
 #)
 
 
-set_property(TARGET ${PROJECT_NAME}
-    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
-)
-set_property(TARGET ${PROJECT_NAME}
-    PROPERTY CXX_STANDARD 17	
-)
-
-
 target_precompile_headers(${PROJECT_NAME}
     PRIVATE
         <iostream>
@@ -53,6 +55,8 @@ target_precompile_headers(${PROJECT_NAME}
         <utility>
         <algorithm>
         <functional>
+        <optional>
+        <limits>
 
         <string>
         <sstream>
@@ -60,7 +64,7 @@ target_precompile_headers(${PROJECT_NAME}
         <unordered_map>
         <unordered_set>
 
-        $<${MSVC}:<Windows.h$<ANGLE-R>>
+        #$<${MSVC}:<Windows.h$<ANGLE-R>>
 
         "${PROJECT_SOURCE_DIR}/src/Log.h"
 )
@@ -78,23 +82,32 @@ target_include_directories(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/imgui"
         "${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
+        "${PROJECT_SOURCE_DIR}/thirdparty/volk/include"
+        "${PROJECT_SOURCE_DIR}/thirdparty/vulkan/include"
 )
 
 add_subdirectory(thirdparty/glad)
 add_subdirectory(thirdparty/glfw)
 add_subdirectory(thirdparty/imgui)
+add_subdirectory(thirdparty/volk)
+
+set_property(TARGET ${PROJECT_NAME}
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+)
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
+        opengl32.lib
         Glad
         GLFW
-        opengl32.lib
+        Volk
     PUBLIC
         ImGui
 )
 
 add_compile_definitions(
     GLFW_INCLUDE_NONE
+    _CRT_SECURE_NO_WARNINGS
 )
 
 

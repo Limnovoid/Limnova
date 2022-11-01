@@ -31,12 +31,15 @@ namespace Limnova
         //inline void* GetImGuiContext() { return m_ImGuiLayer->GetImGuiContext(); }
         //inline void GetAllocatorFunctions(void* p_Alloc, void* p_Free, void** p_Data) { m_ImGuiLayer->GetAllocatorFunctions(p_Alloc, p_Free, p_Data); }
     private:
+        bool OnWindowClose(WindowCloseEvent& e);
+
         ImGuiLayer* m_ImGuiLayer;
         std::unique_ptr<Window> m_Window;
         bool m_Running = true;
         LayerStack m_LayerStack;
 
-        bool OnWindowClose(WindowCloseEvent& e);
+        unsigned int m_VertexArray, m_VertexBuffer, m_IndexBuffer;
+
     private:
         static Application* s_Instance;
     };

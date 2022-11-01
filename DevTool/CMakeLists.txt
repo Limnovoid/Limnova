@@ -3,6 +3,11 @@ project(DevTool)
 add_executable(${PROJECT_NAME} "DevTool.cpp")
 
 
+set_property(TARGET ${PROJECT_NAME}
+    PROPERTY CXX_STANDARD 17	
+)
+
+
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         "${CMAKE_SOURCE_DIR}/Limnova"
@@ -13,14 +18,17 @@ target_include_directories(${PROJECT_NAME}
 
 
 set_property(TARGET ${PROJECT_NAME}
-    PROPERTY CXX_STANDARD 17	
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
 )
-
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         Limnova
 )
 
+add_compile_definitions(
+    GLFW_INCLUDE_NONE
+    _CRT_SECURE_NO_WARNINGS
+)
 
 target_precompile_headers(${PROJECT_NAME} REUSE_FROM Limnova)
