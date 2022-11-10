@@ -13,3 +13,6 @@
 [submodule "Limnova/thirdparty/volk"]
 	path = Limnova/thirdparty/volk
 	url = https://github.com/Limnovoid/limnova-volk
+[submodule "Limnova/thirdparty/glfw"]
+	path = Limnova/thirdparty/glfw
+	url = https://github.com/Limnovoid/limnova-glfw
