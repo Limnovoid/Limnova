@@ -86,9 +86,9 @@ target_include_directories(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/thirdparty/vulkan/include"
 )
 
+add_subdirectory(thirdparty)
 add_subdirectory(thirdparty/glad)
 add_subdirectory(thirdparty/glfw)
-add_subdirectory(thirdparty/imgui)
 add_subdirectory(thirdparty/volk)
 
 set_property(TARGET ${PROJECT_NAME}
