@@ -1,6 +1,6 @@
-#include "Limnova.h"
+#include <Limnova.h>
 
-#include "imgui/imgui.h"
+#include <imgui/imgui.h>
 
 
 class LIMNOVA_API DevLayer : public Limnova::Layer

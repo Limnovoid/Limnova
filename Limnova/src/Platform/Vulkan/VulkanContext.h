@@ -15,6 +15,7 @@ namespace Limnova
         VulkanContext(GLFWwindow* windowHandle);
 
         void Init() override;
+        void Shutdown() override;
         void SwapBuffers() override;
     private:
         GLFWwindow* m_WindowHandle;

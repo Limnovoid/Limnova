@@ -27,9 +27,10 @@ add_library(${PROJECT_NAME} STATIC
     "src/Platform/Vulkan/VulkanContext.cpp"
     "src/Platform/Vulkan/vktostring.h"
     "src/Platform/Vulkan/vktostring.cpp"
+    "src/Platform/Vulkan/vkinit.cpp"
 
     "src/Renderer/RenderingContext.h"
-)
+ )
 
 
 set_property(TARGET ${PROJECT_NAME}

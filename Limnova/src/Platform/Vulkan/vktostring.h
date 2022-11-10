@@ -1,9 +1,9 @@
 #pragma once
 
-#include "volk.h"
+#include <volk.h>
 
 
-namespace Limnova
+namespace LimnovaVk
 {
     std::ostream& operator<<(std::ostream& os, const VkResult&);
     std::string to_string(VkPhysicalDeviceType);

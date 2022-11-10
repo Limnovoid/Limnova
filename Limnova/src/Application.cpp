@@ -24,7 +24,7 @@ namespace Limnova
         PushOverlay(m_ImGuiLayer);
 
 
-        // TEMPORARY RENDERING
+        // TEMPORARY OPENGL RENDERING
         glGenVertexArrays(1, &m_VertexArray);
         glBindVertexArray(m_VertexArray);
 
@@ -73,13 +73,13 @@ namespace Limnova
     {
         while (m_Running)
         {
+
+            // TEMPORARY OPENGL RENDERING
             glClearColor(0.1f, 0.1f, 0.1f, 1.f);
             glClear(GL_COLOR_BUFFER_BIT);
-
-            // TEMPORARY RENDERING
             glBindVertexArray(m_VertexArray);
             glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, nullptr);
-            // TEMPORARY RENDERING
+            // TEMPORARY OPENGL RENDERING
 
             for (Layer* layer : m_LayerStack)
             {

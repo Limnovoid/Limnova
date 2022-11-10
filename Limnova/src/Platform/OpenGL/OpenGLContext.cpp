@@ -29,6 +29,11 @@ namespace Limnova
     }
 
 
+    void OpenGLContext::Shutdown()
+    {
+    }
+
+
     void OpenGLContext::SwapBuffers()
     {
         glfwSwapBuffers(m_WindowHandle);

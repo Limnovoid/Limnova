@@ -43,20 +43,25 @@ namespace Limnova
         m_Data.Height = props.Height;
 
         LV_CORE_INFO("Creating window \"{0}\" (W {1}, H {2})",
-            props.Title, props.Width, props.Height);
+            props.Title, props.Width, props.Height);        
 
         if (!s_GLFWInitialized)
         {
             // TODO: glfwTerminate on system shutdown
             int success = glfwInit();
-            LV_CORE_ASSERT(success, "Could not initialize GLFW!");
+            LV_CORE_ASSERT(GLFW_TRUE == success, "Could not initialize GLFW!");
             glfwSetErrorCallback(GLFWErrorCallback);
             s_GLFWInitialized = true;
         }
 
+        bool usingVulkan = false/*GLFW_TRUE == glfwVulkanSupported() ? true : false*/;
+        if (usingVulkan)
+        {
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        }
         m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.Title.c_str(), nullptr, nullptr);
 
-        if (glfwVulkanSupported())
+        if (usingVulkan)
         {
             LV_CORE_INFO("Using Vulkan context");
             m_Context = new VulkanContext(m_Window);
@@ -71,6 +76,7 @@ namespace Limnova
         
         glfwSetWindowUserPointer(m_Window, &m_Data);
         SetVSync(true);
+
 
         // Set GLFW callbacks.
         glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* window, int width, int height)
@@ -167,6 +173,7 @@ namespace Limnova
 
     void WindowsWindow::Shutdown()
     {
+        m_Context->Shutdown();
         glfwDestroyWindow(m_Window);
     }
 

@@ -1,7 +1,7 @@
 #include "vktostring.h"
 
 
-namespace Limnova
+namespace LimnovaVk
 {
     std::ostream& operator<<(std::ostream& os, const VkResult& aResult)
     {
