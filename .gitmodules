@@ -13,6 +13,3 @@
 [submodule "Limnova/thirdparty/vulkan"]
 	path = Limnova/thirdparty/vulkan
 	url = https://github.com/KhronosGroup/Vulkan-Headers
-[submodule "Limnova/thirdparty/volk"]
-	path = Limnova/thirdparty/volk
-	url = https://github.com/zeux/volk
