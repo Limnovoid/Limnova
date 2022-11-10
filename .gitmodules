@@ -1,9 +1,6 @@
 [submodule "Limnova/thirdparty/spdlog"]
 	path = Limnova/thirdparty/spdlog
 	url = https://github.com/gabime/spdlog
-[submodule "Limnova/thirdparty/glfw"]
-	path = Limnova/thirdparty/glfw
-	url = https://github.com/glfw/glfw
 [submodule "Limnova/thirdparty/imgui"]
 	path = Limnova/thirdparty/imgui
 	url = https://github.com/ocornut/imgui
