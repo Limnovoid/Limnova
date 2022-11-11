@@ -21,15 +21,20 @@ add_library(${PROJECT_NAME} STATIC
     "src/Math/Vector3.cpp"
     "src/Math/Quaternion.cpp"
 
-    "src/Platform/Windows/WindowsWindow.cpp"
-    "src/Platform/Windows/WindowsInput.cpp"
+    "src/Platform/OpenGL/OpenGLBuffer.cpp"
     "src/Platform/OpenGL/OpenGLContext.cpp"
+    "src/Platform/OpenGL/OpenGLShader.cpp"
     "src/Platform/Vulkan/VulkanContext.cpp"
     "src/Platform/Vulkan/vktostring.h"
     "src/Platform/Vulkan/vktostring.cpp"
     "src/Platform/Vulkan/vkinit.cpp"
+    "src/Platform/Windows/WindowsWindow.cpp"
+    "src/Platform/Windows/WindowsInput.cpp"
 
+    "src/Renderer/Buffer.cpp"
+    "src/Renderer/Renderer.cpp"
     "src/Renderer/RenderingContext.h"
+    "src/Renderer/Shader.cpp"
  )
 
 

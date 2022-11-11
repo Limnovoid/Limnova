@@ -173,8 +173,13 @@ namespace Limnova
 
     void WindowsWindow::Shutdown()
     {
-        m_Context->Shutdown();
-        glfwDestroyWindow(m_Window);
+        if (s_GLFWInitialized)
+        {
+            m_Context->Shutdown();
+            glfwDestroyWindow(m_Window);
+            glfwTerminate();
+            s_GLFWInitialized = false;
+        }
     }
 
 

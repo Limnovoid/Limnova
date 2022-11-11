@@ -20,10 +20,10 @@ namespace Limnova
         int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
         LV_CORE_ASSERT(status, "Failed to initialize Glad!");
 
-        LV_CORE_INFO("OpenGL Info:\n"
-        "    Vendor:   {0}\n"
-        "    Renderer: {1}\n"
-        "    Version:  {2}",
+        LV_CORE_INFO("OpenGL Info:"
+        "\n - Vendor:   {0}"
+        "\n - Renderer: {1}"
+        "\n - Version:  {2}",
             glGetString(GL_VENDOR), glGetString(GL_RENDERER), glGetString(GL_VERSION)
         );
     }
