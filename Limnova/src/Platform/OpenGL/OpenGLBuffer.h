@@ -15,8 +15,12 @@ namespace Limnova
 
         void Bind() const override;
         void Unbind() const override;
+
+        inline const BufferLayout& GetLayout() const override { return m_Layout; }
+        inline void SetLayout(const BufferLayout& layout) override { m_Layout = layout; }
     private:
         uint32_t m_RendererId;
+        BufferLayout m_Layout;
     };
 
 
