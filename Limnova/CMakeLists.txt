@@ -24,6 +24,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Platform/OpenGL/OpenGLBuffer.cpp"
     "src/Platform/OpenGL/OpenGLContext.cpp"
     "src/Platform/OpenGL/OpenGLShader.cpp"
+    "src/Platform/OpenGL/OpenGLVertexArray.cpp"
     "src/Platform/Vulkan/VulkanContext.cpp"
     "src/Platform/Vulkan/vktostring.h"
     "src/Platform/Vulkan/vktostring.cpp"
@@ -35,7 +36,8 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/Renderer.cpp"
     "src/Renderer/RenderingContext.h"
     "src/Renderer/Shader.cpp"
- )
+    "src/Renderer/VertexArray.cpp"
+)
 
 
 set_property(TARGET ${PROJECT_NAME}
