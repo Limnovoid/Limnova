@@ -11,8 +11,8 @@ namespace Limnova
     {
         switch (Renderer::GetAPI())
         {
-            case RendererAPI::None:     LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
-            case RendererAPI::OpenGL:   return new OpenGLVertexArray();
+            case RendererAPI::API::None:     LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
+            case RendererAPI::API::OpenGL:   return new OpenGLVertexArray();
         }
         LV_CORE_ASSERT(false, "Renderer::GetAPI() returned unknown RendererAPI!");
         return nullptr;

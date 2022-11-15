@@ -23,6 +23,7 @@ add_library(${PROJECT_NAME} STATIC
 
     "src/Platform/OpenGL/OpenGLBuffer.cpp"
     "src/Platform/OpenGL/OpenGLContext.cpp"
+    "src/Platform/OpenGL/OpenGLRendererAPI.cpp"
     "src/Platform/OpenGL/OpenGLShader.cpp"
     "src/Platform/OpenGL/OpenGLVertexArray.cpp"
     "src/Platform/Vulkan/VulkanContext.cpp"
@@ -33,7 +34,9 @@ add_library(${PROJECT_NAME} STATIC
     "src/Platform/Windows/WindowsInput.cpp"
 
     "src/Renderer/Buffer.cpp"
+    "src/Renderer/RenderCommand.cpp"
     "src/Renderer/Renderer.cpp"
+    "src/Renderer/RendererAPI.cpp"
     "src/Renderer/RenderingContext.h"
     "src/Renderer/Shader.cpp"
     "src/Renderer/VertexArray.cpp"

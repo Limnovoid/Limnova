@@ -98,16 +98,4 @@ namespace Limnova
         ImGui::ShowDemoWindow(&show);
     }
 
-
-    /*void* ImGuiLayer::GetImGuiContext()
-    {
-        return (void*)ImGui::GetCurrentContext();
-    }
-
-
-    void ImGuiLayer::GetAllocatorFunctions(void* p_Alloc, void* p_Free, void** p_Data)
-    {
-        ImGui::GetAllocatorFunctions((ImGuiMemAllocFunc*)p_Alloc, (ImGuiMemFreeFunc*)p_Free, p_Data);
-    }*/
-
 }

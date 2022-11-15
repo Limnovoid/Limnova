@@ -30,9 +30,6 @@ namespace Limnova
         inline Window& GetWindow() { return *m_Window; }
 
         static Application& Get();
-    protected:
-        //inline void* GetImGuiContext() { return m_ImGuiLayer->GetImGuiContext(); }
-        //inline void GetAllocatorFunctions(void* p_Alloc, void* p_Free, void** p_Data) { m_ImGuiLayer->GetAllocatorFunctions(p_Alloc, p_Free, p_Data); }
     private:
         bool OnWindowClose(WindowCloseEvent& e);
 
@@ -40,11 +37,6 @@ namespace Limnova
         std::unique_ptr<Window> m_Window;
         bool m_Running = true;
         LayerStack m_LayerStack;
-
-        std::shared_ptr<Shader> m_Shader;
-        std::shared_ptr<VertexArray> m_VertexArray;
-        std::shared_ptr<Shader> m_BlueShader;
-        std::shared_ptr<VertexArray> m_SquareVA;
     private:
         static Application* s_Instance;
     };
