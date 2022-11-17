@@ -7,6 +7,7 @@ namespace Limnova
 {
 
     OpenGLShader::OpenGLShader(const std::string& vertexSrc, const std::string& fragmentSrc)
+        : m_NumUniformBlocks(0)
     {
         // Create an empty vertex shader handle
         GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -127,6 +128,17 @@ namespace Limnova
     void OpenGLShader::Unbind() const
     {
         glUseProgram(0);
+    }
+
+
+    void OpenGLShader::AddUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName)
+    {
+        uint32_t blockIndex = glGetUniformBlockIndex(m_RendererId, uniformBlockName.c_str());
+        LV_CORE_ASSERT(blockIndex != GL_INVALID_INDEX, "Shader could not find Uniform block!");
+
+        glUniformBlockBinding(m_RendererId, blockIndex, m_NumUniformBlocks);
+        glBindBufferBase(GL_UNIFORM_BUFFER, m_NumUniformBlocks, buffer);
+        m_NumUniformBlocks++;
     }
 
 }

@@ -12,6 +12,8 @@ namespace Limnova
 
         virtual void Bind() const = 0;
         virtual void Unbind() const = 0;
+
+        virtual void AddUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName) = 0;
     };
 
 }

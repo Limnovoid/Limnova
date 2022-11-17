@@ -108,4 +108,19 @@ namespace Limnova
         virtual inline uint32_t GetCount() const = 0;
     };
 
+
+    class UniformBuffer
+    {
+    public:
+        static UniformBuffer* Create(void* data, uint32_t size);
+        virtual ~UniformBuffer() {};
+
+        virtual void Bind() const = 0;
+        virtual void Unbind() const = 0;
+
+        virtual void UpdateData(void* data, uint32_t size) = 0;
+
+        virtual const uint32_t GetRendererId() = 0;
+    };
+
 }

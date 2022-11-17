@@ -13,16 +13,16 @@ public:
         m_VertexArray.reset(Limnova::VertexArray::Create());
 
         float vertices[3 * (3 + 4)] = {
-            -0.5f, -0.5f, 0.0f,     0.2f, 0.9f, 0.3f, 1.f,
-             0.5f, -0.5f, 0.0f,     0.2f, 0.3f, 0.9f, 1.f,
-             0.0f,  0.5f, 0.0f,     0.9f, 0.3f, 0.2f, 1.f
+            -0.5f, -0.5f, -1.f,     0.2f, 0.9f, 0.3f, 1.f,
+             0.5f, -0.5f, -1.f,     0.2f, 0.3f, 0.9f, 1.f,
+             0.0f,  0.5f, -1.f,     0.9f, 0.3f, 0.2f, 1.f
         };
         std::shared_ptr<Limnova::VertexBuffer> vertexBuffer;
         vertexBuffer.reset(Limnova::VertexBuffer::Create(vertices, sizeof(vertices)));
         vertexBuffer->SetLayout({
             { Limnova::ShaderDataType::Float3, "a_Position" },
             { Limnova::ShaderDataType::Float4, "a_Color" }
-            });
+        });
         m_VertexArray->AddVertexBuffer(vertexBuffer);
 
         uint32_t indices[3] = { 0, 1, 2 };
@@ -32,6 +32,13 @@ public:
 
         std::string vertexSrc = R"(
             #version 450
+
+            layout (std140) uniform CameraUniform
+            {
+                mat4 View;
+                mat4 Proj;
+                mat4 ViewProj;
+            } u_Camera;
 
             layout(location = 0) in vec3 a_Position;
             layout(location = 1) in vec4 a_Color;
@@ -43,7 +50,7 @@ public:
             {
                 v_Position = a_Position;
                 v_Color = a_Color;
-                gl_Position = vec4(a_Position, 1.0);
+                gl_Position = u_Camera.ViewProj * vec4(a_Position, 1.0);
             }
         )";
         std::string fragmentSrc = R"(
@@ -62,20 +69,22 @@ public:
         )";
         m_Shader.reset(Limnova::Shader::Create(vertexSrc, fragmentSrc));
 
+        m_Shader->AddUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
+
         // Square
         m_SquareVA.reset(Limnova::VertexArray::Create());
 
         float squareVertices[3 * 4] = {
-            -0.75f, -0.75f, 0.0f,
-             0.75f, -0.75f, 0.0f,
-             0.75f,  0.75f, 0.0f,
-            -0.75f,  0.75f, 0.0f
+            -0.75f, -0.75f, -1.f,
+             0.75f, -0.75f, -1.f,
+             0.75f,  0.75f, -1.f,
+            -0.75f,  0.75f, -1.f
         };
         std::shared_ptr<Limnova::VertexBuffer> squareVB;
         squareVB.reset(Limnova::VertexBuffer::Create(squareVertices, sizeof(squareVertices)));
         squareVB->SetLayout({
             { Limnova::ShaderDataType::Float3, "a_Position" }
-            });
+        });
         m_SquareVA->AddVertexBuffer(squareVB);
 
         uint32_t squareIndices[6] = { 0, 1, 2, 0, 2, 3 };
@@ -86,6 +95,13 @@ public:
         std::string blueVertexSrc = R"(
             #version 450
 
+            layout (std140) uniform CameraUniform
+            {
+                mat4 View;
+                mat4 Proj;
+                mat4 ViewProj;
+            } u_Camera;
+
             layout(location = 0) in vec3 a_Position;
 
             out vec3 v_Position;
@@ -93,7 +109,7 @@ public:
             void main()
             {
                 v_Position = a_Position;
-                gl_Position = vec4(a_Position, 1.0);
+                gl_Position = u_Camera.ViewProj * vec4(a_Position, 1.0);
             }
         )";
         std::string blueFragmentSrc = R"(
@@ -109,6 +125,8 @@ public:
             }
         )";
         m_BlueShader.reset(Limnova::Shader::Create(blueVertexSrc, blueFragmentSrc));
+
+        m_BlueShader->AddUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
     }
 
 
@@ -133,7 +151,7 @@ public:
     void OnEvent(Limnova::Event& event) override
     {
     }
-private:
+
     std::shared_ptr<Limnova::Shader> m_Shader;
     std::shared_ptr<Limnova::VertexArray> m_VertexArray;
     std::shared_ptr<Limnova::Shader> m_BlueShader;

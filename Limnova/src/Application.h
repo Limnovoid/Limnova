@@ -6,8 +6,9 @@
 #include "Events/Event.h"
 #include "Events/ApplicationEvent.h"
 #include "ImGui/ImGuiLayer.h"
-#include "Renderer/Shader.h"
+#include "Renderer/Renderer.h"
 #include "Renderer/Buffer.h"
+#include "Renderer/Shader.h"
 #include "Renderer/VertexArray.h"
 
 
@@ -37,6 +38,8 @@ namespace Limnova
         std::unique_ptr<Window> m_Window;
         bool m_Running = true;
         LayerStack m_LayerStack;
+
+        Renderer::CameraData m_Camera;
     private:
         static Application* s_Instance;
     };

@@ -25,7 +25,21 @@ namespace Limnova
 
 
         // TEMPORARY RENDERING
-        
+        glm::vec3 pos = glm::vec3(0.f, 0.f, 1.f);
+        glm::vec3 aim = glm::normalize(glm::vec3(1.f, 0.f, -1.f));
+        glm::vec3 up = glm::vec3(0.f, 1.f, 0.f);
+        m_Camera.View = glm::lookAtRH(pos, pos + aim, up);
+
+        float fov = glm::radians(60.f); // degrees
+        float aspect = (float)m_Window->GetWidth() / (float)m_Window->GetHeight();
+        float nearPlane = 0.1f;
+        float farPlane = 10.f;
+        m_Camera.Proj = glm::perspectiveRH_ZO(fov, aspect, nearPlane, farPlane);
+        //m_Camera.Proj[1, 1] *= -1.f; // Invert image across y-axis.
+
+        m_Camera.ViewProj = m_Camera.Proj * m_Camera.View;
+
+        Renderer::InitCamera(&m_Camera);
         // TEMPORARY RENDERING
     }
 
@@ -55,14 +69,12 @@ namespace Limnova
             Limnova::RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.f });
             Limnova::RenderCommand::Clear();
 
-            Limnova::Renderer::BeginScene();
-
+            Limnova::Renderer::BeginScene(&m_Camera);
             // Update layers
             for (Layer* layer : m_LayerStack)
             {
                 layer->OnUpdate(); // Submit render commands here
             }
-
             Limnova::Renderer::EndScene();
 
             m_ImGuiLayer->Begin();

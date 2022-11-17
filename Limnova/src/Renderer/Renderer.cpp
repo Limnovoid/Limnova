@@ -4,8 +4,12 @@
 namespace Limnova
 {
 
-    void Renderer::BeginScene()
+    std::unique_ptr<UniformBuffer> Renderer::m_CameraUniformBuffer;
+
+
+    void Renderer::BeginScene(const CameraData* camera)
     {
+        m_CameraUniformBuffer->UpdateData((void*)camera, sizeof(CameraData));
     }
 
 

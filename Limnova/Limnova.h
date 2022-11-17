@@ -15,11 +15,8 @@
 #include "src/Math/glm.h"
 #include "src/Math/Math.h"
 
-#include "src/Renderer/RenderCommand.h"
 #include "src/Renderer/Renderer.h"
 #include "src/Renderer/Shader.h"
-#include "src/Renderer/Buffer.h"
-#include "src/Renderer/VertexArray.h"
 // ------------------------------------
 
 

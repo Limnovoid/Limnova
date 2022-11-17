@@ -35,6 +35,20 @@ namespace Limnova
     }
 
 
+    // UniformBuffer ///////////////////////////////////////////////////////////
+
+    UniformBuffer* UniformBuffer::Create(void* data, uint32_t size)
+    {
+        switch (Renderer::GetAPI())
+        {
+            case RendererAPI::API::None: LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
+            case RendererAPI::API::OpenGL: return new OpenGLUniformBuffer(data, size);
+        }
+        LV_CORE_ASSERT(false, "Renderer::GetAPI() returned unknown RendererAPI!");
+        return nullptr;
+    }
+
+
     // BufferElement ///////////////////////////////////////////////////////////
 
     uint32_t BufferElement::GetComponentCount() const

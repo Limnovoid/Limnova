@@ -40,4 +40,23 @@ namespace Limnova
         uint32_t m_Count;
     };
 
+
+    // UniformBuffer ///////////////////////////////////////////////////////////
+    class OpenGLUniformBuffer : public UniformBuffer
+    {
+    public:
+        OpenGLUniformBuffer(void* data, uint32_t size);
+        ~OpenGLUniformBuffer();
+
+        void Bind() const override;
+        void Unbind() const override;
+
+        void UpdateData(void* data, uint32_t size) override;
+
+        inline const uint32_t GetRendererId() override { return m_RendererId; }
+    private:
+        uint32_t m_RendererId;
+        uint32_t m_Size;
+    };
+
 }
