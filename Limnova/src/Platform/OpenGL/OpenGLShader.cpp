@@ -131,10 +131,20 @@ namespace Limnova
     }
 
 
-    void OpenGLShader::AddUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName)
+    void OpenGLShader::BindUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName)
     {
         uint32_t blockIndex = glGetUniformBlockIndex(m_RendererId, uniformBlockName.c_str());
-        LV_CORE_ASSERT(blockIndex != GL_INVALID_INDEX, "Shader could not find Uniform block!");
+        if (blockIndex == GL_INVALID_INDEX)
+        {
+            LV_CORE_WARN("Could not bind uniform buffer: could not find uniform block with name '{0}' in program {1}!",
+                uniformBlockName, m_RendererId);
+        }
+        if (GL_MAX_UNIFORM_BUFFER_BINDINGS <= blockIndex)
+        {
+            LV_CORE_WARN("Could not bind uniform buffer: index for uniform block '{0}' in program {1} exceeded GL_MAX_UNIFORM_BUFFER_BINDINGS!",
+                uniformBlockName, m_RendererId);
+            return;
+        }
 
         glUniformBlockBinding(m_RendererId, blockIndex, m_NumUniformBlocks);
         glBindBufferBase(GL_UNIFORM_BUFFER, m_NumUniformBlocks, buffer);

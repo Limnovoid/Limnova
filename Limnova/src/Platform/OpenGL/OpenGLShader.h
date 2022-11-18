@@ -15,7 +15,7 @@ namespace Limnova
         void Bind() const override;
         void Unbind() const override;
 
-        void AddUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName) override;
+        void BindUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName) override;
     private:
         uint32_t m_RendererId;
         uint32_t m_NumUniformBlocks;

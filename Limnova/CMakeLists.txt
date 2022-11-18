@@ -34,6 +34,8 @@ add_library(${PROJECT_NAME} STATIC
     "src/Platform/Windows/WindowsInput.cpp"
 
     "src/Renderer/Buffer.cpp"
+    "src/Renderer/Camera.h"
+    "src/Renderer/PointCamera.cpp"
     "src/Renderer/RenderCommand.cpp"
     "src/Renderer/Renderer.cpp"
     "src/Renderer/RendererAPI.cpp"

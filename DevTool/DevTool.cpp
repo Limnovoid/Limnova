@@ -1,6 +1,7 @@
 #include <Limnova.h>
 
 #include <imgui/imgui.h>
+#include <chrono>
 
 
 class LIMNOVA_API DevLayer : public Limnova::Layer
@@ -35,9 +36,9 @@ public:
 
             layout (std140) uniform CameraUniform
             {
-                mat4 View;
-                mat4 Proj;
                 mat4 ViewProj;
+                vec4 Position;
+                vec4 AimDirection;
             } u_Camera;
 
             layout(location = 0) in vec3 a_Position;
@@ -69,7 +70,7 @@ public:
         )";
         m_Shader.reset(Limnova::Shader::Create(vertexSrc, fragmentSrc));
 
-        m_Shader->AddUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
+        m_Shader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
 
         // Square
         m_SquareVA.reset(Limnova::VertexArray::Create());
@@ -97,9 +98,9 @@ public:
 
             layout (std140) uniform CameraUniform
             {
-                mat4 View;
-                mat4 Proj;
                 mat4 ViewProj;
+                vec4 Position;
+                vec4 AimDirection;
             } u_Camera;
 
             layout(location = 0) in vec3 a_Position;
@@ -126,12 +127,44 @@ public:
         )";
         m_BlueShader.reset(Limnova::Shader::Create(blueVertexSrc, blueFragmentSrc));
 
-        m_BlueShader->AddUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
+        m_BlueShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
+
+
+        // TEMPORARY camera testing
+        Limnova::Application& app = Limnova::Application::Get();
+
+        glm::vec3 pos = glm::vec3(0.f, 0.f, 1.f);
+        glm::vec3 aim = glm::normalize(glm::vec3(0.f, 0.f, -1.f));
+        glm::vec3 up = glm::vec3(0.f, 1.f, 0.f);
+
+        float fov = glm::radians(60.f);
+        float aspect = (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight();
+        float nearPlane = 0.1f;
+        float farPlane = 100.f;
+
+        Limnova::PointCamera* defaultCamera = new Limnova::PointCamera(fov, aspect, nearPlane, farPlane);
+        defaultCamera->SetPosition(pos);
+        defaultCamera->SetAimDirection(aim);
+        defaultCamera->SetUpDirection(up);
+        m_TestCamera.reset(defaultCamera);
+
+        app.SetActiveCamera(m_TestCamera);
+        m_CameraAim = aim;
+        m_CameraRotationSpeed = glm::radians(60.f); // 10RPM
+        m_Time = std::chrono::steady_clock::now();
+        // TEMPORARY camera testing
     }
 
 
     void OnUpdate() override
     {
+        // Animate camera
+        auto time2 = std::chrono::steady_clock::now();
+        float dt = (time2 - m_Time).count() / 1e9;
+        m_Time = time2;
+        m_CameraAim = Limnova::Rotate(m_CameraAim, { 0.f, 1.f, 0.f }, dt * m_CameraRotationSpeed);
+        m_TestCamera->SetAimDirection({m_CameraAim.x, m_CameraAim.y, m_CameraAim.z});
+
         m_BlueShader->Bind();
         Limnova::Renderer::Submit(m_SquareVA);
 
@@ -156,6 +189,13 @@ public:
     std::shared_ptr<Limnova::VertexArray> m_VertexArray;
     std::shared_ptr<Limnova::Shader> m_BlueShader;
     std::shared_ptr<Limnova::VertexArray> m_SquareVA;
+
+    // TEMP camera animation
+    std::shared_ptr<Limnova::PointCamera> m_TestCamera;
+    Limnova::Vector3 m_CameraAim;
+    float m_CameraRotationSpeed;
+    std::chrono::steady_clock::time_point m_Time;
+    // TEMP camera animation
 };
 
 

@@ -118,7 +118,7 @@ namespace Limnova
         virtual void Bind() const = 0;
         virtual void Unbind() const = 0;
 
-        virtual void UpdateData(void* data, uint32_t size) = 0;
+        virtual void UpdateData(void* data, uint32_t offset, uint32_t size) = 0;
 
         virtual const uint32_t GetRendererId() = 0;
     };

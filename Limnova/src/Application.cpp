@@ -23,24 +23,17 @@ namespace Limnova
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);
 
-
-        // TEMPORARY RENDERING
-        glm::vec3 pos = glm::vec3(0.f, 0.f, 1.f);
-        glm::vec3 aim = glm::normalize(glm::vec3(1.f, 0.f, -1.f));
-        glm::vec3 up = glm::vec3(0.f, 1.f, 0.f);
-        m_Camera.View = glm::lookAtRH(pos, pos + aim, up);
-
-        float fov = glm::radians(60.f); // degrees
+        // Camera setup
+        float fov = glm::radians(60.f);
         float aspect = (float)m_Window->GetWidth() / (float)m_Window->GetHeight();
         float nearPlane = 0.1f;
-        float farPlane = 10.f;
-        m_Camera.Proj = glm::perspectiveRH_ZO(fov, aspect, nearPlane, farPlane);
-        //m_Camera.Proj[1, 1] *= -1.f; // Invert image across y-axis.
-
-        m_Camera.ViewProj = m_Camera.Proj * m_Camera.View;
-
-        Renderer::InitCamera(&m_Camera);
-        // TEMPORARY RENDERING
+        float farPlane = 100.f;
+        PointCamera* defaultCamera = new PointCamera(fov, aspect, nearPlane, farPlane);
+        m_ActiveCamera.reset(defaultCamera); // m_ActiveCamera is now
+        // unique: if a user-defined application/layer does not create
+        // and set its own active camera, m_ActiveCamera will still be
+        // unique when Run() is called and the assertion there will fail.
+        Renderer::InitCameraBuffer(defaultCamera->GetData());
     }
 
     Application::~Application()
@@ -69,7 +62,8 @@ namespace Limnova
             Limnova::RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.f });
             Limnova::RenderCommand::Clear();
 
-            Limnova::Renderer::BeginScene(&m_Camera);
+            LV_CORE_ASSERT(!m_ActiveCamera.unique(), "Active camera should be owned by (a shared_ptr in) a layer!");
+            Limnova::Renderer::BeginScene(m_ActiveCamera);
             // Update layers
             for (Layer* layer : m_LayerStack)
             {
@@ -110,6 +104,14 @@ namespace Limnova
     {
         m_Running = false;
         return true;
+    }
+
+
+    void Application::SetActiveCamera(std::shared_ptr<Camera> camera)
+    {
+        m_ActiveCamera->SetNotActive();
+        m_ActiveCamera = camera; // Shared ownership of Camera object
+        camera->SetActive();
     }
 
 }

@@ -31,6 +31,8 @@ namespace Limnova
         inline Window& GetWindow() { return *m_Window; }
 
         static Application& Get();
+
+        void SetActiveCamera(std::shared_ptr<Camera> camera);
     private:
         bool OnWindowClose(WindowCloseEvent& e);
 
@@ -39,7 +41,7 @@ namespace Limnova
         bool m_Running = true;
         LayerStack m_LayerStack;
 
-        Renderer::CameraData m_Camera;
+        std::shared_ptr<Camera> m_ActiveCamera;
     private:
         static Application* s_Instance;
     };

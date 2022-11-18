@@ -51,7 +51,7 @@ namespace Limnova
         void Bind() const override;
         void Unbind() const override;
 
-        void UpdateData(void* data, uint32_t size) override;
+        void UpdateData(void* data, uint32_t offset, uint32_t size) override;
 
         inline const uint32_t GetRendererId() override { return m_RendererId; }
     private:
