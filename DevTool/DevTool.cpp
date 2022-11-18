@@ -129,6 +129,7 @@ public:
 
         m_BlueShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
 
+        m_Time = std::chrono::steady_clock::now(); // TEMPORARY dT
 
         // TEMPORARY camera testing
         Limnova::Application& app = Limnova::Application::Get();
@@ -142,29 +143,67 @@ public:
         float nearPlane = 0.1f;
         float farPlane = 100.f;
 
-        Limnova::PointCamera* defaultCamera = new Limnova::PointCamera(fov, aspect, nearPlane, farPlane);
-        defaultCamera->SetPosition(pos);
-        defaultCamera->SetAimDirection(aim);
-        defaultCamera->SetUpDirection(up);
-        m_TestCamera.reset(defaultCamera);
+        m_TestCamera.reset(new Limnova::PointCamera(fov, aspect, nearPlane, farPlane));
+        m_TestCamera->SetPosition(pos);
+        m_TestCamera->SetAimDirection(aim);
+        m_TestCamera->SetUpDirection(up);
 
         app.SetActiveCamera(m_TestCamera);
-        m_CameraAim = aim;
-        m_CameraRotationSpeed = glm::radians(60.f); // 10RPM
-        m_Time = std::chrono::steady_clock::now();
+        m_CameraPos = pos;
+        m_CameraMoveSpeed = 1.f;
+        m_CameraPitch = 0.f;
+        m_CameraAzimuth = 0.f;
         // TEMPORARY camera testing
     }
 
 
     void OnUpdate() override
     {
-        // Animate camera
+        // TEMPORARY dT
         auto time2 = std::chrono::steady_clock::now();
         float dt = (time2 - m_Time).count() / 1e9;
         m_Time = time2;
-        m_CameraAim = Limnova::Rotate(m_CameraAim, { 0.f, 1.f, 0.f }, dt * m_CameraRotationSpeed);
-        m_TestCamera->SetAimDirection({m_CameraAim.x, m_CameraAim.y, m_CameraAim.z});
 
+        // Animate camera
+        // TODO : get mouse movement
+        Limnova::Vector3 cameraAim = { 0.f,0.f,-1.f };
+        Limnova::Rotate(cameraAim, { -1.f, 0.f, 0.f }, m_CameraPitch);
+        Limnova::Rotate(cameraAim, {  0.f, 1.f, 0.f }, m_CameraAzimuth);
+        cameraAim.Normalize();
+        m_TestCamera->SetAimDirection(cameraAim.glm_vec3());
+
+        Limnova::Vector3 cameraMovement;
+        if (Limnova::Input::IsKeyPressed(LV_KEY_W))
+        {
+            cameraMovement += cameraAim;
+        }
+        else if (Limnova::Input::IsKeyPressed(LV_KEY_S))
+        {
+            cameraMovement -= cameraAim;
+        }
+
+        Limnova::Vector3 cameraHorz = Limnova::Vector3(0.f, 1.f, 0.f).Cross(cameraAim).Normalized();
+        if (Limnova::Input::IsKeyPressed(LV_KEY_A))
+        {
+            cameraMovement += cameraHorz;
+        }
+        else if (Limnova::Input::IsKeyPressed(LV_KEY_D))
+        {
+            cameraMovement -= cameraHorz;
+        }
+
+        if (Limnova::Input::IsKeyPressed(LV_KEY_SPACE))
+        {
+            cameraMovement.y += 1.f;
+        }
+        else if (Limnova::Input::IsKeyPressed(LV_KEY_LEFT_SHIFT))
+        {
+            cameraMovement.y -= 1.f;
+        }
+        m_CameraPos += dt * m_CameraMoveSpeed * cameraMovement.Normalized();
+        m_TestCamera->SetPosition(m_CameraPos.glm_vec3());
+
+        // Scene objects
         m_BlueShader->Bind();
         Limnova::Renderer::Submit(m_SquareVA);
 
@@ -190,12 +229,16 @@ public:
     std::shared_ptr<Limnova::Shader> m_BlueShader;
     std::shared_ptr<Limnova::VertexArray> m_SquareVA;
 
-    // TEMP camera animation
+    std::chrono::steady_clock::time_point m_Time; // TEMPORARY dT
+
+    // TEMPORARY camera animation
     std::shared_ptr<Limnova::PointCamera> m_TestCamera;
-    Limnova::Vector3 m_CameraAim;
-    float m_CameraRotationSpeed;
-    std::chrono::steady_clock::time_point m_Time;
-    // TEMP camera animation
+    Limnova::Vector3 m_CameraPos;
+    Limnova::Vector3 m_CameraUp;
+    float m_CameraMoveSpeed;
+    float m_CameraPitch;
+    float m_CameraAzimuth;
+    // TEMPORARY camera animation
 };
 
 
