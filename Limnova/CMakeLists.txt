@@ -42,7 +42,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/RenderingContext.h"
     "src/Renderer/Shader.cpp"
     "src/Renderer/VertexArray.cpp"
-)
+ )
 
 
 set_property(TARGET ${PROJECT_NAME}

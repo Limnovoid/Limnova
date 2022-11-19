@@ -22,18 +22,6 @@ namespace Limnova
 
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);
-
-        // Camera setup
-        float fov = glm::radians(60.f);
-        float aspect = (float)m_Window->GetWidth() / (float)m_Window->GetHeight();
-        float nearPlane = 0.1f;
-        float farPlane = 100.f;
-        PointCamera* defaultCamera = new PointCamera(fov, aspect, nearPlane, farPlane);
-        m_ActiveCamera.reset(defaultCamera); // m_ActiveCamera is now
-        // unique: if a user-defined application/layer does not create
-        // and set its own active camera, m_ActiveCamera will still be
-        // unique when Run() is called and the assertion there will fail.
-        Renderer::InitCameraBuffer(defaultCamera->GetData());
     }
 
     Application::~Application()
@@ -59,17 +47,11 @@ namespace Limnova
     {
         while (m_Running)
         {
-            Limnova::RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.f });
-            Limnova::RenderCommand::Clear();
-
-            LV_CORE_ASSERT(!m_ActiveCamera.unique(), "Active camera should be owned by (a shared_ptr in) a layer!");
-            Limnova::Renderer::BeginScene(m_ActiveCamera);
             // Update layers
             for (Layer* layer : m_LayerStack)
             {
-                layer->OnUpdate(); // Submit render commands here
+                layer->OnUpdate();
             }
-            Limnova::Renderer::EndScene();
 
             m_ImGuiLayer->Begin();
             for (Layer* layer : m_LayerStack)
@@ -104,14 +86,6 @@ namespace Limnova
     {
         m_Running = false;
         return true;
-    }
-
-
-    void Application::SetActiveCamera(std::shared_ptr<Camera> camera)
-    {
-        m_ActiveCamera->SetNotActive();
-        m_ActiveCamera = camera; // Shared ownership of Camera object
-        camera->SetActive();
     }
 
 }

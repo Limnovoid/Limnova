@@ -29,6 +29,10 @@ namespace Limnova
         inline const char* GetClipboardText(void* userdata) const override { return glfwGetClipboardString(m_Window); }
 
         inline void* GetNativeWindow() const override { return m_Window; }
+
+        void DisableCursor() override;
+        void EnableCursor() override;
+        void SetRawMouseInput(bool useRawMouseInput) override;
     private:
         virtual void Init(const WindowProps& props);
         virtual void Shutdown();

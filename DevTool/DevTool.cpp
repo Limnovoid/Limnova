@@ -10,6 +10,37 @@ public:
     DevLayer()
         : Layer("DevLayer")
     {
+        // Camera setup
+        Limnova::Application& app = Limnova::Application::Get();
+
+        glm::vec3 pos = glm::vec3(0.f, 0.f, 1.f);
+        glm::vec3 aim = glm::normalize(glm::vec3(0.f, 0.f, -1.f));
+        glm::vec3 up = glm::vec3(0.f, 1.f, 0.f);
+
+        float fov = glm::radians(60.f);
+        float aspect = (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight();
+        float nearPlane = 0.1f;
+        float farPlane = 100.f;
+
+        m_TestCamera.reset(new Limnova::PointCamera(fov, aspect, nearPlane, farPlane));
+        m_TestCamera->SetPosition(pos);
+        m_TestCamera->SetAimDirection(aim);
+        m_TestCamera->SetUpDirection(up);
+
+        Limnova::Renderer::InitCameraBuffer(m_TestCamera);
+
+        m_CameraPos = pos;
+        m_CameraUp = { 0.f, 1.f, 0.f };
+        m_CameraMoveSpeed = 1.f;
+        m_MouseAimEnabled = false;
+        app.GetWindow().SetRawMouseInput(true);
+        m_CameraElevation = 0.f;
+        m_CameraAzimuth = 0.f;
+        std::tie(m_MouseX, m_MouseY) = Limnova::Input::GetMousePosition();
+        m_MouseSensitivity = 0.1f;
+        m_MaxElevation = 85.f;
+        m_MinElevation = -85.f;
+
         // Triangle
         m_VertexArray.reset(Limnova::VertexArray::Create());
 
@@ -130,30 +161,6 @@ public:
         m_BlueShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
 
         m_Time = std::chrono::steady_clock::now(); // TEMPORARY dT
-
-        // TEMPORARY camera testing
-        Limnova::Application& app = Limnova::Application::Get();
-
-        glm::vec3 pos = glm::vec3(0.f, 0.f, 1.f);
-        glm::vec3 aim = glm::normalize(glm::vec3(0.f, 0.f, -1.f));
-        glm::vec3 up = glm::vec3(0.f, 1.f, 0.f);
-
-        float fov = glm::radians(60.f);
-        float aspect = (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight();
-        float nearPlane = 0.1f;
-        float farPlane = 100.f;
-
-        m_TestCamera.reset(new Limnova::PointCamera(fov, aspect, nearPlane, farPlane));
-        m_TestCamera->SetPosition(pos);
-        m_TestCamera->SetAimDirection(aim);
-        m_TestCamera->SetUpDirection(up);
-
-        app.SetActiveCamera(m_TestCamera);
-        m_CameraPos = pos;
-        m_CameraMoveSpeed = 1.f;
-        m_CameraPitch = 0.f;
-        m_CameraAzimuth = 0.f;
-        // TEMPORARY camera testing
     }
 
 
@@ -165,50 +172,75 @@ public:
         m_Time = time2;
 
         // Animate camera
-        // TODO : get mouse movement
-        Limnova::Vector3 cameraAim = { 0.f,0.f,-1.f };
-        Limnova::Rotate(cameraAim, { -1.f, 0.f, 0.f }, m_CameraPitch);
-        Limnova::Rotate(cameraAim, {  0.f, 1.f, 0.f }, m_CameraAzimuth);
-        cameraAim.Normalize();
-        m_TestCamera->SetAimDirection(cameraAim.glm_vec3());
+        auto [mouseX, mouseY] = Limnova::Input::GetMousePosition();
+        float deltaMouseX = mouseX - m_MouseX;
+        float deltaMouseY = mouseY - m_MouseY;
+        m_MouseX = mouseX;
+        m_MouseY = mouseY;
+        if (m_MouseAimEnabled)
+        {
+            // Wrap azimuth around [0,360]
+            m_CameraAzimuth -= m_MouseSensitivity * deltaMouseX;
+            if (m_CameraAzimuth >= 360.f) m_CameraAzimuth -= 360.f;
+            if (m_CameraAzimuth < 0.f) m_CameraAzimuth += 360.f;
 
-        Limnova::Vector3 cameraMovement;
-        if (Limnova::Input::IsKeyPressed(LV_KEY_W))
-        {
-            cameraMovement += cameraAim;
-        }
-        else if (Limnova::Input::IsKeyPressed(LV_KEY_S))
-        {
-            cameraMovement -= cameraAim;
+            // Clamp elevation to [min,max] - prevents invalid UP vector in
+            // projection matrix calculation
+            m_CameraElevation += m_MouseSensitivity * deltaMouseY;
+            m_CameraElevation = std::clamp(m_CameraElevation, m_MinElevation, m_MaxElevation);
+
+            Limnova::Vector3 cameraAim = { 0.f, 0.f,-1.f }; // Default FORWARD aim (0,0,-1)
+            cameraAim = Limnova::Rotate(cameraAim, { -1.f, 0.f, 0.f }, glm::radians(m_CameraElevation));
+            cameraAim = Limnova::Rotate(cameraAim, m_CameraUp, glm::radians(m_CameraAzimuth));
+            cameraAim.Normalize();
+            m_TestCamera->SetAimDirection(cameraAim.glm_vec3());
+
+            Limnova::Vector3 cameraMovement;
+            Limnova::Vector3 cameraHorzLeft = m_CameraUp.Cross(cameraAim).Normalized();
+            if (Limnova::Input::IsKeyPressed(LV_KEY_A))
+            {
+                cameraMovement += cameraHorzLeft;
+            }
+            else if (Limnova::Input::IsKeyPressed(LV_KEY_D))
+            {
+                cameraMovement -= cameraHorzLeft;
+            }
+
+            Limnova::Vector3 cameraHorzForward = cameraHorzLeft.Cross(m_CameraUp);
+            if (Limnova::Input::IsKeyPressed(LV_KEY_W))
+            {
+                cameraMovement += cameraHorzForward;
+            }
+            else if (Limnova::Input::IsKeyPressed(LV_KEY_S))
+            {
+                cameraMovement -= cameraHorzForward;
+            }
+
+            cameraMovement.Normalize(); // Normalize horizontal movement
+
+            if (Limnova::Input::IsKeyPressed(LV_KEY_SPACE))
+            {
+                cameraMovement.y += 1.f;
+            }
+            else if (Limnova::Input::IsKeyPressed(LV_KEY_LEFT_SHIFT))
+            {
+                cameraMovement.y -= 1.f;
+            }
+
+            m_CameraPos += dt * m_CameraMoveSpeed * cameraMovement;
+            m_TestCamera->SetPosition(m_CameraPos.glm_vec3());
         }
 
-        Limnova::Vector3 cameraHorz = Limnova::Vector3(0.f, 1.f, 0.f).Cross(cameraAim).Normalized();
-        if (Limnova::Input::IsKeyPressed(LV_KEY_A))
-        {
-            cameraMovement += cameraHorz;
-        }
-        else if (Limnova::Input::IsKeyPressed(LV_KEY_D))
-        {
-            cameraMovement -= cameraHorz;
-        }
+        // Rendering
+        Limnova::RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.f });
+        Limnova::RenderCommand::Clear();
 
-        if (Limnova::Input::IsKeyPressed(LV_KEY_SPACE))
-        {
-            cameraMovement.y += 1.f;
-        }
-        else if (Limnova::Input::IsKeyPressed(LV_KEY_LEFT_SHIFT))
-        {
-            cameraMovement.y -= 1.f;
-        }
-        m_CameraPos += dt * m_CameraMoveSpeed * cameraMovement.Normalized();
-        m_TestCamera->SetPosition(m_CameraPos.glm_vec3());
+        Limnova::Renderer::BeginScene(m_TestCamera);
 
-        // Scene objects
-        m_BlueShader->Bind();
-        Limnova::Renderer::Submit(m_SquareVA);
+        Limnova::Renderer::Submit(m_BlueShader, m_SquareVA);
+        Limnova::Renderer::Submit(m_Shader, m_VertexArray);
 
-        m_Shader->Bind();
-        Limnova::Renderer::Submit(m_VertexArray);
+        Limnova::Renderer::EndScene();
     }
 
 
@@ -222,7 +254,29 @@ public:
 
     void OnEvent(Limnova::Event& event) override
     {
+        Limnova::EventDispatcher dispatcher(event);
+        dispatcher.Dispatch<Limnova::MouseButtonPressedEvent>(LV_BIND_EVENT_FN(DevLayer::OnMouseButtonPressedEvent));
     }
+
+
+    bool OnMouseButtonPressedEvent(Limnova::MouseButtonPressedEvent& event)
+    {
+        if (event.GetMouseButton() == LV_MOUSE_BUTTON_RIGHT)
+        {
+            if (m_MouseAimEnabled)
+            {
+                m_MouseAimEnabled = false;
+                m_TestCamera->DisableMouseAim();
+            }
+            else
+            {
+                m_MouseAimEnabled = true;
+                m_TestCamera->EnableMouseAim();
+            }
+        }
+        return false;
+    }
+
 
     std::shared_ptr<Limnova::Shader> m_Shader;
     std::shared_ptr<Limnova::VertexArray> m_VertexArray;
@@ -236,8 +290,12 @@ public:
     Limnova::Vector3 m_CameraPos;
     Limnova::Vector3 m_CameraUp;
     float m_CameraMoveSpeed;
-    float m_CameraPitch;
+    bool m_MouseAimEnabled;
+    float m_CameraElevation;
     float m_CameraAzimuth;
+    float m_MouseX, m_MouseY;
+    float m_MouseSensitivity;
+    float m_MinElevation, m_MaxElevation;
     // TEMPORARY camera animation
 };
 

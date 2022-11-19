@@ -28,6 +28,10 @@ namespace Limnova
         void SetPosition(const glm::vec3& position);
         void SetAimDirection(const glm::vec3& aimDirection);
         void SetUpDirection(const glm::vec3& upDirection);
+
+        void EnableMouseAim();
+        void DisableMouseAim();
+        void UpdateMouseAim(float deltaT);
     private:
         BufferData m_Data;
         bool m_NeedRecompute;

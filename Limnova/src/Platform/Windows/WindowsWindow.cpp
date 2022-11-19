@@ -202,4 +202,23 @@ namespace Limnova
         }
     }
 
+
+    void WindowsWindow::DisableCursor()
+    {
+        glfwSetInputMode(m_Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
+
+
+    void WindowsWindow::EnableCursor()
+    {
+        glfwSetInputMode(m_Window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+
+
+    void WindowsWindow::SetRawMouseInput(bool useRawMouseInput)
+    {
+        if (glfwRawMouseMotionSupported())
+            glfwSetInputMode(m_Window, GLFW_RAW_MOUSE_MOTION, useRawMouseInput ? GLFW_TRUE : GLFW_FALSE);
+    }
+
 }

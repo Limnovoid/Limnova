@@ -1,11 +1,14 @@
 #include "PointCamera.h"
 
+#include "Application.h"
+
 
 namespace Limnova
 {
 
     PointCamera::PointCamera(const float fov, const float aspectRatio, const float nearDistance, const float farDistance)
-        : m_IsActive(false), m_Fov(fov), m_Aspect(aspectRatio), m_Near(nearDistance), m_Far(farDistance),
+        : m_IsActive(false),
+        m_Fov(fov), m_Aspect(aspectRatio), m_Near(nearDistance), m_Far(farDistance),
         m_Position(0.f), m_AimDirection(0.f, 0.f, -1.f), m_UpDirection(0.f, 1.f, 0.f)
     {
         RecomputeData();
@@ -79,4 +82,23 @@ namespace Limnova
         m_UpDirection = upDirection;
         m_NeedRecompute = true;
     }
+
+
+    void PointCamera::EnableMouseAim()
+    {
+        Limnova::Application::Get().GetWindow().DisableCursor();
+    }
+
+
+    void PointCamera::DisableMouseAim()
+    {
+        Application::Get().GetWindow().EnableCursor();
+    }
+
+
+    void PointCamera::UpdateMouseAim(float deltaT)
+    {
+
+    }
+
 }
