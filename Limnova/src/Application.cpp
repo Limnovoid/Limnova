@@ -2,7 +2,6 @@
 
 #include "Input.h"
 #include "KeyCodes.h"
-#include "Renderer/Renderer.h"
 
 
 namespace Limnova

@@ -2,20 +2,17 @@
 
 #include "Core.h"
 #include "Window.h"
-#include "LayerStack.h"
+
 #include "Events/Event.h"
 #include "Events/ApplicationEvent.h"
+#include "LayerStack.h"
 #include "ImGui/ImGuiLayer.h"
-#include "Renderer/Renderer.h"
-#include "Renderer/Buffer.h"
-#include "Renderer/Shader.h"
-#include "Renderer/VertexArray.h"
 
 
 namespace Limnova
 {
 
-    class LIMNOVA_API Application
+    class Application
     {
     public:
         Application();
@@ -34,10 +31,11 @@ namespace Limnova
     private:
         bool OnWindowClose(WindowCloseEvent& e);
 
-        ImGuiLayer* m_ImGuiLayer;
         std::unique_ptr<Window> m_Window;
         bool m_Running = true;
+
         LayerStack m_LayerStack;
+        ImGuiLayer* m_ImGuiLayer;
     private:
         static Application* s_Instance;
     };
