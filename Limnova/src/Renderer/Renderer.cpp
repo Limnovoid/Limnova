@@ -6,10 +6,10 @@
 namespace Limnova
 {
 
-    std::unique_ptr<UniformBuffer> Renderer::m_CameraUniformBuffer;
+    Scope<UniformBuffer> Renderer::m_CameraUniformBuffer;
 
 
-    void Renderer::BeginScene(const std::shared_ptr<Camera>& camera)
+    void Renderer::BeginScene(const Ref<Camera>& camera)
     {
         m_CameraUniformBuffer->UpdateData((void*)(camera->GetData()), 0, sizeof(Camera::BufferData));
     }
@@ -20,7 +20,7 @@ namespace Limnova
     }
 
 
-    void Renderer::Submit(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vertexArray, const glm::mat4& transform)
+    void Renderer::Submit(const Ref<Shader>& shader, const Ref<VertexArray>& vertexArray, const glm::mat4& transform)
     {
         shader->Bind();
         std::dynamic_pointer_cast<OpenGLShader>(shader)->UploadUniformMat4f("u_Transform", transform);
