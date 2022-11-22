@@ -1,6 +1,9 @@
 #include <Limnova.h>
 
-#include <chrono>
+#include "Platform/OpenGL/OpenGLShader.h" // TEMPORARY shader casting
+
+#include <chrono> // TEMPORARY delta time
+
 
 
 class LIMNOVA_API DevLayer : public Limnova::Layer
@@ -71,6 +74,8 @@ public:
                 vec4 AimDirection;
             } u_Camera;
 
+            uniform mat4 u_Transform;
+
             layout(location = 0) in vec3 a_Position;
             layout(location = 1) in vec4 a_Color;
 
@@ -81,7 +86,7 @@ public:
             {
                 v_Position = a_Position;
                 v_Color = a_Color;
-                gl_Position = u_Camera.ViewProj * vec4(a_Position, 1.0);
+                gl_Position = u_Camera.ViewProj * u_Transform * vec4(a_Position, 1.0);
             }
         )";
         std::string fragmentSrc = R"(
@@ -133,6 +138,8 @@ public:
                 vec4 AimDirection;
             } u_Camera;
 
+            uniform mat4 u_Transform;
+
             layout(location = 0) in vec3 a_Position;
 
             out vec3 v_Position;
@@ -140,11 +147,13 @@ public:
             void main()
             {
                 v_Position = a_Position;
-                gl_Position = u_Camera.ViewProj * vec4(a_Position, 1.0);
+                gl_Position = u_Camera.ViewProj * u_Transform * vec4(a_Position, 1.0);
             }
         )";
         std::string blueFragmentSrc = R"(
             #version 450
+
+            uniform vec3 u_Color;
 
             layout(location = 0) out vec4 o_Color;
 
@@ -152,7 +161,7 @@ public:
 
             void main()
             {
-                o_Color = vec4(0.2, 0.3, 0.9, 1.0);
+                o_Color = vec4(u_Color, 1.0);
             }
         )";
         m_BlueShader.reset(Limnova::Shader::Create(blueVertexSrc, blueFragmentSrc));
@@ -160,16 +169,16 @@ public:
         m_BlueShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
 
         m_Time = std::chrono::steady_clock::now(); // TEMPORARY dT
+
+        m_TrianglePosition = { 0.f, 0.f, 0.f };
+        m_TriangleMoveSpeed = 1.f;
+
+        m_SquareColor = { 0.2f, 0.3f, 0.9f };
     }
 
 
-    void OnUpdate() override
+    void OnUpdate(Limnova::Timestep dT) override
     {
-        // TEMPORARY dT
-        auto time2 = std::chrono::steady_clock::now();
-        float dt = (time2 - m_Time).count() / 1e9;
-        m_Time = time2;
-
         // Animate camera
         auto [mouseX, mouseY] = Limnova::Input::GetMousePosition();
         float deltaMouseX = mouseX - m_MouseX;
@@ -226,8 +235,27 @@ public:
                 cameraMovement.y -= 1.f;
             }
 
-            m_CameraPos += dt * m_CameraMoveSpeed * cameraMovement;
+            m_CameraPos += dT * m_CameraMoveSpeed * cameraMovement;
             m_TestCamera->SetPosition(m_CameraPos.glm_vec3());
+
+            // Triangle movement
+            if (Limnova::Input::IsKeyPressed(LV_KEY_L))
+            {
+                m_TrianglePosition.x += m_TriangleMoveSpeed * dT;
+            }
+            else if (Limnova::Input::IsKeyPressed(LV_KEY_J))
+            {
+                m_TrianglePosition.x -= m_TriangleMoveSpeed * dT;
+            }
+
+            if (Limnova::Input::IsKeyPressed(LV_KEY_I))
+            {
+                m_TrianglePosition.y += m_TriangleMoveSpeed * dT;
+            }
+            else if (Limnova::Input::IsKeyPressed(LV_KEY_K))
+            {
+                m_TrianglePosition.y -= m_TriangleMoveSpeed * dT;
+            }
         }
 
         // Rendering
@@ -236,8 +264,13 @@ public:
 
         Limnova::Renderer::BeginScene(m_TestCamera);
 
-        Limnova::Renderer::Submit(m_BlueShader, m_SquareVA);
-        Limnova::Renderer::Submit(m_Shader, m_VertexArray);
+        std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_BlueShader)->Bind();
+        std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_BlueShader)->UploadUniformFloat3("u_Color", m_SquareColor);
+        glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), { 0.f, 0.f, 0.f });
+        Limnova::Renderer::Submit(m_BlueShader, m_SquareVA, squareTransform);
+
+        glm::mat4 triangleTransform = glm::translate(glm::mat4(0.5f), m_TrianglePosition);
+        Limnova::Renderer::Submit(m_Shader, m_VertexArray, triangleTransform);
 
         Limnova::Renderer::EndScene();
     }
@@ -246,7 +279,7 @@ public:
     void OnImGuiRender() override
     {
         ImGui::Begin("Test");
-        ImGui::Text("Hello from DevTool!");
+        ImGui::ColorEdit3("Square Color", glm::value_ptr(m_SquareColor));
         ImGui::End();
     }
 
@@ -295,7 +328,13 @@ public:
     float m_MouseX, m_MouseY;
     float m_MouseSensitivity;
     float m_MinElevation, m_MaxElevation;
-    // TEMPORARY camera animation
+
+    // TEMPORARY transform tests
+    glm::vec3 m_TrianglePosition;
+    float m_TriangleMoveSpeed;
+
+    // TEMPORARY uniform tests
+    glm::vec3 m_SquareColor;
 };
 
 

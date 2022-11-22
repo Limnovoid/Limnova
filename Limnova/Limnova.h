@@ -6,6 +6,8 @@
 #include <src/Layer.h>
 #include <src/Log.h>
 
+#include <src/Core/Timestep.h>
+
 #include <src/Input.h>
 #include <src/KeyCodes.h>
 #include <src/MouseButtonCodes.h>

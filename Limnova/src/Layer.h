@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core.h"
+#include "Core/Timestep.h"
 #include "Events/Event.h"
 
 
@@ -15,7 +16,7 @@ namespace Limnova
 
         virtual void OnAttach() {}
         virtual void OnDetach() {}
-        virtual void OnUpdate() {}
+        virtual void OnUpdate(Timestep dT) {}
         virtual void OnImGuiRender() {}
         virtual void OnEvent(Event& event) {}
 

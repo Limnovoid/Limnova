@@ -7,6 +7,9 @@
 #include "Events/ApplicationEvent.h"
 #include "LayerStack.h"
 #include "ImGui/ImGuiLayer.h"
+#include <Core/Timestep.h>
+
+#include <chrono> // TEMPORARY delta time
 
 
 namespace Limnova
@@ -36,6 +39,8 @@ namespace Limnova
 
         LayerStack m_LayerStack;
         ImGuiLayer* m_ImGuiLayer;
+
+        std::chrono::steady_clock::time_point m_Time; // TEMPORARY delta time
     private:
         static Application* s_Instance;
     };

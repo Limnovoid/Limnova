@@ -138,6 +138,7 @@ namespace Limnova
         {
             LV_CORE_WARN("Could not bind uniform buffer: could not find uniform block with name '{0}' in program {1}!",
                 uniformBlockName, m_RendererId);
+            return;
         }
         if (GL_MAX_UNIFORM_BUFFER_BINDINGS <= blockIndex)
         {
@@ -145,10 +146,76 @@ namespace Limnova
                 uniformBlockName, m_RendererId);
             return;
         }
-
         glUniformBlockBinding(m_RendererId, blockIndex, m_NumUniformBlocks);
         glBindBufferBase(GL_UNIFORM_BUFFER, m_NumUniformBlocks, buffer);
         m_NumUniformBlocks++;
+    }
+
+
+    void OpenGLShader::UploadUniformInt(const std::string& uniformName, const int value)
+    {
+        uint32_t uniformIndex = glGetUniformLocation(m_RendererId, uniformName.c_str());
+        if (CheckUniformIndex(uniformName, uniformIndex)) return;
+        glUniform1i(uniformIndex, value);
+    }
+
+
+    void OpenGLShader::UploadUniformFloat(const std::string& uniformName, const float value)
+    {
+        uint32_t uniformIndex = glGetUniformLocation(m_RendererId, uniformName.c_str());
+        if (CheckUniformIndex(uniformName, uniformIndex)) return;
+        glUniform1f(uniformIndex, value);
+    }
+
+
+    void OpenGLShader::UploadUniformFloat2(const std::string& uniformName, const glm::vec2& values)
+    {
+        uint32_t uniformIndex = glGetUniformLocation(m_RendererId, uniformName.c_str());
+        if (CheckUniformIndex(uniformName, uniformIndex)) return;
+        glUniform2f(uniformIndex, values.x, values.y);
+    }
+
+
+    void OpenGLShader::UploadUniformFloat3(const std::string& uniformName, const glm::vec3& values)
+    {
+        uint32_t uniformIndex = glGetUniformLocation(m_RendererId, uniformName.c_str());
+        if (CheckUniformIndex(uniformName, uniformIndex)) return;
+        glUniform3f(uniformIndex, values.x, values.y, values.z);
+    }
+
+
+    void OpenGLShader::UploadUniformFloat4(const std::string& uniformName, const glm::vec4& values)
+    {
+        uint32_t uniformIndex = glGetUniformLocation(m_RendererId, uniformName.c_str());
+        if (CheckUniformIndex(uniformName, uniformIndex)) return;
+        glUniform4f(uniformIndex, values.x, values.y, values.z, values.w);
+    }
+
+
+    void OpenGLShader::UploadUniformMat3f(const std::string& uniformName, const glm::mat3& matrix)
+    {
+        uint32_t uniformIndex = glGetUniformLocation(m_RendererId, uniformName.c_str());
+        if (CheckUniformIndex(uniformName, uniformIndex)) return;
+        glUniformMatrix3fv(uniformIndex, 1, GL_FALSE, glm::value_ptr(matrix));
+    }
+
+
+    void OpenGLShader::UploadUniformMat4f(const std::string& uniformName, const glm::mat4& matrix)
+    {
+        uint32_t uniformIndex = glGetUniformLocation(m_RendererId, uniformName.c_str());
+        if (CheckUniformIndex(uniformName, uniformIndex)) return;
+        glUniformMatrix4fv(uniformIndex, 1, GL_FALSE, glm::value_ptr(matrix));
+    }
+
+
+    uint32_t OpenGLShader::CheckUniformIndex(const std::string& uniformName, const uint32_t index)
+    {
+        if (GL_INVALID_INDEX == index)
+        {
+            LV_CORE_ERROR("Invalid index ({0}) returned for uniform '{1}'!", index, uniformName);
+            return 1;
+        }
+        return 0;
     }
 
 }

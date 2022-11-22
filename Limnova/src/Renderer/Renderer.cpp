@@ -1,5 +1,7 @@
 #include "Renderer.h"
 
+#include "Platform/OpenGL/OpenGLShader.h" // TEMPORARY shader casting
+
 
 namespace Limnova
 {
@@ -18,9 +20,11 @@ namespace Limnova
     }
 
 
-    void Renderer::Submit(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vertexArray)
+    void Renderer::Submit(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vertexArray, const glm::mat4& transform)
     {
         shader->Bind();
+        std::dynamic_pointer_cast<OpenGLShader>(shader)->UploadUniformMat4f("u_Transform", transform);
+
         vertexArray->Bind();
         RenderCommand::DrawIndexed(vertexArray);
     }

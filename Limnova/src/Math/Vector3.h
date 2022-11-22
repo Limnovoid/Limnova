@@ -34,6 +34,8 @@ namespace Limnova
         Vector3 operator/(const float scalar) const;
         Vector3& operator/=(const float scalar);
     public:
+        operator glm::vec3() const { return glm::vec3(x, y, z); }
+    public:
         inline glm::vec3 glm_vec3() const { return glm::vec3(x, y, z); }
     };
 
