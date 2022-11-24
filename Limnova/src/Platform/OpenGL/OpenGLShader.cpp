@@ -73,7 +73,7 @@ namespace Limnova
         // Vertex and fragment shaders are successfully compiled.
         // Now time to link them together into a program.
         // Get a program object.
-        GLuint program = glCreateProgram();        
+        GLuint program = glCreateProgram();
 
         // Attach our shaders to our program
         glAttachShader(program, vertexShader);

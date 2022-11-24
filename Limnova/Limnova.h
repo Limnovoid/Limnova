@@ -26,6 +26,7 @@
 #include <src/Renderer/Buffer.h>
 #include <src/Renderer/Camera.h>
 #include <src/Renderer/PointCamera.h>
+#include <src/Renderer/Texture.h>
 // ------------------------------------
 
 

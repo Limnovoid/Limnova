@@ -25,6 +25,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Platform/OpenGL/OpenGLContext.cpp"
     "src/Platform/OpenGL/OpenGLRendererAPI.cpp"
     "src/Platform/OpenGL/OpenGLShader.cpp"
+    "src/Platform/OpenGL/OpenGLTexture.cpp"
     "src/Platform/OpenGL/OpenGLVertexArray.cpp"
     "src/Platform/Vulkan/VulkanContext.cpp"
     "src/Platform/Vulkan/vktostring.h"
@@ -41,8 +42,11 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/RendererAPI.cpp"
     "src/Renderer/RenderingContext.h"
     "src/Renderer/Shader.cpp"
+    "src/Renderer/Texture.cpp"
     "src/Renderer/VertexArray.cpp"
- )
+
+    "thirdparty/stb_image/stb_image.cpp"
+)
 
 
 set_property(TARGET ${PROJECT_NAME}
@@ -95,6 +99,7 @@ target_include_directories(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/imgui"
         "${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
+        "${PROJECT_SOURCE_DIR}/thirdparty/stb_image"
         "${PROJECT_SOURCE_DIR}/thirdparty/volk/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/vulkan/include"
 )

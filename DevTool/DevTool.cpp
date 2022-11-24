@@ -110,16 +110,17 @@ public:
         // Square
         m_SquareVA.reset(Limnova::VertexArray::Create());
 
-        float squareVertices[3 * 4] = {
-            -0.75f, -0.75f, -1.f,
-             0.75f, -0.75f, -1.f,
-             0.75f,  0.75f, -1.f,
-            -0.75f,  0.75f, -1.f
+        float squareVertices[(3 + 2) * 4] = {
+            -0.5f, -0.5f, -1.f,   0.f, 0.f,
+             0.5f, -0.5f, -1.f,   1.f, 0.f,
+             0.5f,  0.5f, -1.f,   1.f, 1.f,
+            -0.5f,  0.5f, -1.f,   0.f, 1.f
         };
         std::shared_ptr<Limnova::VertexBuffer> squareVB;
         squareVB.reset(Limnova::VertexBuffer::Create(squareVertices, sizeof(squareVertices)));
         squareVB->SetLayout({
-            { Limnova::ShaderDataType::Float3, "a_Position" }
+            { Limnova::ShaderDataType::Float3, "a_Position" },
+            { Limnova::ShaderDataType::Float2, "a_TexCoord" }
         });
         m_SquareVA->AddVertexBuffer(squareVB);
 
@@ -168,12 +169,60 @@ public:
 
         m_BlueShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
 
-        m_Time = std::chrono::steady_clock::now(); // TEMPORARY dT
+        // Texture shader
+        std::string textureVertexSrc = R"(
+            #version 450
+
+            layout (std140) uniform CameraUniform
+            {
+                mat4 ViewProj;
+                vec4 Position;
+                vec4 AimDirection;
+            } u_Camera;
+
+            uniform mat4 u_Transform;
+
+            layout(location = 0) in vec3 a_Position;
+            layout(location = 1) in vec2 a_TexCoord;
+
+            out vec2 v_TexCoord;
+
+            void main()
+            {
+                v_TexCoord = a_TexCoord;
+                gl_Position = u_Camera.ViewProj * u_Transform * vec4(a_Position, 1.0);
+            }
+        )";
+        std::string textureFragmentSrc = R"(
+            #version 450
+
+            uniform sampler2D u_Texture;
+
+            layout(location = 0) out vec4 o_Color;
+
+            in vec2 v_TexCoord;
+
+            void main()
+            {
+                o_Color = texture(u_Texture, v_TexCoord);
+            }
+        )";
+        m_TextureShader.reset(Limnova::Shader::Create(textureVertexSrc, textureFragmentSrc));
+
+        m_TextureShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
+
+        m_TextureShader->Bind();
+        std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_TextureShader)->UploadUniformInt("u_Texture", 0);
+
+        m_CheckerboardTexture = Limnova::Texture2D::Create("C:\\Programming\\source\\Limnova\\DevTool\\assets\\textures\\testtex.png");
+
 
         m_TrianglePosition = { 0.f, 0.f, 0.f };
         m_TriangleMoveSpeed = 1.f;
 
         m_SquareColor = { 0.2f, 0.3f, 0.9f };
+
+        m_Time = std::chrono::steady_clock::now(); // TEMPORARY dT
     }
 
 
@@ -264,10 +313,14 @@ public:
 
         Limnova::Renderer::BeginScene(m_TestCamera);
 
-        std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_BlueShader)->Bind();
+        m_BlueShader->Bind();
         std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_BlueShader)->UploadUniformFloat3("u_Color", m_SquareColor);
-        glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), { 0.f, 0.f, 0.f });
+        glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), {-0.5f, 0.f, 0.f });
         Limnova::Renderer::Submit(m_BlueShader, m_SquareVA, squareTransform);
+
+        glm::mat4 texSqTransform = glm::translate(glm::mat4(1.f), { 0.5f, 0.f, 0.f });
+        m_CheckerboardTexture->Bind(0);
+        Limnova::Renderer::Submit(m_TextureShader, m_SquareVA, texSqTransform);
 
         glm::mat4 triangleTransform = glm::translate(glm::mat4(0.5f), m_TrianglePosition);
         Limnova::Renderer::Submit(m_Shader, m_VertexArray, triangleTransform);
@@ -310,10 +363,12 @@ public:
     }
 
 
-    std::shared_ptr<Limnova::Shader> m_Shader;
-    std::shared_ptr<Limnova::VertexArray> m_VertexArray;
-    std::shared_ptr<Limnova::Shader> m_BlueShader;
-    std::shared_ptr<Limnova::VertexArray> m_SquareVA;
+    Limnova::Ref<Limnova::VertexArray> m_VertexArray;
+    Limnova::Ref<Limnova::Shader> m_Shader;
+    Limnova::Ref<Limnova::VertexArray> m_SquareVA;
+    Limnova::Ref<Limnova::Shader> m_BlueShader;
+    Limnova::Ref<Limnova::Texture2D> m_CheckerboardTexture;
+    Limnova::Ref<Limnova::Shader> m_TextureShader;
 
     std::chrono::steady_clock::time_point m_Time; // TEMPORARY dT
 
