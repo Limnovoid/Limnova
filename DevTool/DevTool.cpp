@@ -4,6 +4,7 @@
 
 #include <chrono> // TEMPORARY delta time
 
+#define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\assets"
 
 
 class LIMNOVA_API DevLayer : public Limnova::Layer
@@ -165,11 +166,12 @@ public:
                 o_Color = vec4(u_Color, 1.0);
             }
         )";
-        m_BlueShader.reset(Limnova::Shader::Create(blueVertexSrc, blueFragmentSrc));
+        m_FlatColorShader.reset(Limnova::Shader::Create(blueVertexSrc, blueFragmentSrc));
 
-        m_BlueShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
+        m_FlatColorShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
 
         // Texture shader
+        /*
         std::string textureVertexSrc = R"(
             #version 450
 
@@ -208,13 +210,17 @@ public:
             }
         )";
         m_TextureShader.reset(Limnova::Shader::Create(textureVertexSrc, textureFragmentSrc));
+        */
+
+        m_TextureShader = Limnova::Shader::Create(ASSET_DIR"\\shaders\\texture.glsl");
 
         m_TextureShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
 
         m_TextureShader->Bind();
         std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_TextureShader)->UploadUniformInt("u_Texture", 0);
 
-        m_CheckerboardTexture = Limnova::Texture2D::Create("C:\\Programming\\source\\Limnova\\DevTool\\assets\\textures\\testtex.png");
+        m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png");
+        m_TurretTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\turret.png");
 
 
         m_TrianglePosition = { 0.f, 0.f, 0.f };
@@ -313,13 +319,15 @@ public:
 
         Limnova::Renderer::BeginScene(m_TestCamera);
 
-        m_BlueShader->Bind();
-        std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_BlueShader)->UploadUniformFloat3("u_Color", m_SquareColor);
+        m_FlatColorShader->Bind();
+        std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_FlatColorShader)->UploadUniformFloat3("u_Color", m_SquareColor);
         glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), {-0.5f, 0.f, 0.f });
-        Limnova::Renderer::Submit(m_BlueShader, m_SquareVA, squareTransform);
+        Limnova::Renderer::Submit(m_FlatColorShader, m_SquareVA, squareTransform);
 
         glm::mat4 texSqTransform = glm::translate(glm::mat4(1.f), { 0.5f, 0.f, 0.f });
         m_CheckerboardTexture->Bind(0);
+        Limnova::Renderer::Submit(m_TextureShader, m_SquareVA, texSqTransform);
+        m_TurretTexture->Bind(0);
         Limnova::Renderer::Submit(m_TextureShader, m_SquareVA, texSqTransform);
 
         glm::mat4 triangleTransform = glm::translate(glm::mat4(0.5f), m_TrianglePosition);
@@ -366,8 +374,9 @@ public:
     Limnova::Ref<Limnova::VertexArray> m_VertexArray;
     Limnova::Ref<Limnova::Shader> m_Shader;
     Limnova::Ref<Limnova::VertexArray> m_SquareVA;
-    Limnova::Ref<Limnova::Shader> m_BlueShader;
+    Limnova::Ref<Limnova::Shader> m_FlatColorShader;
     Limnova::Ref<Limnova::Texture2D> m_CheckerboardTexture;
+    Limnova::Ref<Limnova::Texture2D> m_TurretTexture;
     Limnova::Ref<Limnova::Shader> m_TextureShader;
 
     std::chrono::steady_clock::time_point m_Time; // TEMPORARY dT

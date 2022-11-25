@@ -18,13 +18,26 @@ namespace Limnova
         m_Width = width;
         m_Height = height;
 
+        GLenum internalFormat = 0, usageFormat = 0;
+        if (channels == 3)
+        {
+            internalFormat = GL_RGB8;
+            usageFormat = GL_RGB;
+        }
+        else if (channels == 4)
+        {
+            internalFormat = GL_RGBA8;
+            usageFormat = GL_RGBA;
+        }
+        LV_CORE_ASSERT(internalFormat & usageFormat, "Failed to load image: number of channels not supported!");
+
         glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererId);
-        glTextureStorage2D(m_RendererId, 1, GL_RGBA8, m_Width, m_Height);
+        glTextureStorage2D(m_RendererId, 1, internalFormat, m_Width, m_Height);
 
         glTextureParameteri(m_RendererId, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(m_RendererId, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-        glTextureSubImage2D(m_RendererId, 0, 0, 0, m_Width, m_Height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glTextureSubImage2D(m_RendererId, 0, 0, 0, m_Width, m_Height, usageFormat, GL_UNSIGNED_BYTE, data);
 
         stbi_image_free(data);
     }

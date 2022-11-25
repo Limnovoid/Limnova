@@ -9,6 +9,12 @@ namespace Limnova
     Scope<UniformBuffer> Renderer::m_CameraUniformBuffer;
 
 
+    void Renderer::Init()
+    {
+        RenderCommand::Init();
+    }
+
+
     void Renderer::BeginScene(const Ref<Camera>& camera)
     {
         m_CameraUniformBuffer->UpdateData((void*)(camera->GetData()), 0, sizeof(Camera::BufferData));

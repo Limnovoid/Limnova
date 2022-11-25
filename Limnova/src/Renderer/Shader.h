@@ -9,6 +9,7 @@ namespace Limnova
     class Shader
     {
     public:
+        static Ref<Shader> Create(const std::string& filepath);
         static Shader* Create(const std::string& vertexSrc, const std::string& fragmentSrc);
         virtual ~Shader() {}
 

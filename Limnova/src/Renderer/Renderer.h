@@ -12,6 +12,8 @@ namespace Limnova
     class Renderer
     {
     public:
+        static void Init();
+
         static void BeginScene(const Ref<Camera>& camera);
         static void EndScene();
 
