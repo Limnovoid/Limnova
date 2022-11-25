@@ -13,7 +13,7 @@ public:
     DevLayer()
         : Layer("DevLayer")
     {
-        // Camera setup
+        // Camera
         Limnova::Application& app = Limnova::Application::Get();
 
         glm::vec3 pos = glm::vec3(0.f, 0.f, 1.f);
@@ -44,7 +44,8 @@ public:
         m_MaxElevation = 85.f;
         m_MinElevation = -85.f;
 
-        // Triangle
+        // Vertex arrays
+        /// Triangle
         m_VertexArray.reset(Limnova::VertexArray::Create());
 
         float vertices[3 * (3 + 4)] = {
@@ -65,50 +66,7 @@ public:
         indexBuffer.reset(Limnova::IndexBuffer::Create(indices, std::size(indices)));
         m_VertexArray->SetIndexBuffer(indexBuffer);
 
-        std::string vertexSrc = R"(
-            #version 450
-
-            layout (std140) uniform CameraUniform
-            {
-                mat4 ViewProj;
-                vec4 Position;
-                vec4 AimDirection;
-            } u_Camera;
-
-            uniform mat4 u_Transform;
-
-            layout(location = 0) in vec3 a_Position;
-            layout(location = 1) in vec4 a_Color;
-
-            out vec3 v_Position;
-            out vec4 v_Color;
-
-            void main()
-            {
-                v_Position = a_Position;
-                v_Color = a_Color;
-                gl_Position = u_Camera.ViewProj * u_Transform * vec4(a_Position, 1.0);
-            }
-        )";
-        std::string fragmentSrc = R"(
-            #version 450
-
-            layout(location = 0) out vec4 o_Color;
-
-            in vec3 v_Position;
-            in vec4 v_Color;
-
-            void main()
-            {
-                o_Color = vec4(v_Position * 0.5 + 0.5, 1.0);
-                o_Color = v_Color;
-            }
-        )";
-        m_Shader.reset(Limnova::Shader::Create(vertexSrc, fragmentSrc));
-
-        m_Shader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
-
-        // Square
+        /// Square
         m_SquareVA.reset(Limnova::VertexArray::Create());
 
         float squareVertices[(3 + 2) * 4] = {
@@ -130,99 +88,23 @@ public:
         squareIB.reset(Limnova::IndexBuffer::Create(squareIndices, std::size(squareIndices)));
         m_SquareVA->SetIndexBuffer(squareIB);
 
-        std::string blueVertexSrc = R"(
-            #version 450
+        // Shaders
+        m_Shader = Limnova::Shader::Create(ASSET_DIR"\\shaders\\AttrColor.glsl");
+        m_Shader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
 
-            layout (std140) uniform CameraUniform
-            {
-                mat4 ViewProj;
-                vec4 Position;
-                vec4 AimDirection;
-            } u_Camera;
-
-            uniform mat4 u_Transform;
-
-            layout(location = 0) in vec3 a_Position;
-
-            out vec3 v_Position;
-
-            void main()
-            {
-                v_Position = a_Position;
-                gl_Position = u_Camera.ViewProj * u_Transform * vec4(a_Position, 1.0);
-            }
-        )";
-        std::string blueFragmentSrc = R"(
-            #version 450
-
-            uniform vec3 u_Color;
-
-            layout(location = 0) out vec4 o_Color;
-
-            in vec3 v_Position;
-
-            void main()
-            {
-                o_Color = vec4(u_Color, 1.0);
-            }
-        )";
-        m_FlatColorShader.reset(Limnova::Shader::Create(blueVertexSrc, blueFragmentSrc));
-
+        m_FlatColorShader = Limnova::Shader::Create(ASSET_DIR"\\shaders\\FlatColor.glsl");
         m_FlatColorShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
 
-        // Texture shader
-        /*
-        std::string textureVertexSrc = R"(
-            #version 450
-
-            layout (std140) uniform CameraUniform
-            {
-                mat4 ViewProj;
-                vec4 Position;
-                vec4 AimDirection;
-            } u_Camera;
-
-            uniform mat4 u_Transform;
-
-            layout(location = 0) in vec3 a_Position;
-            layout(location = 1) in vec2 a_TexCoord;
-
-            out vec2 v_TexCoord;
-
-            void main()
-            {
-                v_TexCoord = a_TexCoord;
-                gl_Position = u_Camera.ViewProj * u_Transform * vec4(a_Position, 1.0);
-            }
-        )";
-        std::string textureFragmentSrc = R"(
-            #version 450
-
-            uniform sampler2D u_Texture;
-
-            layout(location = 0) out vec4 o_Color;
-
-            in vec2 v_TexCoord;
-
-            void main()
-            {
-                o_Color = texture(u_Texture, v_TexCoord);
-            }
-        )";
-        m_TextureShader.reset(Limnova::Shader::Create(textureVertexSrc, textureFragmentSrc));
-        */
-
         m_TextureShader = Limnova::Shader::Create(ASSET_DIR"\\shaders\\texture.glsl");
-
         m_TextureShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
-
         m_TextureShader->Bind();
         std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_TextureShader)->UploadUniformInt("u_Texture", 0);
 
+        // Textures
         m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png");
         m_TurretTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\turret.png");
 
-
+        // Animation
         m_TrianglePosition = { 0.f, 0.f, 0.f };
         m_TriangleMoveSpeed = 1.f;
 

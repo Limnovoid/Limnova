@@ -29,7 +29,7 @@ namespace Limnova
             internalFormat = GL_RGBA8;
             usageFormat = GL_RGBA;
         }
-        LV_CORE_ASSERT(internalFormat & usageFormat, "Failed to load image: number of channels not supported!");
+        LV_CORE_ASSERT(internalFormat && usageFormat, "Failed to load image: number of channels not supported!");
 
         glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererId);
         glTextureStorage2D(m_RendererId, 1, internalFormat, m_Width, m_Height);
