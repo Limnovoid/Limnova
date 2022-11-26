@@ -77,6 +77,7 @@ target_precompile_headers(${PROJECT_NAME}
 
         <string>
         <sstream>
+        <array>
         <vector>
         <unordered_map>
         <unordered_set>

@@ -29,11 +29,28 @@ namespace Limnova
         std::string source = ReadFile(filepath);
         auto shaderSources = Preprocess(source);
         Compile(shaderSources);
+
+        // Extract name from filepath
+        auto lastSlash = filepath.find_last_of("/\\");
+        lastSlash = lastSlash == std::string::npos ? 0 : lastSlash + 1;
+        auto lastDot = filepath.rfind('.');
+        auto count = lastDot == std::string::npos ? filepath.size() - lastSlash : lastDot - lastSlash;
+        m_Name = filepath.substr(lastSlash, count);
     }
 
 
-    OpenGLShader::OpenGLShader(const std::string& vertexSrc, const std::string& fragmentSrc)
-        : m_RendererId(0), m_NumUniformBlocks(0)
+    OpenGLShader::OpenGLShader(const std::string& name, const std::string& filepath)
+    {
+        std::string source = ReadFile(filepath);
+        auto shaderSources = Preprocess(source);
+        Compile(shaderSources);
+
+        m_Name = name;
+    }
+
+
+    OpenGLShader::OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc)
+        : m_Name(name), m_RendererId(0), m_NumUniformBlocks(0)
     {
         std::unordered_map<GLenum, std::string> shaderSources;
         shaderSources[GL_VERTEX_SHADER] = vertexSrc;
@@ -51,7 +68,7 @@ namespace Limnova
     std::string OpenGLShader::ReadFile(const std::string& filepath)
     {
         std::string result;
-        std::ifstream in(filepath, std::ios::in, std::ios::binary);
+        std::ifstream in(filepath, std::ios::in | std::ios::binary);
         if (in)
         {
             in.seekg(0, std::ios::end);
@@ -98,8 +115,9 @@ namespace Limnova
     void OpenGLShader::Compile(const std::unordered_map<GLenum, std::string>& sources)
     {
         GLuint program = glCreateProgram();
-        std::vector<GLenum> glShaderIds(sources.size());
-        size_t i = 0;
+        LV_CORE_ASSERT(sources.size() <= 4, "Number of provided shader sources exceeds the supported maximum (4)!");
+        std::array<GLenum, 4> glShaderIds;
+        size_t shaderIndex = 0;
         for (auto& kv : sources)
         {
             GLenum type = kv.first;
@@ -132,8 +150,7 @@ namespace Limnova
             }
 
             glAttachShader(program, shader);
-            glShaderIds[i] = shader;
-            i++;
+            glShaderIds[shaderIndex++] = shader;
         }
 
         glLinkProgram(program);
@@ -151,9 +168,9 @@ namespace Limnova
 
             // We don't need the program anymore.
             glDeleteProgram(program);
-            for (auto id : glShaderIds)
+            for (size_t id = 0; id < shaderIndex; id++)
             {
-                glDeleteShader(id);
+                glDeleteShader((GLenum)id);
             }
 
             LV_CORE_ERROR("OpenGL program info log: {0}", infoLog.data());
@@ -161,9 +178,9 @@ namespace Limnova
             return;
         }
 
-        for (auto id : glShaderIds)
+        for (size_t id = 0; id < shaderIndex; id++)
         {
-            glDetachShader(program, id);
+            glDetachShader(program, (GLenum)id);
         }
 
         m_RendererId = program;

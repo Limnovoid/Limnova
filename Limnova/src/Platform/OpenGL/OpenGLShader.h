@@ -12,8 +12,11 @@ namespace Limnova
     {
     public:
         OpenGLShader(const std::string& filepath);
-        OpenGLShader(const std::string& vertexSrc, const std::string& fragmentSrc);
+        OpenGLShader(const std::string& name, const std::string& filepath);
+        OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc);
         ~OpenGLShader();
+
+        const std::string& GetName() const override { return m_Name; }
 
         void Bind() const override;
         void Unbind() const override;
@@ -36,6 +39,7 @@ namespace Limnova
         std::unordered_map<GLenum, std::string> Preprocess(const std::string& source);
         void Compile(const std::unordered_map<GLenum, std::string>& sources);
     private:
+        std::string m_Name;
         uint32_t m_RendererId;
         uint32_t m_NumUniformBlocks;
     };
