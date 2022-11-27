@@ -6,18 +6,21 @@
 namespace Limnova
 {
 
-    Scope<UniformBuffer> Renderer::m_CameraUniformBuffer;
+    Ref<UniformBuffer> Renderer::m_CameraUniformBuffer = nullptr;
 
 
     void Renderer::Init()
     {
         RenderCommand::Init();
+
+        Camera::BufferData data = { glm::mat4(1.f), glm::vec4(0.f), glm::vec4(0.f,0.f,-1.f,0.f) };
+        m_CameraUniformBuffer = UniformBuffer::Create((void*)&data, sizeof(Camera::BufferData));
     }
 
 
-    void Renderer::BeginScene(const Ref<Camera>& camera)
+    void Renderer::BeginScene(Camera& camera)
     {
-        m_CameraUniformBuffer->UpdateData((void*)(camera->GetData()), 0, sizeof(Camera::BufferData));
+        m_CameraUniformBuffer->UpdateData((void*)camera.GetData(), 0, sizeof(Camera::BufferData));
     }
 
 

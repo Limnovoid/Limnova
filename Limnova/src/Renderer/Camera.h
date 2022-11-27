@@ -13,17 +13,20 @@ namespace Limnova
         {
             glm::mat4 ViewProj;
             glm::vec4 Position;
+//private: float pad0; public:
             glm::vec4 AimDirection;
+//private: float pad1; public:
+
+            BufferData(glm::mat4 viewProj, glm::vec4 position, glm::vec4 aimDirection)
+                : ViewProj(viewProj), Position(position), AimDirection(aimDirection)
+            {
+            }
         };
 
         virtual ~Camera() {}
 
         virtual void RecomputeData() = 0;
         virtual BufferData const* GetData() = 0;
-
-        virtual bool IsActive() = 0;
-        virtual void SetActive() = 0;
-        virtual void SetNotActive() = 0;
     };
 
 }

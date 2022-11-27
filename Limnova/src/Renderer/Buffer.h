@@ -112,7 +112,7 @@ namespace Limnova
     class UniformBuffer
     {
     public:
-        static UniformBuffer* Create(void* data, uint32_t size);
+        static Ref<UniformBuffer> Create(void* data, uint32_t size);
         virtual ~UniformBuffer() {};
 
         virtual void Bind() const = 0;

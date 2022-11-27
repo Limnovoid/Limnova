@@ -25,6 +25,8 @@ namespace Limnova
         float Dot(const Vector3 rhs) const;
         Vector3 Cross(const Vector3 rhs) const;
     public:
+        static Vector3 Cross(const Vector3 lhs, const Vector3 rhs);
+    public:
         Vector3 operator+(const Vector3 rhs) const;
         Vector3& operator+=(const Vector3 rhs);
         Vector3 operator-(const Vector3 rhs) const;

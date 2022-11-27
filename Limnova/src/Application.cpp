@@ -80,7 +80,6 @@ namespace Limnova
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<WindowCloseEvent>(LV_BIND_EVENT_FN(Application::OnWindowClose));
 
-
         for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); )
         {
             (*--it)->OnEvent(e);

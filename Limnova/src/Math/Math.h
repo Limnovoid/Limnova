@@ -16,6 +16,6 @@ namespace Limnova
     /// <param name="rAxis">Rotation axis: must have MAGNITUDE 1</param>
     /// <param name="rAngleRad">Rotation angle in radians</param>
     /// <returns>A copy of the vector, rotated as per the arguments</returns>
-    Vector3 Rotate(const Vector3 vec, const Vector3 rAxis, const float rAngleRad);
+    Vector3 Rotate(const Vector3 vector, const Vector3 rAxis, const float rAngleRadians);
 
 }
