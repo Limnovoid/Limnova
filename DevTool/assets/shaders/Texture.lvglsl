@@ -4,8 +4,8 @@
 layout (std140) uniform CameraUniform
 {
     mat4 ViewProj;
-    vec4 Position;
-    vec4 AimDirection;
+    vec3 Position;
+    vec3 AimDirection;
 } u_Camera;
 
 uniform mat4 u_Transform;

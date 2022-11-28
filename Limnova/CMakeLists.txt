@@ -7,7 +7,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Layer.cpp"
     "src/LayerStack.cpp"
 
-    "src/CameraController.cpp"
+    "src/PerspectiveCameraController.cpp"
 
     "src/Events/Event.h"
     "src/Events/KeyEvent.h"

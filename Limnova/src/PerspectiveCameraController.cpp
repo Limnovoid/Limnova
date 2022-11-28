@@ -1,22 +1,24 @@
-#include "CameraController.h"
+#include "PerspectiveCameraController.h"
 
 #include "Input.h"
 #include "KeyCodes.h"
 #include "MouseButtonCodes.h"
+
 #include "Application.h"
 
 
 namespace Limnova
 {
 
-    CameraController::CameraController(const glm::vec3& position, const glm::vec3& aimDirection, const float aspectRatio)
-        : m_AspectRatio(aspectRatio), m_Camera(m_Fov, aspectRatio, m_Near, m_Far), m_Position(position), m_AimDirection(aimDirection)
+    PerspectiveCameraController::PerspectiveCameraController(const Vector3& position, const Vector3& aimDirection, const float aspectRatio)
+        : m_AspectRatio(aspectRatio), m_Camera(m_Fov, aspectRatio, m_Near, m_Far, position, aimDirection, { 0.f, 1.f, 0.f }),
+        m_Position(position), m_AimDirection(aimDirection)
     {
         std::tie(m_MouseX, m_MouseY) = Input::GetMousePosition();
     }
 
 
-    void CameraController::OnUpdate(Timestep dT)
+    void PerspectiveCameraController::OnUpdate(Timestep dT)
     {
         auto [mouseX, mouseY] = Input::GetMousePosition();
         float deltaMouseX = mouseX - m_MouseX;
@@ -88,16 +90,16 @@ namespace Limnova
     }
 
 
-    void CameraController::OnEvent(Event& e)
+    void PerspectiveCameraController::OnEvent(Event& e)
     {
         EventDispatcher dispatcher(e);
-        dispatcher.Dispatch<MouseButtonPressedEvent>(LV_BIND_EVENT_FN(CameraController::OnMouseButtonPressedEvent));
-        dispatcher.Dispatch<MouseScrolledEvent>(LV_BIND_EVENT_FN(CameraController::OnMouseScrolled));
-        dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(CameraController::OnWindowResized));
+        dispatcher.Dispatch<MouseButtonPressedEvent>(LV_BIND_EVENT_FN(PerspectiveCameraController::OnMouseButtonPressedEvent));
+        dispatcher.Dispatch<MouseScrolledEvent>(LV_BIND_EVENT_FN(PerspectiveCameraController::OnMouseScrolled));
+        dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(PerspectiveCameraController::OnWindowResized));
     }
 
 
-    bool CameraController::OnMouseButtonPressedEvent(MouseButtonPressedEvent& event)
+    bool PerspectiveCameraController::OnMouseButtonPressedEvent(MouseButtonPressedEvent& event)
     {
         switch(event.GetMouseButton())
         {
@@ -122,7 +124,7 @@ namespace Limnova
     }
 
 
-    bool CameraController::OnMouseScrolled(MouseScrolledEvent& e)
+    bool PerspectiveCameraController::OnMouseScrolled(MouseScrolledEvent& e)
     {
         m_Fov -= m_ZoomSensitivity * e.GetYOffset();
         m_Fov = std::clamp(m_Fov, m_MinFov, m_MaxFov);
@@ -132,7 +134,7 @@ namespace Limnova
     }
 
 
-    bool CameraController::OnWindowResized(WindowResizeEvent& e)
+    bool PerspectiveCameraController::OnWindowResized(WindowResizeEvent& e)
     {
         m_AspectRatio = (float)e.GetWidth() / (float)e.GetHeight();
 

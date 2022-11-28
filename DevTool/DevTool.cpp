@@ -15,8 +15,8 @@ public:
     {
         // Camera
         Limnova::Application& app = Limnova::Application::Get();
-        m_CameraController = std::make_shared<Limnova::CameraController>(
-            Limnova::Vector3(0.f, 0.f, 0.f), Limnova::Vector3(0.f, 0.f,-1.f),
+        m_CameraController = std::make_shared<Limnova::PerspectiveCameraController>(
+            Limnova::Vector3(0.f, 0.f, 1.f), Limnova::Vector3(0.f, 0.f,-1.f),
             (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight()
         );
         app.GetWindow().SetRawMouseInput(true);
@@ -170,7 +170,7 @@ public:
     std::chrono::steady_clock::time_point m_Time; // TEMPORARY dT
 
     // TEMPORARY camera animation
-    Limnova::Ref<Limnova::CameraController> m_CameraController;
+    Limnova::Ref<Limnova::PerspectiveCameraController> m_CameraController;
 
     // TEMPORARY transform tests
     glm::vec3 m_TrianglePosition;

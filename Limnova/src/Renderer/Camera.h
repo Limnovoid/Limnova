@@ -12,12 +12,12 @@ namespace Limnova
         struct BufferData
         {
             glm::mat4 ViewProj;
-            glm::vec4 Position;
-//private: float pad0; public:
-            glm::vec4 AimDirection;
-//private: float pad1; public:
+            glm::vec3 Position;
+        /*--pad 1byte-------------------------*/private: float pad0; public:
+            glm::vec3 AimDirection;
+        /*--pad 1byte-------------------------*/private: float pad1; public:
 
-            BufferData(glm::mat4 viewProj, glm::vec4 position, glm::vec4 aimDirection)
+            BufferData(glm::mat4 viewProj, glm::vec3 position, glm::vec3 aimDirection)
                 : ViewProj(viewProj), Position(position), AimDirection(aimDirection)
             {
             }

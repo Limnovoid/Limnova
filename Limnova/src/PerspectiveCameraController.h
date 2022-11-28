@@ -12,10 +12,10 @@
 namespace Limnova
 {
 
-    class CameraController
+    class PerspectiveCameraController
     {
     public:
-        CameraController(const glm::vec3& position, const glm::vec3& aimDirection, const float aspectRatio);
+        PerspectiveCameraController(const Vector3& position, const Vector3& aimDirection, const float aspectRatio);
 
         void OnUpdate(Timestep dT);
         void OnEvent(Event& e);
