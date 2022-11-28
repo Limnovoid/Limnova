@@ -33,9 +33,11 @@ namespace Limnova
         static Application& Get();
     private:
         bool OnWindowClose(WindowCloseEvent& e);
+        bool OnWindowResize(WindowResizeEvent& e);
 
         std::unique_ptr<Window> m_Window;
         bool m_Running = true;
+        bool m_Minimized = false;
 
         LayerStack m_LayerStack;
         ImGuiLayer* m_ImGuiLayer;

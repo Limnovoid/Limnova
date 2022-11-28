@@ -58,9 +58,12 @@ namespace Limnova
             m_Time = newTime;
 
             // Update layers
-            for (Layer* layer : m_LayerStack)
+            if (!m_Minimized)
             {
-                layer->OnUpdate(dT);
+                for (Layer* layer : m_LayerStack)
+                {
+                    layer->OnUpdate(dT);
+                }
             }
 
             m_ImGuiLayer->Begin();
@@ -79,6 +82,7 @@ namespace Limnova
     {
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<WindowCloseEvent>(LV_BIND_EVENT_FN(Application::OnWindowClose));
+        dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(Application::OnWindowResize));
 
         for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); )
         {
@@ -95,6 +99,20 @@ namespace Limnova
     {
         m_Running = false;
         return true;
+    }
+
+    bool Application::OnWindowResize(WindowResizeEvent& e)
+    {
+        if (e.GetWidth() == 0 || e.GetHeight() == 0)
+        {
+            m_Minimized = true;
+            return true;
+        }
+        m_Minimized = false;
+
+        Renderer::OnWindowResize(e.GetWidth(), e.GetHeight());
+
+        return false;
     }
 
 }
