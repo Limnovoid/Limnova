@@ -9,17 +9,17 @@
 namespace Limnova
 {
 
-    class PerspectiveCamera : public Camera
+    class OrthographicCamera : public Camera
     {
     public:
-        PerspectiveCamera(const float fov, const float aspectRatio, const float nearDistance, const float farDistance,
+        OrthographicCamera(const float aspectRatio, const float nearDistance, const float farDistance,
             const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection);
-        ~PerspectiveCamera();
+        ~OrthographicCamera();
 
         BufferData const* GetData() override;
         void RecomputeData() override;
 
-        void SetProjection(const float fov, const float aspectRatio, const float nearDistance, const float farDistance);
+        void SetProjection(const float aspectRatio, const float scale, const float nearDistance, const float farDistance);
         void SetView(const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection);
     private:
         glm::mat4 m_Projection;

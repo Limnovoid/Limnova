@@ -7,7 +7,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Layer.cpp"
     "src/LayerStack.cpp"
 
-    "src/PerspectiveCameraController.cpp"
+    "src/PointCameraController.cpp"
 
     "src/Events/Event.h"
     "src/Events/KeyEvent.h"
@@ -38,6 +38,7 @@ add_library(${PROJECT_NAME} STATIC
 
     "src/Renderer/Buffer.cpp"
     "src/Renderer/Camera.h"
+    "src/Renderer/OrthographicCamera.cpp"
     "src/Renderer/PerspectiveCamera.cpp"
     "src/Renderer/RenderCommand.cpp"
     "src/Renderer/Renderer.cpp"

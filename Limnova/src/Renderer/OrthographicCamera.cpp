@@ -1,4 +1,4 @@
-#include "PerspectiveCamera.h"
+#include "OrthographicCamera.h"
 
 #include "Application.h"
 
@@ -6,21 +6,21 @@
 namespace Limnova
 {
 
-    PerspectiveCamera::PerspectiveCamera(const float fov, const float aspectRatio, const float nearDistance, const float farDistance,
+    OrthographicCamera::OrthographicCamera(const float aspectRatio, const float nearDistance, const float farDistance,
         const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection)
-        : m_Projection(glm::perspectiveRH_ZO(fov, aspectRatio, nearDistance, farDistance)),
+        : m_Projection(glm::orthoRH_ZO(-aspectRatio, aspectRatio, -1.f, 1.f, nearDistance, farDistance)),
         m_View(glm::lookAtRH((glm::vec3)position, (glm::vec3)position + (glm::vec3)aimDirection, (glm::vec3)upDirection)),
         m_Data(m_Projection * m_View, (glm::vec3)position, (glm::vec3)aimDirection)
     {
     }
 
 
-    PerspectiveCamera::~PerspectiveCamera()
+    OrthographicCamera::~OrthographicCamera()
     {
     }
 
 
-    Camera::BufferData const* PerspectiveCamera::GetData()
+    Camera::BufferData const* OrthographicCamera::GetData()
     {
         if (m_NeedRecompute)
         {
@@ -30,21 +30,21 @@ namespace Limnova
     }
 
 
-    void PerspectiveCamera::RecomputeData()
+    void OrthographicCamera::RecomputeData()
     {
         m_Data.ViewProj = m_Projection * m_View;
         m_NeedRecompute = false;
     }
 
 
-    void PerspectiveCamera::SetProjection(const float fov, const float aspectRatio, const float nearDistance, const float farDistance)
+    void OrthographicCamera::SetProjection(const float aspectRatio, const float scale, const float nearDistance, const float farDistance)
     {
-        m_Projection = glm::perspectiveRH_ZO(fov, aspectRatio, nearDistance, farDistance);
+        m_Projection = glm::orthoRH_ZO(-aspectRatio * scale, aspectRatio * scale, -scale, scale, nearDistance, farDistance);
         m_NeedRecompute = true;
     }
 
 
-    void PerspectiveCamera::SetView(const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection)
+    void OrthographicCamera::SetView(const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection)
     {
         m_Data.Position = (glm::vec3)position;
         m_Data.AimDirection = (glm::vec3)aimDirection;
