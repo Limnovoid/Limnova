@@ -7,12 +7,12 @@
 namespace Limnova
 {
 
-    VertexArray* VertexArray::Create()
+    Ref<VertexArray> VertexArray::Create()
     {
         switch (Renderer::GetAPI())
         {
             case RendererAPI::API::None:     LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
-            case RendererAPI::API::OpenGL:   return new OpenGLVertexArray();
+            case RendererAPI::API::OpenGL:   return std::make_shared<OpenGLVertexArray>();
         }
         LV_CORE_ASSERT(false, "Renderer::GetAPI() returned unknown RendererAPI!");
         return nullptr;

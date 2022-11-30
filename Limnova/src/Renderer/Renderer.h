@@ -21,9 +21,14 @@ namespace Limnova
 
         inline static RendererAPI::API GetAPI() { return RendererAPI::GetAPI(); }
 
-        inline static const uint32_t GetCameraBufferId() { return m_CameraUniformBuffer->GetRendererId(); }
+        inline static const uint32_t GetSceneUniformBufferId() { return m_SceneUniformBuffer->GetRendererId(); }
+
+        struct SceneData
+        {
+            Camera::Data CameraData;
+        };
     private:
-        static Ref<UniformBuffer> m_CameraUniformBuffer;
+        static Ref<UniformBuffer> m_SceneUniformBuffer;
     };
 
 }

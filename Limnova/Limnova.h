@@ -21,6 +21,7 @@
 #include <src/Math/Math.h>
 
 #include <src/Renderer/Renderer.h>
+#include <src/Renderer/Renderer2D.h>
 #include <src/Renderer/RenderCommand.h>
 
 #include <src/Renderer/Shader.h>

@@ -10,7 +10,7 @@ namespace Limnova
     class Camera
     {
     public:
-        struct BufferData
+        struct Data
         {
             glm::mat4 ViewProj;
             glm::vec3 Position;
@@ -18,7 +18,7 @@ namespace Limnova
             glm::vec3 AimDirection;
         /*--pad 1byte-------------------------*/private: float pad1; public:
 
-            BufferData(glm::mat4 viewProj, glm::vec3 position, glm::vec3 aimDirection)
+            Data(glm::mat4 viewProj, glm::vec3 position, glm::vec3 aimDirection)
                 : ViewProj(viewProj), Position(position), AimDirection(aimDirection)
             {
             }
@@ -27,7 +27,7 @@ namespace Limnova
         virtual ~Camera() {}
 
         virtual void RecomputeData() = 0;
-        virtual BufferData const* GetData() = 0;
+        virtual Data const* GetData() = 0;
     };
 
 }

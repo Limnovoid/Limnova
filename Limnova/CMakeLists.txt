@@ -18,7 +18,9 @@ add_library(${PROJECT_NAME} STATIC
 
     "src/Math/glm.h"
     "src/Math/Math.cpp"
+    "src/Math/Vector2.cpp"
     "src/Math/Vector3.cpp"
+    "src/Math/Vector4.cpp"
     "src/Math/Quaternion.cpp"
 
     "src/Platform/OpenGL/OpenGLBuffer.cpp"
@@ -42,6 +44,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/PointCameraController.cpp"
     "src/Renderer/RenderCommand.cpp"
     "src/Renderer/Renderer.cpp"
+    "src/Renderer/Renderer2D.cpp"
     "src/Renderer/RendererAPI.cpp"
     "src/Renderer/RenderingContext.h"
     "src/Renderer/Shader.cpp"

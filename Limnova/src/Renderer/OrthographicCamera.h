@@ -16,7 +16,7 @@ namespace Limnova
             const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection);
         ~OrthographicCamera();
 
-        BufferData const* GetData() override;
+        Data const* GetData() override;
         void RecomputeData() override;
 
         void SetProjection(const float aspectRatio, const float scale, const float nearDistance, const float farDistance);
@@ -24,7 +24,7 @@ namespace Limnova
     private:
         glm::mat4 m_Projection;
         glm::mat4 m_View;
-        BufferData m_Data;
+        Data m_Data;
         bool m_NeedRecompute = false;
     };
 

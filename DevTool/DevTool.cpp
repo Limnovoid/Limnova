@@ -19,7 +19,7 @@ public:
         // Camera
         Limnova::Application& app = Limnova::Application::Get();
         m_CameraController = std::make_shared<Limnova::PerspectivePointCameraController>(
-            Limnova::Vector3(0.f, 0.f, 1.f), Limnova::Vector3(0.f, 0.f,-1.f),
+            Limnova::Vector3(0.f, 0.f, 2.f), Limnova::Vector3(0.f, 0.f,-1.f),
             (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight(),
             0.1f, 100.f, glm::radians(60.f)
         );
@@ -32,12 +32,12 @@ public:
 
         // Vertex arrays
         /// Triangle
-        m_VertexArray.reset(Limnova::VertexArray::Create());
+        m_VertexArray = Limnova::VertexArray::Create();
 
         float vertices[3 * (3 + 4)] = {
-            -0.5f, -0.5f, -1.f,     0.2f, 0.9f, 0.3f, 1.f,
-             0.5f, -0.5f, -1.f,     0.2f, 0.3f, 0.9f, 1.f,
-             0.0f,  0.5f, -1.f,     0.9f, 0.3f, 0.2f, 1.f
+            -0.5f, -0.5f, -0.f,     0.2f, 0.9f, 0.3f, 1.f,
+             0.5f, -0.5f, -0.f,     0.2f, 0.3f, 0.9f, 1.f,
+             0.0f,  0.5f, -0.f,     0.9f, 0.3f, 0.2f, 1.f
         };
         Limnova::Ref<Limnova::VertexBuffer> vertexBuffer = Limnova::VertexBuffer::Create(vertices, sizeof(vertices));
         vertexBuffer->SetLayout({
@@ -51,13 +51,13 @@ public:
         m_VertexArray->SetIndexBuffer(indexBuffer);
 
         /// Square
-        m_SquareVA.reset(Limnova::VertexArray::Create());
+        m_SquareVA = Limnova::VertexArray::Create();
 
         float squareVertices[(3 + 2) * 4] = {
-            -0.5f, -0.5f, -1.f,   0.f, 0.f,
-             0.5f, -0.5f, -1.f,   1.f, 0.f,
-             0.5f,  0.5f, -1.f,   1.f, 1.f,
-            -0.5f,  0.5f, -1.f,   0.f, 1.f
+            -0.5f, -0.5f, -0.f,   0.f, 0.f,
+             0.5f, -0.5f, -0.f,   1.f, 0.f,
+             0.5f,  0.5f, -0.f,   1.f, 1.f,
+            -0.5f,  0.5f, -0.f,   0.f, 1.f
         };
         Limnova::Ref<Limnova::VertexBuffer> squareVB = Limnova::VertexBuffer::Create(squareVertices, sizeof(squareVertices));
         squareVB->SetLayout({
@@ -72,14 +72,14 @@ public:
 
         // Shaders
         m_Shader = Limnova::Shader::Create(ASSET_DIR"\\shaders\\AttrColor.lvglsl");
-        m_Shader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
+        m_Shader->BindUniformBuffer(Limnova::Renderer::GetSceneUniformBufferId(), "CameraUniform");
 
         m_FlatColorShader = Limnova::Shader::Create(ASSET_DIR"\\shaders\\FlatColor.lvglsl");
-        m_FlatColorShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
+        m_FlatColorShader->BindUniformBuffer(Limnova::Renderer::GetSceneUniformBufferId(), "CameraUniform");
 
         m_ShaderLibrary.Load(ASSET_DIR"\\shaders\\Texture.lvglsl");
         auto textureShader = m_ShaderLibrary.Get("Texture");
-        textureShader->BindUniformBuffer(Limnova::Renderer::GetCameraBufferId(), "CameraUniform");
+        textureShader->BindUniformBuffer(Limnova::Renderer::GetSceneUniformBufferId(), "CameraUniform");
         textureShader->Bind();
         std::dynamic_pointer_cast<Limnova::OpenGLShader>(textureShader)->UploadUniformInt("u_Texture", 0);
 

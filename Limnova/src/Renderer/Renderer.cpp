@@ -1,20 +1,25 @@
 #include "Renderer.h"
 
+#include "Renderer2D.h"
+
 #include "Platform/OpenGL/OpenGLShader.h" // TEMPORARY shader casting
 
 
 namespace Limnova
 {
 
-    Ref<UniformBuffer> Renderer::m_CameraUniformBuffer = nullptr;
+    Ref<UniformBuffer> Renderer::m_SceneUniformBuffer = nullptr;
 
 
     void Renderer::Init()
     {
         RenderCommand::Init();
 
-        Camera::BufferData data = { glm::mat4(1.f), glm::vec4(0.f), glm::vec4(0.f,0.f,-1.f,0.f) };
-        m_CameraUniformBuffer = UniformBuffer::Create((void*)&data, sizeof(Camera::BufferData));
+        SceneData scene = { { glm::mat4(1.f), glm::vec4(0.f), glm::vec4(0.f,0.f,-1.f,0.f) } };
+        m_SceneUniformBuffer = UniformBuffer::Create((void*)&scene, sizeof(Camera::Data));
+
+        Renderer2D::Init(m_SceneUniformBuffer);
+        LV_CORE_ASSERT(m_SceneUniformBuffer.use_count() == 2, "Incorrect number of references to Renderer::m_SceneUniformBuffer!");
     }
 
 
@@ -26,7 +31,7 @@ namespace Limnova
 
     void Renderer::BeginScene(Camera& camera)
     {
-        m_CameraUniformBuffer->UpdateData((void*)camera.GetData(), 0, sizeof(Camera::BufferData));
+        m_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(SceneData, SceneData::CameraData), sizeof(Camera::Data));
     }
 
 

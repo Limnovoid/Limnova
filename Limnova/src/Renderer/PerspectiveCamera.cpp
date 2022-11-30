@@ -20,7 +20,7 @@ namespace Limnova
     }
 
 
-    Camera::BufferData const* PerspectiveCamera::GetData()
+    Camera::Data const* PerspectiveCamera::GetData()
     {
         if (m_NeedRecompute)
         {

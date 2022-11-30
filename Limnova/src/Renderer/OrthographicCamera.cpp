@@ -20,7 +20,7 @@ namespace Limnova
     }
 
 
-    Camera::BufferData const* OrthographicCamera::GetData()
+    Camera::Data const* OrthographicCamera::GetData()
     {
         if (m_NeedRecompute)
         {
