@@ -77,7 +77,6 @@ namespace Limnova
 
         glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
         squareTransform = glm::scale(squareTransform, glm::vec3((glm::vec2)size, 1.f));
-        s_Data->FlatColorShader->Bind();
         std::dynamic_pointer_cast<OpenGLShader>(s_Data->FlatColorShader)->UploadUniformMat4f("u_Transform", squareTransform);
 
         s_Data->SquareVertexArray->Bind();
