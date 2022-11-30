@@ -17,7 +17,8 @@ public:
     void OnImGuiRender() override;
     void OnEvent(Limnova::Event& e) override;
 private:
-    Limnova::Ref<Limnova::OrthographicPointCameraController> m_CameraController;
+    Limnova::Ref<Limnova::PerspectivePlanarCameraController> m_CameraController;
+    //Limnova::Ref<Limnova::OrthographicPlanarCameraController> m_CameraController;
 
     // TEMPORARY for future abstraction into 2D renderer
     Limnova::ShaderLibrary m_ShaderLibrary;

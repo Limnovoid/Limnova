@@ -11,6 +11,7 @@
 #include <src/Core/Input.h>
 #include <src/Core/KeyCodes.h>
 #include <src/Core/MouseButtonCodes.h>
+#include <src/Renderer/PlanarCameraController.h>
 #include <src/Renderer/PointCameraController.h>
 
 #include <src/ImGui/ImGuiLayer.h>
@@ -26,6 +27,7 @@
 #include <src/Renderer/VertexArray.h>
 #include <src/Renderer/Buffer.h>
 #include <src/Renderer/Camera.h>
+#include <src/Renderer/OrthographicCamera.h>
 #include <src/Renderer/PerspectiveCamera.h>
 #include <src/Renderer/Texture.h>
 // ------------------------------------

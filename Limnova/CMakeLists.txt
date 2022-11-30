@@ -38,6 +38,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/Camera.h"
     "src/Renderer/OrthographicCamera.cpp"
     "src/Renderer/PerspectiveCamera.cpp"
+    "src/Renderer/PlanarCameraController.cpp"
     "src/Renderer/PointCameraController.cpp"
     "src/Renderer/RenderCommand.cpp"
     "src/Renderer/Renderer.cpp"

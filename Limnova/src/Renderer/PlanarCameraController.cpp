@@ -1,4 +1,4 @@
-#include "PointCameraController.h"
+#include "PlanarCameraController.h"
 
 #include "Core/Input.h"
 #include "Core/KeyCodes.h"
@@ -10,67 +10,43 @@
 namespace Limnova
 {
 
-    PointCameraController::PointCameraController(const Vector3& position, const Vector3& aimDirection, const float aspectRatio,
+    PlanarCameraController::PlanarCameraController(const Vector3& position, const Vector3& aimDirection, const float aspectRatio,
         const float nearDistance, const float farDistance)
         : m_Position(position), m_AimDirection(aimDirection), m_AspectRatio(aspectRatio), m_Near(nearDistance), m_Far(farDistance)
     {
-        std::tie(m_MouseX, m_MouseY) = Input::GetMousePosition();
-
         // TODO - dynamic UP vector
     }
 
 
-    PointCameraController::~PointCameraController()
+    PlanarCameraController::~PlanarCameraController()
     {
     }
 
 
-    void PointCameraController::OnUpdate(Timestep dT)
+    void PlanarCameraController::OnUpdate(Timestep dT)
     {
-        auto [mouseX, mouseY] = Input::GetMousePosition();
-        float deltaMouseX = mouseX - m_MouseX;
-        float deltaMouseY = mouseY - m_MouseY;
-        m_MouseX = mouseX;
-        m_MouseY = mouseY;
         if (m_BeingControlled)
         {
-            // Wrap azimuth around [0,360]
-            float scaledSensitivity = m_MouseSensitivity * m_ZoomLevel;
-            m_CameraAzimuth -= scaledSensitivity * deltaMouseX;
-            if (m_CameraAzimuth >= 360.f) m_CameraAzimuth -= 360.f;
-            if (m_CameraAzimuth < 0.f) m_CameraAzimuth += 360.f;
-
-            // Clamp elevation to [min,max] - prevents invalid UP vector in
-            // projection matrix calculation
-            m_CameraElevation += scaledSensitivity * deltaMouseY;
-            m_CameraElevation = std::clamp(m_CameraElevation, m_MinElevation, m_MaxElevation);
-
-            // Vertical aim: rotate default aim direction (0,0,-1) around default tilt axis (-1,0,0)
-            m_AimDirection = Rotate({ 0.f, 0.f,-1.f }, {-1.f, 0.f, 0.f }, glm::radians(m_CameraElevation));
-            // Horizontal aim: rotate tilted aim direction around default up axis (0,1,0)
-            m_AimDirection = Rotate(m_AimDirection, { 0.f, 1.f, 0.f }, glm::radians(m_CameraAzimuth));
-            m_AimDirection.Normalize();
-
             Vector3 cameraMovement;
 
             // Horizontal movement
-            Vector3 cameraHorzLeft = Vector3::Cross({ 0.f, 1.f, 0.f }, m_AimDirection).Normalized();
+            Vector3 cameraLeft = Vector3::Cross({ 0.f, 1.f, 0.f }, m_AimDirection).Normalized();
             if (Input::IsKeyPressed(LV_KEY_A))
             {
-                cameraMovement += cameraHorzLeft;
+                cameraMovement += cameraLeft;
             }
             else if (Input::IsKeyPressed(LV_KEY_D))
             {
-                cameraMovement -= cameraHorzLeft;
+                cameraMovement -= cameraLeft;
             }
-            Vector3 cameraHorzForward = cameraHorzLeft.Cross({ 0.f, 1.f, 0.f });
+            Vector3 cameraUp = { 0.f, 1.f, 0.f };
             if (Input::IsKeyPressed(LV_KEY_W))
             {
-                cameraMovement += cameraHorzForward;
+                cameraMovement += cameraUp;
             }
             else if (Input::IsKeyPressed(LV_KEY_S))
             {
-                cameraMovement -= cameraHorzForward;
+                cameraMovement -= cameraUp;
             }
             cameraMovement.Normalize();
 
@@ -97,16 +73,16 @@ namespace Limnova
     }
 
 
-    void PointCameraController::OnEvent(Event& e)
+    void PlanarCameraController::OnEvent(Event& e)
     {
         EventDispatcher dispatcher(e);
-        dispatcher.Dispatch<MouseButtonPressedEvent>(LV_BIND_EVENT_FN(PointCameraController::OnMouseButtonPressedEvent));
-        dispatcher.Dispatch<MouseScrolledEvent>(LV_BIND_EVENT_FN(PointCameraController::OnMouseScrolled));
-        dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(PointCameraController::OnWindowResized));
+        dispatcher.Dispatch<MouseButtonPressedEvent>(LV_BIND_EVENT_FN(PlanarCameraController::OnMouseButtonPressedEvent));
+        dispatcher.Dispatch<MouseScrolledEvent>(LV_BIND_EVENT_FN(PlanarCameraController::OnMouseScrolled));
+        dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(PlanarCameraController::OnWindowResized));
     }
 
 
-    bool PointCameraController::OnMouseButtonPressedEvent(MouseButtonPressedEvent& event)
+    bool PlanarCameraController::OnMouseButtonPressedEvent(MouseButtonPressedEvent& event)
     {
         switch(event.GetMouseButton())
         {
@@ -131,7 +107,7 @@ namespace Limnova
     }
 
 
-    bool PointCameraController::OnMouseScrolled(MouseScrolledEvent& e)
+    bool PlanarCameraController::OnMouseScrolled(MouseScrolledEvent& e)
     {
         m_ZoomLevel -= m_ZoomSensitivity * e.GetYOffset();
         m_ZoomLevel = std::clamp(m_ZoomLevel, m_MinZoom, m_MaxZoom);
@@ -141,7 +117,7 @@ namespace Limnova
     }
 
 
-    bool PointCameraController::OnWindowResized(WindowResizeEvent& e)
+    bool PlanarCameraController::OnWindowResized(WindowResizeEvent& e)
     {
         m_AspectRatio = (float)e.GetWidth() / (float)e.GetHeight();
 
@@ -152,9 +128,9 @@ namespace Limnova
 
     // Perspective /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    PerspectivePointCameraController::PerspectivePointCameraController(const Vector3& position, const Vector3& aimDirection,
+    PerspectivePlanarCameraController::PerspectivePlanarCameraController(const Vector3& position, const Vector3& aimDirection,
         const float aspectRatio, const float nearDistance, const float farDistance, const float fov)
-        : PointCameraController(position, aimDirection, aspectRatio, nearDistance, farDistance), m_BaseFov(fov),
+        : PlanarCameraController(position, aimDirection, aspectRatio, nearDistance, farDistance), m_BaseFov(fov),
         m_Camera(m_BaseFov, m_AspectRatio, m_Near, m_Far, m_Position, m_AimDirection, { 0.f, 1.f, 0.f })
     {
         m_MinZoom = 0.25;   // 60 * 0.25 = 15 degrees FoV
@@ -163,18 +139,18 @@ namespace Limnova
     }
 
 
-    PerspectivePointCameraController::~PerspectivePointCameraController()
+    PerspectivePlanarCameraController::~PerspectivePlanarCameraController()
     {
     }
 
 
-    void PerspectivePointCameraController::SetView()
+    void PerspectivePlanarCameraController::SetView()
     {
         m_Camera.SetView(m_Position, m_AimDirection, { 0.f, 1.f, 0.f });
     }
 
 
-    void PerspectivePointCameraController::SetProjection()
+    void PerspectivePlanarCameraController::SetProjection()
     {
         m_Camera.SetProjection(m_BaseFov * m_ZoomLevel, m_AspectRatio, m_Near, m_Far);
     }
@@ -182,9 +158,9 @@ namespace Limnova
 
     // Orthographic ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    OrthographicPointCameraController::OrthographicPointCameraController(const Vector3& position, const Vector3& aimDirection,
+    OrthographicPlanarCameraController::OrthographicPlanarCameraController(const Vector3& position, const Vector3& aimDirection,
         const float aspectRatio, const float nearDistance, const float farDistance)
-        : PointCameraController(position, aimDirection, aspectRatio, nearDistance, farDistance),
+        : PlanarCameraController(position, aimDirection, aspectRatio, nearDistance, farDistance),
         m_Camera(m_AspectRatio, m_Near, m_Far, m_Position, m_AimDirection, { 0.f, 1.f, 0.f })
     {
         m_MinZoom = 0.1f;
@@ -193,18 +169,18 @@ namespace Limnova
     }
 
 
-    OrthographicPointCameraController::~OrthographicPointCameraController()
+    OrthographicPlanarCameraController::~OrthographicPlanarCameraController()
     {
     }
 
 
-    void OrthographicPointCameraController::SetView()
+    void OrthographicPlanarCameraController::SetView()
     {
         m_Camera.SetView(m_Position, m_AimDirection, { 0.f, 1.f, 0.f });
     }
 
 
-    void OrthographicPointCameraController::SetProjection()
+    void OrthographicPlanarCameraController::SetProjection()
     {
         m_Camera.SetProjection(m_AspectRatio, m_ZoomLevel, m_Near, m_Far);
     }

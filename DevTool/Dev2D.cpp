@@ -15,11 +15,16 @@ void Dev2DLayer::OnAttach()
 {
     // Camera
     Limnova::Application& app = Limnova::Application::Get();
-    m_CameraController = std::make_shared<Limnova::OrthographicPointCameraController>(
+    m_CameraController = std::make_shared<Limnova::PerspectivePlanarCameraController>(
+        Limnova::Vector3(0.f, 0.f, 1.f), Limnova::Vector3(0.f, 0.f, -1.f),
+        (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight(),
+        0.1f, 100.f, glm::radians(60.f)
+    );
+    /*m_CameraController = std::make_shared<Limnova::OrthographicPlanarCameraController>(
         Limnova::Vector3(0.f, 0.f, 1.f), Limnova::Vector3(0.f, 0.f, -1.f),
         (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight(),
         0.1f, 100.f
-    );
+    );*/
 
     // Square
     m_SquareVA.reset(Limnova::VertexArray::Create());
@@ -78,6 +83,7 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
     flatColorShader->Bind();
     std::dynamic_pointer_cast<Limnova::OpenGLShader>(flatColorShader)->UploadUniformFloat4("u_Color", m_SquareColor);
     glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), { 0.f, 0.f, -0.5f });
+    squareTransform = glm::scale(squareTransform, { 2.f, 2.f, 2.f });
     Limnova::Renderer::Submit(flatColorShader, m_SquareVA, squareTransform);
 
     auto textureShader = m_ShaderLibrary.Get("Texture");
