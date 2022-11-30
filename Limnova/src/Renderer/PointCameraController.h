@@ -64,7 +64,7 @@ namespace Limnova
     {
     public:
         PerspectivePointCameraController(const Vector3& position, const Vector3& aimDirection,
-            const float aspectRatio, const float nearDistance = 0.1f, const float farDistance = 10.f,
+            const float aspectRatio, const float nearDistance = 0.1f, const float farDistance = 100.f,
             const float fov = glm::radians(60.f));
         ~PerspectivePointCameraController();
 
@@ -83,7 +83,7 @@ namespace Limnova
     {
     public:
         OrthographicPointCameraController(const Vector3& position, const Vector3& aimDirection,
-            const float aspectRatio, const float nearDistance = 0.1f, const float farDistance = 10.f);
+            const float aspectRatio, const float nearDistance = 0.1f, const float farDistance = 100.f);
         ~OrthographicPointCameraController();
 
         Camera& GetCamera() override { return m_Camera; }

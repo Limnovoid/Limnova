@@ -1,3 +1,16 @@
+// Platform detection using predefined macros
+#ifdef _WIN32
+    // Windows x64/x86
+    #ifdef _WIN64
+        // Window x64
+        #define LV_PLATFORM_WINDOWS
+    #else
+        #error "x86 builds are not supported!"
+    #endif
+#else
+    #error "Non-Windows build are not supported!"
+#endif
+
 #ifdef LV_PLATFORM_WINDOWS
     #ifdef LV_DYNAMIC_LINKING
         #ifdef LV_BUILD_DLL
@@ -8,8 +21,6 @@
     #else
         #define LIMNOVA_API
     #endif
-#else
-    #error Limnova only supports Windows!
 #endif
 
 

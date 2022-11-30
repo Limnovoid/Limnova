@@ -18,7 +18,7 @@ namespace Limnova
         virtual void OnDetach() {}
         virtual void OnUpdate(Timestep dT) {}
         virtual void OnImGuiRender() {}
-        virtual void OnEvent(Event& event) {}
+        virtual void OnEvent(Event& e) {}
 
         inline const std::string& GetName() const { return m_DebugName; }
     protected:

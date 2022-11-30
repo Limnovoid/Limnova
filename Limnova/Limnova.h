@@ -2,16 +2,16 @@
 
 
 // For Limnova applications -----------
-#include <src/Application.h>
-#include <src/Layer.h>
-#include <src/Log.h>
+#include <src/Core/Application.h>
+#include <src/Core/Layer.h>
+#include <src/Core/Log.h>
 
 #include <src/Core/Timestep.h>
 
-#include <src/Input.h>
-#include <src/KeyCodes.h>
-#include <src/MouseButtonCodes.h>
-#include <src/PointCameraController.h>
+#include <src/Core/Input.h>
+#include <src/Core/KeyCodes.h>
+#include <src/Core/MouseButtonCodes.h>
+#include <src/Renderer/PointCameraController.h>
 
 #include <src/ImGui/ImGuiLayer.h>
 #include <imgui/imgui.h>
@@ -30,7 +30,3 @@
 #include <src/Renderer/Texture.h>
 // ------------------------------------
 
-
-// Entry point ------------
-#include <src/EntryPoint.h>
-// ------------------------

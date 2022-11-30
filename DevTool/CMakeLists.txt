@@ -1,10 +1,10 @@
 project(DevTool)
 
-add_executable(${PROJECT_NAME} "DevTool.cpp")
+add_executable(${PROJECT_NAME} "DevTool.cpp" "Dev2D.cpp")
 
 
 set_property(TARGET ${PROJECT_NAME}
-    PROPERTY CXX_STANDARD 17	
+    PROPERTY CXX_STANDARD 20
 )
 
 

@@ -1,4 +1,7 @@
 #include <Limnova.h>
+#include <Core/EntryPoint.h>
+
+#include "Dev2D.h"
 
 #include "Platform/OpenGL/OpenGLShader.h" // TEMPORARY shader casting
 
@@ -36,8 +39,7 @@ public:
              0.5f, -0.5f, -1.f,     0.2f, 0.3f, 0.9f, 1.f,
              0.0f,  0.5f, -1.f,     0.9f, 0.3f, 0.2f, 1.f
         };
-        std::shared_ptr<Limnova::VertexBuffer> vertexBuffer;
-        vertexBuffer.reset(Limnova::VertexBuffer::Create(vertices, sizeof(vertices)));
+        Limnova::Ref<Limnova::VertexBuffer> vertexBuffer = Limnova::VertexBuffer::Create(vertices, sizeof(vertices));
         vertexBuffer->SetLayout({
             { Limnova::ShaderDataType::Float3, "a_Position" },
             { Limnova::ShaderDataType::Float4, "a_Color" }
@@ -45,8 +47,7 @@ public:
         m_VertexArray->AddVertexBuffer(vertexBuffer);
 
         uint32_t indices[3] = { 0, 1, 2 };
-        std::shared_ptr<Limnova::IndexBuffer> indexBuffer;
-        indexBuffer.reset(Limnova::IndexBuffer::Create(indices, std::size(indices)));
+        Limnova::Ref<Limnova::IndexBuffer> indexBuffer = Limnova::IndexBuffer::Create(indices, std::size(indices));
         m_VertexArray->SetIndexBuffer(indexBuffer);
 
         /// Square
@@ -58,8 +59,7 @@ public:
              0.5f,  0.5f, -1.f,   1.f, 1.f,
             -0.5f,  0.5f, -1.f,   0.f, 1.f
         };
-        std::shared_ptr<Limnova::VertexBuffer> squareVB;
-        squareVB.reset(Limnova::VertexBuffer::Create(squareVertices, sizeof(squareVertices)));
+        Limnova::Ref<Limnova::VertexBuffer> squareVB = Limnova::VertexBuffer::Create(squareVertices, sizeof(squareVertices));
         squareVB->SetLayout({
             { Limnova::ShaderDataType::Float3, "a_Position" },
             { Limnova::ShaderDataType::Float2, "a_TexCoord" }
@@ -67,8 +67,7 @@ public:
         m_SquareVA->AddVertexBuffer(squareVB);
 
         uint32_t squareIndices[6] = { 0, 1, 2, 0, 2, 3 };
-        std::shared_ptr<Limnova::IndexBuffer> squareIB;
-        squareIB.reset(Limnova::IndexBuffer::Create(squareIndices, std::size(squareIndices)));
+        Limnova::Ref<Limnova::IndexBuffer> squareIB = Limnova::IndexBuffer::Create(squareIndices, std::size(squareIndices));
         m_SquareVA->SetIndexBuffer(squareIB);
 
         // Shaders
@@ -92,7 +91,7 @@ public:
         m_TrianglePosition = { 0.f, 0.f, 0.f };
         m_TriangleMoveSpeed = 1.f;
 
-        m_SquareColor = { 0.2f, 0.3f, 0.9f };
+        m_SquareColor = { 0.2f, 0.3f, 0.9f, 1.f };
 
         m_Time = std::chrono::steady_clock::now(); // TEMPORARY dT
     }
@@ -132,13 +131,13 @@ public:
         Limnova::Renderer::BeginScene(m_CameraController->GetCamera());
 
         m_FlatColorShader->Bind();
-        std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_FlatColorShader)->UploadUniformFloat3("u_Color", m_SquareColor);
+        std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_FlatColorShader)->UploadUniformFloat4("u_Color", m_SquareColor);
         glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), {-0.5f, 0.f, 0.f });
         Limnova::Renderer::Submit(m_FlatColorShader, m_SquareVA, squareTransform);
 
+        auto textureShader = m_ShaderLibrary.Get("Texture");
         glm::mat4 texSqTransform = glm::translate(glm::mat4(1.f), { 0.5f, 0.f, 0.f });
         m_CheckerboardTexture->Bind(0);
-        auto textureShader = m_ShaderLibrary.Get("Texture");
         Limnova::Renderer::Submit(textureShader, m_SquareVA, texSqTransform);
         m_TurretTexture->Bind(0);
         Limnova::Renderer::Submit(textureShader, m_SquareVA, texSqTransform);
@@ -159,7 +158,7 @@ public:
     void OnImGuiRender() override
     {
         ImGui::Begin("Test");
-        ImGui::ColorEdit3("Square Color", glm::value_ptr(m_SquareColor));
+        ImGui::ColorEdit4("Square Color", glm::value_ptr(m_SquareColor));
         ImGui::End();
     }
 
@@ -184,7 +183,7 @@ public:
     float m_TriangleMoveSpeed;
 
     // TEMPORARY uniform tests
-    glm::vec3 m_SquareColor;
+    glm::vec4 m_SquareColor;
 };
 
 
@@ -193,7 +192,8 @@ class LIMNOVA_API DevApp : public Limnova::Application
 public:
     DevApp()
     {
-        PushLayer(new DevLayer());
+        //PushLayer(new DevLayer());
+        PushLayer(new Dev2DLayer());
     }
 
     ~DevApp()

@@ -1,10 +1,10 @@
 #include "PointCameraController.h"
 
-#include "Input.h"
-#include "KeyCodes.h"
-#include "MouseButtonCodes.h"
+#include "Core/Input.h"
+#include "Core/KeyCodes.h"
+#include "Core/MouseButtonCodes.h"
 
-#include "Application.h"
+#include "Core/Application.h"
 
 
 namespace Limnova
@@ -157,7 +157,7 @@ namespace Limnova
     {
         m_MinZoom = 0.25;   // 60 * 0.25 = 15 degrees FoV
         m_MaxZoom = 1.5f;   // 60 * 1.5 = 90 degrees FoV
-        m_ZoomSensitivity = 0.1;
+        m_ZoomSensitivity = 0.05;
     }
 
 

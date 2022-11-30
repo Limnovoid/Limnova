@@ -1,13 +1,11 @@
 project(Limnova)
 
 add_library(${PROJECT_NAME} STATIC
-    "src/Application.cpp"
-    "src/EntryPoint.h"
-    "src/Log.cpp"
-    "src/Layer.cpp"
-    "src/LayerStack.cpp"
-
-    "src/PointCameraController.cpp"
+    "src/Core/Application.cpp"
+    "src/Core/EntryPoint.h"
+    "src/Core/Log.cpp"
+    "src/Core/Layer.cpp"
+    "src/Core/LayerStack.cpp"
 
     "src/Events/Event.h"
     "src/Events/KeyEvent.h"
@@ -40,6 +38,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/Camera.h"
     "src/Renderer/OrthographicCamera.cpp"
     "src/Renderer/PerspectiveCamera.cpp"
+    "src/Renderer/PointCameraController.cpp"
     "src/Renderer/RenderCommand.cpp"
     "src/Renderer/Renderer.cpp"
     "src/Renderer/RendererAPI.cpp"
@@ -53,7 +52,7 @@ add_library(${PROJECT_NAME} STATIC
 
 
 set_property(TARGET ${PROJECT_NAME}
-    PROPERTY CXX_STANDARD 17
+    PROPERTY CXX_STANDARD 20
 )
 
 
@@ -87,12 +86,12 @@ target_precompile_headers(${PROJECT_NAME}
 
         #$<${MSVC}:<Windows.h$<ANGLE-R>>
 
-        "${PROJECT_SOURCE_DIR}/src/Log.h"
+        "${PROJECT_SOURCE_DIR}/src/Core/Log.h"
 )
 
 
 # Core.h config
-configure_file("${PROJECT_SOURCE_DIR}/src/Core.h.in" "${PROJECT_SOURCE_DIR}/src/Core.h")
+configure_file("${PROJECT_SOURCE_DIR}/src/Core/Core.h.in" "${PROJECT_SOURCE_DIR}/src/Core/Core.h")
 
 
 # Third party libs:

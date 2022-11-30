@@ -7,8 +7,6 @@ project(LimnovaEngine
 
 # Definitions
 add_compile_definitions(
-    $<${MSVC}:LV_PLATFORM_WINDOWS>
-
     $<$<CONFIG:Debug>:LV_DEBUG>
     $<$<CONFIG:Release>:LV_RELEASE>
 )
