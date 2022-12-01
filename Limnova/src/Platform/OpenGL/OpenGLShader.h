@@ -21,6 +21,14 @@ namespace Limnova
         void Bind() const override;
         void Unbind() const override;
 
+        void SetInt(const std::string& name, const int value) override;
+        void SetFloat(const std::string& name, const float value) override;
+        void SetVec2(const std::string& name, const Vector2& value) override;
+        void SetVec3(const std::string& name, const Vector3& value) override;
+        void SetVec4(const std::string& name, const Vector4& value) override;
+        void SetMat3(const std::string& name, const glm::mat3& value) override;
+        void SetMat4(const std::string& name, const glm::mat4& value) override;
+
         void BindUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName) override;
 
         // Update the values of uniforms in this shader.

@@ -199,6 +199,48 @@ namespace Limnova
     }
 
 
+    void OpenGLShader::SetInt(const std::string& name, const int value)
+    {
+        UploadUniformInt(name, value);
+    }
+
+
+    void OpenGLShader::SetFloat(const std::string& name, const float value)
+    {
+        UploadUniformFloat(name, value);
+    }
+
+
+    void OpenGLShader::SetVec2(const std::string& name, const Vector2& value)
+    {
+        UploadUniformFloat2(name, value);
+    }
+
+
+    void OpenGLShader::SetVec3(const std::string& name, const Vector3& value)
+    {
+        UploadUniformFloat3(name, value);
+    }
+
+
+    void OpenGLShader::SetVec4(const std::string& name, const Vector4& value)
+    {
+        UploadUniformFloat4(name, value);
+    }
+
+
+    void OpenGLShader::SetMat3(const std::string& name, const glm::mat3& value)
+    {
+        UploadUniformMat4f(name, value);
+    }
+
+
+    void OpenGLShader::SetMat4(const std::string& name, const glm::mat4& value)
+    {
+        UploadUniformMat4f(name, value);
+    }
+
+
     void OpenGLShader::BindUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName)
     {
         uint32_t blockIndex = glGetUniformBlockIndex(m_RendererId, uniformBlockName.c_str());

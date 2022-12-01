@@ -2,8 +2,6 @@
 
 #define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\assets"
 
-#include "Platform/OpenGL/OpenGLShader.h" // TEMPORARY shader casting
-
 
 Dev2DLayer::Dev2DLayer()
     : Layer("Dev2D")
@@ -51,7 +49,7 @@ void Dev2DLayer::OnAttach()
     auto textureShader = m_ShaderLibrary.Get("Texture");
     textureShader->BindUniformBuffer(Limnova::Renderer::GetSceneUniformBufferId(), "CameraUniform");
     textureShader->Bind();
-    std::dynamic_pointer_cast<Limnova::OpenGLShader>(textureShader)->UploadUniformInt("u_Texture", 0);
+    textureShader->SetInt("u_Texture", 0);
 
     // Textures
     m_Texture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\turret.png");
@@ -75,13 +73,7 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
 
     Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
-    //auto flatColorShader = m_ShaderLibrary.Get("FlatColor");
-    //flatColorShader->Bind();
-    //std::dynamic_pointer_cast<Limnova::OpenGLShader>(flatColorShader)->UploadUniformFloat4("u_Color", m_SquareColor);
-    //glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), { 0.f, 0.f, -0.5f });
-    //squareTransform = glm::scale(squareTransform, { 2.f, 2.f, 2.f });
-    //Limnova::Renderer::Submit(flatColorShader, m_SquareVA, squareTransform);
-    Limnova::Renderer2D::DrawQuad({ 0.f, 0.f }, { 2.f, 2.f }, m_SquareColor);
+    Limnova::Renderer2D::DrawQuad({-1.f,-1.f }, { 2.f, 2.f }, m_SquareColor);
 
     auto textureShader = m_ShaderLibrary.Get("Texture");
     m_Texture->Bind(0);

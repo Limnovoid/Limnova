@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Math/Math.h"
 #include "Math/glm.h"
 
 
@@ -18,6 +19,14 @@ namespace Limnova
 
         virtual void Bind() const = 0;
         virtual void Unbind() const = 0;
+
+        virtual void SetInt(const std::string& name, const int value) = 0;
+        virtual void SetFloat(const std::string& name, const float value) = 0;
+        virtual void SetVec2(const std::string& name, const Vector2& value) = 0;
+        virtual void SetVec3(const std::string& name, const Vector3& value) = 0;
+        virtual void SetVec4(const std::string& name, const Vector4& value) = 0;
+        virtual void SetMat3(const std::string& name, const glm::mat3& value) = 0;
+        virtual void SetMat4(const std::string& name, const glm::mat4& value) = 0;
 
         virtual void BindUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName) = 0;
     };

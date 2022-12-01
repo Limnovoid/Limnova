@@ -17,8 +17,8 @@ namespace Limnova
         static void BeginScene(Camera& camera);
         static void EndScene();
 
-        static void DrawQuad(const Vector3& position, const Vector2& size, const Vector4& color);
-        static void DrawQuad(const Vector2& position, const Vector2& size, const Vector4& color);
+        static void DrawQuad(const Vector3& positionBottomLeft, const Vector2& size, const Vector4& color);
+        static void DrawQuad(const Vector2& positionBottomLeft, const Vector2& size, const Vector4& color);
     private:
         static Ref<UniformBuffer> m_SceneUniformBuffer;
     };

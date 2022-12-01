@@ -5,8 +5,6 @@
 
 #define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\assets"
 
-#include "Platform/OpenGL/OpenGLShader.h" // TEMPORARY shader casting
-
 
 namespace Limnova
 {
@@ -32,10 +30,10 @@ namespace Limnova
         s_Data->SquareVertexArray = VertexArray::Create();
 
         float squareVertices[3 * 4] = {
-            -0.5f, -0.5f,  0.f,
-             0.5f, -0.5f,  0.f,
-             0.5f,  0.5f,  0.f,
-            -0.5f,  0.5f,  0.f
+            0.f, 0.f, 0.f,
+            1.f, 0.f, 0.f,
+            1.f, 1.f, 0.f,
+            0.f, 1.f, 0.f
         };
         Ref<VertexBuffer> squareVB = VertexBuffer::Create(squareVertices, sizeof(squareVertices));
         squareVB->SetLayout({
@@ -73,11 +71,11 @@ namespace Limnova
     void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Vector4& color)
     {
         s_Data->FlatColorShader->Bind();
-        std::dynamic_pointer_cast<Limnova::OpenGLShader>(s_Data->FlatColorShader)->UploadUniformFloat4("u_Color", color);
+        s_Data->FlatColorShader->SetVec4("u_Color", color);
 
         glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
         squareTransform = glm::scale(squareTransform, glm::vec3((glm::vec2)size, 1.f));
-        std::dynamic_pointer_cast<OpenGLShader>(s_Data->FlatColorShader)->UploadUniformMat4f("u_Transform", squareTransform);
+        s_Data->FlatColorShader->SetMat4("u_Transform", squareTransform);
 
         s_Data->SquareVertexArray->Bind();
         RenderCommand::DrawIndexed(s_Data->SquareVertexArray);

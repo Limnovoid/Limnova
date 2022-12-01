@@ -3,8 +3,6 @@
 
 #include "Dev2D.h"
 
-#include "Platform/OpenGL/OpenGLShader.h" // TEMPORARY shader casting
-
 #include <chrono> // TEMPORARY delta time
 
 #define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\assets"
@@ -81,7 +79,7 @@ public:
         auto textureShader = m_ShaderLibrary.Get("Texture");
         textureShader->BindUniformBuffer(Limnova::Renderer::GetSceneUniformBufferId(), "CameraUniform");
         textureShader->Bind();
-        std::dynamic_pointer_cast<Limnova::OpenGLShader>(textureShader)->UploadUniformInt("u_Texture", 0);
+        textureShader->SetInt("u_Texture", 0);
 
         // Textures
         m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png");
@@ -131,7 +129,7 @@ public:
         Limnova::Renderer::BeginScene(m_CameraController->GetCamera());
 
         m_FlatColorShader->Bind();
-        std::dynamic_pointer_cast<Limnova::OpenGLShader>(m_FlatColorShader)->UploadUniformFloat4("u_Color", m_SquareColor);
+        m_FlatColorShader->SetVec4("u_Color", m_SquareColor);
         glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), {-0.5f, 0.f, 0.f });
         Limnova::Renderer::Submit(m_FlatColorShader, m_SquareVA, squareTransform);
 
