@@ -73,11 +73,8 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
 
     Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
-    Limnova::Renderer2D::DrawQuad({-1.f,-1.f }, { 2.f, 2.f }, m_SquareColor);
-
-    auto textureShader = m_ShaderLibrary.Get("Texture");
-    m_Texture->Bind(0);
-    Limnova::Renderer::Submit(textureShader, m_SquareVA, glm::translate(glm::mat4(1.f), { 0.f, 0.f, 0.5f }));
+    Limnova::Renderer2D::DrawQuad({ -1.f,-1.f,-1.f }, { 2.f, 2.f }, m_SquareColor);
+    Limnova::Renderer2D::DrawQuad({ -.5f,-.5f }, { 1.f, 1.f }, m_Texture);
 
     Limnova::Renderer2D::EndScene();
 }

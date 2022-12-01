@@ -34,8 +34,13 @@ namespace Limnova
         glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererId);
         glTextureStorage2D(m_RendererId, 1, internalFormat, m_Width, m_Height);
 
+        // TODO : parameters set by user
         glTextureParameteri(m_RendererId, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(m_RendererId, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        glTextureParameteri(m_RendererId, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(m_RendererId, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        // TODO : parameters set by user
 
         glTextureSubImage2D(m_RendererId, 0, 0, 0, m_Width, m_Height, usageFormat, GL_UNSIGNED_BYTE, data);
 
