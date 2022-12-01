@@ -12,6 +12,7 @@ namespace Limnova
         glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
         glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
     }
 
 

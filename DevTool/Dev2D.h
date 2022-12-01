@@ -22,8 +22,11 @@ private:
 
     // TEMPORARY for future abstraction into 2D renderer
     Limnova::ShaderLibrary m_ShaderLibrary;
-    Limnova::Ref<Limnova::Texture2D> m_Texture;
+    Limnova::Ref<Limnova::Texture2D> m_TurretTexture;
+    Limnova::Ref<Limnova::Texture2D> m_CheckerboardTexture;
     Limnova::Ref<Limnova::VertexArray> m_SquareVA;
 
-    glm::vec4 m_SquareColor = { 0.2f, 0.3f, 0.9f, 1.f };
+    Limnova::Vector4 m_SquareColor = { 0.2f, 0.3f, 0.9f, 1.f };
+    Limnova::Vector4 m_TextureTint = { 1.f, 1.f, 1.f, 1.f };
+    Limnova::Vector2 m_TextureScale = { 3.f, 3.f };
 };

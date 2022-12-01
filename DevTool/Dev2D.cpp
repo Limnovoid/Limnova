@@ -52,7 +52,8 @@ void Dev2DLayer::OnAttach()
     textureShader->SetInt("u_Texture", 0);
 
     // Textures
-    m_Texture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\turret.png");
+    m_TurretTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\turret.png", Limnova::Texture::WrapMode::Clamp);
+    m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
 }
 
 
@@ -73,8 +74,9 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
 
     Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
-    Limnova::Renderer2D::DrawQuad({ -1.f,-1.f,-1.f }, { 2.f, 2.f }, m_SquareColor);
-    Limnova::Renderer2D::DrawQuad({ -.5f,-.5f }, { 1.f, 1.f }, m_Texture);
+    Limnova::Renderer2D::DrawQuad({ -1.5f, -1.5f }, { 3.f, 3.f }, m_CheckerboardTexture, m_TextureTint, m_TextureScale);
+    Limnova::Renderer2D::DrawQuad({  0.f,-.5f }, { 2.f, 1.f }, m_SquareColor);
+    Limnova::Renderer2D::DrawQuad({ -1.f,-.5f }, { 1.f, 1.f }, m_TurretTexture);
 
     Limnova::Renderer2D::EndScene();
 }
@@ -83,7 +85,9 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
 void Dev2DLayer::OnImGuiRender()
 {
     ImGui::Begin("Scene");
-    ImGui::ColorEdit4("Square Color", glm::value_ptr(m_SquareColor));
+    ImGui::ColorEdit4("Square Color", glm::value_ptr(*(glm::vec4*)&m_SquareColor));
+    ImGui::ColorEdit4("Texture Tint", glm::value_ptr(*(glm::vec4*)&m_TextureTint));
+    ImGui::SliderFloat2("Texture Scale", glm::value_ptr(*(glm::vec2*)&m_TextureScale), 0.1f, 10.f);
     ImGui::End();
 }
 

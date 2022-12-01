@@ -8,7 +8,23 @@
 namespace Limnova
 {
 
-    OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
+    OpenGLTexture2D::OpenGLTexture2D(const uint32_t width, const uint32_t height)
+        : m_Width(width), m_Height(height),
+        m_InternalFormat(GL_RGBA8), m_UsageFormat(GL_RGBA)
+    {
+
+        glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererId);
+        glTextureStorage2D(m_RendererId, 1, m_InternalFormat, m_Width, m_Height);
+
+        // TODO : parameters set by user
+        glTextureParameteri(m_RendererId, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(m_RendererId, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        SetWrapMode(Texture::WrapMode::Tile);
+    }
+
+
+    OpenGLTexture2D::OpenGLTexture2D(const std::string& path, const WrapMode wrap)
         : m_Path(path)
     {
         int width, height, channels;
@@ -18,31 +34,28 @@ namespace Limnova
         m_Width = width;
         m_Height = height;
 
-        GLenum internalFormat = 0, usageFormat = 0;
         if (channels == 3)
         {
-            internalFormat = GL_RGB8;
-            usageFormat = GL_RGB;
+            m_InternalFormat = GL_RGB8;
+            m_UsageFormat = GL_RGB;
         }
         else if (channels == 4)
         {
-            internalFormat = GL_RGBA8;
-            usageFormat = GL_RGBA;
+            m_InternalFormat = GL_RGBA8;
+            m_UsageFormat = GL_RGBA;
         }
-        LV_CORE_ASSERT(internalFormat && usageFormat, "Failed to load image: number of channels not supported!");
+        LV_CORE_ASSERT(m_InternalFormat && m_UsageFormat, "Failed to load image: number of channels not supported!");
 
         glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererId);
-        glTextureStorage2D(m_RendererId, 1, internalFormat, m_Width, m_Height);
+        glTextureStorage2D(m_RendererId, 1, m_InternalFormat, m_Width, m_Height);
 
         // TODO : parameters set by user
         glTextureParameteri(m_RendererId, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(m_RendererId, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-        glTextureParameteri(m_RendererId, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(m_RendererId, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        // TODO : parameters set by user
+        SetWrapMode(wrap);
 
-        glTextureSubImage2D(m_RendererId, 0, 0, 0, m_Width, m_Height, usageFormat, GL_UNSIGNED_BYTE, data);
+        glTextureSubImage2D(m_RendererId, 0, 0, 0, m_Width, m_Height, m_UsageFormat, GL_UNSIGNED_BYTE, data);
 
         stbi_image_free(data);
     }
@@ -57,6 +70,28 @@ namespace Limnova
     void OpenGLTexture2D::Bind(const uint32_t slot) const
     {
         glBindTextureUnit(slot, m_RendererId);
+    }
+
+
+    void OpenGLTexture2D::SetWrapMode(const WrapMode wrap)
+    {
+        GLint mode;
+        switch (wrap)
+        {
+            case WrapMode::Tile:            mode = GL_REPEAT; break;
+            case WrapMode::MirroredTile:    mode = GL_MIRRORED_REPEAT; break;
+            case WrapMode::Clamp:           mode = GL_CLAMP_TO_EDGE; break;
+        default: LV_CORE_ERROR("Invalid wrap mode!"); mode = GL_REPEAT;
+        }
+        glTextureParameteri(m_RendererId, GL_TEXTURE_WRAP_S, mode);
+        glTextureParameteri(m_RendererId, GL_TEXTURE_WRAP_T, mode);
+    }
+
+
+    void OpenGLTexture2D::SetData(void* data, uint32_t size)
+    {
+        LV_CORE_ASSERT(size == (m_UsageFormat == GL_RGBA ? 4 : 3) * m_Width * m_Height, "Data size must equal size of texture!");
+        glTextureSubImage2D(m_RendererId, 0, 0, 0, m_Width, m_Height, m_UsageFormat, GL_UNSIGNED_BYTE, data);
     }
 
 }

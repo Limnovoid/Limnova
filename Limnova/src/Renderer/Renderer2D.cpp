@@ -15,8 +15,8 @@ namespace Limnova
     struct Renderer2DData
     {
         Ref<VertexArray> SquareVertexArray;
-        Ref<Shader> FlatColorShader;
         Ref<Shader> TextureShader;
+        Ref<Texture2D> WhiteTexture;
     };
 
     static Renderer2DData* s_Data;
@@ -47,8 +47,9 @@ namespace Limnova
         Ref<IndexBuffer> squareIB = IndexBuffer::Create(squareIndices, std::size(squareIndices));
         s_Data->SquareVertexArray->SetIndexBuffer(squareIB);
 
-        s_Data->FlatColorShader = Shader::Create(ASSET_DIR"\\shaders\\FlatColor.lvglsl");
-        s_Data->FlatColorShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
+        s_Data->WhiteTexture = Texture2D::Create(1, 1);
+        uint32_t whiteTextureData = 0xffffffff;
+        s_Data->WhiteTexture->SetData(&whiteTextureData, sizeof(uint32_t));
 
         s_Data->TextureShader = Shader::Create(ASSET_DIR"\\shaders\\Texture.lvglsl");
         s_Data->TextureShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
@@ -66,6 +67,8 @@ namespace Limnova
     void Renderer2D::BeginScene(Camera& camera)
     {
         m_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(Renderer::SceneData, Renderer::SceneData::CameraData), sizeof(Camera::Data));
+
+        s_Data->TextureShader->Bind();
     }
 
 
@@ -77,12 +80,13 @@ namespace Limnova
 
     void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Vector4& color)
     {
-        s_Data->FlatColorShader->Bind();
-        s_Data->FlatColorShader->SetVec4("u_Color", color);
-
         glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
         squareTransform = glm::scale(squareTransform, glm::vec3((glm::vec2)size, 1.f));
-        s_Data->FlatColorShader->SetMat4("u_Transform", squareTransform);
+        s_Data->TextureShader->SetMat4("u_Transform", squareTransform);
+
+        s_Data->TextureShader->SetVec4("u_Color", color);
+        s_Data->TextureShader->SetVec2("u_TexScale", 1.f);
+        s_Data->WhiteTexture->Bind(0);
 
         s_Data->SquareVertexArray->Bind();
         RenderCommand::DrawIndexed(s_Data->SquareVertexArray);
@@ -95,25 +99,24 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& colorTint)
+    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& colorTint, const Vector2& textureScale)
     {
-        s_Data->TextureShader->Bind();
-
         glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
         squareTransform = glm::scale(squareTransform, glm::vec3((glm::vec2)size, 1.f));
         s_Data->TextureShader->SetMat4("u_Transform", squareTransform);
 
-        texture->Bind(0);
         s_Data->TextureShader->SetVec4("u_Color", colorTint);
+        s_Data->TextureShader->SetVec2("u_TexScale", textureScale);
+        texture->Bind(0);
 
         s_Data->SquareVertexArray->Bind();
         RenderCommand::DrawIndexed(s_Data->SquareVertexArray);
     }
 
 
-    void Renderer2D::DrawQuad(const Vector2& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& colorTint)
+    void Renderer2D::DrawQuad(const Vector2& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& colorTint, const Vector2& textureScale)
     {
-        DrawQuad({ position.x, position.y, 0.f }, size, texture, colorTint);
+        DrawQuad({ position.x, position.y, 0.f }, size, texture, colorTint, textureScale);
     }
 
 }
