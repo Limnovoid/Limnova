@@ -6,7 +6,7 @@
 #include <src/Core/Layer.h>
 
 #include <src/Core/Log.h>
-#include <src/Debug/Instrumentor.h>
+#include <src/Profiling/Instrumentor.h>
 
 #include <src/Core/Timestep.h>
 

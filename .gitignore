@@ -24,7 +24,6 @@ mono_crash.*
 
 # Build results
 [Dd]ebug/
-!Limnova/src/Debug # Edit to reinclude Limnova/src/Debug
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
