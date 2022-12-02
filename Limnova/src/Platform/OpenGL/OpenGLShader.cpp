@@ -26,6 +26,8 @@ namespace Limnova
     OpenGLShader::OpenGLShader(const std::string& filepath)
         : m_RendererId(0), m_NumUniformBlocks(0)
     {
+        LV_PROFILE_FUNCTION();
+
         std::string source = ReadFile(filepath);
         auto shaderSources = Preprocess(source);
         Compile(shaderSources);
@@ -41,6 +43,8 @@ namespace Limnova
 
     OpenGLShader::OpenGLShader(const std::string& name, const std::string& filepath)
     {
+        LV_PROFILE_FUNCTION();
+
         std::string source = ReadFile(filepath);
         auto shaderSources = Preprocess(source);
         Compile(shaderSources);
@@ -52,6 +56,8 @@ namespace Limnova
     OpenGLShader::OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc)
         : m_Name(name), m_RendererId(0), m_NumUniformBlocks(0)
     {
+        LV_PROFILE_FUNCTION();
+
         std::unordered_map<GLenum, std::string> shaderSources;
         shaderSources[GL_VERTEX_SHADER] = vertexSrc;
         shaderSources[GL_FRAGMENT_SHADER] = fragmentSrc;
@@ -61,12 +67,16 @@ namespace Limnova
 
     OpenGLShader::~OpenGLShader()
     {
+        LV_PROFILE_FUNCTION();
+
         glDeleteShader(m_RendererId);
     }
 
 
     std::string OpenGLShader::ReadFile(const std::string& filepath)
     {
+        LV_PROFILE_FUNCTION();
+
         std::string result;
         std::ifstream in(filepath, std::ios::in | std::ios::binary);
         if (in)
@@ -88,6 +98,8 @@ namespace Limnova
 
     std::unordered_map<GLenum, std::string> OpenGLShader::Preprocess(const std::string& source)
     {
+        LV_PROFILE_FUNCTION();
+
         std::unordered_map<GLenum, std::string> shaderSources;
 
         const char* typeToken = "#type";
@@ -114,6 +126,8 @@ namespace Limnova
 
     void OpenGLShader::Compile(const std::unordered_map<GLenum, std::string>& sources)
     {
+        LV_PROFILE_FUNCTION();
+
         GLuint program = glCreateProgram();
         LV_CORE_ASSERT(sources.size() <= 4, "Number of provided shader sources exceeds the supported maximum (4)!");
         std::array<GLenum, 4> glShaderIds;
@@ -189,60 +203,80 @@ namespace Limnova
 
     void OpenGLShader::Bind() const
     {
+        LV_PROFILE_FUNCTION();
+
         glUseProgram(m_RendererId);
     }
 
 
     void OpenGLShader::Unbind() const
     {
+        LV_PROFILE_FUNCTION();
+
         glUseProgram(0);
     }
 
 
     void OpenGLShader::SetInt(const std::string& name, const int value)
     {
+        LV_PROFILE_FUNCTION();
+
         UploadUniformInt(name, value);
     }
 
 
     void OpenGLShader::SetFloat(const std::string& name, const float value)
     {
+        LV_PROFILE_FUNCTION();
+
         UploadUniformFloat(name, value);
     }
 
 
     void OpenGLShader::SetVec2(const std::string& name, const Vector2& value)
     {
+        LV_PROFILE_FUNCTION();
+
         UploadUniformFloat2(name, value);
     }
 
 
     void OpenGLShader::SetVec3(const std::string& name, const Vector3& value)
     {
+        LV_PROFILE_FUNCTION();
+
         UploadUniformFloat3(name, value);
     }
 
 
     void OpenGLShader::SetVec4(const std::string& name, const Vector4& value)
     {
+        LV_PROFILE_FUNCTION();
+
         UploadUniformFloat4(name, value);
     }
 
 
     void OpenGLShader::SetMat3(const std::string& name, const glm::mat3& value)
     {
+        LV_PROFILE_FUNCTION();
+
         UploadUniformMat4f(name, value);
     }
 
 
     void OpenGLShader::SetMat4(const std::string& name, const glm::mat4& value)
     {
+        LV_PROFILE_FUNCTION();
+
         UploadUniformMat4f(name, value);
     }
 
 
     void OpenGLShader::BindUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName)
     {
+        LV_PROFILE_FUNCTION();
+
         uint32_t blockIndex = glGetUniformBlockIndex(m_RendererId, uniformBlockName.c_str());
         if (blockIndex == GL_INVALID_INDEX)
         {

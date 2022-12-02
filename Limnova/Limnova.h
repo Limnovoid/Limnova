@@ -4,7 +4,9 @@
 // For Limnova applications -----------
 #include <src/Core/Application.h>
 #include <src/Core/Layer.h>
+
 #include <src/Core/Log.h>
+#include <src/Debug/Instrumentor.h>
 
 #include <src/Core/Timestep.h>
 

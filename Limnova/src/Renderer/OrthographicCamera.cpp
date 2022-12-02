@@ -12,6 +12,7 @@ namespace Limnova
         m_View(glm::lookAtRH((glm::vec3)position, (glm::vec3)position + (glm::vec3)aimDirection, (glm::vec3)upDirection)),
         m_Data(m_Projection * m_View, (glm::vec3)position, (glm::vec3)aimDirection)
     {
+        LV_PROFILE_FUNCTION();
     }
 
 
@@ -32,6 +33,8 @@ namespace Limnova
 
     void OrthographicCamera::RecomputeData()
     {
+        LV_PROFILE_FUNCTION();
+
         m_Data.ViewProj = m_Projection * m_View;
         m_NeedRecompute = false;
     }
@@ -39,6 +42,8 @@ namespace Limnova
 
     void OrthographicCamera::SetProjection(const float aspectRatio, const float scale, const float nearDistance, const float farDistance)
     {
+        LV_PROFILE_FUNCTION();
+
         m_Projection = glm::orthoRH_ZO(-aspectRatio * scale, aspectRatio * scale, -scale, scale, nearDistance, farDistance);
         m_NeedRecompute = true;
     }
@@ -46,6 +51,8 @@ namespace Limnova
 
     void OrthographicCamera::SetView(const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection)
     {
+        LV_PROFILE_FUNCTION();
+
         m_Data.Position = (glm::vec3)position;
         m_Data.AimDirection = (glm::vec3)aimDirection;
         m_View = glm::lookAtRH((glm::vec3)position,

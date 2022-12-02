@@ -16,6 +16,8 @@ add_library(${PROJECT_NAME} STATIC
     "src/ImGui/ImGuiLayer.h"
     "src/ImGui/ImGuiLayer.cpp"
 
+    "src/Debug/Instrumentor.h"
+
     "src/Math/glm.h"
     "src/Math/Math.cpp"
     "src/Math/Vector2.cpp"
@@ -91,6 +93,7 @@ target_precompile_headers(${PROJECT_NAME}
         #$<${MSVC}:<Windows.h$<ANGLE-R>>
 
         "${PROJECT_SOURCE_DIR}/src/Core/Log.h"
+        "${PROJECT_SOURCE_DIR}/src/Debug/Instrumentor.h"
 )
 
 

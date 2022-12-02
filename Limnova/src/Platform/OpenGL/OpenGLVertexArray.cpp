@@ -29,29 +29,39 @@ namespace Limnova
 
     OpenGLVertexArray::OpenGLVertexArray()
     {
+        LV_PROFILE_FUNCTION();
+
         glCreateVertexArrays(1, &m_RendererId);
     }
 
     OpenGLVertexArray::~OpenGLVertexArray()
     {
+        LV_PROFILE_FUNCTION();
+
         glDeleteVertexArrays(1, &m_RendererId);
     }
 
 
     void OpenGLVertexArray::Bind() const
     {
+        LV_PROFILE_FUNCTION();
+
         glBindVertexArray(m_RendererId);
     }
 
 
     void OpenGLVertexArray::Unbind() const
     {
+        LV_PROFILE_FUNCTION();
+
         glBindVertexArray(0);
     }
 
 
     void OpenGLVertexArray::AddVertexBuffer(const Ref<VertexBuffer>& vertexBuffer)
     {
+        LV_PROFILE_FUNCTION();
+
         LV_CORE_ASSERT(vertexBuffer->GetLayout().GetElements().size(), "VertexBuffer has no layout!");
 
         glBindVertexArray(m_RendererId);
@@ -76,6 +86,8 @@ namespace Limnova
 
     void OpenGLVertexArray::SetIndexBuffer(const Ref<IndexBuffer>& indexBuffer)
     {
+        LV_PROFILE_FUNCTION();
+
         glBindVertexArray(m_RendererId);
         indexBuffer->Bind();
 

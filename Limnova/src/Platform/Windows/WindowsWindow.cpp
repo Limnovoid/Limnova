@@ -27,17 +27,23 @@ namespace Limnova
 
     WindowsWindow::WindowsWindow(const WindowProps& props)
     {
+        LV_PROFILE_FUNCTION();
+
         Init(props);
     }
 
     WindowsWindow::~WindowsWindow()
     {
+        LV_PROFILE_FUNCTION();
+
         Shutdown();
     }
 
 
     void WindowsWindow::Init(const WindowProps& props)
     {
+        LV_PROFILE_FUNCTION();
+
         m_Data.Title = props.Title;
         m_Data.Width = props.Width;
         m_Data.Height = props.Height;
@@ -48,8 +54,12 @@ namespace Limnova
         if (!s_GLFWInitialized)
         {
             // TODO: glfwTerminate on system shutdown
-            int success = glfwInit();
-            LV_CORE_ASSERT(GLFW_TRUE == success, "Could not initialize GLFW!");
+            {
+                LV_PROFILE_SCOPE("glfwInit - WindowsWindow::Init");
+
+                int success = glfwInit();
+                LV_CORE_ASSERT(GLFW_TRUE == success, "Could not initialize GLFW!");
+            }
             glfwSetErrorCallback(GLFWErrorCallback);
             s_GLFWInitialized = true;
         }
@@ -59,7 +69,11 @@ namespace Limnova
         {
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         }
-        m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.Title.c_str(), nullptr, nullptr);
+        {
+            LV_PROFILE_SCOPE("glfwCreateWindow - WindowsWindow::Init");
+
+            m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.Title.c_str(), nullptr, nullptr);
+        }
 
         if (usingVulkan)
         {
@@ -173,6 +187,8 @@ namespace Limnova
 
     void WindowsWindow::Shutdown()
     {
+        LV_PROFILE_FUNCTION();
+
         if (s_GLFWInitialized)
         {
             m_Context->Shutdown();
@@ -185,6 +201,8 @@ namespace Limnova
 
     void WindowsWindow::OnUpdate()
     {
+        LV_PROFILE_FUNCTION();
+
         glfwPollEvents();
         m_Context->SwapBuffers();
     }
@@ -192,6 +210,8 @@ namespace Limnova
 
     void WindowsWindow::SetVSync(bool enabled)
     {
+        LV_PROFILE_FUNCTION();
+
         if (enabled)
         {
             glfwSwapInterval(1);

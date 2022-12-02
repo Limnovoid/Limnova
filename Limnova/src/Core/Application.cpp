@@ -14,6 +14,8 @@ namespace Limnova
 
     Application::Application()
     {
+        LV_PROFILE_FUNCTION();
+
         LV_CORE_ASSERT(!s_Instance, "Application already exists!");
         s_Instance = this;
 
@@ -30,11 +32,14 @@ namespace Limnova
 
     Application::~Application()
     {
+        LV_PROFILE_FUNCTION();
     }
 
 
     void Application::PushLayer(Layer* layer)
     {
+        LV_PROFILE_FUNCTION();
+
         m_LayerStack.PushLayer(layer);
         layer->OnAttach();
     }
@@ -42,6 +47,8 @@ namespace Limnova
 
     void Application::PushOverlay(Layer* overlay)
     {
+        LV_PROFILE_FUNCTION();
+
         m_LayerStack.PushOverlay(overlay);
         overlay->OnAttach();
     }
@@ -49,8 +56,12 @@ namespace Limnova
 
     void Application::Run()
     {
+        LV_PROFILE_FUNCTION();
+
         while (m_Running)
         {
+            LV_PROFILE_SCOPE("RunLoop");
+
             // TODO : custom time class
             auto newTime = std::chrono::steady_clock::now();
             std::chrono::duration<double> dTchrono = newTime - m_Time;
@@ -60,18 +71,27 @@ namespace Limnova
             // Update layers
             if (!m_Minimized)
             {
-                for (Layer* layer : m_LayerStack)
                 {
-                    layer->OnUpdate(dT);
+                    LV_PROFILE_SCOPE("LayerStack Update");
+
+                    for (Layer* layer : m_LayerStack)
+                    {
+                        layer->OnUpdate(dT);
+                    }
+                }
+
+                {
+                    LV_PROFILE_SCOPE("LayerStack OnImGuiRender");
+
+                    m_ImGuiLayer->Begin();
+                    for (Layer* layer : m_LayerStack)
+                    {
+                        layer->OnImGuiRender();
+                    }
+                    m_ImGuiLayer->End();
                 }
             }
 
-            m_ImGuiLayer->Begin();
-            for (Layer* layer : m_LayerStack)
-            {
-                layer->OnImGuiRender();
-            }
-            m_ImGuiLayer->End();
 
             m_Window->OnUpdate();
         }
@@ -80,6 +100,8 @@ namespace Limnova
 
     void Application::OnEvent(Event& e)
     {
+        LV_PROFILE_FUNCTION();
+
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<WindowCloseEvent>(LV_BIND_EVENT_FN(Application::OnWindowClose));
         dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(Application::OnWindowResize));
@@ -104,6 +126,8 @@ namespace Limnova
 
     bool Application::OnWindowResize(WindowResizeEvent& e)
     {
+        LV_PROFILE_FUNCTION();
+
         if (e.GetWidth() == 0 || e.GetHeight() == 0)
         {
             m_Minimized = true;

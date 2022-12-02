@@ -24,6 +24,8 @@ namespace Limnova
 
     void Renderer2D::Init(const Ref<UniformBuffer>& sceneUniformBuffer)
     {
+        LV_PROFILE_FUNCTION();
+
         m_SceneUniformBuffer = sceneUniformBuffer;
 
         s_Data = new Renderer2DData();
@@ -60,12 +62,16 @@ namespace Limnova
 
     void Renderer2D::Shutdown()
     {
+        LV_PROFILE_FUNCTION();
+
         delete s_Data;
     }
 
 
     void Renderer2D::BeginScene(Camera& camera)
     {
+        LV_PROFILE_FUNCTION();
+
         m_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(Renderer::SceneData, Renderer::SceneData::CameraData), sizeof(Camera::Data));
 
         s_Data->TextureShader->Bind();
@@ -74,12 +80,14 @@ namespace Limnova
 
     void Renderer2D::EndScene()
     {
-
+        LV_PROFILE_FUNCTION();
     }
 
 
     void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Vector4& color)
     {
+        LV_PROFILE_FUNCTION();
+
         glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
         squareTransform = glm::scale(squareTransform, glm::vec3((glm::vec2)size, 1.f));
         s_Data->TextureShader->SetMat4("u_Transform", squareTransform);
@@ -101,6 +109,8 @@ namespace Limnova
 
     void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& colorTint, const Vector2& textureScale)
     {
+        LV_PROFILE_FUNCTION();
+
         glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
         squareTransform = glm::scale(squareTransform, glm::vec3((glm::vec2)size, 1.f));
         s_Data->TextureShader->SetMat4("u_Transform", squareTransform);

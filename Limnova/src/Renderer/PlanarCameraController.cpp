@@ -25,6 +25,8 @@ namespace Limnova
 
     void PlanarCameraController::OnUpdate(Timestep dT)
     {
+        LV_PROFILE_FUNCTION();
+
         if (m_BeingControlled)
         {
             Vector3 cameraMovement;
@@ -75,6 +77,8 @@ namespace Limnova
 
     void PlanarCameraController::OnEvent(Event& e)
     {
+        LV_PROFILE_FUNCTION();
+
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<MouseButtonPressedEvent>(LV_BIND_EVENT_FN(PlanarCameraController::OnMouseButtonPressedEvent));
         dispatcher.Dispatch<MouseScrolledEvent>(LV_BIND_EVENT_FN(PlanarCameraController::OnMouseScrolled));
@@ -84,6 +88,8 @@ namespace Limnova
 
     bool PlanarCameraController::OnMouseButtonPressedEvent(MouseButtonPressedEvent& event)
     {
+        LV_PROFILE_FUNCTION();
+
         switch(event.GetMouseButton())
         {
             case LV_MOUSE_BUTTON_RIGHT:
@@ -109,6 +115,8 @@ namespace Limnova
 
     bool PlanarCameraController::OnMouseScrolled(MouseScrolledEvent& e)
     {
+        LV_PROFILE_FUNCTION();
+
         m_ZoomLevel -= m_ZoomSensitivity * e.GetYOffset();
         m_ZoomLevel = std::clamp(m_ZoomLevel, m_MinZoom, m_MaxZoom);
 
@@ -119,6 +127,8 @@ namespace Limnova
 
     bool PlanarCameraController::OnWindowResized(WindowResizeEvent& e)
     {
+        LV_PROFILE_FUNCTION();
+
         m_AspectRatio = (float)e.GetWidth() / (float)e.GetHeight();
 
         m_NeedSetProjection = true;
@@ -133,6 +143,8 @@ namespace Limnova
         : PlanarCameraController(position, aimDirection, aspectRatio, nearDistance, farDistance), m_BaseFov(fov),
         m_Camera(m_BaseFov, m_AspectRatio, m_Near, m_Far, m_Position, m_AimDirection, { 0.f, 1.f, 0.f })
     {
+        LV_PROFILE_FUNCTION();
+
         m_MinZoom = 0.25;   // 60 * 0.25 = 15 degrees FoV
         m_MaxZoom = 1.5f;   // 60 * 1.5 = 90 degrees FoV
         m_ZoomSensitivity = 0.05;
@@ -163,6 +175,8 @@ namespace Limnova
         : PlanarCameraController(position, aimDirection, aspectRatio, nearDistance, farDistance),
         m_Camera(m_AspectRatio, m_Near, m_Far, m_Position, m_AimDirection, { 0.f, 1.f, 0.f })
     {
+        LV_PROFILE_FUNCTION();
+
         m_MinZoom = 0.1f;
         m_MaxZoom = 4.f;
         m_ZoomSensitivity = 0.1;

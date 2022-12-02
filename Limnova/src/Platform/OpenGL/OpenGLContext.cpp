@@ -16,6 +16,8 @@ namespace Limnova
 
     void OpenGLContext::Init()
     {
+        LV_PROFILE_FUNCTION();
+
         glfwMakeContextCurrent(m_WindowHandle);
         int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
         LV_CORE_ASSERT(status, "Failed to initialize Glad!");
@@ -44,6 +46,8 @@ namespace Limnova
 
     void OpenGLContext::SwapBuffers()
     {
+        LV_PROFILE_FUNCTION();
+
         glfwSwapBuffers(m_WindowHandle);
     }
 

@@ -13,6 +13,8 @@ namespace Limnova
 
     void Renderer::Init()
     {
+        LV_PROFILE_FUNCTION();
+
         RenderCommand::Init();
 
         SceneData scene = { { glm::mat4(1.f), glm::vec4(0.f), glm::vec4(0.f,0.f,-1.f,0.f) } };

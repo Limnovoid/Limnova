@@ -43,6 +43,9 @@
 #define LV_BIND_EVENT_FN(fn) std::bind(&fn, this, std::placeholders::_1)
 
 
+#define LV_DIR "C:/Programming/source/Limnova"
+
+
 namespace Limnova
 {
 

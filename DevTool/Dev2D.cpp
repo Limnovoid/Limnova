@@ -1,5 +1,7 @@
 #include "Dev2D.h"
 
+#include <chrono>
+
 #define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\assets"
 
 
@@ -11,6 +13,8 @@ Dev2DLayer::Dev2DLayer()
 
 void Dev2DLayer::OnAttach()
 {
+    LV_PROFILE_FUNCTION();
+
     // Camera
     Limnova::Application& app = Limnova::Application::Get();
     m_CameraController = std::make_shared<Limnova::PerspectivePlanarCameraController>(
@@ -24,33 +28,6 @@ void Dev2DLayer::OnAttach()
         0.1f, 100.f
     );*/
 
-    // Square
-    m_SquareVA = Limnova::VertexArray::Create();
-
-    float squareVertices[(3 + 2) * 4] = {
-        -0.5f, -0.5f,  0.f,   0.f, 0.f,
-         0.5f, -0.5f,  0.f,   1.f, 0.f,
-         0.5f,  0.5f,  0.f,   1.f, 1.f,
-        -0.5f,  0.5f,  0.f,   0.f, 1.f
-    };
-    Limnova::Ref<Limnova::VertexBuffer> squareVB = Limnova::VertexBuffer::Create(squareVertices, sizeof(squareVertices));
-    squareVB->SetLayout({
-        { Limnova::ShaderDataType::Float3, "a_Position" },
-        { Limnova::ShaderDataType::Float2, "a_TexCoord" }
-    });
-    m_SquareVA->AddVertexBuffer(squareVB);
-
-    uint32_t squareIndices[6] = { 0, 1, 2, 0, 2, 3 };
-    Limnova::Ref<Limnova::IndexBuffer> squareIB = Limnova::IndexBuffer::Create(squareIndices, std::size(squareIndices));
-    m_SquareVA->SetIndexBuffer(squareIB);
-
-    // Shaders
-    m_ShaderLibrary.Load(ASSET_DIR"\\shaders\\Texture.lvglsl");
-    auto textureShader = m_ShaderLibrary.Get("Texture");
-    textureShader->BindUniformBuffer(Limnova::Renderer::GetSceneUniformBufferId(), "CameraUniform");
-    textureShader->Bind();
-    textureShader->SetInt("u_Texture", 0);
-
     // Textures
     m_TurretTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\turret.png", Limnova::Texture::WrapMode::Clamp);
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
@@ -59,26 +36,40 @@ void Dev2DLayer::OnAttach()
 
 void Dev2DLayer::OnDetach()
 {
-
+    LV_PROFILE_FUNCTION();
 }
 
 
 void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
 {
+    LV_PROFILE_FUNCTION();
+
     // Update
-    m_CameraController->OnUpdate(dT);
+    {
+        LV_PROFILE_SCOPE("m_CameraController->OnUpdate - Dev2DLayer::OnUpdate");
+
+        m_CameraController->OnUpdate(dT);
+    }
 
     // Render
-    Limnova::RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.f });
-    Limnova::RenderCommand::Clear();
+    {
+        LV_PROFILE_SCOPE("Render Prep - Dev2DLayer::OnUpdate");
 
-    Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
+        Limnova::RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.f });
+        Limnova::RenderCommand::Clear();
+    }
 
-    Limnova::Renderer2D::DrawQuad({ -1.5f, -1.5f }, { 3.f, 3.f }, m_CheckerboardTexture, m_TextureTint, m_TextureScale);
-    Limnova::Renderer2D::DrawQuad({  0.f,-.5f }, { 2.f, 1.f }, m_SquareColor);
-    Limnova::Renderer2D::DrawQuad({ -1.f,-.5f }, { 1.f, 1.f }, m_TurretTexture);
+    {
+        LV_PROFILE_SCOPE("Render Draw - Dev2DLayer::OnUpdate");
 
-    Limnova::Renderer2D::EndScene();
+        Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
+
+        Limnova::Renderer2D::DrawQuad({ -1.5f, -1.5f }, { 3.f, 3.f }, m_CheckerboardTexture, m_TextureTint, m_TextureScale);
+        Limnova::Renderer2D::DrawQuad({ 0.f,-.5f }, { 2.f, 1.f }, m_SquareColor);
+        Limnova::Renderer2D::DrawQuad({ -1.f,-.5f }, { 1.f, 1.f }, m_TurretTexture);
+
+        Limnova::Renderer2D::EndScene();
+    }
 }
 
 
