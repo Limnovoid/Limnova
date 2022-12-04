@@ -33,10 +33,10 @@ namespace Limnova
         s_Data->SquareVertexArray = VertexArray::Create();
 
         float squareVertices[(3 + 2) * 4] = {
-            0.f, 0.f, 0.f,   0.f, 0.f,
-            1.f, 0.f, 0.f,   1.f, 0.f,
-            1.f, 1.f, 0.f,   1.f, 1.f,
-            0.f, 1.f, 0.f,   0.f, 1.f
+           -.5f, -.5f,  0.f,       0.f, 0.f,
+            .5f, -.5f,  0.f,       1.f, 0.f,
+            .5f,  .5f,  0.f,       1.f, 1.f,
+           -.5f,  .5f,  0.f,       0.f, 1.f
         };
         Ref<VertexBuffer> squareVB = VertexBuffer::Create(squareVertices, sizeof(squareVertices));
         squareVB->SetLayout({
@@ -107,7 +107,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& colorTint, const Vector2& textureScale)
+    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
     {
         LV_PROFILE_FUNCTION();
 
@@ -115,7 +115,7 @@ namespace Limnova
         squareTransform = glm::scale(squareTransform, glm::vec3((glm::vec2)size, 1.f));
         s_Data->TextureShader->SetMat4("u_Transform", squareTransform);
 
-        s_Data->TextureShader->SetVec4("u_Color", colorTint);
+        s_Data->TextureShader->SetVec4("u_Color", tint);
         s_Data->TextureShader->SetVec2("u_TexScale", textureScale);
         texture->Bind(0);
 
@@ -124,9 +124,57 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawQuad(const Vector2& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& colorTint, const Vector2& textureScale)
+    void Renderer2D::DrawQuad(const Vector2& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
     {
-        DrawQuad({ position.x, position.y, 0.f }, size, texture, colorTint, textureScale);
+        DrawQuad({ position.x, position.y, 0.f }, size, texture, tint, textureScale);
+    }
+
+
+    void Renderer2D::DrawRotatedQuad(const Vector3& position, const Vector2& size, const float rotation, const Vector4& color)
+    {
+        LV_PROFILE_FUNCTION();
+
+        glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
+        squareTransform = glm::rotate(squareTransform, rotation, {0.f, 0.f, 1.f});
+        squareTransform = glm::scale(squareTransform, glm::vec3((glm::vec2)size, 1.f));
+        s_Data->TextureShader->SetMat4("u_Transform", squareTransform);
+
+        s_Data->TextureShader->SetVec4("u_Color", color);
+        s_Data->TextureShader->SetVec2("u_TexScale", 1.f);
+        s_Data->WhiteTexture->Bind(0);
+
+        s_Data->SquareVertexArray->Bind();
+        RenderCommand::DrawIndexed(s_Data->SquareVertexArray);
+    }
+
+
+    void Renderer2D::DrawRotatedQuad(const Vector2& position, const Vector2& size, const float rotation, const Vector4& color)
+    {
+        DrawRotatedQuad({ position.x, position.y, 0.f }, size, rotation, color);
+    }
+
+
+    void Renderer2D::DrawRotatedQuad(const Vector3& position, const Vector2& size, const float rotation, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
+    {
+        LV_PROFILE_FUNCTION();
+
+        glm::mat4 squareTransform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
+        squareTransform = glm::rotate(squareTransform, rotation, { 0.f, 0.f, 1.f });
+        squareTransform = glm::scale(squareTransform, glm::vec3((glm::vec2)size, 1.f));
+        s_Data->TextureShader->SetMat4("u_Transform", squareTransform);
+
+        s_Data->TextureShader->SetVec4("u_Color", tint);
+        s_Data->TextureShader->SetVec2("u_TexScale", textureScale);
+        texture->Bind(0);
+
+        s_Data->SquareVertexArray->Bind();
+        RenderCommand::DrawIndexed(s_Data->SquareVertexArray);
+    }
+
+
+    void Renderer2D::DrawRotatedQuad(const Vector2& position, const Vector2& size, const float rotation, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
+    {
+        DrawRotatedQuad({ position.x, position.y, 0.f }, size, rotation, texture, tint, textureScale);
     }
 
 }

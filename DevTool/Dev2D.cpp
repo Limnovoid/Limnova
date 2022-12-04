@@ -64,9 +64,9 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
 
         Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
-        Limnova::Renderer2D::DrawQuad({ -1.5f, -1.5f }, { 3.f, 3.f }, m_CheckerboardTexture, m_TextureTint, m_TextureScale);
-        Limnova::Renderer2D::DrawQuad({ 0.f,-.5f }, { 2.f, 1.f }, m_SquareColor);
-        Limnova::Renderer2D::DrawQuad({ -1.f,-.5f }, { 1.f, 1.f }, m_TurretTexture);
+        Limnova::Renderer2D::DrawRotatedQuad({ 0.f, 0.f }, { 3.f, 3.f }, glm::radians(m_BackgroundRotation), m_CheckerboardTexture, m_TextureTint, m_TextureScale);
+        Limnova::Renderer2D::DrawQuad({ 1.f, 0.f }, { 2.f, 1.f }, m_SquareColor);
+        Limnova::Renderer2D::DrawQuad({-.5f, 0.f }, { 1.f, 1.f }, m_TurretTexture);
 
         Limnova::Renderer2D::EndScene();
     }
@@ -79,6 +79,7 @@ void Dev2DLayer::OnImGuiRender()
     ImGui::ColorEdit4("Square Color", glm::value_ptr(*(glm::vec4*)&m_SquareColor));
     ImGui::ColorEdit4("Texture Tint", glm::value_ptr(*(glm::vec4*)&m_TextureTint));
     ImGui::SliderFloat2("Texture Scale", glm::value_ptr(*(glm::vec2*)&m_TextureScale), 0.1f, 10.f);
+    ImGui::SliderFloat("BackgroundRotation", &m_BackgroundRotation, 0.f, 360.f);
     ImGui::End();
 }
 

@@ -79,17 +79,17 @@ namespace Limnova
                         layer->OnUpdate(dT);
                     }
                 }
+            }
 
+            {
+                LV_PROFILE_SCOPE("LayerStack OnImGuiRender");
+
+                m_ImGuiLayer->Begin();
+                for (Layer* layer : m_LayerStack)
                 {
-                    LV_PROFILE_SCOPE("LayerStack OnImGuiRender");
-
-                    m_ImGuiLayer->Begin();
-                    for (Layer* layer : m_LayerStack)
-                    {
-                        layer->OnImGuiRender();
-                    }
-                    m_ImGuiLayer->End();
+                    layer->OnImGuiRender();
                 }
+                m_ImGuiLayer->End();
             }
 
 

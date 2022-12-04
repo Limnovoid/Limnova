@@ -29,4 +29,5 @@ private:
     Limnova::Vector4 m_SquareColor = { 0.2f, 0.3f, 0.9f, 1.f };
     Limnova::Vector4 m_TextureTint = { 1.f, 1.f, 1.f, 1.f };
     Limnova::Vector2 m_TextureScale = { 3.f, 3.f };
+    float m_BackgroundRotation = 0.f;
 };
