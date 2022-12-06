@@ -28,6 +28,8 @@ namespace Limnova
 
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);
+
+        m_Time = std::chrono::steady_clock::now();
     }
 
     Application::~Application()

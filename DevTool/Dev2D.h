@@ -20,7 +20,6 @@ private:
     Limnova::Ref<Limnova::PerspectivePlanarCameraController> m_CameraController;
     //Limnova::Ref<Limnova::OrthographicPlanarCameraController> m_CameraController;
 
-    // TEMPORARY for future abstraction into 2D renderer
     Limnova::ShaderLibrary m_ShaderLibrary;
     Limnova::Ref<Limnova::Texture2D> m_TurretTexture;
     Limnova::Ref<Limnova::Texture2D> m_CheckerboardTexture;

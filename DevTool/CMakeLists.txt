@@ -1,6 +1,6 @@
 project(DevTool)
 
-add_executable(${PROJECT_NAME} "DevTool.cpp" "Dev2D.cpp")
+add_executable(${PROJECT_NAME} "DevTool.cpp" "Dev2D.cpp" "Orbiter.cpp" "Orbiters2D.cpp" "OrbitSystem2D.cpp")
 
 
 set_property(TARGET ${PROJECT_NAME}

@@ -105,8 +105,11 @@ namespace Limnova
                 }
                 break;
             case LV_MOUSE_BUTTON_MIDDLE:
-                m_ZoomLevel = 1.f;
-                m_NeedSetProjection = true;
+                if (m_BeingControlled)
+                {
+                    m_ZoomLevel = 1.f;
+                    m_NeedSetProjection = true;
+                }
                 break;
         }
         return false;
@@ -117,10 +120,13 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
-        m_ZoomLevel -= m_ZoomSensitivity * e.GetYOffset();
-        m_ZoomLevel = std::clamp(m_ZoomLevel, m_MinZoom, m_MaxZoom);
+        if (m_BeingControlled)
+        {
+            m_ZoomLevel -= m_ZoomSensitivity * e.GetYOffset();
+            m_ZoomLevel = std::clamp(m_ZoomLevel, m_MinZoom, m_MaxZoom);
 
-        m_NeedSetProjection = true;
+            m_NeedSetProjection = true;
+        }
         return false;
     }
 

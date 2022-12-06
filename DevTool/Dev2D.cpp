@@ -1,7 +1,5 @@
 #include "Dev2D.h"
 
-#include <chrono>
-
 #define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\assets"
 
 

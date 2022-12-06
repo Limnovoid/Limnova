@@ -2,6 +2,7 @@
 #include <Core/EntryPoint.h>
 
 #include "Dev2D.h"
+#include "Orbiters2D.h"
 
 #include <chrono> // TEMPORARY delta time
 
@@ -191,7 +192,8 @@ public:
     DevApp()
     {
         //PushLayer(new DevLayer());
-        PushLayer(new Dev2DLayer());
+        //PushLayer(new Dev2DLayer());
+        PushLayer(new Orbiters2D());
     }
 
     ~DevApp()

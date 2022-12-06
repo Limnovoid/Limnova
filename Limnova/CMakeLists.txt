@@ -20,6 +20,7 @@ add_library(${PROJECT_NAME} STATIC
 
     "src/Math/glm.h"
     "src/Math/Math.cpp"
+    "src/Math/BigFloat.cpp"
     "src/Math/Vector2.cpp"
     "src/Math/Vector3.cpp"
     "src/Math/Vector4.cpp"

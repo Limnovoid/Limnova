@@ -8,19 +8,19 @@
 namespace Limnova
 {
 
-	class LIMNOVA_API Log
-	{
-	public:
-		static void Init();
+    class LIMNOVA_API Log
+    {
+    public:
+        static void Init();
 
-		static std::shared_ptr<spdlog::logger>& GetCoreLogger();
-		static std::shared_ptr<spdlog::logger>& GetClientLogger();
+        static std::shared_ptr<spdlog::logger>& GetCoreLogger();
+        static std::shared_ptr<spdlog::logger>& GetClientLogger();
 
-	private:
-		static std::shared_ptr<spdlog::logger> s_CoreLogger;
-		static std::shared_ptr<spdlog::logger> s_ClientLogger;
+    private:
+        static std::shared_ptr<spdlog::logger> s_CoreLogger;
+        static std::shared_ptr<spdlog::logger> s_ClientLogger;
 
-	};
+    };
 
 }
 
