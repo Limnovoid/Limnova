@@ -64,7 +64,13 @@ namespace Limnova
 
             m_Position += dT * m_CameraMoveSpeed * cameraMovement;
 
+            m_NeedSetView = true;
+        }
+
+        if (m_NeedSetView)
+        {
             SetView();
+            m_NeedSetView = false;
         }
 
         if (m_NeedSetProjection)

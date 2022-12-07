@@ -51,12 +51,36 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
 {
     LV_PROFILE_FUNCTION();
 
+    OrbitSystem2D& orbs = OrbitSystem2D::Get();
+    auto& sp = orbs.GetLevelHostParams();
+    auto& op0 = orbs.GetParameters(m_Orb0Id);
+    auto& op1 = orbs.GetParameters(m_Orb1Id);
+
     // Update
     {
         LV_PROFILE_SCOPE("Update - Dev2DLayer::OnUpdate");
 
-        OrbitSystem2D::Get().Update(dT);
+        orbs.Update(dT);
 
+        // Camera
+        Limnova::Vector2 newTrackingPosition;
+        switch (m_CameraTrackingId)
+        {
+            case std::numeric_limits<uint32_t>::max():
+                newTrackingPosition = sp.Position;      break;
+            case 0: newTrackingPosition = op0.Position; break;
+            case 1: newTrackingPosition = op1.Position; break;
+        }
+        if (m_CameraTrackingChanged)
+        {
+            m_CameraController->SetXY(newTrackingPosition);
+            m_CameraTrackingChanged = false;
+        }
+        else
+        {
+            m_CameraController->TranslateXY(newTrackingPosition - m_CameraTrackingPosition);
+        }
+        m_CameraTrackingPosition = newTrackingPosition;
         m_CameraController->OnUpdate(dT);
     }
 
@@ -73,15 +97,12 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
 
         Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
-        OrbitSystem2D& orbs = OrbitSystem2D::Get();
         constexpr float circleFillTexSizefactor = 4.f; // Texture widths per unit circle-RADII
         constexpr float circleTexSizefactor = 2.f * 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
 
-        auto& sp = orbs.GetHostRenderInfo();
         Limnova::Renderer2D::DrawQuad(sp.Position, { circleFillTexSizefactor * 0.1f }, m_CircleFillTexture, { 0.9f, 1.f, 1.f, 1.f });
 
         // Orb0
-        auto& op0 = orbs.GetParameters(m_Orb0Id);
         Limnova::Renderer2D::DrawQuad(op0.Position, { circleFillTexSizefactor * 0.01f }, m_CircleFillTexture, m_Orb0Color);
         Limnova::Renderer2D::DrawRotatedQuad(sp.Position + op0.Centre,
             circleTexSizefactor * Limnova::Vector2(op0.SemiMajorAxis, op0.SemiMinorAxis),
@@ -90,7 +111,6 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         Limnova::Renderer2D::DrawQuad(op0.Position, { circleFillTexSizefactor * op0.RadiusOfInfluence }, m_CircleFillTexture, m_InfluenceColor);
 
         // Orb1
-        auto& op1 = orbs.GetParameters(m_Orb1Id);
         Limnova::Renderer2D::DrawQuad(op1.Position, { circleFillTexSizefactor * 0.01f }, m_CircleFillTexture, m_Orb1Color);
         Limnova::Renderer2D::DrawRotatedQuad(sp.Position + op1.Centre,
             circleTexSizefactor * Limnova::Vector2(op1.SemiMajorAxis, op1.SemiMinorAxis),
@@ -115,6 +135,27 @@ void Orbiters2D::OnImGuiRender()
 
     ImGui::ColorEdit4("Orb0", glm::value_ptr(*(glm::vec4*)&m_Orb0Color));
     ImGui::ColorEdit4("Orb1", glm::value_ptr(*(glm::vec4*)&m_Orb1Color));
+
+    const char* items[] = { "Level Host", "Orbiter 0", "Orbiter 1" };
+    static int selectedIdx = 0;
+    if (ImGui::BeginCombo("Camera Tracking", items[selectedIdx]))
+    {
+        for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+        {
+            const bool isSelected = (selectedIdx == n);
+            if (ImGui::Selectable(items[n], isSelected))
+            {
+                selectedIdx = n;
+                m_CameraTrackingId = n == 0 ? std::numeric_limits<uint32_t>::max() : n - 1;
+                m_CameraTrackingChanged = true;
+            }
+
+            // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+            if (isSelected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
 
     ImGui::BeginTable("Orbiters", 3);
 

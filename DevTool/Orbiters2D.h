@@ -29,4 +29,7 @@ private:
     uint32_t m_Orb0Id, m_Orb1Id;
     Limnova::Vector4 m_Orb0Color = { 1.f, 0.3f, 0.2f, 1.f };
     Limnova::Vector4 m_Orb1Color = { 0.2f, 0.3f, 1.f, 1.f };
+    uint32_t m_CameraTrackingId = std::numeric_limits<uint32_t>::max();
+    Limnova::Vector2 m_CameraTrackingPosition;
+    bool m_CameraTrackingChanged = false;
 };

@@ -229,7 +229,7 @@ const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_
 }
 
 
-const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetHostRenderInfo()
+const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetLevelHostParams()
 {
     return m_LevelHost->Parameters;
 }

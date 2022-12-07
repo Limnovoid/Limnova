@@ -55,7 +55,7 @@ public:
     //uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, float eccentricity, float trueAnomaly = 0.f, bool clockwise = false);
 
     const OrbitParameters& GetParameters(const uint32_t orbiter);
-    const OrbitParameters& GetHostRenderInfo();
+    const OrbitParameters& GetLevelHostParams();
 
     void SetOrbiterRightAscension(const uint32_t orbiter, const float rightAscension);
 

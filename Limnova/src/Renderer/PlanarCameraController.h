@@ -31,6 +31,9 @@ namespace Limnova
         void SetZoomLimits(const float minZoom, const float maxZoom) { m_MinZoom = minZoom; m_MaxZoom = maxZoom; }
         void SetZoomSensitivity(const float sensitivity) { m_ZoomSensitivity = m_ZoomSensitivity; }
 
+        void SetXY(const Vector2& position) { m_Position.x = position.x; m_Position.y = position.y; m_NeedSetView = true; }
+        void TranslateXY(const Vector2& translation) { m_Position.x += translation.x; m_Position.y += translation.y; m_NeedSetView = true; }
+
         void OnEvent(Event& e);
     private:
         bool OnMouseButtonPressedEvent(MouseButtonPressedEvent& event);
@@ -52,6 +55,7 @@ namespace Limnova
         float m_CameraMoveSpeed = 1.f;
 
         bool m_BeingControlled = false;
+        bool m_NeedSetView = false;
         bool m_NeedSetProjection = false;
     };
 
