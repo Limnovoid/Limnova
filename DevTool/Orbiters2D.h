@@ -23,6 +23,9 @@ private:
     Limnova::Ref<Limnova::Texture2D> m_CheckerboardTexture;
     Limnova::Ref<Limnova::Texture2D> m_CircleFillTexture;
     Limnova::Ref<Limnova::Texture2D> m_CircleTexture;
+    Limnova::Vector4 m_InfluenceColor = { 1.f, 0.8f, 0.2f, 0.25f };
+    float m_Timescale = 1.f;
+
     uint32_t m_Orb0Id, m_Orb1Id;
     Limnova::Vector4 m_Orb0Color = { 1.f, 0.3f, 0.2f, 1.f };
     Limnova::Vector4 m_Orb1Color = { 0.2f, 0.3f, 1.f, 1.f };

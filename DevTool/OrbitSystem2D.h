@@ -12,7 +12,9 @@ private:
 public:
     struct OrbitParameters
     {
-        LVM::BigFloat Gravitational = { 0.f, 0 };
+        Limnova::BigFloat MassGrav = { 0.f, 0 };
+        Limnova::BigFloat Gravitational = { 0.f, 0 };
+        float RadiusOfInfluence = 0.f;
 
         // State
         Limnova::Vector2 Position = { 0.f, 0.f };
@@ -33,12 +35,12 @@ public:
         float SemiMajorAxis = 0.f;
         float SemiMinorAxis = 0.f;
         float Period = 0.f;
-        float CcwF = 1; // Counter-clockwise factor
+        float CcwF = 1.f; // Counter-clockwise factor
 
         // Computation constants
-        float mu;
-        float h2mu;
-        float muh;
+        float mu = 0.f; // TEMPORARY - realistic values are too large for floats!
+        float h2mu = 0.f;
+        float muh = 0.f;
     };
 public:
     static void Init();
@@ -46,29 +48,41 @@ public:
 
     void Update(Limnova::Timestep dT);
 
-    void LoadLevel(const LVM::BigFloat& hostMass);
-    // CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
-    uint32_t CreateOrbiter(const LVM::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity);
-    uint32_t CreateOrbiter(const LVM::BigFloat& mass, const Limnova::Vector2& position, bool clockwise = false);
-    //uint32_t CreateOrbiter(const LVM::BigFloat& mass, const Limnova::Vector2& position, float eccentricity, float trueAnomaly = 0.f, bool clockwise = false);
-
+    void LoadLevel(const Limnova::BigFloat& hostMass);
+    // CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters. Returns ID of created orbiter, or numeric_limits<unit32_t>::max() if creation fails.
+    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity);
+    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, bool clockwise = false);
+    //uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, float eccentricity, float trueAnomaly = 0.f, bool clockwise = false);
 
     const OrbitParameters& GetParameters(const uint32_t orbiter);
     const OrbitParameters& GetHostRenderInfo();
 
     void SetOrbiterRightAscension(const uint32_t orbiter, const float rightAscension);
+
+    void SetTimeScale(const float timescale) { m_Timescale = timescale; }
 private:
+    struct OrbitTreeNode;
+    using NodeRef = std::shared_ptr<OrbitTreeNode>;
+
     struct OrbitTreeNode
     {
-        std::shared_ptr<OrbitTreeNode> Parent;
-        std::vector<std::shared_ptr<OrbitTreeNode>> Children;
+        NodeRef Parent = nullptr;
+        std::vector<NodeRef> Children;
+        uint32_t Id;
+
         OrbitParameters Parameters;
         bool NeedRecomputeState = false;
     };
 
-    std::shared_ptr<OrbitTreeNode> m_LevelHost;
-    std::vector<std::shared_ptr<OrbitTreeNode>> m_Nodes;
+    NodeRef m_LevelHost;
+    std::vector<NodeRef> m_Nodes;
+
+    float m_Timescale = 1.f;
 private:
+    uint32_t CreateOrbiterImpl(const NodeRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity);
     static void ComputeElementsFromState(OrbitParameters& params);
     static void ComputeStateVector(OrbitParameters& params);
+
+    // Returns lowest-level node whose circle-of-influence overlaps the given position, or m_LevelHost if none overlaps.
+    NodeRef& FindLowestOverlappingCOI(const Limnova::Vector2& position);
 };

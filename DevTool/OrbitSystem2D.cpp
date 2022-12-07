@@ -2,7 +2,7 @@
 
 OrbitSystem2D OrbitSystem2D::s_OrbitSystem2D;
 
-static const LVM::BigFloat kGrav = { 6.6743f, -11 };
+static const Limnova::BigFloat kGrav = { 6.6743f, -11 };
 
 
 void OrbitSystem2D::Init()
@@ -20,65 +20,102 @@ OrbitSystem2D& OrbitSystem2D::Get()
 
 void OrbitSystem2D::Update(Limnova::Timestep dT)
 {
-    for (auto node : m_Nodes)
+    LV_PROFILE_FUNCTION();
+
+    for (auto& node : m_Nodes)
     {
         // Integrate true anomaly
         auto& op = node->Parameters;
-        op.TrueAnomaly += (float)dT * op.OSAMomentum / op.Position.SqrMagnitude(); // dTA / dT = h / r^2
-        if (op.TrueAnomaly > LVM::PI2f)
+        op.TrueAnomaly += (float)dT * m_Timescale * op.OSAMomentum / op.Position.SqrMagnitude(); // dTA / dT = h / r^2
+        if (op.TrueAnomaly > Limnova::PI2f)
         {
-            op.TrueAnomaly -= LVM::PI2f;
+            op.TrueAnomaly -= Limnova::PI2f;
         }
         node->NeedRecomputeState = true;
     }
 }
 
 
-void OrbitSystem2D::LoadLevel(const LVM::BigFloat& hostMass)
+void OrbitSystem2D::LoadLevel(const Limnova::BigFloat& hostMass)
 {
+    LV_PROFILE_FUNCTION();
+
     m_LevelHost.reset(new OrbitTreeNode);
-    m_LevelHost->Parameters.Gravitational = kGrav * hostMass;
+    m_LevelHost->Parameters.MassGrav = kGrav * hostMass;
+    m_LevelHost->Parameters.RadiusOfInfluence = 1.1f;
 
     m_Nodes.clear();
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiter(const LVM::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity)
+uint32_t OrbitSystem2D::CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity)
 {
-    OrbitTreeNode* newNode = new OrbitTreeNode;
-    auto& op = newNode->Parameters;
+    LV_PROFILE_FUNCTION();
 
-    // TEMPORARY - applies to satellites of level host only
-    op.Gravitational = m_LevelHost->Parameters.Gravitational;
-    op.mu = op.Gravitational.GetFloat();
-    LV_ASSERT((kGrav * mass).GetExponent() < op.Gravitational.GetExponent()
-        - (int)cbrtf((float)op.Gravitational.GetExponent()), "Orbiter mass is too high!");
+    // Determine parent node (host of orbit)
+    auto& p = FindLowestOverlappingCOI(position);
 
-    op.Position = position;
-    op.Velocity = velocity;
-    newNode->NeedRecomputeState = false;
-    ComputeElementsFromState(op);
-
-    uint32_t idx = m_Nodes.size();
-    m_Nodes.emplace_back(newNode);
-    return idx;
+    return CreateOrbiterImpl(p, mass, position, velocity);
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiter(const LVM::BigFloat& mass, const Limnova::Vector2& position, bool clockwise)
+uint32_t OrbitSystem2D::CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, bool clockwise)
 {
-    float vMag = sqrtf(m_LevelHost->Parameters.Gravitational / sqrtf(position.SqrMagnitude()));
+    LV_PROFILE_FUNCTION();
+
+    // Determine parent node (host of orbit)
+    auto& p = FindLowestOverlappingCOI(position);
+
+    // Compute velocity of circular orbit
+    float vMag = sqrtf(p->Parameters.MassGrav.GetFloat() / sqrtf(position.SqrMagnitude()));
     Limnova::Vector2 vDir = clockwise ?
         Limnova::Vector2(position.y, -position.x).Normalized() :
         Limnova::Vector2(-position.y, position.x).Normalized();
 
     Limnova::Vector2 velocity = vMag * vDir;
-    return CreateOrbiter(mass, position, velocity);
+    return CreateOrbiterImpl(p, mass, position, velocity);
+}
+
+
+uint32_t OrbitSystem2D::CreateOrbiterImpl(const NodeRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity)
+{
+    LV_PROFILE_FUNCTION();
+
+    OrbitTreeNode* newNode = new OrbitTreeNode;
+    newNode->Parent = parent;
+
+    // Compute gravitational properties of system
+    auto& op = newNode->Parameters;
+    op.MassGrav = kGrav * mass;
+#ifdef LV_DEBUG
+    auto& hp = newNode->Parent->Parameters;
+    if (op.MassGrav.GetExponent() > hp.MassGrav.GetExponent()
+        - (int)cbrtf((float)hp.MassGrav.GetExponent()) - 1)
+    {
+        LV_CORE_ERROR("Orbiter mass ({0}) is too high for lowest overlapping circle of influence (orbiter {1})!", mass, newNode->Parent->Id);
+        delete newNode;
+        return std::numeric_limits<uint32_t>::max();
+    }
+#endif
+    op.Gravitational = newNode->Parent->Parameters.MassGrav; // mu = GM -> Assumes mass of orbiter is insignificant compared to host    
+    op.mu = op.Gravitational.GetFloat(); // TEMPORARY - realistic values are too large for floats!
+
+    // Compute orbital elements
+    op.Position = position;
+    op.Velocity = velocity;
+    newNode->NeedRecomputeState = false;
+    ComputeElementsFromState(op);
+
+    // Add node to tree
+    newNode->Id = m_Nodes.size();
+    newNode->Parent->Children.push_back(m_Nodes.emplace_back(newNode));
+    return newNode->Id;
 }
 
 
 void OrbitSystem2D::ComputeElementsFromState(OrbitParameters& op)
 {
+    LV_PROFILE_FUNCTION();
     // Some of these computations use optimisations which only apply
     // to orbits in the XY plane: the mechanics in this function is 
     // suitable only for 2D orbit simulations!
@@ -109,13 +146,13 @@ void OrbitSystem2D::ComputeElementsFromState(OrbitParameters& op)
     op.TrueAnomaly = acosf(op.BasisX.Dot(ur));
     if (op.Velocity.Dot(ur) < 0)
     {
-        op.TrueAnomaly = LVM::PI2f - op.TrueAnomaly;
+        op.TrueAnomaly = Limnova::PI2f - op.TrueAnomaly;
     }
 
     op.RightAscensionPeriapsis = acosf(op.BasisX.x);
     if (op.BasisX.y < 0)
     {
-        op.TrueAnomaly = LVM::PI2f - op.TrueAnomaly;
+        op.TrueAnomaly = Limnova::PI2f - op.TrueAnomaly;
     }
 
     float h2 = (float)pow(op.OSAMomentum, 2);
@@ -127,17 +164,16 @@ void OrbitSystem2D::ComputeElementsFromState(OrbitParameters& op)
     op.SemiMinorAxis = op.SemiMajorAxis * sqrtf(oneMinusE2);
     op.Centre = -op.SemiMajorAxis * op.Eccentricity * op.BasisX;
 
-    op.Period = LVM::PI2f * op.SemiMajorAxis * op.SemiMinorAxis / op.OSAMomentum;
+    op.Period = Limnova::PI2f * op.SemiMajorAxis * op.SemiMinorAxis / op.OSAMomentum;
+
+    op.RadiusOfInfluence = op.SemiMajorAxis * pow((op.MassGrav / op.Gravitational).GetFloat(), 0.4f);
 }
 
 
 void OrbitSystem2D::ComputeStateVector(OrbitParameters& params)
 {
-    // TEMPORARY - circular only
-    //op.Position.x = op.Periapsis * cos(op.TrueAnomaly);
-    //op.Position.y = op.CcwF * op.Periapsis * sin(op.TrueAnomaly);
+    LV_PROFILE_FUNCTION();
 
-    // Ellipse
     float sinT = sin(params.TrueAnomaly);
     float cosT = cos(params.TrueAnomaly);
     params.Position = params.h2mu
@@ -149,8 +185,38 @@ void OrbitSystem2D::ComputeStateVector(OrbitParameters& params)
 }
 
 
+OrbitSystem2D::NodeRef& OrbitSystem2D::FindLowestOverlappingCOI(const Limnova::Vector2& position)
+{
+    LV_PROFILE_FUNCTION();
+
+    uint32_t id = std::numeric_limits<uint32_t>::max();
+    OrbitTreeNode* node = m_LevelHost.get();
+    bool seek = true;
+    while (seek)
+    {
+        seek = false;
+
+        for (auto& child : node->Children)
+        {
+            float separation = sqrt((position - child->Parameters.Position).SqrMagnitude());
+            if (separation < child->Parameters.RadiusOfInfluence)
+            {
+                id = child->Id;
+                node = child.get();
+                bool seek = true;
+                break;
+            }
+        }
+    }
+    return id == std::numeric_limits<uint32_t>::max()
+        ? m_LevelHost : m_Nodes[id];
+}
+
+
 const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_t orbiter)
 {
+    LV_PROFILE_FUNCTION();
+
     LV_CORE_ASSERT(orbiter < m_Nodes.size() && orbiter >= 0, "Invalid orbiter ID!");
 
     auto& node = m_Nodes[orbiter];
@@ -171,12 +237,14 @@ const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetHostRenderInfo()
 
 void OrbitSystem2D::SetOrbiterRightAscension(const uint32_t orbiter, const float rightAscension)
 {
+    LV_PROFILE_FUNCTION();
+
     auto& op = m_Nodes[orbiter]->Parameters;
 
     op.TrueAnomaly = op.CcwF > 0 ? rightAscension - op.RightAscensionPeriapsis : op.RightAscensionPeriapsis - rightAscension;
     if (op.TrueAnomaly < 0)
     {
-        op.TrueAnomaly += LVM::PI2f;
+        op.TrueAnomaly += Limnova::PI2f;
     }
 
     m_Nodes[orbiter]->NeedRecomputeState = true;

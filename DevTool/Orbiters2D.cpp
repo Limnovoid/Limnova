@@ -31,6 +31,8 @@ void Orbiters2D::OnAttach()
     orbs.LoadLevel({ 1.498284464f, 10 }); // Inverse of gravitational constant
     m_Orb0Id = orbs.CreateOrbiter({ 1.f, 6 }, { 1.f, 0.f }, { -0.3f, 1.f });
     m_Orb1Id = orbs.CreateOrbiter({ 1.f, 6 }, { 0.f, -.5f }, false);
+    
+    orbs.SetOrbiterRightAscension(m_Orb0Id, 3.f * Limnova::PIover2f);
 
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
@@ -72,27 +74,29 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
         OrbitSystem2D& orbs = OrbitSystem2D::Get();
-        constexpr float orbiterTxpr = 4.f; // Orbiter texture scaling factor: texture widths per unit orbiter-radius
-        constexpr float orbitTxpr = 2.f * 1280.f / 1270.f; // Orbit texture scaling factor: texture widths per texture semi-major axis
+        constexpr float circleFillTexSizefactor = 4.f; // Texture widths per unit circle-RADII
+        constexpr float circleTexSizefactor = 2.f * 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
 
-        auto& starParams = orbs.GetHostRenderInfo();
-        Limnova::Renderer2D::DrawQuad(starParams.Position, { orbiterTxpr * 0.1f }, m_CircleFillTexture, { 0.9f, 1.f, 1.f, 1.f });
+        auto& sp = orbs.GetHostRenderInfo();
+        Limnova::Renderer2D::DrawQuad(sp.Position, { circleFillTexSizefactor * 0.1f }, m_CircleFillTexture, { 0.9f, 1.f, 1.f, 1.f });
 
         // Orb0
-        auto& orb0Params = orbs.GetParameters(m_Orb0Id);
-        Limnova::Renderer2D::DrawQuad(orb0Params.Position, { orbiterTxpr * 0.01f }, m_CircleFillTexture, m_Orb0Color);
-        Limnova::Renderer2D::DrawRotatedQuad(starParams.Position + orb0Params.Centre,
-            orbitTxpr * Limnova::Vector2(orb0Params.SemiMajorAxis, orb0Params.SemiMinorAxis),
-            orb0Params.RightAscensionPeriapsis, m_CircleTexture, { m_Orb0Color.x, m_Orb0Color.y, m_Orb0Color.z, .5f }
+        auto& op0 = orbs.GetParameters(m_Orb0Id);
+        Limnova::Renderer2D::DrawQuad(op0.Position, { circleFillTexSizefactor * 0.01f }, m_CircleFillTexture, m_Orb0Color);
+        Limnova::Renderer2D::DrawRotatedQuad(sp.Position + op0.Centre,
+            circleTexSizefactor * Limnova::Vector2(op0.SemiMajorAxis, op0.SemiMinorAxis),
+            op0.RightAscensionPeriapsis, m_CircleTexture, { m_Orb0Color.x, m_Orb0Color.y, m_Orb0Color.z, .5f }
         );
+        Limnova::Renderer2D::DrawQuad(op0.Position, { circleFillTexSizefactor * op0.RadiusOfInfluence }, m_CircleFillTexture, m_InfluenceColor);
 
         // Orb1
-        auto& orb1Params = orbs.GetParameters(m_Orb1Id);
-        Limnova::Renderer2D::DrawQuad(orb1Params.Position, { orbiterTxpr * 0.01f }, m_CircleFillTexture, m_Orb1Color);
-        Limnova::Renderer2D::DrawRotatedQuad(starParams.Position + orb1Params.Centre,
-            orbitTxpr * Limnova::Vector2(orb1Params.SemiMajorAxis, orb1Params.SemiMinorAxis),
-            orb1Params.RightAscensionPeriapsis, m_CircleTexture, { m_Orb1Color.x, m_Orb1Color.y, m_Orb1Color.z, .5f }
+        auto& op1 = orbs.GetParameters(m_Orb1Id);
+        Limnova::Renderer2D::DrawQuad(op1.Position, { circleFillTexSizefactor * 0.01f }, m_CircleFillTexture, m_Orb1Color);
+        Limnova::Renderer2D::DrawRotatedQuad(sp.Position + op1.Centre,
+            circleTexSizefactor * Limnova::Vector2(op1.SemiMajorAxis, op1.SemiMinorAxis),
+            op1.RightAscensionPeriapsis, m_CircleTexture, { m_Orb1Color.x, m_Orb1Color.y, m_Orb1Color.z, .5f }
         );
+        Limnova::Renderer2D::DrawQuad(op1.Position, { circleFillTexSizefactor * op1.RadiusOfInfluence }, m_CircleFillTexture, m_InfluenceColor);
 
         Limnova::Renderer2D::EndScene();
     }
@@ -103,21 +107,27 @@ void Orbiters2D::OnImGuiRender()
 {
     ImGui::Begin("Orbiters2D");
 
+    OrbitSystem2D& orbs = OrbitSystem2D::Get();
+    if (ImGui::SliderFloat("Timescale", &m_Timescale, 0.f, 10.f))
+    {
+        orbs.SetTimeScale(m_Timescale);
+    }
+
+    ImGui::ColorEdit4("Orb0", glm::value_ptr(*(glm::vec4*)&m_Orb0Color));
+    ImGui::ColorEdit4("Orb1", glm::value_ptr(*(glm::vec4*)&m_Orb1Color));
+
     ImGui::BeginTable("Orbiters", 3);
 
-    OrbitSystem2D& orbs = OrbitSystem2D::Get();
     auto& op0 = orbs.GetParameters(m_Orb0Id);
     auto& op1 = orbs.GetParameters(m_Orb1Id);
 
     // Row 0
-    /*ImGui::TableNextRow();
-
-    ImGui::TableSetColumnIndex(0);
-    ImGui::Text("HUD Color");
+    ImGui::TableNextRow();
+    ImGui::Text("Orbiter");
     ImGui::TableSetColumnIndex(1);
-    ImGui::ColorEdit4("Orb0", glm::value_ptr(*(glm::vec4*)&m_Orb0Color));
+    ImGui::Text("0");
     ImGui::TableSetColumnIndex(2);
-    ImGui::ColorEdit4("Orb1", glm::value_ptr(*(glm::vec4*)&m_Orb0Color));*/
+    ImGui::Text("1");
 
     // Row 1
     ImGui::TableNextRow();
@@ -138,6 +148,26 @@ void Orbiters2D::OnImGuiRender()
     ImGui::Text("%.2f", sqrtf(op0.Velocity.SqrMagnitude()));
     ImGui::TableSetColumnIndex(2);
     ImGui::Text("%.2f", sqrtf(op1.Velocity.SqrMagnitude()));
+
+    // Row 2
+    ImGui::TableNextRow();
+
+    ImGui::TableSetColumnIndex(0);
+    ImGui::Text("ROI");
+    ImGui::TableSetColumnIndex(1);
+    ImGui::Text("%.4f", op0.RadiusOfInfluence);
+    ImGui::TableSetColumnIndex(2);
+    ImGui::Text("%.4f", op1.RadiusOfInfluence);
+
+    // Row 3
+    ImGui::TableNextRow();
+
+    ImGui::TableSetColumnIndex(0);
+    ImGui::Text("Semi-major");
+    ImGui::TableSetColumnIndex(1);
+    ImGui::Text("%.4f", op0.SemiMajorAxis);
+    ImGui::TableSetColumnIndex(2);
+    ImGui::Text("%.4f", op1.SemiMajorAxis);
 
     ImGui::EndTable();
 

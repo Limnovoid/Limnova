@@ -1,7 +1,7 @@
 #include "BigFloat.h"
 
 
-namespace LVM
+namespace Limnova
 {
 
     BigFloat::BigFloat()
@@ -18,7 +18,34 @@ namespace LVM
 
     BigFloat BigFloat::operator*(const BigFloat& rhs) const
     {
-        return { this->m_Coefficient * rhs.m_Coefficient, this->m_Exponent + rhs.m_Exponent };
+        float coef = this->m_Coefficient * rhs.m_Coefficient;
+        int exp = this->m_Exponent + rhs.m_Exponent;
+        while (coef >= 10.f)
+        {
+            coef /= 10.f;
+            exp++;
+        }
+        return { coef, exp };
+    }
+
+
+    BigFloat BigFloat::operator/(const BigFloat& rhs) const
+    {
+        float coef = this->m_Coefficient / rhs.m_Coefficient;
+        int exp = this->m_Exponent - rhs.m_Exponent;
+        while (coef < 10.f)
+        {
+            coef *= 10.f;
+            exp--;
+        }
+        return { coef, exp };
+    }
+
+
+    std::ostream& operator<<(std::ostream& ostream, const BigFloat& bf)
+    {
+        ostream << bf.GetCoefficient() << "E" << bf.GetExponent();
+        return ostream;
     }
 
 }
