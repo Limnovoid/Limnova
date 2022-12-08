@@ -24,12 +24,20 @@ private:
     Limnova::Ref<Limnova::Texture2D> m_CircleFillTexture;
     Limnova::Ref<Limnova::Texture2D> m_CircleTexture;
     Limnova::Vector4 m_InfluenceColor = { 1.f, 0.8f, 0.2f, 0.25f };
-    float m_Timescale = 1.f;
+    float m_Timescale = 0.1f;
 
+    struct OrbiterRenderInfo
+    {
+        std::string Name;
+        float Radius;
+        Limnova::Vector4 Color;
+
+        bool DrawOrbit = false;
+        bool DrawInfluence = false;
+    };
+    std::unordered_map<uint32_t, OrbiterRenderInfo>m_OrbiterRenderInfo;
     uint32_t m_Orb0Id, m_Orb1Id;
-    Limnova::Vector4 m_Orb0Color = { 1.f, 0.3f, 0.2f, 1.f };
-    Limnova::Vector4 m_Orb1Color = { 0.2f, 0.3f, 1.f, 1.f };
-    uint32_t m_CameraTrackingId = std::numeric_limits<uint32_t>::max();
-    Limnova::Vector2 m_CameraTrackingPosition;
+    uint32_t m_CameraTrackingId = 0;
+    uint32_t m_CameraHostId = 0;
     bool m_CameraTrackingChanged = false;
 };

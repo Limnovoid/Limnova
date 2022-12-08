@@ -8,7 +8,7 @@ static const Limnova::BigFloat kGrav = { 6.6743f, -11 };
 void OrbitSystem2D::Init()
 {
     s_OrbitSystem2D.m_LevelHost.reset();
-    s_OrbitSystem2D.m_Nodes.clear();
+    s_OrbitSystem2D.m_InflNodes.clear();
 }
 
 
@@ -22,16 +22,16 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
 {
     LV_PROFILE_FUNCTION();
 
-    for (auto& node : m_Nodes)
+    for (uint32_t n = 1; n < m_InflNodes.size(); n++)
     {
         // Integrate true anomaly
-        auto& op = node->Parameters;
+        auto& op = m_InflNodes[n]->Parameters;
         op.TrueAnomaly += (float)dT * m_Timescale * op.OSAMomentum / op.Position.SqrMagnitude(); // dTA / dT = h / r^2
         if (op.TrueAnomaly > Limnova::PI2f)
         {
             op.TrueAnomaly -= Limnova::PI2f;
         }
-        node->NeedRecomputeState = true;
+        m_InflNodes[n]->NeedRecomputeState = true;
     }
 }
 
@@ -40,11 +40,12 @@ void OrbitSystem2D::LoadLevel(const Limnova::BigFloat& hostMass)
 {
     LV_PROFILE_FUNCTION();
 
-    m_LevelHost.reset(new OrbitTreeNode);
+    m_LevelHost.reset(new InfluencingNode);
+    m_LevelHost->Id = 0;
     m_LevelHost->Parameters.MassGrav = kGrav * hostMass;
-    m_LevelHost->Parameters.RadiusOfInfluence = 1.1f;
 
-    m_Nodes.clear();
+    m_InflNodes.clear();
+    m_InflNodes.push_back(m_LevelHost);
 }
 
 
@@ -53,9 +54,9 @@ uint32_t OrbitSystem2D::CreateOrbiter(const Limnova::BigFloat& mass, const Limno
     LV_PROFILE_FUNCTION();
 
     // Determine parent node (host of orbit)
-    auto& p = FindLowestOverlappingCOI(position);
+    auto& p = FindLowestOverlappingInfluence(position);
 
-    return CreateOrbiterImpl(p, mass, position, velocity);
+    return CreateInfluencingNode(p, mass, position, velocity);
 }
 
 
@@ -64,7 +65,7 @@ uint32_t OrbitSystem2D::CreateOrbiter(const Limnova::BigFloat& mass, const Limno
     LV_PROFILE_FUNCTION();
 
     // Determine parent node (host of orbit)
-    auto& p = FindLowestOverlappingCOI(position);
+    auto& p = FindLowestOverlappingInfluence(position);
 
     // Compute velocity of circular orbit
     float vMag = sqrtf(p->Parameters.MassGrav.GetFloat() / sqrtf(position.SqrMagnitude()));
@@ -73,15 +74,15 @@ uint32_t OrbitSystem2D::CreateOrbiter(const Limnova::BigFloat& mass, const Limno
         Limnova::Vector2(-position.y, position.x).Normalized();
 
     Limnova::Vector2 velocity = vMag * vDir;
-    return CreateOrbiterImpl(p, mass, position, velocity);
+    return CreateInfluencingNode(p, mass, position, velocity);
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiterImpl(const NodeRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity)
+uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity)
 {
     LV_PROFILE_FUNCTION();
 
-    OrbitTreeNode* newNode = new OrbitTreeNode;
+    InfluencingNode* newNode = new InfluencingNode;
     newNode->Parent = parent;
 
     // Compute gravitational properties of system
@@ -106,9 +107,11 @@ uint32_t OrbitSystem2D::CreateOrbiterImpl(const NodeRef& parent, const Limnova::
     newNode->NeedRecomputeState = false;
     ComputeElementsFromState(op);
 
+    ComputeInfluence(newNode);
+
     // Add node to tree
-    newNode->Id = m_Nodes.size();
-    newNode->Parent->Children.push_back(m_Nodes.emplace_back(newNode));
+    newNode->Id = m_InflNodes.size();
+    newNode->Parent->InfluencingChildren.push_back(m_InflNodes.emplace_back(newNode));
     return newNode->Id;
 }
 
@@ -165,8 +168,6 @@ void OrbitSystem2D::ComputeElementsFromState(OrbitParameters& op)
     op.Centre = -op.SemiMajorAxis * op.Eccentricity * op.BasisX;
 
     op.Period = Limnova::PI2f * op.SemiMajorAxis * op.SemiMinorAxis / op.OSAMomentum;
-
-    op.RadiusOfInfluence = op.SemiMajorAxis * pow((op.MassGrav / op.Gravitational).GetFloat(), 0.4f);
 }
 
 
@@ -185,21 +186,28 @@ void OrbitSystem2D::ComputeStateVector(OrbitParameters& params)
 }
 
 
-OrbitSystem2D::NodeRef& OrbitSystem2D::FindLowestOverlappingCOI(const Limnova::Vector2& position)
+void OrbitSystem2D::ComputeInfluence(InfluencingNode* influencingNode)
+{
+    auto& op = influencingNode->Parameters;
+    influencingNode->Influence.Radius = op.SemiMajorAxis * pow((op.MassGrav / op.Gravitational).GetFloat(), 0.4f);
+}
+
+
+OrbitSystem2D::InflRef& OrbitSystem2D::FindLowestOverlappingInfluence(const Limnova::Vector2& position)
 {
     LV_PROFILE_FUNCTION();
 
-    uint32_t id = std::numeric_limits<uint32_t>::max();
-    OrbitTreeNode* node = m_LevelHost.get();
+    uint32_t id = 0;
+    InfluencingNode* node = m_LevelHost.get();
     bool seek = true;
     while (seek)
     {
         seek = false;
 
-        for (auto& child : node->Children)
+        for (auto& child : node->InfluencingChildren)
         {
             float separation = sqrt((position - child->Parameters.Position).SqrMagnitude());
-            if (separation < child->Parameters.RadiusOfInfluence)
+            if (separation < child->Influence.Radius)
             {
                 id = child->Id;
                 node = child.get();
@@ -208,8 +216,7 @@ OrbitSystem2D::NodeRef& OrbitSystem2D::FindLowestOverlappingCOI(const Limnova::V
             }
         }
     }
-    return id == std::numeric_limits<uint32_t>::max()
-        ? m_LevelHost : m_Nodes[id];
+    return m_InflNodes[id];
 }
 
 
@@ -217,21 +224,23 @@ const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_
 {
     LV_PROFILE_FUNCTION();
 
-    LV_CORE_ASSERT(orbiter < m_Nodes.size() && orbiter >= 0, "Invalid orbiter ID!");
+    LV_CORE_ASSERT(orbiter < m_InflNodes.size() && orbiter >= 0, "Invalid orbiter ID!");
 
-    auto& node = m_Nodes[orbiter];
+    auto& node = m_InflNodes[orbiter];
     if (node->NeedRecomputeState)
     {
         ComputeStateVector(node->Parameters);
         node->NeedRecomputeState = false;
     }
-    return m_Nodes[orbiter]->Parameters;
+    return m_InflNodes[orbiter]->Parameters;
 }
 
 
-const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetLevelHostParams()
+const float OrbitSystem2D::GetRadiusOfInfluence(const uint32_t orbiter)
 {
-    return m_LevelHost->Parameters;
+    LV_CORE_ASSERT(orbiter < m_InflNodes.size() && orbiter >= 0, "Invalid orbiter ID!");
+
+    return m_InflNodes[orbiter]->Influence.Radius;
 }
 
 
@@ -239,7 +248,9 @@ void OrbitSystem2D::SetOrbiterRightAscension(const uint32_t orbiter, const float
 {
     LV_PROFILE_FUNCTION();
 
-    auto& op = m_Nodes[orbiter]->Parameters;
+    LV_CORE_ASSERT(orbiter > 0, "Cannot set right ascension of level host!");
+
+    auto& op = m_InflNodes[orbiter]->Parameters;
 
     op.TrueAnomaly = op.CcwF > 0 ? rightAscension - op.RightAscensionPeriapsis : op.RightAscensionPeriapsis - rightAscension;
     if (op.TrueAnomaly < 0)
@@ -247,5 +258,18 @@ void OrbitSystem2D::SetOrbiterRightAscension(const uint32_t orbiter, const float
         op.TrueAnomaly += Limnova::PI2f;
     }
 
-    m_Nodes[orbiter]->NeedRecomputeState = true;
+    m_InflNodes[orbiter]->NeedRecomputeState = true;
+}
+
+
+void OrbitSystem2D::GetChildren(const uint32_t host, std::vector<uint32_t>& ids)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(host < m_InflNodes.size() && host >= 0, "Invalid orbiter ID!");
+
+    for (auto& child : m_InflNodes[host]->InfluencingChildren)
+    {
+        ids.push_back(child->Id);
+    }
 }

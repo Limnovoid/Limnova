@@ -14,7 +14,6 @@ public:
     {
         Limnova::BigFloat MassGrav = { 0.f, 0 };
         Limnova::BigFloat Gravitational = { 0.f, 0 };
-        float RadiusOfInfluence = 0.f;
 
         // State
         Limnova::Vector2 Position = { 0.f, 0.f };
@@ -55,34 +54,53 @@ public:
     //uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, float eccentricity, float trueAnomaly = 0.f, bool clockwise = false);
 
     const OrbitParameters& GetParameters(const uint32_t orbiter);
-    const OrbitParameters& GetLevelHostParams();
+    const float GetRadiusOfInfluence(const uint32_t orbiter);
 
     void SetOrbiterRightAscension(const uint32_t orbiter, const float rightAscension);
 
     void SetTimeScale(const float timescale) { m_Timescale = timescale; }
+
+    void GetChildren(const uint32_t host, std::vector<uint32_t>& ids);
 private:
     struct OrbitTreeNode;
+    struct InfluencingNode;
     using NodeRef = std::shared_ptr<OrbitTreeNode>;
+    using InflRef = std::shared_ptr<InfluencingNode>;
 
     struct OrbitTreeNode
     {
-        NodeRef Parent = nullptr;
-        std::vector<NodeRef> Children;
-        uint32_t Id;
+        InflRef Parent = nullptr;
+        uint32_t Id = std::numeric_limits<uint32_t>::max();
 
         OrbitParameters Parameters;
         bool NeedRecomputeState = false;
+
+        virtual ~OrbitTreeNode() {}
     };
 
-    NodeRef m_LevelHost;
-    std::vector<NodeRef> m_Nodes;
+    struct Influence
+    {
+        float Radius = 0.f;
+    };
+
+    struct InfluencingNode : public OrbitTreeNode
+    {
+        std::vector<InflRef> InfluencingChildren;
+        std::vector<NodeRef> NonInflChildren; // Non-influencing children - low-mass orbiters, ships, etc
+
+        Influence Influence;
+    };
+private:
+    InflRef m_LevelHost;
+    std::vector<InflRef> m_InflNodes;
 
     float m_Timescale = 1.f;
 private:
-    uint32_t CreateOrbiterImpl(const NodeRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity);
+    uint32_t CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity);
     static void ComputeElementsFromState(OrbitParameters& params);
     static void ComputeStateVector(OrbitParameters& params);
+    static void ComputeInfluence(InfluencingNode* influencingNode);
 
     // Returns lowest-level node whose circle-of-influence overlaps the given position, or m_LevelHost if none overlaps.
-    NodeRef& FindLowestOverlappingCOI(const Limnova::Vector2& position);
+    InflRef& FindLowestOverlappingInfluence(const Limnova::Vector2& position);
 };
