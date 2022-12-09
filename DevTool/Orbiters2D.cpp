@@ -27,16 +27,16 @@ void Orbiters2D::OnAttach()
     // OrbitSystem
     OrbitSystem2D::Init();
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
+    orbs.SetTimeScale(m_Timescale);
 
     orbs.LoadLevel({ 1.498284464f, 10 }); // Inverse of gravitational constant
     m_CameraHostId = 0;
     m_OrbiterRenderInfo[m_CameraHostId] = { "Star", 0.1f, {0.9f, 1.f, 1.f, 1.f}};
-    m_Orb0Id = orbs.CreateOrbiter({ 1.f, 6 }, { 1.f, 0.f }, { -0.3f, 1.f });
-    m_OrbiterRenderInfo[m_Orb0Id] = { "Planet 0", 0.01f, {1.f, 0.3f, 0.2f, 1.f}, true, true};
-    m_Orb1Id = orbs.CreateOrbiter({ 1.f, 6 }, { 0.f, -.5f }, false);
-    m_OrbiterRenderInfo[m_Orb1Id] = { "Planet 1", 0.01f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
-
-    orbs.SetOrbiterRightAscension(m_Orb0Id, 3.f * Limnova::PIover2f);
+    uint32_t id;
+    id = orbs.CreateOrbiter({ 1.f, 6 }, { 1.f, 0.f }, { -0.3f, 1.f });
+    m_OrbiterRenderInfo[id] = { "Planet 0", 0.01f, {1.f, 0.3f, 0.2f, 1.f}, true, true};
+    id = orbs.CreateOrbiter({ 1.f, 6 }, { 0.f, -.5f }, false);
+    m_OrbiterRenderInfo[id] = { "Planet 1", 0.01f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
 
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
@@ -134,12 +134,17 @@ void Orbiters2D::OnImGuiRender()
         orbs.SetTimeScale(m_Timescale);
     }
 
-    ImGui::ColorEdit4("Orb0", glm::value_ptr(*(glm::vec4*)&m_OrbiterRenderInfo[m_Orb0Id].Color));
-    ImGui::ColorEdit4("Orb1", glm::value_ptr(*(glm::vec4*)&m_OrbiterRenderInfo[m_Orb1Id].Color));
-
+    // Orbiter HUD colors
     std::vector<uint32_t> trackableOrbiters;
     trackableOrbiters.push_back(m_CameraHostId);
     orbs.GetChildren(m_CameraHostId, trackableOrbiters);
+    for (uint32_t idx = 1; idx < trackableOrbiters.size(); idx++)
+    {
+        auto& ri = m_OrbiterRenderInfo[trackableOrbiters[idx]];
+        ImGui::ColorEdit4(ri.Name.c_str(), glm::value_ptr(*(glm::vec4*)&ri.Color));
+    }
+
+    // Camera tracking orbiter selection
     if (ImGui::BeginCombo("Camera Tracking", m_OrbiterRenderInfo[m_CameraTrackingId].Name.c_str()))
     {
         for (uint32_t n : trackableOrbiters)
@@ -158,58 +163,37 @@ void Orbiters2D::OnImGuiRender()
         ImGui::EndCombo();
     }
 
-    ImGui::BeginTable("Orbiters", 3);
-
-    auto& op0 = orbs.GetParameters(m_Orb0Id);
-    auto& op1 = orbs.GetParameters(m_Orb1Id);
-
-    // Row 0
-    ImGui::TableNextRow();
+    // Orbiter information table
+    ImGui::BeginTable("Orbiter Information", 5, ImGuiTableFlags_Borders);
+    // Headers
+    ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+    ImGui::TableSetColumnIndex(0);
     ImGui::Text("Orbiter");
     ImGui::TableSetColumnIndex(1);
-    ImGui::Text("0");
-    ImGui::TableSetColumnIndex(2);
-    ImGui::Text("1");
-
-    // Row 1
-    ImGui::TableNextRow();
-
-    ImGui::TableSetColumnIndex(0);
     ImGui::Text("True Anomaly");
-    ImGui::TableSetColumnIndex(1);
-    ImGui::Text("%.2f (%.2f)", op0.TrueAnomaly, glm::degrees(op0.TrueAnomaly));
     ImGui::TableSetColumnIndex(2);
-    ImGui::Text("%.2f (%.2f)", op1.TrueAnomaly, glm::degrees(op1.TrueAnomaly));
-
-    // Row 2
-    ImGui::TableNextRow();
-
-    ImGui::TableSetColumnIndex(0);
     ImGui::Text("Speed");
-    ImGui::TableSetColumnIndex(1);
-    ImGui::Text("%.2f", sqrtf(op0.Velocity.SqrMagnitude()));
-    ImGui::TableSetColumnIndex(2);
-    ImGui::Text("%.2f", sqrtf(op1.Velocity.SqrMagnitude()));
-
-    // Row 2
-    ImGui::TableNextRow();
-
-    ImGui::TableSetColumnIndex(0);
+    ImGui::TableSetColumnIndex(3);
     ImGui::Text("ROI");
-    ImGui::TableSetColumnIndex(1);
-    ImGui::Text("%.4f", orbs.GetRadiusOfInfluence(m_Orb0Id));
-    ImGui::TableSetColumnIndex(2);
-    ImGui::Text("%.4f", orbs.GetRadiusOfInfluence(m_Orb1Id));
-
-    // Row 3
-    ImGui::TableNextRow();
-
-    ImGui::TableSetColumnIndex(0);
-    ImGui::Text("Semi-major");
-    ImGui::TableSetColumnIndex(1);
-    ImGui::Text("%.4f", op0.SemiMajorAxis);
-    ImGui::TableSetColumnIndex(2);
-    ImGui::Text("%.4f", op1.SemiMajorAxis);
+    ImGui::TableSetColumnIndex(4);
+    ImGui::Text("Semi-major Axis");
+    // Information
+    for (uint32_t idx = 1; idx < trackableOrbiters.size(); idx++)
+    {
+        auto id = trackableOrbiters[idx];
+        auto& op = orbs.GetParameters(id);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text(m_OrbiterRenderInfo[id].Name.c_str());
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("%.2f (%.2f)", op.TrueAnomaly, glm::degrees(op.TrueAnomaly));
+        ImGui::TableSetColumnIndex(2);
+        ImGui::Text("%.2f", sqrtf(op.Velocity.SqrMagnitude()));
+        ImGui::TableSetColumnIndex(3);
+        ImGui::Text("%.4f", orbs.GetRadiusOfInfluence(id));
+        ImGui::TableSetColumnIndex(4);
+        ImGui::Text("%.4f", op.SemiMajorAxis);
+    }
 
     ImGui::EndTable();
 

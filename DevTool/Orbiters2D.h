@@ -35,8 +35,7 @@ private:
         bool DrawOrbit = false;
         bool DrawInfluence = false;
     };
-    std::unordered_map<uint32_t, OrbiterRenderInfo>m_OrbiterRenderInfo;
-    uint32_t m_Orb0Id, m_Orb1Id;
+    std::unordered_map<uint32_t, OrbiterRenderInfo>m_OrbiterRenderInfo; // TEMPORARY - to be replaced by entities/components
     uint32_t m_CameraTrackingId = 0;
     uint32_t m_CameraHostId = 0;
     bool m_CameraTrackingChanged = false;

@@ -42,7 +42,7 @@ void OrbitSystem2D::LoadLevel(const Limnova::BigFloat& hostMass)
 
     m_LevelHost.reset(new InfluencingNode);
     m_LevelHost->Id = 0;
-    m_LevelHost->Parameters.MassGrav = kGrav * hostMass;
+    m_LevelHost->Parameters.MassGrav = kGrav * hostMass; // TODO - scaling factor ! but MassGrav or Gravitational?
 
     m_InflNodes.clear();
     m_InflNodes.push_back(m_LevelHost);
@@ -87,7 +87,7 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const Limno
 
     // Compute gravitational properties of system
     auto& op = newNode->Parameters;
-    op.MassGrav = kGrav * mass;
+    op.MassGrav = kGrav * mass; // TODO : scaling factor !
 #ifdef LV_DEBUG
     auto& hp = newNode->Parent->Parameters;
     if (op.MassGrav.GetExponent() > hp.MassGrav.GetExponent()
@@ -98,7 +98,7 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const Limno
         return std::numeric_limits<uint32_t>::max();
     }
 #endif
-    op.Gravitational = newNode->Parent->Parameters.MassGrav; // mu = GM -> Assumes mass of orbiter is insignificant compared to host    
+    op.Gravitational = newNode->Parent->Parameters.MassGrav; // mu = GM -> Assumes mass of orbiter is insignificant compared to host
     op.mu = op.Gravitational.GetFloat(); // TEMPORARY - realistic values are too large for floats!
 
     // Compute orbital elements
