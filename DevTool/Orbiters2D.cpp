@@ -29,14 +29,16 @@ void Orbiters2D::OnAttach()
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
     orbs.SetTimeScale(m_Timescale);
 
-    orbs.LoadLevel({ 1.498284464f, 10 }); // Inverse of gravitational constant
+    orbs.LoadLevel({ 1.498284464f, 10 }); // Host mass initialised to inverse of gravitational constant - GM = 1
     m_CameraHostId = 0;
     m_OrbiterRenderInfo[m_CameraHostId] = { "Star", 0.1f, {0.9f, 1.f, 1.f, 1.f}};
     uint32_t id;
     id = orbs.CreateOrbiter({ 1.f, 6 }, { 1.f, 0.f }, { -0.3f, 1.f });
-    m_OrbiterRenderInfo[id] = { "Planet 0", 0.01f, {1.f, 0.3f, 0.2f, 1.f}, true, true};
+    m_OrbiterRenderInfo[id] = { "Planet 0", 0.01f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
+    id = orbs.CreateOrbiter({ 1.f, 2 }, { 1.f, 0.02f }, false);
+    m_OrbiterRenderInfo[id] = { "Moon 0", 0.001f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
     id = orbs.CreateOrbiter({ 1.f, 6 }, { 0.f, -.5f }, false);
-    m_OrbiterRenderInfo[id] = { "Planet 1", 0.01f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
+    m_OrbiterRenderInfo[id] = { "Planet 1", 0.01f, {0.2f, 0.7f, 1.f, 1.f}, true, true};
 
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
@@ -135,19 +137,41 @@ void Orbiters2D::OnImGuiRender()
     }
 
     // Orbiter HUD colors
-    std::vector<uint32_t> trackableOrbiters;
-    trackableOrbiters.push_back(m_CameraHostId);
-    orbs.GetChildren(m_CameraHostId, trackableOrbiters);
-    for (uint32_t idx = 1; idx < trackableOrbiters.size(); idx++)
+    std::vector<uint32_t> trackableOrbiterIds;
+    trackableOrbiterIds.push_back(m_CameraHostId);
+    orbs.GetChildren(m_CameraHostId, trackableOrbiterIds);
+    for (uint32_t idx = 1; idx < trackableOrbiterIds.size(); idx++)
     {
-        auto& ri = m_OrbiterRenderInfo[trackableOrbiters[idx]];
+        auto& ri = m_OrbiterRenderInfo[trackableOrbiterIds[idx]];
         ImGui::ColorEdit4(ri.Name.c_str(), glm::value_ptr(*(glm::vec4*)&ri.Color));
     }
 
-    // Camera tracking orbiter selection
-    if (ImGui::BeginCombo("Camera Tracking", m_OrbiterRenderInfo[m_CameraTrackingId].Name.c_str()))
+    // Camera host selection
+    std::vector<uint32_t> hostIds;
+    orbs.GetAllHosts(hostIds);
+    if (ImGui::BeginCombo("Scene Host", m_OrbiterRenderInfo[m_CameraHostId].Name.c_str()))
     {
-        for (uint32_t n : trackableOrbiters)
+        for (uint32_t n : hostIds)
+        {
+            const bool isSelected = (m_CameraHostId == n);
+            if (ImGui::Selectable(m_OrbiterRenderInfo[n].Name.c_str(), isSelected))
+            {
+                m_CameraHostId = n;
+                m_CameraTrackingId = n;
+                m_CameraTrackingChanged = true;
+            }
+
+            // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+            if (isSelected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+
+    // Camera tracking orbiter selection
+    if (ImGui::BeginCombo("Orbiter Tracking", m_OrbiterRenderInfo[m_CameraTrackingId].Name.c_str()))
+    {
+        for (uint32_t n : trackableOrbiterIds)
         {
             const bool isSelected = (m_CameraTrackingId == n);
             if (ImGui::Selectable(m_OrbiterRenderInfo[n].Name.c_str(), isSelected))
@@ -178,9 +202,9 @@ void Orbiters2D::OnImGuiRender()
     ImGui::TableSetColumnIndex(4);
     ImGui::Text("Semi-major Axis");
     // Information
-    for (uint32_t idx = 1; idx < trackableOrbiters.size(); idx++)
+    for (uint32_t idx = 1; idx < trackableOrbiterIds.size(); idx++)
     {
-        auto id = trackableOrbiters[idx];
+        auto id = trackableOrbiterIds[idx];
         auto& op = orbs.GetParameters(id);
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);

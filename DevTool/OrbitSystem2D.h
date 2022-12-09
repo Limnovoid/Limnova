@@ -55,12 +55,14 @@ public:
 
     const OrbitParameters& GetParameters(const uint32_t orbiter);
     const float GetRadiusOfInfluence(const uint32_t orbiter);
+    void GetChildren(const uint32_t host, std::vector<uint32_t>& ids);
+
+    void GetAllHosts(std::vector<uint32_t>& ids);
 
     void SetOrbiterRightAscension(const uint32_t orbiter, const float rightAscension);
 
     void SetTimeScale(const float timescale) { m_Timescale = timescale; }
 
-    void GetChildren(const uint32_t host, std::vector<uint32_t>& ids);
 private:
     struct OrbitTreeNode;
     struct InfluencingNode;
@@ -80,6 +82,7 @@ private:
 
     struct Influence
     {
+        Limnova::BigFloat Scaling;
         float Radius = 0.f;
     };
 
@@ -96,7 +99,7 @@ private:
 
     float m_Timescale = 1.f;
 private:
-    uint32_t CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity);
+    uint32_t CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& relativePosition, const Limnova::Vector2& relativeVelocity);
     static void ComputeElementsFromState(OrbitParameters& params);
     static void ComputeStateVector(OrbitParameters& params);
     static void ComputeInfluence(InfluencingNode* influencingNode);
