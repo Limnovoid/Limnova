@@ -28,7 +28,8 @@ namespace Limnova
         virtual Camera& GetCamera() = 0;                // override per camera type
         virtual const Camera& GetCamera() const = 0;    // override per camera type
 
-        void SetZoomLimits(const float minZoom, const float maxZoom) { m_MinZoom = minZoom; m_MaxZoom = maxZoom; }
+        void SetZoom(const float zoom) { m_ZoomLevel = std::clamp(zoom, m_MinZoom, m_MaxZoom); m_NeedSetProjection = true; }
+        void SetZoomLimits(const float minZoom, const float maxZoom) { m_MinZoom = minZoom; m_MaxZoom = maxZoom; SetZoom(m_ZoomLevel); }
         void SetZoomSensitivity(const float sensitivity) { m_ZoomSensitivity = m_ZoomSensitivity; }
 
         void SetXY(const Vector2& position) { m_Position.x = position.x; m_Position.y = position.y; m_NeedSetView = true; }

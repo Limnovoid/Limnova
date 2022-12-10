@@ -29,14 +29,14 @@ void Orbiters2D::OnAttach()
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
     orbs.SetTimeScale(m_Timescale);
 
-    orbs.LoadLevel({ 1.498284464f, 10 }); // Host mass initialised to inverse of gravitational constant - GM = 1
+    orbs.LoadLevel({ 1.498284464f, 10 }, { 1.f, 0 }); // Host mass initialised to inverse of gravitational constant - GM = 1
     m_CameraHostId = 0;
     m_OrbiterRenderInfo[m_CameraHostId] = { "Star", 0.1f, {0.9f, 1.f, 1.f, 1.f}};
     uint32_t id;
     id = orbs.CreateOrbiter({ 1.f, 6 }, { 1.f, 0.f }, { -0.3f, 1.f });
     m_OrbiterRenderInfo[id] = { "Planet 0", 0.01f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
     id = orbs.CreateOrbiter({ 1.f, 2 }, { 1.f, 0.02f }, false);
-    m_OrbiterRenderInfo[id] = { "Moon 0", 0.001f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
+    m_OrbiterRenderInfo[id] = { "Moon 0", 0.0003f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
     id = orbs.CreateOrbiter({ 1.f, 6 }, { 0.f, -.5f }, false);
     m_OrbiterRenderInfo[id] = { "Planet 1", 0.01f, {0.2f, 0.7f, 1.f, 1.f}, true, true};
 
@@ -93,10 +93,11 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         // Render camera's local host
         auto& hp = orbs.GetParameters(m_CameraHostId);
         auto& rih = m_OrbiterRenderInfo[m_CameraHostId];
+        float hostScaling = orbs.GetScaling(m_CameraHostId);
 
         // Keep tracked orbiter centred in scene - use its position to offset its host
         Limnova::Vector2 hostPos = m_CameraTrackingId == m_CameraHostId ? 0.f : -1.f * orbs.GetParameters(m_CameraTrackingId).Position;
-        Limnova::Renderer2D::DrawQuad(hostPos, { circleFillTexSizefactor * rih.Radius }, m_CircleFillTexture, rih.Color);
+        Limnova::Renderer2D::DrawQuad(hostPos, { circleFillTexSizefactor * rih.Radius * hostScaling }, m_CircleFillTexture, rih.Color);
 
         // Render host's orbiters
         std::vector<uint32_t> visibleOrbiters;
@@ -107,7 +108,7 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             Limnova::Vector2 orbPos = orbId == m_CameraTrackingId ? 0.f : hostPos + op.Position;
 
             auto& ri = m_OrbiterRenderInfo[orbId];
-            Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * ri.Radius }, m_CircleFillTexture, ri.Color);
+            Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * ri.Radius * hostScaling }, m_CircleFillTexture, ri.Color);
             if (ri.DrawOrbit)
             {
                 Limnova::Renderer2D::DrawRotatedQuad(hostPos + op.Centre,
@@ -159,6 +160,7 @@ void Orbiters2D::OnImGuiRender()
                 m_CameraHostId = n;
                 m_CameraTrackingId = n;
                 m_CameraTrackingChanged = true;
+                m_CameraController->SetZoom(1.f);
             }
 
             // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
@@ -202,6 +204,7 @@ void Orbiters2D::OnImGuiRender()
     ImGui::TableSetColumnIndex(4);
     ImGui::Text("Semi-major Axis");
     // Information
+    float scaling = orbs.GetScaling(m_CameraHostId);
     for (uint32_t idx = 1; idx < trackableOrbiterIds.size(); idx++)
     {
         auto id = trackableOrbiterIds[idx];
@@ -212,11 +215,11 @@ void Orbiters2D::OnImGuiRender()
         ImGui::TableSetColumnIndex(1);
         ImGui::Text("%.2f (%.2f)", op.TrueAnomaly, glm::degrees(op.TrueAnomaly));
         ImGui::TableSetColumnIndex(2);
-        ImGui::Text("%.2f", sqrtf(op.Velocity.SqrMagnitude()));
+        ImGui::Text("%.2f (%.4f)", sqrtf(op.Velocity.SqrMagnitude()), sqrtf(op.Velocity.SqrMagnitude()) / scaling);
         ImGui::TableSetColumnIndex(3);
-        ImGui::Text("%.4f", orbs.GetRadiusOfInfluence(id));
+        ImGui::Text("%.4f (%.6f)", orbs.GetRadiusOfInfluence(id), orbs.GetRadiusOfInfluence(id) / scaling);
         ImGui::TableSetColumnIndex(4);
-        ImGui::Text("%.4f", op.SemiMajorAxis);
+        ImGui::Text("%.4f (%.6f)", op.SemiMajorAxis, op.SemiMajorAxis / scaling);
     }
 
     ImGui::EndTable();

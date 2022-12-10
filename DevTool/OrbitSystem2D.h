@@ -12,8 +12,8 @@ private:
 public:
     struct OrbitParameters
     {
-        Limnova::BigFloat MassGrav = { 0.f, 0 };
-        Limnova::BigFloat Gravitational = { 0.f, 0 };
+        Limnova::BigFloat GravAsHost = { 0.f, 0 }; // Gravitational parameter of this orbiter, used by its own children for computing their orbits around this host.
+        Limnova::BigFloat GravAsOrbiter = { 0.f, 0 }; // Gravitation paramter of this orbiter's host, used for this orbiter's own computations.
 
         // State
         Limnova::Vector2 Position = { 0.f, 0.f };
@@ -47,14 +47,15 @@ public:
 
     void Update(Limnova::Timestep dT);
 
-    void LoadLevel(const Limnova::BigFloat& hostMass);
+    void LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& scaling);
     // CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters. Returns ID of created orbiter, or numeric_limits<unit32_t>::max() if creation fails.
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity);
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, bool clockwise = false);
     //uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, float eccentricity, float trueAnomaly = 0.f, bool clockwise = false);
 
     const OrbitParameters& GetParameters(const uint32_t orbiter);
-    const float GetRadiusOfInfluence(const uint32_t orbiter);
+    float GetRadiusOfInfluence(const uint32_t orbiter);
+    float GetScaling(const uint32_t host);
     void GetChildren(const uint32_t host, std::vector<uint32_t>& ids);
 
     void GetAllHosts(std::vector<uint32_t>& ids);
@@ -82,8 +83,8 @@ private:
 
     struct Influence
     {
-        Limnova::BigFloat Scaling;
-        float Radius = 0.f;
+        Limnova::BigFloat TotalScaling; // Use to multiply children's parameters to convert them from relative-scaled dimensions to unscaled-absolute dimensions.
+        float Radius = 0.f; // Scaled by parent - use to multiply children's parameters to convert them from this influence's scale to the parent scale (move from this influence to the next-higher influence in the level).
     };
 
     struct InfluencingNode : public OrbitTreeNode
@@ -99,11 +100,12 @@ private:
 
     float m_Timescale = 1.f;
 private:
-    uint32_t CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& relativePosition, const Limnova::Vector2& relativeVelocity);
+    uint32_t CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::Vector2& scaledVelocity);
     static void ComputeElementsFromState(OrbitParameters& params);
     static void ComputeStateVector(OrbitParameters& params);
-    static void ComputeInfluence(InfluencingNode* influencingNode);
+    static void ComputeInfluence(InfluencingNode* influencingNode, const InflRef& parent, const Limnova::BigFloat& mass);
 
     // Returns lowest-level node whose circle-of-influence overlaps the given position, or m_LevelHost if none overlaps.
-    InflRef& FindLowestOverlappingInfluence(const Limnova::Vector2& position);
+    InflRef& FindLowestOverlappingInfluence(const Limnova::Vector2& absolutePosition);
+    InflRef& FindOverlappingChildInfluence(InflRef& parent, const Limnova::Vector2& scaledPosition);
 };

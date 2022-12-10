@@ -32,6 +32,19 @@ namespace Limnova
     }
 
 
+    BigFloat BigFloat::Pow(const BigFloat& value, const int power)
+    {
+        float coef = pow(value.m_Coefficient, power);
+        int exp = value.m_Exponent * power;
+        while (coef >= 10.f)
+        {
+            coef /= 10.f;
+            exp++;
+        }
+        return { coef, exp };
+    }
+
+
     BigFloat BigFloat::operator*(const BigFloat& rhs) const
     {
         float coef = this->m_Coefficient * rhs.m_Coefficient;

@@ -36,13 +36,15 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
 }
 
 
-void OrbitSystem2D::LoadLevel(const Limnova::BigFloat& hostMass)
+void OrbitSystem2D::LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& scaling)
 {
     LV_PROFILE_FUNCTION();
 
     m_LevelHost.reset(new InfluencingNode);
     m_LevelHost->Id = 0;
-    m_LevelHost->Parameters.MassGrav = kGrav * hostMass; // TODO - scaling factor ! but MassGrav or Gravitational?
+    m_LevelHost->Influence.TotalScaling = scaling;
+    m_LevelHost->Parameters.GravAsOrbiter = kGrav * hostMass;
+    m_LevelHost->Parameters.GravAsHost = m_LevelHost->Parameters.GravAsOrbiter / Limnova::BigFloat::Pow(scaling, 3); // Length dimension in G is cubed - scaling must be cubed when computing scaled-GM!
 
     m_InflNodes.clear();
     m_InflNodes.push_back(m_LevelHost);
@@ -56,7 +58,10 @@ uint32_t OrbitSystem2D::CreateOrbiter(const Limnova::BigFloat& mass, const Limno
     // Determine parent node (host of orbit)
     auto& p = FindLowestOverlappingInfluence(position);
 
-    return CreateInfluencingNode(p, mass, position - p->Parameters.Position, velocity - p->Parameters.Velocity);
+    Limnova::Vector2 scaledPosition = (position - p->Parameters.Position) * p->Influence.TotalScaling.GetFloat();
+    Limnova::Vector2 scaledVelocity = (velocity - p->Parameters.Velocity) * p->Influence.TotalScaling.GetFloat();
+
+    return CreateInfluencingNode(p, mass, scaledPosition, scaledVelocity);
 }
 
 
@@ -68,17 +73,17 @@ uint32_t OrbitSystem2D::CreateOrbiter(const Limnova::BigFloat& mass, const Limno
     auto& p = FindLowestOverlappingInfluence(position);
 
     // Compute relative velocity of circular orbit
-    Limnova::Vector2 relativePosition = position - p->Parameters.Position;
-    float vMag = sqrtf(p->Parameters.MassGrav.GetFloat() / sqrtf(relativePosition.SqrMagnitude())); // TEMPORARY - use BigFloat
+    Limnova::Vector2 scaledPosition = (position - p->Parameters.Position) * p->Influence.TotalScaling.GetFloat();
+    float vMag = sqrtf(p->Parameters.GravAsHost.GetFloat() / sqrtf(scaledPosition.SqrMagnitude())); // TEMPORARY - use BigFloat
     Limnova::Vector2 vDir = clockwise ?
-        Limnova::Vector2(relativePosition.y, -relativePosition.x).Normalized() :
-        Limnova::Vector2(-relativePosition.y, relativePosition.x).Normalized();
+        Limnova::Vector2(scaledPosition.y, -scaledPosition.x).Normalized() :
+        Limnova::Vector2(-scaledPosition.y, scaledPosition.x).Normalized();
 
-    return CreateInfluencingNode(p, mass, relativePosition, vMag * vDir);
+    return CreateInfluencingNode(p, mass, scaledPosition, vMag * vDir);
 }
 
 
-uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& relativePosition, const Limnova::Vector2& relativeVelocity)
+uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::Vector2& scaledVelocity)
 {
     LV_PROFILE_FUNCTION();
 
@@ -87,27 +92,17 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const Limno
 
     // Compute gravitational properties of system
     auto& op = newNode->Parameters;
-    op.MassGrav = kGrav * mass; // TODO : scaling factor !
-#ifdef LV_DEBUG
-    auto& hp = newNode->Parent->Parameters;
-    if (op.MassGrav.GetExponent() > hp.MassGrav.GetExponent()
-        - (int)cbrtf((float)hp.MassGrav.GetExponent()) - 1)
-    {
-        LV_CORE_ERROR("Orbiter mass ({0}) is too high for lowest overlapping circle of influence (orbiter {1})!", mass, newNode->Parent->Id);
-        delete newNode;
-        return std::numeric_limits<uint32_t>::max();
-    }
-#endif
-    op.Gravitational = newNode->Parent->Parameters.MassGrav; // mu = GM -> Assumes mass of orbiter is insignificant compared to host
-    op.mu = op.Gravitational.GetFloat(); // TEMPORARY - realistic values are too small for floats!
+    op.GravAsOrbiter = newNode->Parent->Parameters.GravAsHost; // mu = GM -> Assumes mass of orbiter is insignificant compared to host
+    op.mu = op.GravAsOrbiter.GetFloat(); // TEMPORARY - realistic values are too small for floats!
 
     // Compute orbital elements
-    op.Position = relativePosition;
-    op.Velocity = relativeVelocity;
+    op.Position = scaledPosition;
+    op.Velocity = scaledVelocity;
     newNode->NeedRecomputeState = false;
     ComputeElementsFromState(op);
 
-    ComputeInfluence(newNode);
+    // Compute this orbiter's influence
+    ComputeInfluence(newNode, parent, mass);
 
     // Add node to tree
     newNode->Id = m_InflNodes.size();
@@ -186,37 +181,62 @@ void OrbitSystem2D::ComputeStateVector(OrbitParameters& params)
 }
 
 
-void OrbitSystem2D::ComputeInfluence(InfluencingNode* influencingNode)
+void OrbitSystem2D::ComputeInfluence(InfluencingNode* influencingNode, const InflRef& parent, const Limnova::BigFloat& mass)
 {
     auto& op = influencingNode->Parameters;
-    influencingNode->Influence.Radius = op.SemiMajorAxis * pow((op.MassGrav / op.Gravitational).GetFloat(), 0.4f);
+    auto& infl = influencingNode->Influence;
+
+    Limnova::BigFloat parentScaledGrav = kGrav * mass * Limnova::BigFloat::Pow(parent->Influence.TotalScaling, 3);
+#ifdef LV_DEBUG
+    auto& hp = parent->Parameters;
+    if (parentScaledGrav.GetExponent() > hp.GravAsHost.GetExponent()
+        - (int)cbrtf((float)hp.GravAsHost.GetExponent()) - 1)
+    {
+        LV_CORE_ERROR("Orbiter mass ({0}) is too high for lowest overlapping circle of influence (orbiter {1})!", mass, parent->Id);
+        delete influencingNode;
+        LV_CORE_ASSERT(false, "");
+    }
+#endif
+    infl.Radius = op.SemiMajorAxis * pow((parentScaledGrav / op.GravAsOrbiter).GetFloat(), 0.4f);
+    infl.TotalScaling = parent->Influence.TotalScaling / infl.Radius;
+    op.GravAsHost = kGrav * mass * Limnova::BigFloat::Pow(Limnova::BigFloat(infl.TotalScaling), 3); // G's length dimension is cubed - scaling must be cubed: scaled-GM = GM / scale^3
 }
 
 
-OrbitSystem2D::InflRef& OrbitSystem2D::FindLowestOverlappingInfluence(const Limnova::Vector2& position)
+OrbitSystem2D::InflRef& OrbitSystem2D::FindLowestOverlappingInfluence(const Limnova::Vector2& absolutePosition)
 {
     LV_PROFILE_FUNCTION();
 
-    uint32_t id = 0;
-    InfluencingNode* node = m_LevelHost.get();
-    bool seek = true;
-    while (seek)
+    uint32_t parentId = 0, inflNodeId;
+    Limnova::Vector2 scaledPosition = absolutePosition * m_LevelHost->Influence.TotalScaling.GetFloat();
+    for (uint32_t i = 0; i < m_InflNodes.size(); i++)
     {
-        seek = false;
-
-        for (auto& child : node->InfluencingChildren)
+        auto& inflNode = FindOverlappingChildInfluence(m_InflNodes[parentId], scaledPosition);
+        if (parentId == inflNode->Id)
         {
-            float separation = sqrt((position - child->Parameters.Position).SqrMagnitude());
-            if (separation < child->Influence.Radius)
-            {
-                id = child->Id;
-                node = child.get();
-                bool seek = true;
-                break;
-            }
+            return inflNode;
+        }
+        scaledPosition = (scaledPosition - inflNode->Parameters.Position) / inflNode->Influence.Radius;
+        parentId = inflNode->Id;
+    }
+    LV_CORE_ASSERT(false, "Function should never reach this line!");
+    return m_LevelHost;
+}
+
+
+OrbitSystem2D::InflRef& OrbitSystem2D::FindOverlappingChildInfluence(InflRef& parent, const Limnova::Vector2& scaledPosition)
+{
+    LV_PROFILE_FUNCTION();
+
+    for (auto& child : parent->InfluencingChildren)
+    {
+        float separation = sqrt((scaledPosition - child->Parameters.Position).SqrMagnitude());
+        if (separation < child->Influence.Radius)
+        {
+            return child;
         }
     }
-    return m_InflNodes[id];
+    return parent;
 }
 
 
@@ -236,11 +256,19 @@ const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_
 }
 
 
-const float OrbitSystem2D::GetRadiusOfInfluence(const uint32_t orbiter)
+float OrbitSystem2D::GetRadiusOfInfluence(const uint32_t orbiter)
 {
     LV_CORE_ASSERT(orbiter < m_InflNodes.size() && orbiter >= 0, "Invalid orbiter ID!");
 
     return m_InflNodes[orbiter]->Influence.Radius;
+}
+
+
+float OrbitSystem2D::GetScaling(const uint32_t host)
+{
+    LV_CORE_ASSERT(host < m_InflNodes.size() && host >= 0, "Invalid orbiter ID!");
+
+    return m_InflNodes[host]->Influence.TotalScaling.GetFloat();
 }
 
 

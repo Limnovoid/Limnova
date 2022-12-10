@@ -18,6 +18,8 @@ namespace Limnova
         float GetFloat() { return m_Coefficient * (float)pow(10.f, m_Exponent); }
         const float GetFloat() const { return m_Coefficient * (float)pow(10.f, m_Exponent); }
 
+        static BigFloat Pow(const BigFloat& value, const int power);
+
         BigFloat operator*(const BigFloat& rhs) const;
         BigFloat operator/(const BigFloat& rhs) const;
     private:
