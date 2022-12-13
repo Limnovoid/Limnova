@@ -2,6 +2,7 @@
 
 #include "BigFloat.h"
 
+#include "Vector2.h"
 #include "glm.h"
 
 
@@ -16,6 +17,7 @@ namespace Limnova
         BigVector2() : x({ 0.f, 0 }), y({ 0.f, 0 }) {}
         BigVector2(BigFloat v) : x(v), y(v) {}
         BigVector2(BigFloat x, BigFloat y) : x(x), y(y) {}
+        BigVector2(Vector2 vec) : x(vec.x), y(vec.y) {}
         BigVector2(glm::vec2 glmv) : x(glmv.x), y(glmv.y) {}
 
         inline BigFloat SqrMagnitude() const { return x * x + y * y; }
@@ -36,9 +38,11 @@ namespace Limnova
         BigVector2 operator/(const BigFloat scalar) const;
         BigVector2& operator/=(const BigFloat scalar);
     public:
-        operator glm::vec2() const { return glm::vec2(x.GetFloat(), y.GetFloat()); }
+        operator Vector2() const { return { x.Float(), y.Float() }; }
+        operator glm::vec2() const { return { x.Float(), y.Float() }; }
     public:
-        inline glm::vec2 glm_vec2() const { return glm::vec2(x.GetFloat(), y.GetFloat()); }
+        inline Vector2 Vector2() const { return { x.Float(), y.Float() }; }
+        inline glm::vec2 glm_vec2() const { return { x.Float(), y.Float() }; }
     };
 
 

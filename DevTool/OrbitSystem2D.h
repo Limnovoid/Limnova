@@ -17,7 +17,7 @@ public:
 
         // State
         Limnova::Vector2 Position = { 0.f, 0.f };
-        Limnova::Vector2 Velocity = { 0.f, 0.f };
+        Limnova::BigVector2 Velocity = { 0.f, 0.f };
 
         // Perifocal frame
         Limnova::Vector2 BasisX = { 1.f, 0.f };
@@ -26,20 +26,19 @@ public:
         float RightAscensionPeriapsis = 0.f;
 
         // Elements
-        float OSAMomentum = 0.f; // Orbital specific angular momentum
+        Limnova::BigFloat OSAMomentum = 0.f; // Orbital specific angular momentum
         float Eccentricity = 0.f;
         float TrueAnomaly = 0.f;
 
         // Dimensions
         float SemiMajorAxis = 0.f;
         float SemiMinorAxis = 0.f;
-        float Period = 0.f;
+        Limnova::BigFloat Period = 0.f;
         float CcwF = 1.f; // Counter-clockwise factor
 
         // Computation constants
-        float mu = 0.f; // TEMPORARY - realistic values are too large for floats!
         float h2mu = 0.f;
-        float muh = 0.f;
+        Limnova::BigFloat muh = 0.f;
     };
 public:
     static void Init();
@@ -60,8 +59,10 @@ public:
     /// </param>
     void LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& baseScaling);
     // CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters. Returns ID of created orbiter, or numeric_limits<unit32_t>::max() if creation fails.
-    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity);
-    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, bool clockwise = false);
+    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, Limnova::Vector2 scaledPosition, const Limnova::BigVector2& scaledVelocity);
+    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, Limnova::Vector2 scaledPosition, bool clockwise = false);
+    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::BigVector2& position, const Limnova::BigVector2& velocity);
+    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::BigVector2& position, bool clockwise = false);
     //uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, float eccentricity, float trueAnomaly = 0.f, bool clockwise = false);
 
     const OrbitParameters& GetParameters(const uint32_t orbiter);
@@ -74,7 +75,6 @@ public:
     void SetOrbiterRightAscension(const uint32_t orbiter, const float rightAscension);
 
     void SetTimeScale(const float timescale) { m_Timescale = timescale; }
-
 private:
     struct OrbitTreeNode;
     struct InfluencingNode;
@@ -111,12 +111,19 @@ private:
 
     float m_Timescale = 1.f;
 private:
-    uint32_t CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::Vector2& scaledVelocity);
+    uint32_t CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
     static void ComputeElementsFromState(OrbitParameters& params);
     static void ComputeStateVector(OrbitParameters& params);
     static void ComputeInfluence(InfluencingNode* influencingNode, const InflRef& parent, const Limnova::BigFloat& mass);
 
-    // Returns lowest-level node whose circle-of-influence overlaps the given position, or m_LevelHost if none overlaps.
-    InflRef& FindLowestOverlappingInfluence(const Limnova::Vector2& absolutePosition);
+    /// <summary>
+    /// Returns lowest-level node whose circle-of-influence overlaps the given position;
+    /// converts the position to that node's orbit space and updates the referenced vector with the result.
+    /// Returns m_LevelHost without modifying the referenced vector if no overlaps are found.
+    /// </summary>
+    /// <param name="scaledPosition">The position to check for overlaps and update to any overlapping node's orbit space.
+    /// NOTE: must be initially scaled to the top-level orbit space (the scaling of m_LevelHost)</param>
+    InflRef& FindLowestOverlappingInfluence(Limnova::Vector2& scaledPosition);
+    // Returns lowest-level node whose circle-of-influence overlaps the given absolue position, or m_LevelHost if none overlaps.
     InflRef& FindOverlappingChildInfluence(InflRef& parent, const Limnova::Vector2& scaledPosition);
 };

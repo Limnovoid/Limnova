@@ -32,19 +32,17 @@ namespace Limnova
         if (m_Coefficient == 0)
         {
             m_Exponent = 0;
+            return;
         }
-        else
+        while (abs(m_Coefficient) >= 10.f)
         {
-            while (abs(m_Coefficient) >= 10.f)
-            {
-                m_Coefficient /= 10.f;
-                m_Exponent++;
-            }
-            while (abs(m_Coefficient) < 1.f)
-            {
-                m_Coefficient *= 10.f;
-                m_Exponent--;
-            }
+            m_Coefficient /= 10.f;
+            m_Exponent++;
+        }
+        while (abs(m_Coefficient) < 1.f)
+        {
+            m_Coefficient *= 10.f;
+            m_Exponent--;
         }
     }
 
@@ -80,15 +78,50 @@ namespace Limnova
     }
 
 
+    BigFloat BigFloat::Abs(const BigFloat& value)
+    {
+        BigFloat ret;
+        ret.m_Coefficient = abs(value.m_Coefficient);
+        ret.m_Exponent = value.m_Exponent;
+        return ret;
+    }
+
+
+    BigFloat BigFloat::operator-() const
+    {
+        BigFloat ret;
+        ret.m_Coefficient = -1.f * this->m_Coefficient;
+        ret.m_Exponent = this->m_Exponent;
+        return ret;
+    }
+
+
+    BigFloat BigFloat::operator*(const float rhs) const
+    {
+        float coef = this->m_Coefficient * rhs;
+        if (coef == 0)
+        {
+            return { 0.f, 0 };
+        }
+        return { coef, this->m_Exponent };
+    }
+
+
+    BigFloat BigFloat::operator/(const float rhs) const
+    {
+        if (this->m_Coefficient == 0)
+        {
+            return { 0.f, 0 };
+        }
+        float coef = this->m_Coefficient / rhs;
+        return { coef, this->m_Exponent };
+    }
+
+
     BigFloat BigFloat::operator*(const BigFloat& rhs) const
     {
         float coef = this->m_Coefficient * rhs.m_Coefficient;
         int exp = this->m_Exponent + rhs.m_Exponent;
-        while (abs(coef) >= 10.f)
-        {
-            coef /= 10.f;
-            exp++;
-        }
         return { coef, exp };
     }
 
@@ -119,11 +152,6 @@ namespace Limnova
         }
         float coef = this->m_Coefficient / rhs.m_Coefficient;
         int exp = this->m_Exponent - rhs.m_Exponent;
-        while (abs(coef) < 1.f)
-        {
-            coef *= 10.f;
-            exp--;
-        }
         return { coef, exp };
     }
 
@@ -156,7 +184,7 @@ namespace Limnova
         }
         else
         {
-            coef = rhs.m_Coefficient + this->m_Coefficient * (float)pow(10.f, this->m_Exponent - rhs.m_Exponent);
+            coef = this->m_Coefficient * (float)pow(10.f, this->m_Exponent - rhs.m_Exponent) + rhs.m_Coefficient;
             exp = rhs.m_Exponent;
         }
 
@@ -165,16 +193,6 @@ namespace Limnova
             return { 0.f, 0 };
         }
 
-        while (abs(coef) >= 10.f)
-        {
-            coef /= 10.f;
-            exp++;
-        }
-        while (abs(coef) < 1.f)
-        {
-            coef *= 10.f;
-            exp--;
-        }
         return { coef, exp };
     }
 
@@ -187,7 +205,7 @@ namespace Limnova
         }
         else
         {
-            this->m_Coefficient = rhs.m_Coefficient + this->m_Coefficient * (float)pow(10.f, this->m_Exponent - rhs.m_Exponent);
+            this->m_Coefficient = this->m_Coefficient * (float)pow(10.f, this->m_Exponent - rhs.m_Exponent) + rhs.m_Coefficient;
             this->m_Exponent = rhs.m_Exponent;
         }
 
@@ -222,7 +240,7 @@ namespace Limnova
         }
         else
         {
-            coef = rhs.m_Coefficient - this->m_Coefficient * (float)pow(10.f, this->m_Exponent - rhs.m_Exponent);
+            coef = this->m_Coefficient * (float)pow(10.f, this->m_Exponent - rhs.m_Exponent) - rhs.m_Coefficient;
             exp = rhs.m_Exponent;
         }
 
@@ -231,16 +249,6 @@ namespace Limnova
             return { 0.f, 0 };
         }
 
-        while (abs(coef) >= 10.f)
-        {
-            coef /= 10.f;
-            exp++;
-        }
-        while (abs(coef) < 1.f)
-        {
-            coef *= 10.f;
-            exp--;
-        }
         return { coef, exp };
     }
 
@@ -253,7 +261,7 @@ namespace Limnova
         }
         else
         {
-            this->m_Coefficient = rhs.m_Coefficient - this->m_Coefficient * (float)pow(10.f, this->m_Exponent - rhs.m_Exponent);
+            this->m_Coefficient = this->m_Coefficient * (float)pow(10.f, this->m_Exponent - rhs.m_Exponent) - rhs.m_Coefficient;
             this->m_Exponent = rhs.m_Exponent;
         }
 
@@ -274,6 +282,24 @@ namespace Limnova
             this->m_Exponent--;
         }
         return *this;
+    }
+
+
+    BigFloat operator*(const float lhs, const BigFloat& rhs)
+    {
+        return rhs * lhs;
+    }
+
+
+    BigFloat operator/(const float lhs, const BigFloat& rhs)
+    {
+        if (lhs == 0)
+        {
+            return { 0.f, 0 };
+        }
+        float coef = lhs / rhs.m_Coefficient;
+        int exp = -rhs.m_Exponent;
+        return { coef, exp };
     }
 
 

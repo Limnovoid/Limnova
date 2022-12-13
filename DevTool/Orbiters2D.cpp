@@ -31,14 +31,16 @@ void Orbiters2D::OnAttach()
 
     orbs.LoadLevel({ 1.498284464f, 10 }, { 1.f, 0 }); // Host mass initialised to inverse of gravitational constant - GM = 1
     m_CameraHostId = 0;
-    m_OrbiterRenderInfo[m_CameraHostId] = { "Star", 0.1f, {0.9f, 1.f, 1.f, 1.f}};
+    m_OrbiterRenderInfo[m_CameraHostId] = { "Star", 0.05f, {0.9f, 1.f, 1.f, 1.f}};
     uint32_t id;
-    id = orbs.CreateOrbiter({ 1.f, 6 }, { 1.f, 0.f }, { -0.3f, 1.f });
-    m_OrbiterRenderInfo[id] = { "Planet 0", 0.01f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
-    id = orbs.CreateOrbiter({ 1.f, 2 }, { 1.f, 0.02f }, false);
-    m_OrbiterRenderInfo[id] = { "Moon 0", 0.0003f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
-    id = orbs.CreateOrbiter({ 1.f, 6 }, { 0.f, -.5f }, false);
-    m_OrbiterRenderInfo[id] = { "Planet 1", 0.01f, {0.2f, 0.7f, 1.f, 1.f}, true, true};
+    id = orbs.CreateOrbiter(Limnova::BigFloat(2.f, 6), Limnova::Vector2(1.f, 0.f), Limnova::Vector2(- 0.3f, 1.f));
+    m_OrbiterRenderInfo[id] = { "Planet 0", 0.001f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
+    id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(1.f, 0.03f), false);
+    m_OrbiterRenderInfo[id] = { "Moon 0", 0.00005f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
+    id = orbs.CreateOrbiter(Limnova::BigFloat(1.5f, 2), Limnova::BigVector2(1.02f, 0.f), true);
+    m_OrbiterRenderInfo[id] = { "Moon 1", 0.00007f, {0.3f, 0.9f, 0.2f, 1.f}, true, true };
+    id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 6), Limnova::Vector2(0.f, -.5f), false);
+    m_OrbiterRenderInfo[id] = { "Planet 1", 0.001f, {0.2f, 0.7f, 1.f, 1.f}, true, true};
 
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
@@ -215,7 +217,7 @@ void Orbiters2D::OnImGuiRender()
         ImGui::TableSetColumnIndex(1);
         ImGui::Text("%.2f (%.2f)", op.TrueAnomaly, glm::degrees(op.TrueAnomaly));
         ImGui::TableSetColumnIndex(2);
-        ImGui::Text("%.2f (%.4f)", sqrtf(op.Velocity.SqrMagnitude()), sqrtf(op.Velocity.SqrMagnitude()) / scaling);
+        ImGui::Text("%.2f (%.4f)", sqrtf(op.Velocity.SqrMagnitude().Float()), sqrtf(op.Velocity.SqrMagnitude().Float()) / scaling);
         ImGui::TableSetColumnIndex(3);
         ImGui::Text("%.4f (%.6f)", orbs.GetRadiusOfInfluence(id), orbs.GetRadiusOfInfluence(id) / scaling);
         ImGui::TableSetColumnIndex(4);
