@@ -40,8 +40,9 @@ namespace Limnova
     };
 
 
-    std::ostream& operator<<(std::ostream& ostream, const Vector2& v);
     Vector2 operator*(const float scalar, const Vector2 vector);
+
+    std::ostream& operator<<(std::ostream& ostream, const Vector2& v);
 
 
 }

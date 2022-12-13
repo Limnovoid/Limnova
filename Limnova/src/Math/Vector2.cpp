@@ -69,12 +69,6 @@ namespace Limnova
     }
 
 
-    Vector2 operator*(const float scalar, const Vector2 vector)
-    {
-        return vector * scalar;
-    }
-
-
     Vector2 Vector2::operator/(const float scalar) const
     {
         return Vector2(this->x / scalar, this->y / scalar);
@@ -86,6 +80,12 @@ namespace Limnova
         this->x /= scalar;
         this->y /= scalar;
         return *this;
+    }
+
+
+    Vector2 operator*(const float scalar, const Vector2 vector)
+    {
+        return vector * scalar;
     }
 
 

@@ -1,9 +1,10 @@
 #include "OrbitSystem2D.h"
 
-OrbitSystem2D OrbitSystem2D::s_OrbitSystem2D;
 
 static const Limnova::BigFloat kGrav = { 6.6743f, -11 };
 
+
+OrbitSystem2D OrbitSystem2D::s_OrbitSystem2D;
 
 void OrbitSystem2D::Init()
 {
@@ -36,15 +37,17 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
 }
 
 
-void OrbitSystem2D::LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& scaling)
+void OrbitSystem2D::LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& baseScaling)
 {
     LV_PROFILE_FUNCTION();
 
     m_LevelHost.reset(new InfluencingNode);
     m_LevelHost->Id = 0;
-    m_LevelHost->Influence.TotalScaling = scaling;
+    m_LevelHost->Influence.TotalScaling = baseScaling;
     m_LevelHost->Parameters.GravAsOrbiter = kGrav * hostMass;
-    m_LevelHost->Parameters.GravAsHost = m_LevelHost->Parameters.GravAsOrbiter / Limnova::BigFloat::Pow(scaling, 3); // Length dimension in G is cubed - scaling must be cubed when computing scaled-GM!
+
+    // Length dimension in G (the gravitational constant) is cubed - scaling must be cubed when computing scaled-GM
+    m_LevelHost->Parameters.GravAsHost = m_LevelHost->Parameters.GravAsOrbiter / Limnova::BigFloat::Pow(baseScaling, 3);
 
     m_InflNodes.clear();
     m_InflNodes.push_back(m_LevelHost);
@@ -115,8 +118,8 @@ void OrbitSystem2D::ComputeElementsFromState(OrbitParameters& op)
 {
     LV_PROFILE_FUNCTION();
     // Some of these computations use optimisations which only apply
-    // to orbits in the XY plane: the mechanics in this function is 
-    // suitable only for 2D orbit simulations!
+    // to orbits in the XY plane: assume the physics/maths used is
+    // suitable only for 2D simulations!
 
     float signedH = op.Position.x * op.Velocity.y - op.Position.y * op.Velocity.x;
     int ccwF = signedH < 0 ? -1.f : 1.f;
@@ -183,6 +186,8 @@ void OrbitSystem2D::ComputeStateVector(OrbitParameters& params)
 
 void OrbitSystem2D::ComputeInfluence(InfluencingNode* influencingNode, const InflRef& parent, const Limnova::BigFloat& mass)
 {
+    LV_PROFILE_FUNCTION();
+
     auto& op = influencingNode->Parameters;
     auto& infl = influencingNode->Influence;
 
@@ -198,7 +203,7 @@ void OrbitSystem2D::ComputeInfluence(InfluencingNode* influencingNode, const Inf
     }
 #endif
     infl.Radius = op.SemiMajorAxis * pow((parentScaledGrav / op.GravAsOrbiter).GetFloat(), 0.4f);
-    infl.TotalScaling = parent->Influence.TotalScaling / infl.Radius;
+    infl.TotalScaling = parent->Influence.TotalScaling / Limnova::BigFloat(infl.Radius);
     op.GravAsHost = kGrav * mass * Limnova::BigFloat::Pow(Limnova::BigFloat(infl.TotalScaling), 3); // G's length dimension is cubed - scaling must be cubed: scaled-GM = GM / scale^3
 }
 

@@ -47,7 +47,18 @@ public:
 
     void Update(Limnova::Timestep dT);
 
-    void LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& scaling);
+    /// <summary>
+    /// Initialise the orbit system by specifying the mass of the system host and the scaling ratio of the top-level orbit space.
+    /// </summary>
+    /// <param name="hostMass">Mass of system host</param>
+    /// <param name="baseScaling">Real-world distance by which distances in the top-level orbit space are normalised:
+    /// baseScale = 1 / realDistance.
+    /// Object positions are normalised by the conversion ratio of their orbit host to make the measurements used in
+    /// internal computations more manageable; most objects will have a separation from their host between 0 and 1.
+    /// baseScaling is the ratio of the top-level host: its value converts measurements in the top-level orbit space to
+    /// real-world measurements.
+    /// </param>
+    void LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& baseScaling);
     // CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters. Returns ID of created orbiter, or numeric_limits<unit32_t>::max() if creation fails.
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, const Limnova::Vector2& velocity);
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, bool clockwise = false);
