@@ -36,11 +36,15 @@ void Orbiters2D::OnAttach()
     id = orbs.CreateOrbiter(Limnova::BigFloat(2.f, 6), Limnova::Vector2(1.f, 0.f), Limnova::Vector2(- 0.3f, 1.f));
     m_OrbiterRenderInfo[id] = { "Planet 0", 0.001f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
     id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(1.f, 0.03f), false);
-    m_OrbiterRenderInfo[id] = { "Moon 0", 0.00005f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
+    m_OrbiterRenderInfo[id] = { "Moon 0.0", 0.00005f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
     id = orbs.CreateOrbiter(Limnova::BigFloat(1.5f, 2), Limnova::BigVector2(1.02f, 0.f), true);
-    m_OrbiterRenderInfo[id] = { "Moon 1", 0.00007f, {0.3f, 0.9f, 0.2f, 1.f}, true, true };
+    m_OrbiterRenderInfo[id] = { "Moon 0.1", 0.00007f, {0.3f, 0.9f, 0.2f, 1.f}, true, true };
+
     id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 6), Limnova::Vector2(0.f, -.5f), false);
     m_OrbiterRenderInfo[id] = { "Planet 1", 0.001f, {0.2f, 0.7f, 1.f, 1.f}, true, true};
+    id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(0.f, -.491f), false);
+    m_OrbiterRenderInfo[id] = { "Moon 1.0", 0.00003f, {0.5f, 0.2f, .3f, 1.f}, true, true };
+    m_CameraHostId = id; // DEBUG : Moon 1.0 orbit parameters - should be circular !!
 
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);

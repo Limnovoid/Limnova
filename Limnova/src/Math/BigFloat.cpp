@@ -303,6 +303,18 @@ namespace Limnova
     }
 
 
+    bool operator== (const BigFloat& lhs, const BigFloat& rhs)
+    {
+        return lhs.m_Coefficient == rhs.m_Coefficient && lhs.m_Exponent == rhs.m_Exponent;
+    }
+
+
+    bool operator!= (const BigFloat& lhs, const BigFloat& rhs)
+    {
+        return lhs.m_Coefficient != rhs.m_Coefficient || lhs.m_Exponent != rhs.m_Exponent;
+    }
+
+
     std::ostream& operator<<(std::ostream& ostream, const BigFloat& bf)
     {
         ostream << bf.GetCoefficient() << "E" << bf.GetExponent();

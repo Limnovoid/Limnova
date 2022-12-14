@@ -41,6 +41,11 @@ namespace Limnova
         BigFloat& operator-=(const BigFloat& rhs);
 
         friend BigFloat operator/(const float lhs, const BigFloat& rhs);
+
+        friend bool operator== (const BigFloat& lhs, const BigFloat& rhs);
+        friend bool operator!= (const BigFloat& lhs, const BigFloat& rhs);
+        friend bool operator< (const BigFloat& lhs, const BigFloat& rhs);
+        friend bool operator> (const BigFloat& lhs, const BigFloat& rhs);
     private:
         float m_Coefficient;
         int m_Exponent;
@@ -49,6 +54,9 @@ namespace Limnova
 
     BigFloat operator*(const float lhs, const BigFloat& rhs);
     BigFloat operator/(const float lhs, const BigFloat& rhs);
+
+    bool operator== (const BigFloat& lhs, const BigFloat& rhs);
+    bool operator!= (const BigFloat& lhs, const BigFloat& rhs);
 
     std::ostream& operator<<(std::ostream& ostream, const BigFloat& bf);
 

@@ -123,7 +123,7 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const LV::B
 
     // Compute gravitational properties of system
     auto& op = newNode->Parameters;
-    op.GravAsOrbiter = newNode->Parent->Parameters.GravAsHost; // mu = GM -> Assumes mass of orbiter is insignificant compared to host
+    op.GravAsOrbiter = parent->Parameters.GravAsHost; // mu = GM -> Assumes mass of orbiter is insignificant compared to host
 
     // Compute orbital elements
     op.Position = scaledPosition;
@@ -166,13 +166,13 @@ void OrbitSystem2D::ComputeElementsFromState(OrbitParameters& op)
     {
         // Circular
         op.Eccentricity = 0;
-        op.BasisX = { 1.f, 0.f };
+        op.BasisX = ur;
     }
     LV::Vector2 cwHorz = { -op.Position.y, op.Position.x };
     op.BasisY = ccwF * LV::Vector2(- op.BasisX.y, op.BasisX.x);
 
     op.TrueAnomaly = acosf(op.BasisX.Dot(ur));
-    if ((op.Velocity.y / op.Velocity.x).Float() * -(ur.y) > ur.x) // quadrant disambiguation - is Velocity on the inside of the tangent vector?
+    if (((op.Velocity.x * ur.x) + (op.Velocity.y * ur.y)).GetCoefficient() < 0) // disambiguate quadrant - is Velocity on the inside of the tangent vector?
     {
         op.TrueAnomaly = LV::PI2f - op.TrueAnomaly;
     }
