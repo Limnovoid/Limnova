@@ -68,6 +68,7 @@ public:
     const OrbitParameters& GetParameters(const uint32_t orbiter);
     float GetRadiusOfInfluence(const uint32_t orbiter);
     float GetScaling(const uint32_t host);
+    float GetHostScaling(const uint32_t orbiter);
     void GetChildren(const uint32_t host, std::vector<uint32_t>& ids);
 
     void GetAllHosts(std::vector<uint32_t>& ids);

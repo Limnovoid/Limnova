@@ -64,10 +64,13 @@ namespace Limnova
     {
         float coef = sqrt(value.m_Coefficient);
         int exp = value.m_Exponent / 2;
-        if (abs(value.m_Exponent) % 2 != 0)
+        if (abs(value.m_Exponent) % 2 == 1)
         {
             coef *= kRoot10;
-            exp--;
+            if (value.m_Exponent < 0)
+            {
+                exp--;
+            }
         }
         while (abs(coef) >= 10.f)
         {

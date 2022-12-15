@@ -44,7 +44,6 @@ void Orbiters2D::OnAttach()
     m_OrbiterRenderInfo[id] = { "Planet 1", 0.001f, {0.2f, 0.7f, 1.f, 1.f}, true, true};
     id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(0.f, -.491f), false);
     m_OrbiterRenderInfo[id] = { "Moon 1.0", 0.00003f, {0.5f, 0.2f, .3f, 1.f}, true, true };
-    m_CameraHostId = id; // DEBUG : Moon 1.0 orbit parameters - should be circular !!
 
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
@@ -209,8 +208,23 @@ void Orbiters2D::OnImGuiRender()
     ImGui::Text("ROI");
     ImGui::TableSetColumnIndex(4);
     ImGui::Text("Semi-major Axis");
-    // Information
-    float scaling = orbs.GetScaling(m_CameraHostId);
+    // Information - host
+    float scaling = 0 == m_CameraHostId ? 1.f : orbs.GetHostScaling(m_CameraHostId);
+    auto& op = orbs.GetParameters(m_CameraHostId);
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::Text(m_OrbiterRenderInfo[m_CameraHostId].Name.c_str());
+    ImGui::TableSetColumnIndex(1);
+    ImGui::Text("%.2f (%.2f)", op.TrueAnomaly, glm::degrees(op.TrueAnomaly));
+    ImGui::TableSetColumnIndex(2);
+    ImGui::Text("%.2f (%.4f)", sqrtf(op.Velocity.SqrMagnitude().Float()), sqrtf(op.Velocity.SqrMagnitude().Float()) / scaling);
+    ImGui::TableSetColumnIndex(3);
+    float roi = orbs.GetRadiusOfInfluence(m_CameraHostId);
+    ImGui::Text("%.4f (%.6f)", roi, roi / scaling);
+    ImGui::TableSetColumnIndex(4);
+    ImGui::Text("%.4f (%.6f)", op.SemiMajorAxis, op.SemiMajorAxis / scaling);
+    // Information - orbiters
+    scaling = orbs.GetScaling(m_CameraHostId);
     for (uint32_t idx = 1; idx < trackableOrbiterIds.size(); idx++)
     {
         auto id = trackableOrbiterIds[idx];
@@ -223,7 +237,8 @@ void Orbiters2D::OnImGuiRender()
         ImGui::TableSetColumnIndex(2);
         ImGui::Text("%.2f (%.4f)", sqrtf(op.Velocity.SqrMagnitude().Float()), sqrtf(op.Velocity.SqrMagnitude().Float()) / scaling);
         ImGui::TableSetColumnIndex(3);
-        ImGui::Text("%.4f (%.6f)", orbs.GetRadiusOfInfluence(id), orbs.GetRadiusOfInfluence(id) / scaling);
+        float roi = orbs.GetRadiusOfInfluence(id);
+        ImGui::Text("%.4f (%.6f)", roi, roi / scaling);
         ImGui::TableSetColumnIndex(4);
         ImGui::Text("%.4f (%.6f)", op.SemiMajorAxis, op.SemiMajorAxis / scaling);
     }

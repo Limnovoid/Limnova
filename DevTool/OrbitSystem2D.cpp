@@ -304,6 +304,14 @@ float OrbitSystem2D::GetScaling(const uint32_t host)
 }
 
 
+float OrbitSystem2D::GetHostScaling(const uint32_t orbiter)
+{
+    LV_CORE_ASSERT(orbiter < m_InflNodes.size() && orbiter > 0, "Invalid orbiter ID!");
+
+    return m_InflNodes[orbiter]->Parent->Influence.TotalScaling.Float();
+}
+
+
 void OrbitSystem2D::GetChildren(const uint32_t host, std::vector<uint32_t>& ids)
 {
     LV_PROFILE_FUNCTION();
