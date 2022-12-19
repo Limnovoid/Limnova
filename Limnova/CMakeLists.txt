@@ -56,7 +56,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/VertexArray.cpp"
 
     "thirdparty/stb_image/stb_image.cpp"
-)
+ "src/Profiling/DataTable.h")
 
 
 set_property(TARGET ${PROJECT_NAME}
@@ -84,6 +84,7 @@ target_precompile_headers(${PROJECT_NAME}
         <functional>
         <optional>
         <limits>
+        <cstdarg>
 
         <string>
         <sstream>

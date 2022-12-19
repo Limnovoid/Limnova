@@ -45,6 +45,8 @@ void Orbiters2D::OnAttach()
     id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(0.f, -.491f), false);
     m_OrbiterRenderInfo[id] = { "Moon 1.0", 0.00003f, {0.5f, 0.2f, .3f, 1.f}, true, true };
 
+    // TODO : dynamic orbits - orbiters moving between hosts at runtime
+
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
     m_CircleFillTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\orbiter-0.png", Limnova::Texture::WrapMode::Clamp);
@@ -54,7 +56,7 @@ void Orbiters2D::OnAttach()
 
 void Orbiters2D::OnDetach()
 {
-
+    OrbitSystem2D::Get().Shutdown();
 }
 
 

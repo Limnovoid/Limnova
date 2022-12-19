@@ -43,6 +43,7 @@ public:
 public:
     static void Init();
     static OrbitSystem2D& Get();
+    static void Shutdown();
 
     void Update(Limnova::Timestep dT);
 
@@ -127,4 +128,8 @@ private:
     InflRef& FindLowestOverlappingInfluence(Limnova::Vector2& scaledPosition);
     // Returns lowest-level node whose circle-of-influence overlaps the given absolue position, or m_LevelHost if none overlaps.
     InflRef& FindOverlappingChildInfluence(InflRef& parent, const Limnova::Vector2& scaledPosition);
+private:
+    std::unordered_map<uint32_t, std::chrono::steady_clock::time_point> m_ActualPeriods;
+    std::unordered_map<uint32_t, std::ostringstream> m_Data;
+    std::unordered_map<uint32_t, std::string> m_Filenames;
 };

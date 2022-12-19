@@ -1,5 +1,7 @@
 #include "OrbitSystem2D.h"
 
+#include <chrono>
+
 
 namespace LV = Limnova;
 
@@ -12,6 +14,11 @@ void OrbitSystem2D::Init()
 {
     s_OrbitSystem2D.m_LevelHost.reset();
     s_OrbitSystem2D.m_InflNodes.clear();
+
+
+    // debug - orbiter integration accuracy
+    s_OrbitSystem2D.m_Data.clear();
+    s_OrbitSystem2D.m_ActualPeriods.clear();
 }
 
 
@@ -21,9 +28,37 @@ OrbitSystem2D& OrbitSystem2D::Get()
 }
 
 
+void OrbitSystem2D::Shutdown()
+{
+    std::ofstream of;
+    const auto tp_sec = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+    const auto tp_day = std::chrono::floor<std::chrono::days>(tp_sec);
+    const std::chrono::year_month_day ymd(tp_day);
+    const std::chrono::hh_mm_ss hms(tp_sec - tp_day);
+    for (uint32_t n = 1; n < s_OrbitSystem2D.m_InflNodes.size(); n++)
+    {
+        of.open(s_OrbitSystem2D.m_Filenames[n], std::ofstream::app);
+        if (!of.is_open())
+        {
+            LV_CORE_ERROR("Could not open debug data file '{0}'!", s_OrbitSystem2D.m_Filenames[n]);
+            continue;
+        }
+
+        of  << std::format("{:%F}", ymd) << " | " << std::format("{:%T}", hms) << '\n'
+            << s_OrbitSystem2D.m_Data[n].str()
+            << std::endl;
+
+        of.close();
+    }
+}
+
+
 void OrbitSystem2D::Update(LV::Timestep dT)
 {
     LV_PROFILE_FUNCTION();
+
+    static const auto Tstart = std::chrono::steady_clock::now();
+
 
     for (uint32_t n = 1; n < m_InflNodes.size(); n++)
     {
@@ -32,12 +67,22 @@ void OrbitSystem2D::Update(LV::Timestep dT)
 
         // TODO : countdown timer - only update when enough time has passed for deltaTrueAnomaly to be similar
         // magnitude to op.True anomaly, to reduce precision error when summing them
-        op.TrueAnomaly += op.OSAMomentum.Float() * (m_Timescale * (float)dT / op.Position.SqrMagnitude()); // dTA / dT = h / r^2
+        op.TrueAnomaly += m_Timescale * (float)dT * op.OSAMomentum.Float() / op.Position.SqrMagnitude(); // dTA / dt = h / r^2
         //LV::BigFloat deltaTrueAnomaly = op.OSAMomentum.Float() * (m_Timescale * (float)dT / op.Position.SqrMagnitude());
         //op.TrueAnomaly += deltaTrueAnomaly;
         if (op.TrueAnomaly > LV::PI2f)
         {
             op.TrueAnomaly -= LV::PI2f;
+
+
+            // debug - integration accuracy
+            auto Tfinal = std::chrono::steady_clock::now();
+            float Ttotal = (Tfinal - Tstart).count() * 1e-9;
+            float Tdur = (Tfinal - m_ActualPeriods[n]).count() * 1e-9;
+            float period = op.Period.Float() / m_Timescale;
+            LV_CORE_INFO("Orbiter {0}: theoretical period = {1}, recorded period = {2}, error = {3}ms", n, period, Tdur, (Tdur - period) * 1e3);
+            m_Data[n] << Ttotal << "," << period << "," << Tdur << "," << ((Tdur - period) * 1e3) << std::endl;
+            m_ActualPeriods[n] = Tfinal;
         }
         m_InflNodes[n]->NeedRecomputeState = true;
     }
@@ -137,6 +182,18 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const LV::B
     // Add node to tree
     newNode->Id = m_InflNodes.size();
     newNode->Parent->InfluencingChildren.push_back(m_InflNodes.emplace_back(newNode));
+
+
+    // debug //
+    std::ostringstream fname;
+    fname << LV_DIR << "/Profiling/OrbiterDebugData/orbiter-" << newNode->Id << ".txt";
+    m_Filenames.emplace(newNode->Id, fname.str());
+    m_Data.emplace(newNode->Id, std::ios_base::app | std::ios_base::trunc);
+    m_Data[newNode->Id] << "Orbiter " << newNode->Id << " Debug Data" << std::endl;
+    m_Data[newNode->Id] << "T,Theoretical Period,Recorded Period,Error (ms)" << std::endl;
+    // debug //
+
+
     return newNode->Id;
 }
 
