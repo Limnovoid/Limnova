@@ -18,6 +18,7 @@ public:
         // State
         Limnova::Vector2 Position = { 0.f, 0.f };
         Limnova::BigVector2 Velocity = { 0.f, 0.f };
+        float UpdateTimer = 0.f;
 
         // Perifocal frame
         Limnova::Vector2 BasisX = { 1.f, 0.f };
@@ -128,8 +129,13 @@ private:
     InflRef& FindLowestOverlappingInfluence(Limnova::Vector2& scaledPosition);
     // Returns lowest-level node whose circle-of-influence overlaps the given absolue position, or m_LevelHost if none overlaps.
     InflRef& FindOverlappingChildInfluence(InflRef& parent, const Limnova::Vector2& scaledPosition);
+
+    // debug resources
 private:
     std::unordered_map<uint32_t, std::chrono::steady_clock::time_point> m_ActualPeriods;
     std::unordered_map<uint32_t, std::ostringstream> m_Data;
     std::unordered_map<uint32_t, std::string> m_Filenames;
+    bool m_Testing = true;
+private:
+    void RecordData();
 };

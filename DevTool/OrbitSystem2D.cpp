@@ -6,6 +6,8 @@
 namespace LV = Limnova;
 
 static const LV::BigFloat kGrav = { 6.6743f, -11 };
+static constexpr float kOptimalDeltaTAnom = 0.002f;
+static constexpr float kTypicalDeltaT = 1.f / 60.f;
 
 
 OrbitSystem2D OrbitSystem2D::s_OrbitSystem2D;
@@ -30,25 +32,9 @@ OrbitSystem2D& OrbitSystem2D::Get()
 
 void OrbitSystem2D::Shutdown()
 {
-    std::ofstream of;
-    const auto tp_sec = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
-    const auto tp_day = std::chrono::floor<std::chrono::days>(tp_sec);
-    const std::chrono::year_month_day ymd(tp_day);
-    const std::chrono::hh_mm_ss hms(tp_sec - tp_day);
-    for (uint32_t n = 1; n < s_OrbitSystem2D.m_InflNodes.size(); n++)
+    if (s_OrbitSystem2D.m_Testing)
     {
-        of.open(s_OrbitSystem2D.m_Filenames[n], std::ofstream::app);
-        if (!of.is_open())
-        {
-            LV_CORE_ERROR("Could not open debug data file '{0}'!", s_OrbitSystem2D.m_Filenames[n]);
-            continue;
-        }
-
-        of  << std::format("{:%F}", ymd) << " | " << std::format("{:%T}", hms) << '\n'
-            << s_OrbitSystem2D.m_Data[n].str()
-            << std::endl;
-
-        of.close();
+        s_OrbitSystem2D.RecordData();
     }
 }
 
@@ -58,6 +44,7 @@ void OrbitSystem2D::Update(LV::Timestep dT)
     LV_PROFILE_FUNCTION();
 
     static const auto Tstart = std::chrono::steady_clock::now();
+    static uint32_t orbiter1NumOrbits = 0;
 
 
     for (uint32_t n = 1; n < m_InflNodes.size(); n++)
@@ -65,11 +52,36 @@ void OrbitSystem2D::Update(LV::Timestep dT)
         // Integrate true anomaly
         auto& op = m_InflNodes[n]->Parameters;
 
-        // TODO : countdown timer - only update when enough time has passed for deltaTrueAnomaly to be similar
-        // magnitude to op.True anomaly, to reduce precision error when summing them
-        op.TrueAnomaly += m_Timescale * (float)dT * op.OSAMomentum.Float() / op.Position.SqrMagnitude(); // dTA / dt = h / r^2
-        //LV::BigFloat deltaTrueAnomaly = op.OSAMomentum.Float() * (m_Timescale * (float)dT / op.Position.SqrMagnitude());
-        //op.TrueAnomaly += deltaTrueAnomaly;
+        // Disconnected update loop:
+        // To handle cases where the simulated orbit period is much longer than a frame (such that per-frame changes in
+        // true anomaly would be very small in comparison, potentially introducing significant finite-precision error),
+        // orbit position is only updated after a certain amount of time (governed by op.UpdateTimer).
+        // This longer timestep (simDeltaTime) is computed to ensure that the change in true anomaly (simDeltaTAnomaly)
+        // is equal to or greater than kOptimalDeltaTAnom.
+        float gameDeltaTime = m_Timescale * (float)dT;
+        while (op.UpdateTimer < 0)
+        {
+            // dTAnom / dT = h / r^2 --> dT_optimal = dTAnom_optimal * r^2 / h
+            float simDeltaTAnomaly = kOptimalDeltaTAnom;
+            float simDeltaTime = (kOptimalDeltaTAnom * op.Position.SqrMagnitude() / op.OSAMomentum).Float();
+
+            // TEMPORARY - never allows multiple updates per frame
+            // TODO - allow multiple updates when time-skipping, to maintain integration accuracy
+            if (simDeltaTime < gameDeltaTime)
+            {
+                // dTAnom = dT * h / r^2
+                simDeltaTime = gameDeltaTime;
+                simDeltaTAnomaly = gameDeltaTime * op.OSAMomentum.Float() / op.Position.SqrMagnitude();
+            }
+
+            op.TrueAnomaly += simDeltaTAnomaly;
+            op.UpdateTimer += simDeltaTime;
+        }
+        op.UpdateTimer -= gameDeltaTime;
+
+        //float deltaTA = m_Timescale * (float)dT * op.OSAMomentum.Float() / op.Position.SqrMagnitude();
+        //op.TrueAnomaly += deltaTA;
+
         if (op.TrueAnomaly > LV::PI2f)
         {
             op.TrueAnomaly -= LV::PI2f;
@@ -83,6 +95,12 @@ void OrbitSystem2D::Update(LV::Timestep dT)
             LV_CORE_INFO("Orbiter {0}: theoretical period = {1}, recorded period = {2}, error = {3}ms", n, period, Tdur, (Tdur - period) * 1e3);
             m_Data[n] << Ttotal << "," << period << "," << Tdur << "," << ((Tdur - period) * 1e3) << std::endl;
             m_ActualPeriods[n] = Tfinal;
+            if (n == 1 && ++orbiter1NumOrbits > 5)
+            {
+                RecordData();
+                m_Testing = false;
+                LV_CORE_ASSERT(false, "Orbiter integration test run complete");
+            }
         }
         m_InflNodes[n]->NeedRecomputeState = true;
     }
@@ -407,5 +425,30 @@ void OrbitSystem2D::GetAllHosts(std::vector<uint32_t>& ids)
     for (auto& infl : m_InflNodes)
     {
         ids.push_back(infl->Id);
+    }
+}
+
+
+void OrbitSystem2D::RecordData()
+{
+    std::ofstream of;
+    const auto tp_sec = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+    const auto tp_day = std::chrono::floor<std::chrono::days>(tp_sec);
+    const std::chrono::year_month_day ymd(tp_day);
+    const std::chrono::hh_mm_ss hms(tp_sec - tp_day);
+    for (uint32_t n = 1; n < m_InflNodes.size(); n++)
+    {
+        of.open(m_Filenames[n], std::ofstream::app);
+        if (!of.is_open())
+        {
+            LV_CORE_ERROR("Could not open debug data file '{0}'!", m_Filenames[n]);
+            continue;
+        }
+
+        of << std::format("{:%F}", ymd) << " | " << std::format("{:%T}", hms) << '\n'
+            << m_Data[n].str()
+            << std::endl;
+
+        of.close();
     }
 }
