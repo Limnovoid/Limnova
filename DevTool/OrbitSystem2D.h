@@ -132,9 +132,14 @@ private:
 
     // debug resources
 private:
-    std::unordered_map<uint32_t, std::chrono::steady_clock::time_point> m_ActualPeriods;
-    std::unordered_map<uint32_t, std::ostringstream> m_Data;
-    std::unordered_map<uint32_t, std::string> m_Filenames;
+    struct DebugData
+    {
+        std::string Filename;
+        std::ostringstream OStream = std::ostringstream(std::ios_base::app | std::ios_base::trunc);
+        std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<float, std::nano>> TFirstPeriapsePass;
+        uint32_t NumPeriapsePasses = 0;
+    };
+    std::unordered_map<uint32_t, DebugData> m_DebugData;
     bool m_Testing = true;
 private:
     void RecordData();

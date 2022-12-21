@@ -19,8 +19,7 @@ void OrbitSystem2D::Init()
 
 
     // debug - orbiter integration accuracy
-    s_OrbitSystem2D.m_Data.clear();
-    s_OrbitSystem2D.m_ActualPeriods.clear();
+    s_OrbitSystem2D.m_DebugData.clear();
 }
 
 
@@ -32,7 +31,7 @@ OrbitSystem2D& OrbitSystem2D::Get()
 
 void OrbitSystem2D::Shutdown()
 {
-    if (s_OrbitSystem2D.m_Testing)
+    if (false/*s_OrbitSystem2D.m_Testing*/)
     {
         s_OrbitSystem2D.RecordData();
     }
@@ -43,14 +42,24 @@ void OrbitSystem2D::Update(LV::Timestep dT)
 {
     LV_PROFILE_FUNCTION();
 
-    static const auto Tstart = std::chrono::steady_clock::now();
-    static uint32_t orbiter1NumOrbits = 0;
+
+    // debug - integration accuracy
+    static auto TPreviousFrame = std::chrono::steady_clock::now();
+    static std::chrono::steady_clock::time_point TThisFrame;
+    TThisFrame = std::chrono::steady_clock::now();
+    // debug - integration accuracy
 
 
     for (uint32_t n = 1; n < m_InflNodes.size(); n++)
     {
         // Integrate true anomaly
         auto& op = m_InflNodes[n]->Parameters;
+
+
+        // debug - integration accuracy
+        float oldTAnomaly = op.TrueAnomaly;
+        // debug - integration accuracy
+
 
         // Disconnected update loop:
         // To handle cases where the simulated orbit period is much longer than a frame (such that per-frame changes in
@@ -88,22 +97,38 @@ void OrbitSystem2D::Update(LV::Timestep dT)
 
 
             // debug - integration accuracy
-            auto Tfinal = std::chrono::steady_clock::now();
-            float Ttotal = (Tfinal - Tstart).count() * 1e-9;
-            float Tdur = (Tfinal - m_ActualPeriods[n]).count() * 1e-9;
-            float period = op.Period.Float() / m_Timescale;
-            LV_CORE_INFO("Orbiter {0}: theoretical period = {1}, recorded period = {2}, error = {3}ms", n, period, Tdur, (Tdur - period) * 1e3);
-            m_Data[n] << Ttotal << "," << period << "," << Tdur << "," << ((Tdur - period) * 1e3) << std::endl;
-            m_ActualPeriods[n] = Tfinal;
-            if (n == 1 && ++orbiter1NumOrbits > 5)
+            auto TDelta = TThisFrame - TPreviousFrame;
+            auto TActualPeriapsePass = TPreviousFrame + (TDelta * (LV::PI2f - oldTAnomaly) / (oldTAnomaly - op.TrueAnomaly));
+            auto& data = m_DebugData[n];
+            if (data.NumPeriapsePasses == 0)
+            {
+                data.TFirstPeriapsePass = TActualPeriapsePass;
+            }
+            else
+            {
+                // Collect data
+                float actualPeriapsePass = 1e-9 * (TActualPeriapsePass - data.TFirstPeriapsePass).count();
+                float predictedPeriapsePass = data.NumPeriapsePasses * (op.Period / m_Timescale).Float();
+                LV_CORE_INFO("Orbiter {0}: predicted periapse passage = {1} s, actual passage = {2} s, error = {3} ms", n, predictedPeriapsePass, actualPeriapsePass, 1e3 * (predictedPeriapsePass - actualPeriapsePass));
+                //data.OStream <<
+            }
+            data.NumPeriapsePasses++;
+
+            // Record all data after orbiter 1 has completed 5 orbits.
+            if (n == 1 && data.NumPeriapsePasses > 5)
             {
                 RecordData();
                 m_Testing = false;
                 LV_CORE_ASSERT(false, "Orbiter integration test run complete");
             }
+            // debug - integration accuracy
         }
         m_InflNodes[n]->NeedRecomputeState = true;
     }
+
+
+    // debug - integration accuracy
+    TPreviousFrame = TThisFrame;
 }
 
 
@@ -205,10 +230,11 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const LV::B
     // debug //
     std::ostringstream fname;
     fname << LV_DIR << "/Profiling/OrbiterDebugData/orbiter-" << newNode->Id << ".txt";
-    m_Filenames.emplace(newNode->Id, fname.str());
-    m_Data.emplace(newNode->Id, std::ios_base::app | std::ios_base::trunc);
-    m_Data[newNode->Id] << "Orbiter " << newNode->Id << " Debug Data" << std::endl;
-    m_Data[newNode->Id] << "T,Theoretical Period,Recorded Period,Error (ms)" << std::endl;
+    DebugData newData;
+    newData.Filename = fname.str();
+    newData.OStream << "Orbiter " << newNode->Id << " Debug Data" << std::endl;
+    newData.OStream << "T,Theoretical Period,Recorded Period,Error (ms)" << std::endl;
+    m_DebugData.emplace(newNode->Id, std::move(newData));
     // debug //
 
 
@@ -438,15 +464,15 @@ void OrbitSystem2D::RecordData()
     const std::chrono::hh_mm_ss hms(tp_sec - tp_day);
     for (uint32_t n = 1; n < m_InflNodes.size(); n++)
     {
-        of.open(m_Filenames[n], std::ofstream::app);
+        of.open(m_DebugData[n].Filename, std::ofstream::app);
         if (!of.is_open())
         {
-            LV_CORE_ERROR("Could not open debug data file '{0}'!", m_Filenames[n]);
+            LV_CORE_ERROR("Could not open debug data file '{0}'!", m_DebugData[n].Filename);
             continue;
         }
 
         of << std::format("{:%F}", ymd) << " | " << std::format("{:%T}", hms) << '\n'
-            << m_Data[n].str()
+            << m_DebugData[n].OStream.str()
             << std::endl;
 
         of.close();
