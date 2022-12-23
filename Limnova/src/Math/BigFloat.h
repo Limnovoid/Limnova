@@ -17,6 +17,7 @@ namespace Limnova
         bool IsZero() const { return m_Coefficient == 0; }
 
         static BigFloat Pow(const BigFloat& value, const int power);
+        static BigFloat PowF(const BigFloat& value, const float power);
         static BigFloat Sqrt(const BigFloat& value);
         inline BigFloat Sqrt() { return Sqrt(*this); }
         static BigFloat Abs(const BigFloat& value);

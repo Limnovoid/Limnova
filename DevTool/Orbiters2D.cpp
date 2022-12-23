@@ -27,14 +27,17 @@ void Orbiters2D::OnAttach()
     // OrbitSystem
     OrbitSystem2D::Init();
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
+    m_Timescale = 0.01;
     orbs.SetTimeScale(m_Timescale);
 
     orbs.LoadLevel({ 1.498284464f, 10 }, { 1.f, 0 }); // Host mass initialised to inverse of gravitational constant - GM = 1
     m_CameraHostId = 0;
-    m_OrbiterRenderInfo[m_CameraHostId] = { "Star", 0.05f, {0.9f, 1.f, 1.f, 1.f}};
+    m_CameraTrackingId = 0;
+    m_OrbiterRenderInfo[0] = { "Star", 0.05f, {0.9f, 1.f, 1.f, 1.f}};
     uint32_t id;
-    id = orbs.CreateOrbiter(Limnova::BigFloat(2.f, 6), Limnova::Vector2(1.f, 0.f), Limnova::Vector2(- 0.3f, 1.f));
+    id = orbs.CreateOrbiter(Limnova::BigFloat(2.f, 6), Limnova::Vector2(1.f, 0.f), Limnova::Vector2(-0.3f, 1.f));
     m_OrbiterRenderInfo[id] = { "Planet 0", 0.001f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
+    m_CameraTrackingId = id;
     id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(1.f, 0.03f), false);
     m_OrbiterRenderInfo[id] = { "Moon 0.0", 0.00005f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
     id = orbs.CreateOrbiter(Limnova::BigFloat(1.5f, 2), Limnova::BigVector2(1.02f, 0.f), true);
@@ -45,7 +48,9 @@ void Orbiters2D::OnAttach()
     id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(0.f, -.491f), false);
     m_OrbiterRenderInfo[id] = { "Moon 1.0", 0.00003f, {0.5f, 0.2f, .3f, 1.f}, true, true };
 
-    // TODO : dynamic orbits - orbiters moving between hosts at runtime
+    // Testing dynamic orbits - orbiters moving between hosts at runtime
+    id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(1.01f, 0.f), Limnova::Vector2(0.f - 0.3f, 0.16f + 1.f)); // velocity is given relative to top-level host, intended to place it in wide ellipse around Planet 0
+    m_OrbiterRenderInfo[id] = { "Comet 0", 0.00003f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
 
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
@@ -100,11 +105,11 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         // Render camera's local host
         auto& hp = orbs.GetParameters(m_CameraHostId);
         auto& rih = m_OrbiterRenderInfo[m_CameraHostId];
-        float hostScaling = orbs.GetScaling(m_CameraHostId);
+        float drawScaling = orbs.GetScaling(m_CameraHostId);
 
         // Keep tracked orbiter centred in scene - use its position to offset its host
         Limnova::Vector2 hostPos = m_CameraTrackingId == m_CameraHostId ? 0.f : -1.f * orbs.GetParameters(m_CameraTrackingId).Position;
-        Limnova::Renderer2D::DrawQuad(hostPos, { circleFillTexSizefactor * rih.Radius * hostScaling }, m_CircleFillTexture, rih.Color);
+        Limnova::Renderer2D::DrawQuad(hostPos, { circleFillTexSizefactor * rih.Radius * drawScaling }, m_CircleFillTexture, rih.Color);
 
         // Render host's orbiters
         std::vector<uint32_t> visibleOrbiters;
@@ -115,7 +120,7 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             Limnova::Vector2 orbPos = orbId == m_CameraTrackingId ? 0.f : hostPos + op.Position;
 
             auto& ri = m_OrbiterRenderInfo[orbId];
-            Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * ri.Radius * hostScaling }, m_CircleFillTexture, ri.Color);
+            Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * ri.Radius * drawScaling }, m_CircleFillTexture, ri.Color);
             if (ri.DrawOrbit)
             {
                 Limnova::Renderer2D::DrawRotatedQuad(hostPos + op.Centre,
@@ -126,6 +131,33 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             if (ri.DrawInfluence)
             {
                 Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * orbs.GetRadiusOfInfluence(orbId) }, m_CircleFillTexture, m_InfluenceColor);
+            }
+        }
+        // Render tracked orbiter's orbiters
+        if (m_CameraTrackingId != m_CameraHostId)
+        {
+            float troi = orbs.GetRadiusOfInfluence(m_CameraTrackingId);
+            drawScaling *= troi;
+            visibleOrbiters.clear();
+            orbs.GetChildren(m_CameraTrackingId, visibleOrbiters);
+            for (auto orbId : visibleOrbiters)
+            {
+                auto& op = orbs.GetParameters(orbId);
+                Limnova::Vector2 orbPos = troi * op.Position;
+
+                auto& ri = m_OrbiterRenderInfo[orbId];
+                Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * ri.Radius * drawScaling }, m_CircleFillTexture, ri.Color);
+                if (ri.DrawOrbit)
+                {
+                    Limnova::Renderer2D::DrawRotatedQuad(troi * op.Centre,
+                        circleTexSizefactor * troi * Limnova::Vector2(op.SemiMajorAxis, op.SemiMinorAxis),
+                        op.RightAscensionPeriapsis, m_CircleTexture, { ri.Color.x, ri.Color.y, ri.Color.z, .5f }
+                    );
+                }
+                if (ri.DrawInfluence)
+                {
+                    Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * troi * orbs.GetRadiusOfInfluence(orbId) }, m_CircleFillTexture, m_InfluenceColor);
+                }
             }
         }
 

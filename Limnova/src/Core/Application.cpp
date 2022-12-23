@@ -64,10 +64,14 @@ namespace Limnova
         {
             LV_PROFILE_SCOPE("RunLoop");
 
-            // TODO : custom time class
+            // TODO : custom time class and game time tracking
             auto newTime = std::chrono::steady_clock::now();
             std::chrono::duration<double> dTchrono = newTime - m_Time;
             Timestep dT = dTchrono.count();
+            if (dT > Timestep::kDefaultTimestep)
+            {
+                dT = Timestep::kDefaultTimestep;
+            }
             m_Time = newTime;
 
             // Update layers

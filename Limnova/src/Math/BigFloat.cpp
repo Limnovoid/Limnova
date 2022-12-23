@@ -60,8 +60,33 @@ namespace Limnova
     }
 
 
+    BigFloat BigFloat::PowF(const BigFloat& value, const float power)
+    {
+        LV_CORE_ASSERT(value.m_Coefficient >= 0, "BigFloat::PowF() does not support negative numbers!");
+
+        float expF = (float)value.m_Exponent * power;
+        int exp = (int)expF;
+        float expFMod1 = expF - (float)exp;
+        float coef = pow(value.m_Coefficient, power) * pow(10.f, expFMod1);
+
+        while (coef >= 10.f)
+        {
+            coef *= 0.1f;
+            exp++;
+        }
+        while (coef < 1.f)
+        {
+            coef *= 10.f;
+            exp--;
+        }
+        return { coef, exp };
+    }
+
+
     BigFloat BigFloat::Sqrt(const BigFloat& value)
     {
+        LV_CORE_ASSERT(value.m_Coefficient >= 0, "BigFloat::Sqrt() does not support negative numbers!");
+
         float coef = sqrt(value.m_Coefficient);
         int exp = value.m_Exponent / 2;
         if (abs(value.m_Exponent) % 2 == 1)

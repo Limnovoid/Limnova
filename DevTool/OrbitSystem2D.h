@@ -36,6 +36,9 @@ public:
         float SemiMinorAxis = 0.f;
         Limnova::BigFloat Period = 0.f;
         float CcwF = 1.f; // Counter-clockwise factor
+        float TrueAnomalyEscape = -1.f; // Negative value signifies that the orbiter does not escape its influence
+        // TrueAnomalyEscape is not necessary for engineered, fixed orbits
+        // TODO ?? : separate structs for different types of orbit
 
         // Computation constants
         float h2mu = 0.f;
@@ -57,11 +60,17 @@ public:
     /// Object positions are normalised by the conversion ratio of their orbit host to make the measurements used in
     /// internal computations more manageable; most objects will have a separation from their host between 0 and 1.
     /// baseScaling is the ratio of the top-level host: its value converts measurements in the top-level orbit space to
-    /// real-world measurements.
-    /// </param>
+    /// real-world measurements.</param>
     void LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& baseScaling);
-    // CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters. Returns ID of created orbiter, or numeric_limits<unit32_t>::max() if creation fails.
-    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, Limnova::Vector2 scaledPosition, const Limnova::BigVector2& scaledVelocity);
+    
+    /// <summary>
+    /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
+    /// </summary>
+    /// <param name="mass">Mass of orbiter</param>
+    /// <param name="position">Initial position of orbiter, scaled to the top-level orbit space</param>
+    /// <param name="scaledVelocity">Initial velocity of orbiter, scaled to the top-level orbit space</param>
+    /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails.</returns>
+    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, Limnova::Vector2 scaledPosition, Limnova::BigVector2& scaledVelocity);
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, Limnova::Vector2 scaledPosition, bool clockwise = false);
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::BigVector2& position, const Limnova::BigVector2& velocity);
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::BigVector2& position, bool clockwise = false);
@@ -89,6 +98,7 @@ private:
         InflRef Parent = nullptr;
         uint32_t Id = std::numeric_limits<uint32_t>::max();
 
+        Limnova::BigFloat Mass;
         OrbitParameters Parameters;
         bool NeedRecomputeState = false;
 
@@ -117,18 +127,23 @@ private:
     uint32_t CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
     static void ComputeElementsFromState(OrbitParameters& params);
     static void ComputeStateVector(OrbitParameters& params);
-    static void ComputeInfluence(InfluencingNode* influencingNode, const InflRef& parent, const Limnova::BigFloat& mass);
+    static void ComputeInfluence(InfluencingNode* influencingNode);
 
     /// <summary>
     /// Returns lowest-level node whose circle-of-influence overlaps the given position;
-    /// converts the position to that node's orbit space and updates the referenced vector with the result.
-    /// Returns m_LevelHost without modifying the referenced vector if no overlaps are found.
+    /// converts the referenced position and velocity vectors to that node's orbit space.
+    /// If no overlaps are found, returns m_LevelHost without modifying the vectors.
     /// </summary>
     /// <param name="scaledPosition">The position to check for overlaps and update to any overlapping node's orbit space.
     /// NOTE: must be initially scaled to the top-level orbit space (the scaling of m_LevelHost)</param>
-    InflRef& FindLowestOverlappingInfluence(Limnova::Vector2& scaledPosition);
+    /// <param name="scaledVelocity">The velocity to update to any overlapping node's orbit space.
+    /// NOTE: must be initially scaled to the top-level orbit space (the scaling of m_LevelHost)</param>
+    InflRef& FindLowestOverlappingInfluence(Limnova::Vector2& scaledPosition, Limnova::BigVector2& scaledVelocity);
     // Returns lowest-level node whose circle-of-influence overlaps the given absolue position, or m_LevelHost if none overlaps.
     InflRef& FindOverlappingChildInfluence(InflRef& parent, const Limnova::Vector2& scaledPosition);
+
+    void IncreaseOrbitLevel(InflRef& orbiter);
+
 
     // debug resources
 private:
@@ -140,7 +155,7 @@ private:
         uint32_t NumPeriapsePasses = 0;
     };
     std::unordered_map<uint32_t, DebugData> m_DebugData;
-    bool m_Testing = true;
+    bool m_Testing = false;
 private:
     void RecordData();
 };
