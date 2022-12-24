@@ -30,6 +30,16 @@ void Orbiters2D::OnAttach()
     m_Timescale = 0.01;
     orbs.SetTimeScale(m_Timescale);
 
+    orbs.SetOrbiterEventCallback([&](const uint32_t id)
+    {
+        if (m_CameraTrackingId == id &&
+            m_CameraHostId != m_CameraTrackingId)
+        {
+            m_CameraHostId = orbs.GetHost(id);
+            m_CameraTrackingChanged = true; // Re-centre camera on tracked orbiter
+        }
+    });
+
     orbs.LoadLevel({ 1.498284464f, 10 }, { 1.f, 0 }); // Host mass initialised to inverse of gravitational constant - GM = 1
     m_CameraHostId = 0;
     m_CameraTrackingId = 0;

@@ -49,6 +49,8 @@ public:
     static OrbitSystem2D& Get();
     static void Shutdown();
 
+    void SetOrbiterEventCallback(const std::function<void(const uint32_t)>& fn) { m_OrbiterChangedHostCallback = fn; };
+
     void Update(Limnova::Timestep dT);
 
     /// <summary>
@@ -81,10 +83,11 @@ public:
     float GetScaling(const uint32_t host);
     float GetHostScaling(const uint32_t orbiter);
     void GetChildren(const uint32_t host, std::vector<uint32_t>& ids);
-
-    void GetAllHosts(std::vector<uint32_t>& ids);
+    uint32_t GetHost(const uint32_t orbiter);
 
     void SetOrbiterRightAscension(const uint32_t orbiter, const float rightAscension);
+
+    void GetAllHosts(std::vector<uint32_t>& ids);
 
     void SetTimeScale(const float timescale) { m_Timescale = timescale; }
 private:
@@ -123,6 +126,8 @@ private:
     std::vector<InflRef> m_InflNodes;
 
     float m_Timescale = 1.f;
+
+    std::function<void(const uint32_t)> m_OrbiterChangedHostCallback;
 private:
     uint32_t CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
     static void ComputeElementsFromState(OrbitParameters& params);

@@ -80,7 +80,7 @@ void OrbitSystem2D::Update(LV::Timestep dT)
             float simDeltaTime = (kOptimalDeltaTAnom * op.Position.SqrMagnitude() / op.OSAMomentum).Float();
 
             // TEMPORARY - never allows multiple updates per frame
-            // TODO - allow multiple updates when time-skipping, to maintain integration accuracy
+            // TODO - allow multiple updates to maintain integration accuracy for faster orbiters (and while speeding-up time)
             if (simDeltaTime < gameDeltaTime)
             {
                 // dTAnom = dT * h / r^2
@@ -92,6 +92,13 @@ void OrbitSystem2D::Update(LV::Timestep dT)
             op.UpdateTimer += simDeltaTime;
 
             // Check influence events:
+            // If distance between this orbiter and another orbiter of the same host is less than that orbiter's
+            // ROI, this orbiter is now orbiting the other orbiter
+            // TODO ?? different scheme for checking overlaps if multiple updates can occur per frame:
+            // - checking overlaps between influencing orbiters which may have multiple updates per frame would require
+            // - updating all orbiters once, checking overlaps, updating and checking again, etc. until all orbiters are
+            // - fully updated, every frame.
+            
             // If true anomaly is greater than true anomaly of escape, orbiter has escaped its host's influence
             if (orbiter->Parent != m_LevelHost
                 && op.TrueAnomalyEscape > 0
@@ -115,9 +122,9 @@ void OrbitSystem2D::Update(LV::Timestep dT)
 
                 ComputeElementsFromState(op);
                 ComputeInfluence(orbiter.get());
+
+                m_OrbiterChangedHostCallback(n);
             }
-            // If distance between this orbiter and another orbiter of the same host is less than that orbiter's
-            // ROI, this orbiter is now orbiting the other orbiter
         }
         op.UpdateTimer -= gameDeltaTime;
 
@@ -165,7 +172,7 @@ void OrbitSystem2D::Update(LV::Timestep dT)
             }
             // debug - integration accuracy
         }
-        m_InflNodes[n]->NeedRecomputeState = true;
+        orbiter->NeedRecomputeState = true;
     }
 
 
@@ -488,6 +495,16 @@ void OrbitSystem2D::GetChildren(const uint32_t host, std::vector<uint32_t>& ids)
     {
         ids.push_back(child->Id);
     }
+}
+
+
+uint32_t OrbitSystem2D::GetHost(const uint32_t orbiter)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(orbiter < m_InflNodes.size() && orbiter > 0, "Invalid orbiter ID!");
+
+    return m_InflNodes[orbiter]->Parent->Id;
 }
 
 
