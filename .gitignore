@@ -3,7 +3,7 @@ build/
 
 ## Ignore profiling data
 Profiling/
-!src/Profiling
+!src/Profiling/
 
 ### Below is from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 

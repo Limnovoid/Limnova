@@ -16,6 +16,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/ImGui/ImGuiLayer.h"
     "src/ImGui/ImGuiLayer.cpp"
 
+    "src/Profiling/DataRecording.h"
     "src/Profiling/Instrumentor.h"
 
     "src/Math/glm.h"
@@ -56,7 +57,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/VertexArray.cpp"
 
     "thirdparty/stb_image/stb_image.cpp"
- "src/Profiling/DataTable.h")
+ )
 
 
 set_property(TARGET ${PROJECT_NAME}
@@ -88,6 +89,7 @@ target_precompile_headers(${PROJECT_NAME}
 
         <string>
         <sstream>
+        <fstream>
         <array>
         <vector>
         <unordered_map>

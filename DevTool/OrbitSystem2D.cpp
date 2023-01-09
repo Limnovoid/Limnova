@@ -47,7 +47,7 @@ void OrbitSystem2D::Update(LV::Timestep dT)
 
 
     // debug - integration accuracy
-    static auto TStart = std::chrono::steady_clock::now(); // Not safe - should use game time
+    static auto TStart = std::chrono::steady_clock::now(); // Not safe with window interrupts - should use game time
     static auto TPreviousFrame = TStart;
     static std::chrono::steady_clock::time_point TThisFrame;
     TThisFrame = std::chrono::steady_clock::now();
@@ -125,7 +125,10 @@ void OrbitSystem2D::Update(LV::Timestep dT)
 
                 m_OrbiterChangedHostCallback(n);
             }
+
+            ComputeStateVector(op);
         }
+        orbiter->NeedRecomputeState = false;
         op.UpdateTimer -= gameDeltaTime;
 
         //float deltaTA = m_Timescale * (float)dT * (op.OSAMomentum / op.Position.SqrMagnitude()).Float();
@@ -154,11 +157,12 @@ void OrbitSystem2D::Update(LV::Timestep dT)
                     float errorPeriapsePass = 1e3 * (predictedPeriapsePass - actualPeriapsePass);
                     LV_CORE_INFO("Orbiter {0}: predicted periapse passage = {1} s, actual passage = {2} s, error = {3} ms", n, predictedPeriapsePass, actualPeriapsePass, errorPeriapsePass);
                     float simulationTime = 1e-9 * (TThisFrame - TStart).count();
-                    data.OStream << simulationTime << ","
-                        << data.NumPeriapsePasses << ","
-                        << predictedPeriapsePass << ","
-                        << actualPeriapsePass << ","
-                        << errorPeriapsePass << std::endl;
+                    data.Table->AddRow(simulationTime,
+                        data.NumPeriapsePasses,
+                        predictedPeriapsePass,
+                        actualPeriapsePass,
+                        errorPeriapsePass
+                    );
                 }
                 data.NumPeriapsePasses++;
 
@@ -172,7 +176,6 @@ void OrbitSystem2D::Update(LV::Timestep dT)
             }
             // debug - integration accuracy
         }
-        orbiter->NeedRecomputeState = true;
     }
 
 
@@ -279,14 +282,12 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const LV::B
 
 
     // debug //
-    std::ostringstream fname;
-    fname << LV_DIR << "/Profiling/OrbiterDebugData/orbiter-" << newNode->Id << ".txt";
-    DebugData newData;
-    newData.Filename = fname.str();
-    newData.OStream << "Orbiter " << newNode->Id << ": Predicted vs Actual Times of Periapse Passage" << std::endl;
-    newData.OStream << "T (s),Num. Passes,Predicted Pass Time (s),Actual Pass Time (s),Error (ms)" << std::endl;
-    newData.OStream << std::fixed << std::showpoint << std::setprecision(6);
-    m_DebugData.emplace(newNode->Id, std::move(newData));
+    m_DebugData.emplace(newNode->Id, std::make_shared<Limnova::CsvTable<float, uint32_t, float, float, float>>());
+    m_DebugData[newNode->Id].Table->Init(
+        "OrbiterDebugData/orbiter" + std::to_string(newNode->Id) + ".txt",
+        "Orbiter Debug Data: Orbiter " + std::to_string(newNode->Id),
+        { "T (s)", "Num.Passes", "Predicted Pass Time(s)", "Actual Pass Time(s)", "Error(ms)" }, false
+    );
     // debug //
 
 
@@ -337,13 +338,11 @@ void OrbitSystem2D::ComputeElementsFromState(OrbitParameters& op)
         op.RightAscensionPeriapsis = LV::PI2f - op.RightAscensionPeriapsis;
     }
 
-    LV::BigFloat h2 = LV::BigFloat::Pow(op.OSAMomentum, 2);
-    LV::BigFloat bigh2mu = h2 / op.GravAsOrbiter;
-    op.h2mu = bigh2mu.Float();
+    op.OParameter = (LV::BigFloat::Pow(op.OSAMomentum, 2) / op.GravAsOrbiter).Float();
     op.muh = op.GravAsOrbiter / op.OSAMomentum;
 
     float oneMinusE2 = (1.f - e2);
-    op.SemiMajorAxis = op.h2mu / oneMinusE2;
+    op.SemiMajorAxis = op.OParameter / oneMinusE2;
     op.SemiMinorAxis = op.SemiMajorAxis * sqrtf(oneMinusE2);
     op.Centre = -op.SemiMajorAxis * op.Eccentricity * op.BasisX;
 
@@ -351,11 +350,11 @@ void OrbitSystem2D::ComputeElementsFromState(OrbitParameters& op)
 
     // If distance to apoapsis is greater than 1, the orbiter will leave the host's influence:
     // r_a = h^2 / mu(1 - e)
-    if (op.h2mu / (1.f - op.Eccentricity) > 1)
+    if (op.OParameter / (1.f - op.Eccentricity) > 1)
     {
         // Orbiter leaves host's influence at the point that its orbital distance is 1:
         // cos(TAnomaly) = (h^2 / (mu * r) - 1) / e
-        op.TrueAnomalyEscape = acosf((op.h2mu - 1) / op.Eccentricity);
+        op.TrueAnomalyEscape = acosf((op.OParameter - 1) / op.Eccentricity);
     }
     else
     {
@@ -370,7 +369,7 @@ void OrbitSystem2D::ComputeStateVector(OrbitParameters& params)
 
     float sinT = sin(params.TrueAnomaly);
     float cosT = cos(params.TrueAnomaly);
-    params.Position = params.h2mu
+    params.Position = params.OParameter
         * (params.BasisX * cosT + params.BasisY * sinT)
         / (1.f + params.Eccentricity * cosT);
 
@@ -539,24 +538,8 @@ void OrbitSystem2D::GetAllHosts(std::vector<uint32_t>& ids)
 
 void OrbitSystem2D::RecordData()
 {
-    std::ofstream of;
-    const auto tp_sec = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
-    const auto tp_day = std::chrono::floor<std::chrono::days>(tp_sec);
-    const std::chrono::year_month_day ymd(tp_day);
-    const std::chrono::hh_mm_ss hms(tp_sec - tp_day);
     for (uint32_t n = 1; n < m_InflNodes.size(); n++)
     {
-        of.open(m_DebugData[n].Filename, std::ofstream::app);
-        if (!of.is_open())
-        {
-            LV_CORE_ERROR("Could not open debug data file '{0}'!", m_DebugData[n].Filename);
-            continue;
-        }
-
-        of << std::format("{:%F}", ymd) << " | " << std::format("{:%T}", hms) << '\n'
-            << m_DebugData[n].OStream.str()
-            << std::endl;
-
-        of.close();
+        m_DebugData[n].Table->Write();
     }
 }

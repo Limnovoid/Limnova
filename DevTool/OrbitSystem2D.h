@@ -12,8 +12,8 @@ private:
 public:
     struct OrbitParameters
     {
-        Limnova::BigFloat GravAsHost = { 0.f, 0 }; // Gravitational parameter of this orbiter, used by its own children for computing their orbits around this host.
-        Limnova::BigFloat GravAsOrbiter = { 0.f, 0 }; // Gravitation paramter of this orbiter's host, used for this orbiter's own computations.
+        Limnova::BigFloat GravAsHost = { 0.f, 0 }; // Gravitational parameter of this orbiter, used by its own children for computing their orbits around this host = mass * GravitationalConstant
+        Limnova::BigFloat GravAsOrbiter = { 0.f, 0 }; // Gravitation parameter of this orbiter's host, used for this orbiter's own computations = hostmass * GravitationalConstant
 
         // State
         Limnova::Vector2 Position = { 0.f, 0.f };
@@ -28,6 +28,7 @@ public:
 
         // Elements
         Limnova::BigFloat OSAMomentum = 0.f; // Orbital specific angular momentum
+        float OParameter = 0.f; // Orbit parameter = h^2 / mu
         float Eccentricity = 0.f;
         float TrueAnomaly = 0.f;
 
@@ -35,13 +36,12 @@ public:
         float SemiMajorAxis = 0.f;
         float SemiMinorAxis = 0.f;
         Limnova::BigFloat Period = 0.f;
-        float CcwF = 1.f; // Counter-clockwise factor
-        float TrueAnomalyEscape = -1.f; // Negative value signifies that the orbiter does not escape its influence
+        float CcwF = 1.f; // Counter-clockwise factor: 1 for a counter-clockwise orbit, -1 for a clockwise orbit
+        float TrueAnomalyEscape = -1.f; // True anomaly of the (first) position on the orbit with an orbital distance equal to the host's ROI (1 for scaled orbits); if no such positions exist, this variable is set to -1.
         // TrueAnomalyEscape is not necessary for engineered, fixed orbits
-        // TODO ?? : separate structs for different types of orbit
+        // TODO ?? : separate structs for different types of orbiter
 
         // Computation constants
-        float h2mu = 0.f;
         Limnova::BigFloat muh = 0.f;
     };
 public:
@@ -64,17 +64,49 @@ public:
     /// baseScaling is the ratio of the top-level host: its value converts measurements in the top-level orbit space to
     /// real-world measurements.</param>
     void LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& baseScaling);
+
+    // TODO : load level from file; save level to file
     
     /// <summary>
+    /// Create an orbiter with given mass and initial state.
     /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
     /// </summary>
     /// <param name="mass">Mass of orbiter</param>
-    /// <param name="position">Initial position of orbiter, scaled to the top-level orbit space</param>
+    /// <param name="scaledPosition">Initial position of orbiter, scaled to the top-level orbit space</param>
     /// <param name="scaledVelocity">Initial velocity of orbiter, scaled to the top-level orbit space</param>
-    /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails.</returns>
+    /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, Limnova::Vector2 scaledPosition, Limnova::BigVector2& scaledVelocity);
+
+    /// <summary>
+    /// Create an orbiter with given mass and position.
+    /// Computes velocity to produce circular orbit which is clockwise or counter-clockwise depending on the clockwise argument.
+    /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
+    /// </summary>
+    /// <param name="mass">Mass of orbiter</param>
+    /// <param name="scaledPosition">Initial position of orbiter, scaled to the top-level orbit space</param>
+    /// <param name="clockwise">Whether the circular orbit is clockwise or counter-clockwise</param>
+    /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, Limnova::Vector2 scaledPosition, bool clockwise = false);
+
+    /// <summary>
+    /// Create an orbiter with given mass and initial state.
+    /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
+    /// </summary>
+    /// <param name="mass">Mass of orbiter</param>
+    /// <param name="scaledPosition">Initial position of orbiter (actual, unscaled)</param>
+    /// <param name="scaledVelocity">Initial velocity of orbiter (actual, unscaled)</param>
+    /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::BigVector2& position, const Limnova::BigVector2& velocity);
+
+    /// <summary>
+    /// Create an orbiter with given mass and position.
+    /// Computes velocity to produce circular orbit which is clockwise or counter-clockwise depending on the clockwise argument.
+    /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
+    /// </summary>
+    /// <param name="mass">Mass of orbiter</param>
+    /// <param name="scaledPosition">Initial position of orbiter (actual, unscaled)</param>
+    /// <param name="clockwise">Whether the circular orbit is clockwise or counter-clockwise</param>
+    /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
     uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::BigVector2& position, bool clockwise = false);
     //uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, float eccentricity, float trueAnomaly = 0.f, bool clockwise = false);
 
@@ -154,13 +186,12 @@ private:
 private:
     struct DebugData
     {
-        std::string Filename;
-        std::ostringstream OStream = std::ostringstream(std::ios_base::app | std::ios_base::trunc);
+        std::shared_ptr<Limnova::CsvTable<float, uint32_t, float, float, float>> Table;
         std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<float, std::nano>> TFirstPeriapsePass;
         uint32_t NumPeriapsePasses = 0;
     };
     std::unordered_map<uint32_t, DebugData> m_DebugData;
-    bool m_Testing = false;
+    bool m_Testing = true;
 private:
     void RecordData();
 };
