@@ -35,7 +35,7 @@ void Orbiters2D::OnAttach()
         if (m_CameraTrackingId == id &&
             m_CameraHostId != m_CameraTrackingId)
         {
-            m_CameraHostId = orbs.GetHost(id);
+            m_CameraHostId = orbs.GetOrbiterHost(id);
             m_CameraTrackingChanged = true; // Re-centre camera on tracked orbiter
         }
     });
@@ -59,7 +59,7 @@ void Orbiters2D::OnAttach()
     m_OrbiterRenderInfo[id] = { "Moon 1.0", 0.00003f, {0.5f, 0.2f, .3f, 1.f}, true, true };
 
     // Testing dynamic orbits - orbiters moving between hosts at runtime
-    id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(1.01f, 0.f), Limnova::Vector2(0.f - 0.3f, 0.16f + 1.f)); // velocity is given relative to top-level host, intended to place it in wide ellipse around Planet 0
+    id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(1.01f, 0.f), Limnova::Vector2(0.f - 0.31f, 0.16f + 1.f)); // velocity is given relative to top-level host, intended to place it in wide ellipse around Planet 0
     m_OrbiterRenderInfo[id] = { "Comet 0", 0.00003f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
 
     // Textures
@@ -113,9 +113,10 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         constexpr float circleTexSizefactor = 2.f * 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
 
         // Render camera's local host
-        auto& hp = orbs.GetParameters(m_CameraHostId);
+        auto& host = orbs.GetHost(m_CameraHostId);
+        auto& hp = host.GetParameters();
         auto& rih = m_OrbiterRenderInfo[m_CameraHostId];
-        float drawScaling = orbs.GetScaling(m_CameraHostId);
+        float drawScaling = host.GetScaling();
 
         // Keep tracked orbiter centred in scene - use its position to offset its host
         Limnova::Vector2 hostPos = m_CameraTrackingId == m_CameraHostId ? 0.f : -1.f * orbs.GetParameters(m_CameraTrackingId).Position;
@@ -123,7 +124,7 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
 
         // Render host's orbiters
         std::vector<uint32_t> visibleOrbiters;
-        orbs.GetChildren(m_CameraHostId, visibleOrbiters);
+        host.GetChildren(visibleOrbiters);
         for (auto orbId : visibleOrbiters)
         {
             auto& op = orbs.GetParameters(orbId);
@@ -181,6 +182,8 @@ void Orbiters2D::OnImGuiRender()
     ImGui::Begin("Orbiters2D");
 
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
+    auto& host = orbs.GetHost(m_CameraHostId);
+
     if (ImGui::SliderFloat("Timescale", &m_Timescale, 0.f, 1.f))
     {
         orbs.SetTimeScale(m_Timescale);
@@ -189,7 +192,7 @@ void Orbiters2D::OnImGuiRender()
     // Orbiter HUD colors
     std::vector<uint32_t> trackableOrbiterIds;
     trackableOrbiterIds.push_back(m_CameraHostId);
-    orbs.GetChildren(m_CameraHostId, trackableOrbiterIds);
+    host.GetChildren(trackableOrbiterIds);
     for (uint32_t idx = 1; idx < trackableOrbiterIds.size(); idx++)
     {
         auto& ri = m_OrbiterRenderInfo[trackableOrbiterIds[idx]];
@@ -253,8 +256,8 @@ void Orbiters2D::OnImGuiRender()
     ImGui::TableSetColumnIndex(4);
     ImGui::Text("Semi-major Axis");
     // Information - host
-    float scaling = 0 == m_CameraHostId ? 1.f : orbs.GetHostScaling(m_CameraHostId);
-    auto& op = orbs.GetParameters(m_CameraHostId);
+    float scaling = 0 == m_CameraHostId ? 1.f : host.GetHostScaling();
+    auto& op = host.GetParameters();
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
     ImGui::Text(m_OrbiterRenderInfo[m_CameraHostId].Name.c_str());
@@ -263,12 +266,12 @@ void Orbiters2D::OnImGuiRender()
     ImGui::TableSetColumnIndex(2);
     ImGui::Text("%.2f (%.4f)", sqrtf(op.Velocity.SqrMagnitude().Float()), sqrtf(op.Velocity.SqrMagnitude().Float()) / scaling);
     ImGui::TableSetColumnIndex(3);
-    float roi = orbs.GetRadiusOfInfluence(m_CameraHostId);
+    float roi = host.GetRadiusOfInfluence();
     ImGui::Text("%.4f (%.6f)", roi, roi / scaling);
     ImGui::TableSetColumnIndex(4);
     ImGui::Text("%.4f (%.6f)", op.SemiMajorAxis, op.SemiMajorAxis / scaling);
     // Information - orbiters
-    scaling = orbs.GetScaling(m_CameraHostId);
+    scaling = host.GetScaling();
     for (uint32_t idx = 1; idx < trackableOrbiterIds.size(); idx++)
     {
         auto id = trackableOrbiterIds[idx];

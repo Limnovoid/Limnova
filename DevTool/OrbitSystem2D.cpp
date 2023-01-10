@@ -7,6 +7,7 @@ namespace LV = Limnova;
 
 static const LV::BigFloat kGrav = { 6.6743f, -11 };
 static constexpr float kOptimalDeltaTAnom = 0.001f;
+static constexpr float kEscapeDistance = 1.05f;
 
 
 OrbitSystem2D OrbitSystem2D::s_OrbitSystem2D;
@@ -99,13 +100,15 @@ void OrbitSystem2D::Update(LV::Timestep dT)
             // - updating all orbiters once, checking overlaps, updating and checking again, etc. until all orbiters are
             // - fully updated, every frame.
             
-            // If true anomaly is greater than true anomaly of escape, orbiter has escaped its host's influence
+            // If true anomaly is greater than true anomaly of escape (and less than pi), orbiter has escaped its host's influence;
+            // however, if true anomaly is greater than pi, orbiter is still inside the influence and is approaching periapsis.
             if (orbiter->Parent != m_LevelHost
-                && op.TrueAnomalyEscape > 0
-                && op.TrueAnomaly > op.TrueAnomalyEscape)
+                && op.TrueAnomaly > op.TrueAnomalyEscape
+                && op.TrueAnomaly < LV::PIf)
             {
                 // Convert position and velocity (which are stored relative and scaled to host's orbit space) to new host's orbit space
                 auto& host = orbiter->Parent;
+                op.HostEscaped = host->Id;
                 op.Position = host->Parameters.Position + (op.Position * host->Influence.Radius);
                 op.Velocity = host->Parameters.Velocity + (op.Velocity * host->Influence.Radius);
 
@@ -120,13 +123,34 @@ void OrbitSystem2D::Update(LV::Timestep dT)
 
                 orbiter->Parent = host->Parent;
 
-                ComputeElementsFromState(op);
-                ComputeInfluence(orbiter.get());
+                orbiter->ComputeElementsFromState();
+                orbiter->ComputeInfluence();
 
                 m_OrbiterChangedHostCallback(n);
             }
 
-            ComputeStateVector(op);
+            orbiter->ComputeStateVector();
+
+            // Test if this orbiter is overlapped by the circle of influence of any orbiters of the same host
+            for (auto& other : orbiter->Parent->InfluencingChildren)
+            {
+                if (orbiter == other) continue; // Skip self
+
+                float separation = sqrt((other->Parameters.Position - orbiter->Parameters.Position).SqrMagnitude());
+
+                if (separation < other->Influence.Radius
+                    && orbiter->Parameters.HostEscaped != other->Id)
+                {
+                    // Overlap
+                    LV_CORE_INFO("Overlap: orbiter {0} -> influence {1}!", orbiter->Id, other->Id);
+                }
+                else if (orbiter->Parameters.HostEscaped == other->Id
+                    && separation > other->Influence.Radius)
+                {
+                    // Previous host is for sure escaped
+                    orbiter->Parameters.HostEscaped = s_OrbitSystem2D.m_LevelHost->Id;
+                }
+            }
         }
         orbiter->NeedRecomputeState = false;
         op.UpdateTimer -= gameDeltaTime;
@@ -260,6 +284,7 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const LV::B
     LV_PROFILE_FUNCTION();
 
     InfluencingNode* newNode = new InfluencingNode;
+    newNode->Id = m_InflNodes.size();
     newNode->Parent = parent;
 
     // Compute gravitational properties of system
@@ -271,21 +296,19 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const LV::B
     op.Position = scaledPosition;
     op.Velocity = scaledVelocity;
     newNode->NeedRecomputeState = false;
-    ComputeElementsFromState(op);
+    newNode->ComputeElementsFromState();
 
     // Compute this orbiter's influence
-    ComputeInfluence(newNode);
+    newNode->ComputeInfluence();
 
-    // Add node to tree
-    newNode->Id = m_InflNodes.size();
+    // Add to tree
     newNode->Parent->InfluencingChildren.push_back(m_InflNodes.emplace_back(newNode));
-
 
     // debug //
     m_DebugData.emplace(newNode->Id, std::make_shared<Limnova::CsvTable<float, uint32_t, float, float, float>>());
     m_DebugData[newNode->Id].Table->Init(
-        "OrbiterDebugData/orbiter" + std::to_string(newNode->Id) + ".txt",
         "Orbiter Debug Data: Orbiter " + std::to_string(newNode->Id),
+        "OrbiterDebugData/orbiter" + std::to_string(newNode->Id) + ".txt",
         { "T (s)", "Num.Passes", "Predicted Pass Time(s)", "Actual Pass Time(s)", "Error(ms)" }, false
     );
     // debug //
@@ -295,13 +318,15 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const InflRef& parent, const LV::B
 }
 
 
-void OrbitSystem2D::ComputeElementsFromState(OrbitParameters& op)
+void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
 {
     LV_PROFILE_FUNCTION();
+
+    auto& op = this->Parameters;
+
     // Some of these computations use optimisations which only apply
     // to orbits in the XY plane: assume the physics/maths used is
     // suitable only for 2D simulations!
-
     LV::BigFloat signedH = op.Position.x * op.Velocity.y - op.Position.y * op.Velocity.x; // z-component of Position cross Velocity
     op.CcwF = signedH.GetCoefficient() < 0 ? -1.f : 1.f;
     op.OSAMomentum = LV::BigFloat::Abs(signedH);
@@ -348,56 +373,61 @@ void OrbitSystem2D::ComputeElementsFromState(OrbitParameters& op)
 
     op.Period = LV::PI2f * op.SemiMajorAxis * op.SemiMinorAxis / op.OSAMomentum;
 
-    // If distance to apoapsis is greater than 1, the orbiter will leave the host's influence:
+    // Predicting orbit events:
+    // If distance to apoapsis is greater than escape distance, the orbiter will leave the host's influence:
     // r_a = h^2 / mu(1 - e)
-    if (op.OParameter / (1.f - op.Eccentricity) > 1)
+    if (this->Parent != s_OrbitSystem2D.m_LevelHost
+        && op.OParameter / (1.f - op.Eccentricity) > kEscapeDistance)
     {
-        // Orbiter leaves host's influence at the point that its orbital distance is 1:
-        // cos(TAnomaly) = (h^2 / (mu * r) - 1) / e
-        op.TrueAnomalyEscape = acosf((op.OParameter - 1) / op.Eccentricity);
+        // Orbiter leaves host's influence at the point that its orbital distance is equal to the escape distance (r_esc):
+        // cos(TAnomaly) = (h^2 / (mu * r_esc) - 1) / e
+        op.TrueAnomalyEscape = acosf((op.OParameter / kEscapeDistance - 1.f) / op.Eccentricity);
+        LV_CORE_INFO("Orbiter {0} will escape {1} at true anomaly {2} (current true anomaly {3})", this->Id, this->Parent->Id, op.TrueAnomalyEscape, op.TrueAnomaly);
     }
     else
     {
-        op.TrueAnomalyEscape = -1.f;
+        op.TrueAnomalyEscape = 2.f * LV::PI2f;
     }
+    // Orbit intersects:
+    // TODO
 }
 
 
-void OrbitSystem2D::ComputeStateVector(OrbitParameters& params)
+void OrbitSystem2D::OrbitTreeNode::ComputeStateVector()
 {
     LV_PROFILE_FUNCTION();
 
-    float sinT = sin(params.TrueAnomaly);
-    float cosT = cos(params.TrueAnomaly);
-    params.Position = params.OParameter
-        * (params.BasisX * cosT + params.BasisY * sinT)
-        / (1.f + params.Eccentricity * cosT);
+    auto& op = this->Parameters;
 
-    params.Velocity = params.muh
-        * (params.BasisY * (params.Eccentricity + cosT) - params.BasisX * sinT);
+    float sinT = sin(op.TrueAnomaly);
+    float cosT = cos(op.TrueAnomaly);
+    op.Position = op.OParameter
+        * (op.BasisX * cosT + op.BasisY * sinT)
+        / (1.f + op.Eccentricity * cosT);
+
+    op.Velocity = op.muh * (op.BasisY * (op.Eccentricity + cosT) - op.BasisX * sinT);
 }
 
 
-void OrbitSystem2D::ComputeInfluence(InfluencingNode* influencingNode)
+void OrbitSystem2D::InfluencingNode::ComputeInfluence()
 {
     LV_PROFILE_FUNCTION();
-    auto& parentInfl = influencingNode->Parent->Influence;
-    auto& op = influencingNode->Parameters;
-    auto& infl = influencingNode->Influence;
+    auto& parentInfl = this->Parent->Influence;
+    auto& op = this->Parameters;
+    auto& infl = this->Influence;
 
 #ifdef LV_DEBUG
-    auto& hp = influencingNode->Parent->Parameters;
-    if (influencingNode->Mass.GetExponent() > influencingNode->Parent->Mass.GetExponent()
-        - (int)cbrtf((float)influencingNode->Parent->Mass.GetExponent()) - 1)
+    auto& hp = this->Parent->Parameters;
+    if (this->Mass.GetExponent() > this->Parent->Mass.GetExponent()
+        - (int)cbrtf((float)this->Parent->Mass.GetExponent()) - 1)
     {
-        LV_CORE_ERROR("Orbiter mass ({0}) is too high for lowest overlapping circle of influence (orbiter {1} with mass {2})!", influencingNode->Mass, influencingNode->Parent->Id, influencingNode->Parent->Mass);
-        delete influencingNode;
+        LV_CORE_ERROR("Orbiter mass ({0}) is too high for lowest overlapping circle of influence (orbiter {1} with mass {2})!", this->Mass, this->Parent->Id, this->Parent->Mass);
         LV_CORE_ASSERT(false, "");
     }
 #endif
-    infl.Radius = op.SemiMajorAxis * LV::BigFloat::PowF(influencingNode->Mass / influencingNode->Parent->Mass, 0.4f).Float(); // roi = a(m/M)^(5/2)
+    infl.Radius = op.SemiMajorAxis * LV::BigFloat::PowF(this->Mass / this->Parent->Mass, 0.4f).Float(); // roi = a(m/M)^(5/2)
     infl.TotalScaling = parentInfl.TotalScaling / LV::BigFloat(infl.Radius);
-    op.GravAsHost = kGrav * influencingNode->Mass * LV::BigFloat::Pow(infl.TotalScaling, 3); // G's length dimension is cubed - scaling must be cubed: scaled-GM = GM / scale^3
+    op.GravAsHost = kGrav * this->Mass * LV::BigFloat::Pow(infl.TotalScaling, 3); // G's length dimension is cubed - scaling must be cubed: scaled-GM = GM / scale^3
 }
 
 
@@ -444,6 +474,38 @@ void OrbitSystem2D::IncreaseOrbitLevel(InflRef& orbiter)
 }
 
 
+const OrbitSystem2D::OrbitTreeNode& OrbitSystem2D::GetOrbiter(const uint32_t id)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(id < m_InflNodes.size() && id >= 0, "Invalid orbiter ID!");
+
+    auto& node = m_InflNodes[id];
+    if (node->NeedRecomputeState)
+    {
+        node->ComputeStateVector();
+        node->NeedRecomputeState = false;
+    }
+    return *node;
+}
+
+
+const OrbitSystem2D::InfluencingNode& OrbitSystem2D::GetHost(const uint32_t id)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(id < m_InflNodes.size() && id >= 0, "Invalid orbiter ID!");
+
+    auto& node = m_InflNodes[id];
+    if (node->NeedRecomputeState)
+    {
+        node->ComputeStateVector();
+        node->NeedRecomputeState = false;
+    }
+    return *node;
+}
+
+
 const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_t orbiter)
 {
     LV_PROFILE_FUNCTION();
@@ -453,7 +515,7 @@ const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_
     auto& node = m_InflNodes[orbiter];
     if (node->NeedRecomputeState)
     {
-        ComputeStateVector(node->Parameters);
+        node->ComputeStateVector();
         node->NeedRecomputeState = false;
     }
     return m_InflNodes[orbiter]->Parameters;
@@ -497,7 +559,7 @@ void OrbitSystem2D::GetChildren(const uint32_t host, std::vector<uint32_t>& ids)
 }
 
 
-uint32_t OrbitSystem2D::GetHost(const uint32_t orbiter)
+uint32_t OrbitSystem2D::GetOrbiterHost(const uint32_t orbiter)
 {
     LV_PROFILE_FUNCTION();
 
