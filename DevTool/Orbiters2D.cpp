@@ -40,26 +40,26 @@ void Orbiters2D::OnAttach()
         }
     });
 
-    orbs.LoadLevel({ 1.498284464f, 10 }, { 1.f, 0 }); // Host mass initialised to inverse of gravitational constant - GM = 1
+    orbs.LoadLevel({ 1.498284464f, 10 }, { 1.f, 0 }); // Host mass initialised to inverse of gravitational constant --> M_host * G = 1
     m_CameraHostId = 0;
     m_CameraTrackingId = 0;
     m_OrbiterRenderInfo[0] = { "Star", 0.05f, {0.9f, 1.f, 1.f, 1.f}};
     uint32_t id;
-    id = orbs.CreateOrbiter(Limnova::BigFloat(2.f, 6), Limnova::Vector2(1.f, 0.f), Limnova::Vector2(-0.3f, 1.f));
+    id = orbs.CreateOrbiterES(true, Limnova::BigFloat(2.f, 6), 0, Limnova::Vector2(1.f, 0.f), Limnova::BigVector2(-0.3f, 1.f));
     m_OrbiterRenderInfo[id] = { "Planet 0", 0.001f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
     m_CameraTrackingId = id;
-    id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(1.f, 0.03f), false);
+    id = orbs.CreateOrbiterCS(true, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, 0.9f), false);
     m_OrbiterRenderInfo[id] = { "Moon 0.0", 0.00005f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
-    id = orbs.CreateOrbiter(Limnova::BigFloat(1.5f, 2), Limnova::BigVector2(1.02f, 0.f), true);
+    id = orbs.CreateOrbiterCU(true, Limnova::BigFloat(1.5f, 2), Limnova::BigVector2(1.02f, 0.f), true);
     m_OrbiterRenderInfo[id] = { "Moon 0.1", 0.00007f, {0.3f, 0.9f, 0.2f, 1.f}, true, true };
 
-    id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 6), Limnova::Vector2(0.f, -.5f), false);
+    id = orbs.CreateOrbiterCS(true, Limnova::BigFloat(1.f, 6), 0, Limnova::Vector2(0.f, -.5f), false);
     m_OrbiterRenderInfo[id] = { "Planet 1", 0.001f, {0.2f, 0.7f, 1.f, 1.f}, true, true};
-    id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(0.f, -.491f), false);
+    id = orbs.CreateOrbiterCS(true, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, -.7f), false);
     m_OrbiterRenderInfo[id] = { "Moon 1.0", 0.00003f, {0.5f, 0.2f, .3f, 1.f}, true, true };
 
     // Testing dynamic orbits - orbiters moving between hosts at runtime
-    id = orbs.CreateOrbiter(Limnova::BigFloat(1.f, 2), Limnova::Vector2(1.01f, 0.f), Limnova::Vector2(0.f - 0.31f, 0.16f + 1.f)); // velocity is given relative to top-level host, intended to place it in wide ellipse around Planet 0
+    id = orbs.CreateOrbiterES(true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(1.01f, 0.f), Limnova::BigVector2(0.f - 0.31f, 0.16f + 1.f)); // velocity is given relative to top-level host, intended to place it in wide ellipse around Planet 0
     m_OrbiterRenderInfo[id] = { "Comet 0", 0.00003f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
 
     // Textures
@@ -182,7 +182,6 @@ void Orbiters2D::OnImGuiRender()
     ImGui::Begin("Orbiters2D");
 
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
-    auto& host = orbs.GetHost(m_CameraHostId);
 
     if (ImGui::SliderFloat("Timescale", &m_Timescale, 0.f, 1.f))
     {
@@ -192,7 +191,7 @@ void Orbiters2D::OnImGuiRender()
     // Orbiter HUD colors
     std::vector<uint32_t> trackableOrbiterIds;
     trackableOrbiterIds.push_back(m_CameraHostId);
-    host.GetChildren(trackableOrbiterIds);
+    orbs.GetChildren(m_CameraHostId, trackableOrbiterIds);
     for (uint32_t idx = 1; idx < trackableOrbiterIds.size(); idx++)
     {
         auto& ri = m_OrbiterRenderInfo[trackableOrbiterIds[idx]];
@@ -221,6 +220,7 @@ void Orbiters2D::OnImGuiRender()
         }
         ImGui::EndCombo();
     }
+    auto& host = orbs.GetHost(m_CameraHostId);
 
     // Camera tracking orbiter selection
     if (ImGui::BeginCombo("Orbiter Tracking", m_OrbiterRenderInfo[m_CameraTrackingId].Name.c_str()))

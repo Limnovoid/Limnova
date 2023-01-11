@@ -37,15 +37,15 @@ public:
         float SemiMinorAxis = 0.f;
         Limnova::BigFloat Period = 0.f;
         float CcwF = 1.f; // Counter-clockwise factor: 1 for a counter-clockwise orbit, -1 for a clockwise orbit
-        float TrueAnomalyEscape = 2.f * Limnova::PI2f; // True anomaly of the (first) position on the orbit with an orbital distance equal to the host's ROI (1 for scaled orbits); if no such positions exist, this variable is set to 4pi (an impossible value for true anomaly).
-        // TrueAnomalyEscape is not necessary for engineered, fixed orbits
-        // TODO ?? : separate structs for different types of orbiter
-
-        // ID of host whose influence was most recently escaped - to prevent a false positive when testing influence overlaps, due to precision error placing this orbiter inside the influence of the host it has just escaped, that host is ignored in overlap tests until this orbiter actually leaves its influence. Set to tree root ID when the orbiter has fully escaped, so that the previous host is no longer ignored in tests.
-        uint32_t HostEscaped = 0;
 
         // Computation constants
         Limnova::BigFloat muh = 0.f; // mu / h
+
+        // Dynamics
+        float TrueAnomalyEscape = 2.f * Limnova::PI2f; // True anomaly of the (first) position on the orbit with an orbital distance equal to the host's ROI (1 for scaled orbits); if no such positions exist, this variable is set to 4pi (an impossible value for true anomaly).
+        // TrueAnomalyEscape is not necessary for engineered, fixed orbits
+        // TODO ?? : separate structs for different types of orbiter
+        uint32_t HostEscaped = 0; // ID of host whose influence was most recently escaped - to prevent a false positive when testing influence overlaps, due to precision error placing this orbiter inside the influence of the host it has just escaped, that host is ignored in overlap tests until this orbiter actually leaves its influence. Set to tree root ID when the orbiter has fully escaped, so that the previous host is no longer ignored in tests.
     };
 
     class OrbitTreeNode;
@@ -74,17 +74,19 @@ public:
     // TODO : load level from file; save level to file
     
     /// <summary>
-    /// Create an orbiter with given mass and initial state.
+    /// Create an orbiter with the given mass: Explicit and Scaled state.
     /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
     /// </summary>
     /// <param name="mass">Mass of orbiter</param>
+    /// <param name="dynamic">Whether the orbit is dynamic - is able to change during gameplay</param>
+    /// <param name="initialHostId">ID of the host to whose influence scaledPosition and scaledVelocity are scaled</param>
     /// <param name="scaledPosition">Initial position of orbiter, scaled to the top-level orbit space</param>
     /// <param name="scaledVelocity">Initial velocity of orbiter, scaled to the top-level orbit space</param>
     /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
-    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, Limnova::Vector2 scaledPosition, Limnova::BigVector2& scaledVelocity);
+    uint32_t CreateOrbiterES(const bool dynamic, const Limnova::BigFloat& mass, const uint32_t initialHostId, Limnova::Vector2 scaledPosition, Limnova::BigVector2 scaledVelocity);
 
     /// <summary>
-    /// Create an orbiter with given mass and position.
+    /// Create an orbiter with the given mass: Circular orbit at Scaled position.
     /// Computes velocity to produce circular orbit which is clockwise or counter-clockwise depending on the clockwise argument.
     /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
     /// </summary>
@@ -92,20 +94,20 @@ public:
     /// <param name="scaledPosition">Initial position of orbiter, scaled to the top-level orbit space</param>
     /// <param name="clockwise">Whether the circular orbit is clockwise or counter-clockwise</param>
     /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
-    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, Limnova::Vector2 scaledPosition, bool clockwise = false);
+    uint32_t CreateOrbiterCS(const bool dynamic, const Limnova::BigFloat& mass, const uint32_t initialHostId, Limnova::Vector2 scaledPosition, const bool clockwise = false);
 
     /// <summary>
-    /// Create an orbiter with given mass and initial state.
+    /// Create an orbiter with the given mass: Explicit and Unscaled state.
     /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
     /// </summary>
     /// <param name="mass">Mass of orbiter</param>
     /// <param name="scaledPosition">Initial position of orbiter (actual, unscaled)</param>
     /// <param name="scaledVelocity">Initial velocity of orbiter (actual, unscaled)</param>
     /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
-    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::BigVector2& position, const Limnova::BigVector2& velocity);
+    uint32_t CreateOrbiterEU(const bool dynamic, const Limnova::BigFloat& mass, const Limnova::BigVector2& position, const Limnova::BigVector2& velocity);
 
     /// <summary>
-    /// Create an orbiter with given mass and position.
+    /// Create an orbiter with the given mass: Circular orbit at Unscaled position.
     /// Computes velocity to produce circular orbit which is clockwise or counter-clockwise depending on the clockwise argument.
     /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
     /// </summary>
@@ -113,7 +115,7 @@ public:
     /// <param name="scaledPosition">Initial position of orbiter (actual, unscaled)</param>
     /// <param name="clockwise">Whether the circular orbit is clockwise or counter-clockwise</param>
     /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
-    uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::BigVector2& position, bool clockwise = false);
+    uint32_t CreateOrbiterCU(const bool dynamic, const Limnova::BigFloat& mass, const Limnova::BigVector2& position, const bool clockwise = false);
     //uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, float eccentricity, float trueAnomaly = 0.f, bool clockwise = false);
 
     const OrbitTreeNode& GetOrbiter(const uint32_t orbiterId);
@@ -187,7 +189,8 @@ private:
     };
 private:
     InflRef m_LevelHost;
-    std::vector<InflRef> m_InflNodes;
+    std::vector<InflRef> m_DynamicNodes;
+    std::vector<InflRef> m_StaticNodes;
 
     float m_Timescale = 1.f;
 
@@ -204,8 +207,8 @@ private:
     /// NOTE: must be initially scaled to the top-level orbit space (the scaling of m_LevelHost)</param>
     /// <param name="scaledVelocity">The velocity to update to any overlapping node's orbit space.
     /// NOTE: must be initially scaled to the top-level orbit space (the scaling of m_LevelHost)</param>
-    InflRef& FindLowestOverlappingInfluence(Limnova::Vector2& scaledPosition, Limnova::BigVector2& scaledVelocity);
-    // Returns lowest-level node whose circle-of-influence overlaps the given absolue position, or m_LevelHost if none overlaps.
+    InflRef& FindLowestOverlappingInfluence(Limnova::Vector2& scaledPosition, Limnova::BigVector2& scaledVelocity, const uint32_t initialHostId = 0);
+    // Returns lowest-level node whose circle-of-influence overlaps the given absolue position, or the given parent if none overlaps.
     InflRef& FindOverlappingChildInfluence(InflRef& parent, const Limnova::Vector2& scaledPosition);
 
     void IncreaseOrbitLevel(InflRef& orbiter);
