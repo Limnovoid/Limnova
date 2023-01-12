@@ -150,7 +150,7 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             float troi = orbs.GetRadiusOfInfluence(m_CameraTrackingId);
             drawScaling *= troi;
             visibleOrbiters.clear();
-            orbs.GetChildren(m_CameraTrackingId, visibleOrbiters);
+            orbs.GetOrbiters(m_CameraTrackingId, visibleOrbiters);
             for (auto orbId : visibleOrbiters)
             {
                 auto& op = orbs.GetParameters(orbId);
@@ -191,7 +191,7 @@ void Orbiters2D::OnImGuiRender()
     // Orbiter HUD colors
     std::vector<uint32_t> trackableOrbiterIds;
     trackableOrbiterIds.push_back(m_CameraHostId);
-    orbs.GetChildren(m_CameraHostId, trackableOrbiterIds);
+    orbs.GetOrbiters(m_CameraHostId, trackableOrbiterIds);
     for (uint32_t idx = 1; idx < trackableOrbiterIds.size(); idx++)
     {
         auto& ri = m_OrbiterRenderInfo[trackableOrbiterIds[idx]];

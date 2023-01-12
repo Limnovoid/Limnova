@@ -51,6 +51,9 @@ public:
     class OrbitTreeNode;
     class InfluencingNode;
 public:
+    OrbitSystem2D();
+    ~OrbitSystem2D();
+
     static void Init();
     static OrbitSystem2D& Get();
     static void Shutdown();
@@ -124,11 +127,19 @@ public:
     float GetRadiusOfInfluence(const uint32_t orbiterId);
     float GetScaling(const uint32_t hostId);
     float GetHostScaling(const uint32_t orbiterId);
-    void GetChildren(const uint32_t hostId, std::vector<uint32_t>& ids);
     uint32_t GetOrbiterHost(const uint32_t orbiterId);
+
+    /// <summary>
+    /// Append to the given vector the IDs of all orbiters which are orbiting the host with ID hostId.
+    /// Ordering of ID entries is arbitrary.
+    /// </summary>
+    void GetOrbiters(const uint32_t hostId, std::vector<uint32_t>& childIds);
 
     void SetOrbiterRightAscension(const uint32_t orbiterId, const float rightAscension);
 
+    /// <summary>
+    /// Ordering of results is arbitrary: works by copying IDs from the unordered_map of all influencing nodes.
+    /// </summary>
     void GetAllHosts(std::vector<uint32_t>& ids);
 
     void SetTimeScale(const float timescale) { m_Timescale = timescale; }
@@ -140,20 +151,23 @@ private:
     class OrbitTreeNode
     {
     public:
+        OrbitTreeNode() {}
         virtual ~OrbitTreeNode() {}
         friend class OrbitSystem2D;
 
         const OrbitParameters& GetParameters() const { return Parameters; }
         float GetHostScaling() const { return Parent->Influence.TotalScaling.Float(); }
         uint32_t GetHost() const { return Parent->Id; }
-    private:
+    protected:
         InflRef Parent = nullptr;
         uint32_t Id = std::numeric_limits<uint32_t>::max();
 
         Limnova::BigFloat Mass;
         OrbitParameters Parameters;
         bool NeedRecomputeState = false;
-    private:
+        bool Influencing = false;
+    protected:
+        bool TrueAnomalyIntegrationStep(const float gameDeltaTime);
         void ComputeElementsFromState();
         void ComputeStateVector();
     };
@@ -169,6 +183,8 @@ private:
     class InfluencingNode : public OrbitTreeNode
     {
     public:
+        InfluencingNode() { Influencing = true; }
+        ~InfluencingNode() {}
         friend class OrbitSystem2D;
 
         float GetScaling() const { return Influence.TotalScaling.Float(); }
@@ -189,14 +205,16 @@ private:
     };
 private:
     InflRef m_LevelHost;
-    std::vector<InflRef> m_DynamicNodes;
-    std::vector<InflRef> m_StaticNodes;
+    std::vector<NodeRef> m_AllNodes;
+    std::unordered_map<uint32_t, InflRef> m_InfluencingNodes;
+    std::unordered_map<uint32_t, NodeRef> m_DynamicNodes;
+    std::unordered_map<uint32_t, NodeRef> m_StaticNodes;
 
     float m_Timescale = 1.f;
 
     std::function<void(const uint32_t)> m_OrbiterChangedHostCallback;
 private:
-    uint32_t CreateInfluencingNode(const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
+    uint32_t CreateInfluencingNode(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
 
     /// <summary>
     /// Returns lowest-level node whose circle-of-influence overlaps the given position;
@@ -210,8 +228,6 @@ private:
     InflRef& FindLowestOverlappingInfluence(Limnova::Vector2& scaledPosition, Limnova::BigVector2& scaledVelocity, const uint32_t initialHostId = 0);
     // Returns lowest-level node whose circle-of-influence overlaps the given absolue position, or the given parent if none overlaps.
     InflRef& FindOverlappingChildInfluence(InflRef& parent, const Limnova::Vector2& scaledPosition);
-
-    void IncreaseOrbitLevel(InflRef& orbiter);
 
 
     // debug resources
