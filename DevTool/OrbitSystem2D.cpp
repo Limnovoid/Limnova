@@ -11,6 +11,9 @@ static constexpr float kEscapeDistance = 1.01f;
 
 
 OrbitSystem2D::OrbitSystem2D()
+    : m_UpdateQueue(
+        [](const NodeRef& lhs, const NodeRef& rhs) -> bool { return lhs->Parameters.UpdateTimer < rhs->Parameters.UpdateTimer; }
+    )
 {
 }
 
@@ -84,7 +87,7 @@ void OrbitSystem2D::Update(LV::Timestep dT)
         // orbit position is only updated after a certain amount of time (governed by op.UpdateTimer).
         // This longer timestep (simDeltaTime) is computed to ensure that the change in true anomaly (simDeltaTAnomaly)
         // is equal to or greater than kOptimalDeltaTAnom.
-        while (orbiterNode->TrueAnomalyIntegrationStep(gameDeltaTime))
+        while (orbiterNode->StepTrueAnomalyIntegration(gameDeltaTime))
         {
             // Check influence events:
             // If distance between this orbiter and another orbiter of the same host is less than that orbiter's
@@ -222,7 +225,7 @@ void OrbitSystem2D::Update(LV::Timestep dT)
         // orbit position is only updated after a certain amount of time (governed by op.UpdateTimer).
         // This longer timestep (simDeltaTime) is computed to ensure that the change in true anomaly (simDeltaTAnomaly)
         // is equal to or greater than kOptimalDeltaTAnom.
-        while (orbiterNode->TrueAnomalyIntegrationStep(gameDeltaTime))
+        while (orbiterNode->StepTrueAnomalyIntegration(gameDeltaTime))
         {
             orbiterNode->ComputeStateVector();
         }
@@ -240,8 +243,11 @@ void OrbitSystem2D::Update(LV::Timestep dT)
 }
 
 
-bool OrbitSystem2D::OrbitTreeNode::TrueAnomalyIntegrationStep(const float gameDeltaTime)
+bool OrbitSystem2D::OrbitTreeNode::StepTrueAnomalyIntegration(const float gameDeltaTime)
 {
+    if (this->Parameters.UpdateTimer > 0) return false;
+    //if (this->Parameters.UpdateTimer > gameDeltaTime) return false;
+
     auto& op = this->Parameters;
 
     // dTAnom / dT = h / r^2 --> dT_optimal = dTAnom_optimal * r^2 / h
@@ -250,17 +256,26 @@ bool OrbitSystem2D::OrbitTreeNode::TrueAnomalyIntegrationStep(const float gameDe
 
     // TEMPORARY - never allows multiple updates per frame
     // TODO - allow multiple updates to maintain integration accuracy for faster orbiters (and while speeding-up time)
-    if (simDeltaTime < gameDeltaTime)
-    {
-        // dTAnom = dT * h / r^2
-        simDeltaTime = gameDeltaTime;
-        simDeltaTAnomaly = gameDeltaTime * op.OSAMomentum.Float() / op.Position.SqrMagnitude();
-    }
+    //if (simDeltaTime < gameDeltaTime)
+    //{
+    //    // dTAnom = dT * h / r^2
+    //    simDeltaTime = gameDeltaTime;
+    //    simDeltaTAnomaly = gameDeltaTime * op.OSAMomentum.Float() / op.Position.SqrMagnitude();
+    //}
 
     op.TrueAnomaly += simDeltaTAnomaly;
     op.UpdateTimer += simDeltaTime;
 
-    return op.UpdateTimer < 0;
+    return true;
+}
+
+
+void OrbitSystem2D::Update2(Limnova::Timestep dT)
+{
+    LV_PROFILE_FUNCTION();
+
+    float gameDeltaTime = m_Timescale * (float)dT;
+
 }
 
 

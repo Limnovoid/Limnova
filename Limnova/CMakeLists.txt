@@ -56,8 +56,10 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/Texture.cpp"
     "src/Renderer/VertexArray.cpp"
 
+    "src/Structures/Queue.h"
+
     "thirdparty/stb_image/stb_image.cpp"
- )
+)
 
 
 set_property(TARGET ${PROJECT_NAME}
@@ -92,6 +94,7 @@ target_precompile_headers(${PROJECT_NAME}
         <fstream>
         <array>
         <vector>
+        <map>
         <unordered_map>
         <unordered_set>
 

@@ -61,6 +61,7 @@ public:
     void SetOrbiterEventCallback(const std::function<void(const uint32_t)>& fn) { m_OrbiterChangedHostCallback = fn; };
 
     void Update(Limnova::Timestep dT);
+    void Update2(Limnova::Timestep dT);
 
     /// <summary>
     /// Initialise the orbit system by specifying the mass of the system host and the scaling ratio of the top-level orbit space.
@@ -167,7 +168,7 @@ private:
         bool NeedRecomputeState = false;
         bool Influencing = false;
     protected:
-        bool TrueAnomalyIntegrationStep(const float gameDeltaTime);
+        bool StepTrueAnomalyIntegration(const float gameDeltaTime);
         void ComputeElementsFromState();
         void ComputeStateVector();
     };
@@ -209,6 +210,7 @@ private:
     std::unordered_map<uint32_t, InflRef> m_InfluencingNodes;
     std::unordered_map<uint32_t, NodeRef> m_DynamicNodes;
     std::unordered_map<uint32_t, NodeRef> m_StaticNodes;
+    Limnova::Queue<NodeRef> m_UpdateQueue;
 
     float m_Timescale = 1.f;
 
