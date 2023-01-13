@@ -210,7 +210,7 @@ private:
     std::unordered_map<uint32_t, InflRef> m_InfluencingNodes;
     std::unordered_map<uint32_t, NodeRef> m_DynamicNodes;
     std::unordered_map<uint32_t, NodeRef> m_StaticNodes;
-    Limnova::Queue<NodeRef> m_UpdateQueue;
+    Limnova::SortedQueue<NodeRef> m_UpdateQueue;
 
     float m_Timescale = 1.f;
 

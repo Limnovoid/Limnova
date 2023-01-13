@@ -5,7 +5,7 @@ namespace Limnova
 {
 
     template<typename T>
-    class Queue
+    class SortedQueue
     {
     private:
         struct SinglyLinkedNode
@@ -15,9 +15,9 @@ namespace Limnova
         };
         SinglyLinkedNode* m_Front = nullptr;
     public:
-        Queue() : m_Compare([](const uint32_t& lhs, const uint32_t& rhs) -> bool { return lhs < rhs; }) {}
-        Queue(const std::function<bool(const T& lhs, const T& rhs)>& fn) : m_Compare(fn) {}
-        ~Queue() {}
+        SortedQueue() : m_Compare([](const uint32_t& lhs, const uint32_t& rhs) -> bool { return lhs < rhs; }) {}
+        SortedQueue(const std::function<bool(const T& lhs, const T& rhs)>& fn) : m_Compare(fn) {}
+        ~SortedQueue() {}
 
 
         void Insert(const T newValue)
