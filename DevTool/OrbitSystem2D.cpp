@@ -11,8 +11,9 @@ static constexpr float kEscapeDistance = 1.01f;
 
 
 OrbitSystem2D::OrbitSystem2D()
-    : m_UpdateQueue(
-        [](const NodeRef& lhs, const NodeRef& rhs) -> bool { return lhs->Parameters.UpdateTimer < rhs->Parameters.UpdateTimer; }
+    : m_NodeUpdateQueue(
+        [](const NodeRef& lhs, const NodeRef& rhs) -> bool { return lhs->Parameters.UpdateTimer < rhs->Parameters.UpdateTimer; },
+        [](NodeRef& lhs, const float& rhs) -> NodeRef& { lhs->Parameters.UpdateTimer = rhs; return lhs; }
     )
 {
 }

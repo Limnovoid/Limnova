@@ -58,7 +58,7 @@ public:
     static OrbitSystem2D& Get();
     static void Shutdown();
 
-    void SetOrbiterEventCallback(const std::function<void(const uint32_t)>& fn) { m_OrbiterChangedHostCallback = fn; };
+    void SetOrbiterEventCallback(const std::function<void(const uint32_t)> fn) { m_OrbiterChangedHostCallback = fn; };
 
     void Update(Limnova::Timestep dT);
     void Update2(Limnova::Timestep dT);
@@ -210,7 +210,7 @@ private:
     std::unordered_map<uint32_t, InflRef> m_InfluencingNodes;
     std::unordered_map<uint32_t, NodeRef> m_DynamicNodes;
     std::unordered_map<uint32_t, NodeRef> m_StaticNodes;
-    Limnova::SortedQueue<NodeRef> m_UpdateQueue;
+    Limnova::SortedQueue<NodeRef, float> m_NodeUpdateQueue;
 
     float m_Timescale = 1.f;
 
