@@ -45,17 +45,17 @@ void Orbiters2D::OnAttach()
     m_CameraTrackingId = 0;
     m_OrbiterRenderInfo[0] = { "Star", 0.05f, {0.9f, 1.f, 1.f, 1.f}};
     uint32_t id;
-    id = orbs.CreateOrbiterES(true, Limnova::BigFloat(2.f, 6), 0, Limnova::Vector2(1.f, 0.f), Limnova::BigVector2(-0.3f, 1.f));
+    id = orbs.CreateOrbiterES(false, Limnova::BigFloat(2.f, 6), 0, Limnova::Vector2(1.f, 0.f), Limnova::BigVector2(-0.3f, 1.f));
     m_OrbiterRenderInfo[id] = { "Planet 0", 0.001f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
     m_CameraTrackingId = id;
-    id = orbs.CreateOrbiterCS(true, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, 0.9f), false);
+    id = orbs.CreateOrbiterCS(false, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, 0.9f), false);
     m_OrbiterRenderInfo[id] = { "Moon 0.0", 0.00005f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
-    id = orbs.CreateOrbiterCU(true, Limnova::BigFloat(1.5f, 2), Limnova::BigVector2(1.02f, 0.f), true);
+    id = orbs.CreateOrbiterCU(false, Limnova::BigFloat(1.5f, 2), Limnova::BigVector2(1.02f, 0.f), true);
     m_OrbiterRenderInfo[id] = { "Moon 0.1", 0.00007f, {0.3f, 0.9f, 0.2f, 1.f}, true, true };
 
-    id = orbs.CreateOrbiterCS(true, Limnova::BigFloat(1.f, 6), 0, Limnova::Vector2(0.f, -.5f), false);
+    id = orbs.CreateOrbiterCS(false, Limnova::BigFloat(1.f, 6), 0, Limnova::Vector2(0.f, -.5f), false);
     m_OrbiterRenderInfo[id] = { "Planet 1", 0.001f, {0.2f, 0.7f, 1.f, 1.f}, true, true};
-    id = orbs.CreateOrbiterCS(true, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, -.7f), false);
+    id = orbs.CreateOrbiterCS(false, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, -.7f), false);
     m_OrbiterRenderInfo[id] = { "Moon 1.0", 0.00003f, {0.5f, 0.2f, .3f, 1.f}, true, true };
 
     // Testing dynamic orbits - orbiters moving between hosts at runtime
@@ -85,7 +85,7 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
     {
         LV_PROFILE_SCOPE("Update - Dev2DLayer::OnUpdate");
 
-        orbs.Update(dT);
+        orbs.Update2(dT);
 
         // Camera
         if (m_CameraTrackingChanged)

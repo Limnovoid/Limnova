@@ -6,7 +6,8 @@
 namespace LV = Limnova;
 
 static const LV::BigFloat kGrav = { 6.6743f, -11 };
-static constexpr float kOptimalDeltaTAnom = 1e-4f;
+static constexpr float kMinimumDeltaTAnom = 1e-4f;
+static constexpr float kMinimumDeltaT = 1.f / (60.f * 20.f); // maximum 20 updates per node per frame at 60 frames per second
 static constexpr float kEscapeDistance = 1.01f;
 
 
@@ -16,6 +17,7 @@ OrbitSystem2D::OrbitSystem2D()
         [](NodeRef& lhs, const float& rhs) -> NodeRef& { lhs->Parameters.UpdateTimer = rhs; return lhs; }
     )
 {
+    m_MinimumDeltaT = m_Timescale * kMinimumDeltaT;
 }
 
 
@@ -87,9 +89,11 @@ void OrbitSystem2D::Update(LV::Timestep dT)
         // true anomaly would be very small in comparison, potentially introducing significant finite-precision error),
         // orbit position is only updated after a certain amount of time (governed by op.UpdateTimer).
         // This longer timestep (simDeltaTime) is computed to ensure that the change in true anomaly (simDeltaTAnomaly)
-        // is equal to or greater than kOptimalDeltaTAnom.
+        // is equal to or greater than kMinimumDeltaTAnom.
         while (orbiterNode->StepTrueAnomalyIntegration(gameDeltaTime))
         {
+            orbiterNode->ComputeStateVector();
+
             // Check influence events:
             // If distance between this orbiter and another orbiter of the same host is less than that orbiter's
             // ROI, this orbiter is now orbiting the other orbiter
@@ -98,74 +102,11 @@ void OrbitSystem2D::Update(LV::Timestep dT)
             // - updating all orbiters once, checking overlaps, updating and checking again, etc. until all orbiters are
             // - fully updated, every frame.
             
-            // If true anomaly is greater than true anomaly of escape (and less than pi), orbiter has escaped its host's influence;
-            // however, if true anomaly is greater than pi, orbiter is still inside the influence and is approaching periapsis.
-            if (orbiterNode->Parent != m_LevelHost
-                && op.TrueAnomaly > op.TrueAnomalyEscape
-                && op.TrueAnomaly < LV::PIf)
-            {
-                // Convert position and velocity (which are stored relative and scaled to host's orbit space) to new host's orbit space
-                auto& host = orbiterNode->Parent;
-                op.HostEscaped = host->Id;
-                op.Position = host->Parameters.Position + (op.Position * host->Influence.Radius);
-                op.Velocity = host->Parameters.Velocity + (op.Velocity * host->Influence.Radius);
-
-                // Recompute parameters and update orbit tree:
-                orbiterNode->ComputeElementsFromState();
-                if (orbiterNode->Influencing)
-                {
-                    auto inflNode = std::static_pointer_cast<InfluencingNode>(orbiterNode);
-                    inflNode->ComputeInfluence();
-
-                    // Remove node from old parent's children
-                    auto childrenOrbiterIt = std::find(host->InfluencingChildren.begin(), host->InfluencingChildren.end(), inflNode);
-                    size_t childrenLastIdx = host->InfluencingChildren.size() - 1;
-                    childrenOrbiterIt->swap(host->InfluencingChildren[childrenLastIdx]);
-                    host->InfluencingChildren.resize(childrenLastIdx);
-                    // Add node to new parent's children
-                    host->Parent->InfluencingChildren.push_back(inflNode);
-                }
-                else
-                {
-                    // Remove node from old parent's children
-                    auto childrenOrbiterIt = std::find(host->NonInflChildren.begin(), host->NonInflChildren.end(), orbiterNode);
-                    size_t childrenLastIdx = host->NonInflChildren.size() - 1;
-                    childrenOrbiterIt->swap(host->NonInflChildren[childrenLastIdx]);
-                    host->NonInflChildren.resize(childrenLastIdx);
-                    // Add node to new parent's children
-                    host->Parent->NonInflChildren.push_back(orbiterNode);
-                }
-                orbiterNode->Parent = host->Parent;
-
-                m_OrbiterChangedHostCallback(orbiterNode->Id);
-            }
-
-            orbiterNode->ComputeStateVector();
-
-            // Test if this orbiter is overlapped by the circle of influence of any orbiters of the same host
-            for (auto& other : orbiterNode->Parent->InfluencingChildren)
-            {
-                if (orbiterNode == other) continue; // Skip self
-
-                float separation = sqrt((other->Parameters.Position - orbiterNode->Parameters.Position).SqrMagnitude());
-
-                if (separation < other->Influence.Radius
-                    && orbiterNode->Parameters.HostEscaped != other->Id)
-                {
-                    // Overlap
-                    LV_CORE_INFO("Overlap: orbiter {0} -> influence {1}!", orbiterNode->Id, other->Id);
-                }
-                else if (orbiterNode->Parameters.HostEscaped == other->Id
-                    && separation > other->Influence.Radius)
-                {
-                    // Previous host is for sure escaped
-                    LV_CORE_INFO("Escape: orbiter {0} <- influence {1}!", orbiterNode->Id, other->Id);
-                    orbiterNode->Parameters.HostEscaped = s_OrbitSystem2D.m_LevelHost->Id;
-                }
-            }
+            HandleOrbiterEscapingHost(orbiterNode);
+            HandleOrbiterOverlappingInfluence(orbiterNode);
         }
         op.UpdateTimer -= gameDeltaTime;
-        orbiterNode->NeedRecomputeState = false;
+        orbiterNode->NeedRecomputeState = true;
 
         //float deltaTA = m_Timescale * (float)dT * (op.OSAMomentum / op.Position.SqrMagnitude()).Float();
         //op.TrueAnomaly += deltaTA;
@@ -225,7 +166,7 @@ void OrbitSystem2D::Update(LV::Timestep dT)
         // true anomaly would be very small in comparison, potentially introducing significant finite-precision error),
         // orbit position is only updated after a certain amount of time (governed by op.UpdateTimer).
         // This longer timestep (simDeltaTime) is computed to ensure that the change in true anomaly (simDeltaTAnomaly)
-        // is equal to or greater than kOptimalDeltaTAnom.
+        // is equal to or greater than kMinimumDeltaTAnom.
         while (orbiterNode->StepTrueAnomalyIntegration(gameDeltaTime))
         {
             orbiterNode->ComputeStateVector();
@@ -246,14 +187,16 @@ void OrbitSystem2D::Update(LV::Timestep dT)
 
 bool OrbitSystem2D::OrbitTreeNode::StepTrueAnomalyIntegration(const float gameDeltaTime)
 {
+    LV_PROFILE_FUNCTION();
+
     if (this->Parameters.UpdateTimer > 0) return false;
     //if (this->Parameters.UpdateTimer > gameDeltaTime) return false;
 
     auto& op = this->Parameters;
 
     // dTAnom / dT = h / r^2 --> dT_optimal = dTAnom_optimal * r^2 / h
-    float simDeltaTAnomaly = kOptimalDeltaTAnom;
-    float simDeltaTime = ((kOptimalDeltaTAnom * op.Position.SqrMagnitude()) / op.OSAMomentum).Float();
+    float simDeltaTAnomaly = kMinimumDeltaTAnom;
+    float simDeltaTime = ((kMinimumDeltaTAnom * op.Position.SqrMagnitude()) / op.OSAMomentum).Float();
 
     // TEMPORARY - never allows multiple updates per frame
     // TODO - allow multiple updates to maintain integration accuracy for faster orbiters (and while speeding-up time)
@@ -271,12 +214,224 @@ bool OrbitSystem2D::OrbitTreeNode::StepTrueAnomalyIntegration(const float gameDe
 }
 
 
+void OrbitSystem2D::HandleOrbiterEscapingHost(NodeRef& node)
+{
+    LV_PROFILE_FUNCTION();
+
+    // If true anomaly is greater than true anomaly of escape (and less than pi), orbiter has escaped its host's influence;
+    // if true anomaly is greater than pi, orbiter is still inside the influence and is approaching periapsis.
+    if (node->Parameters.TrueAnomaly < node->Parameters.TrueAnomalyEscape
+        || node->Parameters.TrueAnomaly > LV::PIf)
+    {
+        return;
+    }
+
+    // Convert position and velocity (which are stored relative and scaled to host's orbit space) to new host's orbit space
+    auto& op = node->Parameters;
+    auto oldHost = node->Parent;
+    node->Parent = oldHost->Parent;
+
+    // Compute state relative to new host
+    op.GravAsOrbiter = oldHost->Parent->Parameters.GravAsHost;
+    op.Position = oldHost->Parameters.Position + (op.Position * oldHost->Influence.Radius);
+    op.Velocity = oldHost->Parameters.Velocity + (op.Velocity * oldHost->Influence.Radius);
+
+    // Recompute parameters and update orbit tree:
+    node->ComputeElementsFromState();
+    if (node->Influencing)
+    {
+        auto inflNode = std::static_pointer_cast<InfluencingNode>(node);
+
+        // Remove node from old parent's children
+        auto childrenOrbiterIt = std::find(oldHost->InfluencingChildren.begin(), oldHost->InfluencingChildren.end(), inflNode);
+        size_t childrenLastIdx = oldHost->InfluencingChildren.size() - 1;
+        childrenOrbiterIt->swap(oldHost->InfluencingChildren[childrenLastIdx]);
+        oldHost->InfluencingChildren.resize(childrenLastIdx);
+        // Add node to new parent's children
+        node->Parent->InfluencingChildren.push_back(inflNode);
+
+        // Compute influence with new host
+        inflNode->ComputeInfluence();
+    }
+    else
+    {
+        // Remove node from old parent's children
+        auto childrenOrbiterIt = std::find(oldHost->NonInflChildren.begin(), oldHost->NonInflChildren.end(), node);
+        size_t childrenLastIdx = oldHost->NonInflChildren.size() - 1;
+        childrenOrbiterIt->swap(oldHost->NonInflChildren[childrenLastIdx]);
+        oldHost->NonInflChildren.resize(childrenLastIdx);
+        // Add node to new parent's children
+        node->Parent->NonInflChildren.push_back(node);
+    }
+
+    m_OrbiterChangedHostCallback(node->Id);
+}
+
+
+void OrbitSystem2D::HandleOrbiterOverlappingInfluence(NodeRef& node)
+{
+    LV_PROFILE_FUNCTION();
+
+    // Test if this orbiter is overlapped by the circle of influence of any orbiters of the same host
+    auto& op = node->Parameters;
+    for (auto& other : node->Parent->InfluencingChildren)
+    {
+        if (node == other) continue; // Skip self
+
+        // Check overlap
+        auto rPosition = op.Position - other->Parameters.Position;
+        float separation = sqrt(rPosition.SqrMagnitude());
+        if (separation > other->Influence.Radius)
+        {
+            continue;
+        }
+
+        // Overlap confirmed
+        LV_CORE_INFO("Overlap: orbiter {0} -> influence {1}!", node->Id, other->Id);
+
+        auto oldHost = node->Parent;
+        node->Parent = other;
+
+        // Compute state relative to new host
+        op.GravAsOrbiter = other->Parameters.GravAsHost;
+        op.Position = rPosition / other->Influence.Radius;
+        op.Velocity = (op.Velocity - other->Parameters.Velocity) / other->Influence.Radius;
+
+        // Recompute parameters and update orbit tree:
+        node->ComputeElementsFromState();
+        if (node->Influencing)
+        {
+            auto inflNode = std::static_pointer_cast<InfluencingNode>(node);
+
+            // Remove node from old parent's children
+            auto childrenOrbiterIt = std::find(oldHost->InfluencingChildren.begin(), oldHost->InfluencingChildren.end(), inflNode);
+            size_t childrenLastIdx = oldHost->InfluencingChildren.size() - 1;
+            childrenOrbiterIt->swap(oldHost->InfluencingChildren[childrenLastIdx]);
+            oldHost->InfluencingChildren.resize(childrenLastIdx);
+            // Add node to new parent's children
+            other->InfluencingChildren.push_back(inflNode);
+
+            // Compute influence with new host
+            inflNode->ComputeInfluence();
+        }
+        else
+        {
+            // Remove node from old parent's children
+            auto childrenOrbiterIt = std::find(oldHost->NonInflChildren.begin(), oldHost->NonInflChildren.end(), node);
+            size_t childrenLastIdx = oldHost->NonInflChildren.size() - 1;
+            childrenOrbiterIt->swap(oldHost->NonInflChildren[childrenLastIdx]);
+            oldHost->NonInflChildren.resize(childrenLastIdx);
+            // Add node to new parent's children
+            other->NonInflChildren.push_back(node);
+        }
+
+        m_OrbiterChangedHostCallback(node->Id);
+
+        return;
+    }
+}
+
+
 void OrbitSystem2D::Update2(Limnova::Timestep dT)
 {
     LV_PROFILE_FUNCTION();
 
-    float gameDeltaTime = m_Timescale * (float)dT;
+    LV_CORE_ASSERT(m_UpdateFirst.get() != nullptr, "Update queue head pointer is null!");
 
+
+    std::ostringstream debugoss; // debug
+    debugoss << "Node update counts:\n"; // debug
+
+
+    // Update all orbit nodes:
+    // Nodes are queued in ascending order of their individual times until next update (stored in OrbitParameters::UpdateTimer),
+    // which is measured from the start of the current frame - when a node is updated, its UpdateTimer increases by the size of
+    // its individual timestep. The queue is iterated through in order until all UpdateTimers are greater than the gameDeltaTime.
+    // This allows nodes to be updated with different time steps, zero or more times per frame (for each node), while still
+    // updating them all chronologically for more accurate collision tracking.
+    float gameDeltaTime = m_Timescale * (float)dT;
+    while (m_UpdateFirst->Parameters.UpdateTimer < gameDeltaTime)
+    {
+        m_UpdateCounts[m_UpdateFirst->Id]++; // debug
+
+
+        auto& op = m_UpdateFirst->Parameters;
+
+        float r2 = op.Position.SqrMagnitude();
+        float nodeDeltaTime = ((kMinimumDeltaTAnom * r2) / op.OSAMomentum).Float();
+        float nodeDeltaTAnomaly = kMinimumDeltaTAnom;
+
+        if (nodeDeltaTime < m_MinimumDeltaT)
+        {
+            // Limit number of updates per node per frame - see kMinimumDeltaT
+            nodeDeltaTime = m_MinimumDeltaT;
+            nodeDeltaTAnomaly = (m_MinimumDeltaT * op.OSAMomentum / r2).Float();
+        }
+
+        op.UpdateTimer += nodeDeltaTime;
+        op.TrueAnomaly += nodeDeltaTAnomaly;
+        if (op.TrueAnomaly > LV::PI2f)
+        {
+            op.TrueAnomaly -= LV::PI2f;
+        }
+
+        m_UpdateFirst->ComputeStateVector();
+
+        // Handle orbit events:
+        if (m_UpdateFirst->Dynamic)
+        {
+            HandleOrbiterEscapingHost(m_UpdateFirst);
+            HandleOrbiterOverlappingInfluence(m_UpdateFirst);
+        }
+
+        UpdateQueueSortFirst();
+    }
+    // Per-frame orbit node updates complete: subtract gameDeltaTime from all UpdateTimers.
+    OrbitTreeNode* node = m_UpdateFirst.get();
+    while (node != nullptr)
+    {
+        node->Parameters.UpdateTimer -= gameDeltaTime;
+
+        // debug
+        uint32_t num = m_UpdateCounts[node->Id];
+        debugoss << "- " << node->Id << ": " << num << '\n';
+        m_UpdateCounts[node->Id] = 0;
+        // debug
+
+        node = node->m_UpdateNext.get();
+    }
+
+    std::cout << debugoss.str() << std::endl;
+}
+
+
+void OrbitSystem2D::UpdateQueueSortFirst()
+{
+    LV_PROFILE_FUNCTION();
+
+    NodeRef rFirst = m_UpdateFirst;
+    LV_CORE_ASSERT(rFirst.get() != nullptr, "Update queue head pointer is null!"); // Any level will always have at least the player ship in the update queue ?
+
+    OrbitTreeNode* pOther = rFirst->m_UpdateNext.get();
+    if (pOther == nullptr || rFirst->Parameters.UpdateTimer < pOther->Parameters.UpdateTimer)
+    {
+        return;
+    }
+
+    m_UpdateFirst = m_UpdateFirst->m_UpdateNext;
+
+    while (pOther->m_UpdateNext.get() != nullptr)
+    {
+        if (rFirst->Parameters.UpdateTimer < pOther->m_UpdateNext->Parameters.UpdateTimer)
+        {
+            rFirst->m_UpdateNext = pOther->m_UpdateNext;
+            pOther->m_UpdateNext = rFirst;
+            return;
+        }
+        pOther = pOther->m_UpdateNext.get();
+    }
+    pOther->m_UpdateNext = rFirst;
+    rFirst->m_UpdateNext = nullptr;
 }
 
 
@@ -365,20 +520,6 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const bool dynamic, const InflRef&
     newNode->Id = m_AllNodes.size();
     newNode->Parent = parent;
 
-    // Compute gravitational properties of system
-    newNode->Mass = mass;
-    auto& op = newNode->Parameters;
-    op.GravAsOrbiter = parent->Parameters.GravAsHost; // mu = GM -> Assumes mass of orbiter is insignificant compared to host
-
-    // Compute orbital elements
-    op.Position = scaledPosition;
-    op.Velocity = scaledVelocity;
-    newNode->NeedRecomputeState = false;
-    newNode->ComputeElementsFromState();
-
-    // Compute this orbiter's influence
-    newNode->ComputeInfluence();
-
     // Add to tree
     auto inflRef = InflRef(newNode);
     auto orbRef = std::static_pointer_cast<OrbitTreeNode>(inflRef);
@@ -394,6 +535,23 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const bool dynamic, const InflRef&
     {
         m_StaticNodes.insert({ newNode->Id, orbRef });
     }
+    newNode->m_UpdateNext = m_UpdateFirst;
+    m_UpdateFirst = orbRef;
+
+    // Compute gravitational properties of system
+    newNode->Mass = mass;
+    auto& op = newNode->Parameters;
+    op.GravAsOrbiter = parent->Parameters.GravAsHost; // mu = GM -> Assumes mass of orbiter is insignificant compared to host
+
+    // Compute orbital elements
+    op.Position = scaledPosition;
+    op.Velocity = scaledVelocity;
+    newNode->Dynamic = dynamic;
+    newNode->NeedRecomputeState = false;
+    newNode->ComputeElementsFromState();
+
+    // Compute this orbiter's influence
+    newNode->ComputeInfluence();
 
 
     // debug //
@@ -403,6 +561,7 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const bool dynamic, const InflRef&
         "OrbiterDebugData/orbiter" + std::to_string(newNode->Id) + ".txt",
         { "T (s)", "Num.Passes", "Predicted Pass Time(s)", "Actual Pass Time(s)", "Error(ms)" }, false
     );
+    m_UpdateCounts[newNode->Id] = 0;
     // debug //
 
 
@@ -468,7 +627,8 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
     // Predicting orbit events:
     // If distance to apoapsis is greater than escape distance, the orbiter will leave the host's influence:
     // r_a = h^2 / mu(1 - e)
-    if (this->Parent != s_OrbitSystem2D.m_LevelHost
+    if (this->Dynamic
+        && this->Parent != s_OrbitSystem2D.m_LevelHost
         && op.OParameter / (1.f - op.Eccentricity) > kEscapeDistance)
     {
         // Orbiter leaves host's influence at the point that its orbital distance is equal to the escape distance (r_esc):
@@ -683,6 +843,13 @@ void OrbitSystem2D::GetAllHosts(std::vector<uint32_t>& ids)
     {
         ids.push_back(infl.first);
     }
+}
+
+
+void OrbitSystem2D::SetTimeScale(const float timescale)
+{
+    m_Timescale = timescale;
+    m_MinimumDeltaT = m_Timescale * kMinimumDeltaT;
 }
 
 

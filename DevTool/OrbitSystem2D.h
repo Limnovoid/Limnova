@@ -45,7 +45,6 @@ public:
         float TrueAnomalyEscape = 2.f * Limnova::PI2f; // True anomaly of the (first) position on the orbit with an orbital distance equal to the host's ROI (1 for scaled orbits); if no such positions exist, this variable is set to 4pi (an impossible value for true anomaly).
         // TrueAnomalyEscape is not necessary for engineered, fixed orbits
         // TODO ?? : separate structs for different types of orbiter
-        uint32_t HostEscaped = 0; // ID of host whose influence was most recently escaped - to prevent a false positive when testing influence overlaps, due to precision error placing this orbiter inside the influence of the host it has just escaped, that host is ignored in overlap tests until this orbiter actually leaves its influence. Set to tree root ID when the orbiter has fully escaped, so that the previous host is no longer ignored in tests.
     };
 
     class OrbitTreeNode;
@@ -143,7 +142,7 @@ public:
     /// </summary>
     void GetAllHosts(std::vector<uint32_t>& ids);
 
-    void SetTimeScale(const float timescale) { m_Timescale = timescale; }
+    void SetTimeScale(const float timescale);
 private:
     using NodeRef = std::shared_ptr<OrbitTreeNode>;
     using InflRef = std::shared_ptr<InfluencingNode>;
@@ -167,10 +166,13 @@ private:
         OrbitParameters Parameters;
         bool NeedRecomputeState = false;
         bool Influencing = false;
+        bool Dynamic;
     protected:
         bool StepTrueAnomalyIntegration(const float gameDeltaTime);
         void ComputeElementsFromState();
         void ComputeStateVector();
+    protected:
+        NodeRef m_UpdateNext;
     };
 
 
@@ -211,8 +213,10 @@ private:
     std::unordered_map<uint32_t, NodeRef> m_DynamicNodes;
     std::unordered_map<uint32_t, NodeRef> m_StaticNodes;
     Limnova::SortedQueue<NodeRef, float> m_NodeUpdateQueue;
+    NodeRef m_UpdateFirst = nullptr;
 
     float m_Timescale = 1.f;
+    float m_MinimumDeltaT;
 
     std::function<void(const uint32_t)> m_OrbiterChangedHostCallback;
 private:
@@ -231,6 +235,11 @@ private:
     // Returns lowest-level node whose circle-of-influence overlaps the given absolue position, or the given parent if none overlaps.
     InflRef& FindOverlappingChildInfluence(InflRef& parent, const Limnova::Vector2& scaledPosition);
 
+    // Sorts m_UpdateFirst in the update queue - assumes only the first item in the queue may have been altered.
+    void UpdateQueueSortFirst();
+
+    void HandleOrbiterEscapingHost(NodeRef& node);
+    void HandleOrbiterOverlappingInfluence(NodeRef& node);
 
     // debug resources
 private:
@@ -242,6 +251,7 @@ private:
     };
     std::unordered_map<uint32_t, DebugData> m_DebugData;
     bool m_Testing = false;
+    std::unordered_map<uint32_t, uint32_t> m_UpdateCounts;
 private:
     void RecordData();
 };

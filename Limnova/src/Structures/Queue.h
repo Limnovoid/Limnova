@@ -28,7 +28,7 @@ namespace Limnova
             {
                 SinglyLinkedNode* pnode = m_Front;
                 SinglyLinkedNode* pnext;
-                while (pnode->next != nullptr)
+                while (pnode->Next != nullptr)
                 {
                     pnext = pnode->Next;
                     delete pnode;
