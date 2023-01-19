@@ -9,6 +9,7 @@ static const LV::BigFloat kGrav = { 6.6743f, -11 };
 static constexpr float kMinimumDeltaTAnom = 1e-4f;
 static constexpr float kMinimumDeltaT = 1.f / (60.f * 20.f); // maximum 20 updates per node per frame at 60 frames per second
 static constexpr float kEscapeDistance = 1.01f;
+static constexpr float kNumTrajectoryDrawPoints = 16; // Number of points used to draw the path of a trajectory, from periapsis to escape
 
 
 OrbitSystem2D::OrbitSystem2D()
@@ -586,20 +587,26 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
     LV::BigVector2 vCrossh = { op.Velocity.y * signedH, -op.Velocity.x * signedH };
     LV::Vector2 eVec = (vCrossh / op.GravAsOrbiter).Vector2() - ur;
     float e2 = eVec.SqrMagnitude();
-    LV_CORE_ASSERT(e2 < 1, "Parapolic and hyperbolic trajectories are not currently supported!");
-    if (e2 > 0)
+    if (e2 > 1.f)
     {
-        // Elliptical
+        LV_CORE_ASSERT(this->Dynamic, "Static orbits cannot be hyperbolic trajectories - they must be circular or elliptical!");
+
+        op.Type = OrbitType::Hyperbola;
+        op.Eccentricity = sqrtf(e2);
+        op.BasisX = eVec.Normalized();
+    }
+    else if (e2 > 0.f)
+    {
+        op.Type = OrbitType::Ellipse;
         op.Eccentricity = sqrtf(e2);
         op.BasisX = eVec.Normalized();
     }
     else
     {
-        // Circular
+        op.Type = OrbitType::Circle;
         op.Eccentricity = 0;
         op.BasisX = ur;
     }
-    LV::Vector2 cwHorz = { -op.Position.y, op.Position.x };
     op.BasisY = op.CcwF * LV::Vector2(- op.BasisX.y, op.BasisX.x);
 
     op.TrueAnomaly = acosf(op.BasisX.Dot(ur));
@@ -617,31 +624,102 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
     op.OParameter = (LV::BigFloat::Pow(op.OSAMomentum, 2) / op.GravAsOrbiter).Float();
     op.muh = op.GravAsOrbiter / op.OSAMomentum;
 
-    float oneMinusE2 = (1.f - e2);
-    op.SemiMajorAxis = op.OParameter / oneMinusE2;
-    op.SemiMinorAxis = op.SemiMajorAxis * sqrtf(oneMinusE2);
+    float E2term = op.Type == OrbitType::Hyperbola ? e2 - 1.f : 1.f - e2;
+    op.SemiMajorAxis = op.OParameter / E2term;
+    op.SemiMinorAxis = op.SemiMajorAxis * sqrtf(E2term);
     op.Centre = -op.SemiMajorAxis * op.Eccentricity * op.BasisX;
+    if (op.Type == OrbitType::Hyperbola)
+    {
+        op.Centre *= -1.f;
+    }
 
     op.Period = LV::PI2f * op.SemiMajorAxis * op.SemiMinorAxis / op.OSAMomentum;
 
     // Predicting orbit events:
-    // If distance to apoapsis is greater than escape distance, the orbiter will leave the host's influence:
-    // r_a = h^2 / mu(1 - e)
-    if (this->Dynamic
+    // If distance to apoapsis is greater than escape distance, or if the orbit is hyperbolic,
+    // the orbiter will leave the host's influence:
+    LV_CORE_ASSERT(this->Dynamic
+        || this->Parent == s_OrbitSystem2D.m_LevelHost
+        || op.OParameter / (1.f - op.Eccentricity) < kEscapeDistance, // r_a = h^2 / mu(1 - e)
+        "Static orbits should not leave their host's influence!");
+
+    if ((this->Dynamic
         && this->Parent != s_OrbitSystem2D.m_LevelHost
-        && op.OParameter / (1.f - op.Eccentricity) > kEscapeDistance)
+        && op.OParameter / (1.f - op.Eccentricity) > kEscapeDistance
+        ) || op.Type == OrbitType::Hyperbola)
     {
         // Orbiter leaves host's influence at the point that its orbital distance is equal to the escape distance (r_esc):
         // cos(TAnomaly) = (h^2 / (mu * r_esc) - 1) / e
         op.TrueAnomalyEscape = acosf((op.OParameter / kEscapeDistance - 1.f) / op.Eccentricity);
         LV_CORE_INFO("Orbiter {0} will escape {1} at true anomaly {2} (current true anomaly {3})", this->Id, this->Parent->Id, op.TrueAnomalyEscape, op.TrueAnomaly);
+
+        // Determine orbit time from periapse to escape
+        float meanAnomaly;
+        float trueAnomalyTerm = op.Eccentricity * sqrt(E2term) * sinf(op.TrueAnomaly)
+            / (1.f + op.Eccentricity * cosf(op.TrueAnomaly));
+        float tanTerm = tanf(op.TrueAnomaly / 2.f);
+        if (op.Type == OrbitType::Hyperbola)
+        {
+            float sqrtEplus1 = sqrt(op.Eccentricity + 1.f);
+            float sqrtEminus1 = sqrt(op.Eccentricity - 1.f);
+            meanAnomaly = trueAnomalyTerm -
+                logf((sqrtEplus1 + sqrtEminus1 * tanTerm)
+                    / (sqrtEplus1 - sqrtEminus1 * tanTerm));
+        }
+        else
+        {
+            meanAnomaly = 2.f * atanf(
+                    sqrt((1.f - op.Eccentricity) / (1.f + op.Eccentricity))
+                    * tanTerm
+                ) - trueAnomalyTerm;
+        }
+        op.TimePeriapseToEscape = meanAnomaly * op.Period / LV::PI2f;
     }
     else
     {
-        op.TrueAnomalyEscape = 2.f * LV::PI2f;
+        op.TrueAnomalyEscape = 2.f * LV::PI2f; // True anomaly can never exceed 4Pi - this orbiter will never pass the host-escape test
     }
     // Orbit intersects:
     // TODO
+
+    // Render data - drawing points for trajectories
+    if (op.Type == OrbitType::Hyperbola)
+    {
+        op.DrawPoints.resize(1 + 2 * kNumTrajectoryDrawPoints);
+
+        // Periapsis: r_p = h^2 / mu(1 + e)
+        op.DrawPoints[kNumTrajectoryDrawPoints] = op.BasisX * op.OParameter / (1.f + op.Eccentricity);
+
+        // Points between escape and periapsis
+        for (int i = kNumTrajectoryDrawPoints; i > 0; i--)
+        {
+            float trueAnomaly = op.TrueAnomalyEscape * (float)i / (float)kNumTrajectoryDrawPoints;
+            float sinT = sin(trueAnomaly);
+            float cosT = cos(trueAnomaly);
+
+            // Points from escape to periapsis
+            op.DrawPoints[kNumTrajectoryDrawPoints - i] = op.OParameter
+                * (op.BasisX * cosT + op.BasisY * sinT)
+                / (1.f + op.Eccentricity * cosT);
+
+            // Points from entry to periapsis
+            op.DrawPoints[kNumTrajectoryDrawPoints + i] = op.OParameter
+                * (op.BasisX * cosT - op.BasisY * sinT)
+                / (1.f + op.Eccentricity * cosT);
+        }
+    }
+    else if (op.TrueAnomalyEscape < LV::PI2f)
+    {
+        op.DrawPoints.resize(2);
+        float sinT = sin(op.TrueAnomalyEscape);
+        float cosT = cos(op.TrueAnomalyEscape);
+        op.DrawPoints[0] = op.OParameter
+            * (op.BasisX * cosT + op.BasisY * sinT)
+            / (1.f + op.Eccentricity * cosT);
+        op.DrawPoints[1] = op.OParameter
+            * (op.BasisX * cosT - op.BasisY * sinT)
+            / (1.f + op.Eccentricity * cosT);
+    }
 }
 
 

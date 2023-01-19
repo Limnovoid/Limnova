@@ -177,4 +177,15 @@ namespace Limnova
         DrawRotatedQuad({ position.x, position.y, 0.f }, size, rotation, texture, tint, textureScale);
     }
 
+
+    void Renderer2D::DrawLine(const Vector2& start, const Vector2& end, const float thickness, const Vector4& color, int layer)
+    {
+        auto line = end - start;
+        auto midpoint = start + (0.5f * line);
+        Vector2 dimensions = { sqrt(line.SqrMagnitude()) + thickness, thickness };
+        float rotation = atanf(line.y / line.x);
+
+        DrawRotatedQuad({ midpoint.x, midpoint.y, (float)layer }, dimensions, rotation, color);
+    }
+
 }

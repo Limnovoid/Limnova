@@ -34,9 +34,9 @@ public:
         m_VertexArray = Limnova::VertexArray::Create();
 
         float vertices[3 * (3 + 4)] = {
-            -0.5f, -0.5f, -0.f,     0.2f, 0.9f, 0.3f, 1.f,
-             0.5f, -0.5f, -0.f,     0.2f, 0.3f, 0.9f, 1.f,
-             0.0f,  0.5f, -0.f,     0.9f, 0.3f, 0.2f, 1.f
+            -0.5f, -0.5f,  0.f,     0.2f, 0.9f, 0.3f, 1.f,
+             0.5f, -0.5f,  0.f,     0.2f, 0.3f, 0.9f, 1.f,
+             0.0f,  0.5f,  0.f,     0.9f, 0.3f, 0.2f, 1.f
         };
         Limnova::Ref<Limnova::VertexBuffer> vertexBuffer = Limnova::VertexBuffer::Create(vertices, sizeof(vertices));
         vertexBuffer->SetLayout({
@@ -53,10 +53,10 @@ public:
         m_SquareVA = Limnova::VertexArray::Create();
 
         float squareVertices[(3 + 2) * 4] = {
-            -0.5f, -0.5f, -0.f,   0.f, 0.f,
-             0.5f, -0.5f, -0.f,   1.f, 0.f,
-             0.5f,  0.5f, -0.f,   1.f, 1.f,
-            -0.5f,  0.5f, -0.f,   0.f, 1.f
+            -0.5f, -0.5f,  0.f,   0.f, 0.f,
+             0.5f, -0.5f,  0.f,   1.f, 0.f,
+             0.5f,  0.5f,  0.f,   1.f, 1.f,
+            -0.5f,  0.5f,  0.f,   0.f, 1.f
         };
         Limnova::Ref<Limnova::VertexBuffer> squareVB = Limnova::VertexBuffer::Create(squareVertices, sizeof(squareVertices));
         squareVB->SetLayout({

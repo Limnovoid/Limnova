@@ -47,7 +47,7 @@ void Orbiters2D::OnAttach()
     uint32_t id;
     id = orbs.CreateOrbiterES(false, Limnova::BigFloat(2.f, 6), 0, Limnova::Vector2(1.f, 0.f), Limnova::BigVector2(-0.3f, 1.f));
     m_OrbiterRenderInfo[id] = { "Planet 0", 0.001f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
-    m_CameraTrackingId = id;
+    m_CameraTrackingId = id; // track Planet 0
     id = orbs.CreateOrbiterCS(false, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, 0.9f), false);
     m_OrbiterRenderInfo[id] = { "Moon 0.0", 0.00005f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
     id = orbs.CreateOrbiterCU(false, Limnova::BigFloat(1.5f, 2), Limnova::BigVector2(1.02f, 0.f), true);
@@ -59,8 +59,14 @@ void Orbiters2D::OnAttach()
     m_OrbiterRenderInfo[id] = { "Moon 1.0", 0.00003f, {0.5f, 0.2f, .3f, 1.f}, true, true };
 
     // Testing dynamic orbits - orbiters moving between hosts at runtime
-    id = orbs.CreateOrbiterES(true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(1.01f, 0.f), Limnova::BigVector2(0.f - 0.31f, 0.16f + 1.f)); // velocity is given relative to top-level host, intended to place it in wide ellipse around Planet 0
+    id = orbs.CreateOrbiterES(true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(1.01f, 0.f), Limnova::BigVector2(0.f - 0.31f, 0.16f + 1.f));
     m_OrbiterRenderInfo[id] = { "Comet 0", 0.00003f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
+    id = orbs.CreateOrbiterES(true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(0.96f, 0.f), Limnova::BigVector2(-0.13f, 0.95f));
+    m_OrbiterRenderInfo[id] = { "Comet 1", 0.00003f, {1.f, 0.9f, 0.3f, 1.f}, true, true };
+
+    // Testing hyperbolic trajectories
+    id = orbs.CreateOrbiterES(true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(0.99f, 0.f), Limnova::BigVector2(-0.3f, 0.8));
+    m_OrbiterRenderInfo[id] = { "Comet 2", 0.00003f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
 
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
@@ -109,8 +115,10 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
 
         Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
-        constexpr float circleFillTexSizefactor = 4.f; // Texture widths per unit circle-RADII
-        constexpr float circleTexSizefactor = 2.f * 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
+        static constexpr float circleFillTexSizefactor = 4.f; // Texture widths per unit circle-RADII
+        static constexpr float circleTexSizefactor = 2.f * 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
+        static constexpr float trajectoryLineThickness = 0.03f;
+        static constexpr float escapePointDiameter = 0.03f;
 
         // Render camera's local host
         auto& host = orbs.GetHost(m_CameraHostId);
@@ -134,10 +142,32 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * ri.Radius * drawScaling }, m_CircleFillTexture, ri.Color);
             if (ri.DrawOrbit)
             {
-                Limnova::Renderer2D::DrawRotatedQuad(hostPos + op.Centre,
-                    circleTexSizefactor * Limnova::Vector2(op.SemiMajorAxis, op.SemiMinorAxis),
-                    op.RightAscensionPeriapsis, m_CircleTexture, { ri.Color.x, ri.Color.y, ri.Color.z, .5f }
-                );
+                Limnova::Vector4 orbCol = { ri.Color.x, ri.Color.y, ri.Color.z, .5f };
+                if (op.Type == OrbitSystem2D::OrbitType::Hyperbola)
+                {
+                    // Trace path of trajectory inside the host's influence
+                    for (int i = 0; i < op.DrawPoints.size() - 1; i++)
+                    {
+                        Limnova::Renderer2D::DrawLine(hostPos + op.DrawPoints[i], hostPos + op.DrawPoints[i + 1], trajectoryLineThickness, orbCol);
+                    }
+                    // Draw escape points
+                    Limnova::Renderer2D::DrawQuad(hostPos + op.DrawPoints[0], { circleFillTexSizefactor * escapePointDiameter }, m_CircleFillTexture, m_EscapePointColor);
+                    Limnova::Renderer2D::DrawQuad(hostPos + op.DrawPoints[op.DrawPoints.size() - 1], {circleFillTexSizefactor * escapePointDiameter}, m_CircleFillTexture, m_EscapePointColor);
+                }
+                else
+                {
+                    // Draw ellipse or circle
+                    Limnova::Renderer2D::DrawRotatedQuad(hostPos + op.Centre,
+                        circleTexSizefactor * Limnova::Vector2(op.SemiMajorAxis, op.SemiMinorAxis),
+                        op.RightAscensionPeriapsis, m_CircleTexture, orbCol
+                    );
+                    // Draw escape points
+                    if (op.TrueAnomalyEscape < Limnova::PI2f)
+                    {
+                        Limnova::Renderer2D::DrawQuad(hostPos + op.DrawPoints[0], { circleFillTexSizefactor * escapePointDiameter }, m_CircleFillTexture, m_EscapePointColor);
+                        Limnova::Renderer2D::DrawQuad(hostPos + op.DrawPoints[1], { circleFillTexSizefactor * escapePointDiameter }, m_CircleFillTexture, m_EscapePointColor);
+                    }
+                }
             }
             if (ri.DrawInfluence)
             {

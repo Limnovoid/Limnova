@@ -10,6 +10,13 @@ class OrbitSystem2D
 private:
     static OrbitSystem2D s_OrbitSystem2D;
 public:
+    enum class OrbitType
+    {
+        Circle      = 0,
+        Ellipse     = 1,
+        Hyperbola   = 2
+    };
+
     struct OrbitParameters
     {
         Limnova::BigFloat GravAsHost = { 0.f, 0 }; // Gravitational parameter of this orbiter, used by its own children for computing their orbits around this host = mass * GravitationalConstant
@@ -31,6 +38,7 @@ public:
         float OParameter = 0.f; // Orbit parameter = h^2 / mu
         float Eccentricity = 0.f;
         float TrueAnomaly = 0.f;
+        OrbitType Type;
 
         // Dimensions
         float SemiMajorAxis = 0.f;
@@ -45,6 +53,8 @@ public:
         float TrueAnomalyEscape = 2.f * Limnova::PI2f; // True anomaly of the (first) position on the orbit with an orbital distance equal to the host's ROI (1 for scaled orbits); if no such positions exist, this variable is set to 4pi (an impossible value for true anomaly).
         // TrueAnomalyEscape is not necessary for engineered, fixed orbits
         // TODO ?? : separate structs for different types of orbiter
+        Limnova::BigFloat TimePeriapseToEscape = 0.f;
+        std::vector<Limnova::Vector2> DrawPoints;
     };
 
     class OrbitTreeNode;
