@@ -47,6 +47,7 @@ void Orbiters2D::OnAttach()
     uint32_t id;
     id = orbs.CreateOrbiterES(false, Limnova::BigFloat(2.f, 6), 0, Limnova::Vector2(1.f, 0.f), Limnova::BigVector2(-0.3f, 1.f));
     m_OrbiterRenderInfo[id] = { "Planet 0", 0.001f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
+    m_CameraHostId = id; // set camera orbit space to Planet 0
     m_CameraTrackingId = id; // track Planet 0
     id = orbs.CreateOrbiterCS(false, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, 0.9f), false);
     m_OrbiterRenderInfo[id] = { "Moon 0.0", 0.00005f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
@@ -146,10 +147,14 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
                 if (op.Type == OrbitSystem2D::OrbitType::Hyperbola)
                 {
                     // Trace path of trajectory inside the host's influence
-                    for (int i = 0; i < op.DrawPoints.size() - 1; i++)
+                    /*for (int i = 0; i < op.DrawPoints.size() - 1; i++)
                     {
                         Limnova::Renderer2D::DrawLine(hostPos + op.DrawPoints[i], hostPos + op.DrawPoints[i + 1], trajectoryLineThickness, orbCol);
-                    }
+                    }*/
+                    // Draw hyperbola
+                    float distanceCentreFocus = op.Eccentricity * op.SemiMajorAxis;
+                    Limnova::Renderer2D::DrawHyperbola(hostPos + op.Centre, op.RightAscensionPeriapsis, op.SemiMajorAxis, op.SemiMinorAxis, distanceCentreFocus + op.xLimit, trajectoryLineThickness, orbCol);
+
                     // Draw escape points
                     Limnova::Renderer2D::DrawQuad(hostPos + op.DrawPoints[0], { circleFillTexSizefactor * escapePointDiameter }, m_CircleFillTexture, m_EscapePointColor);
                     Limnova::Renderer2D::DrawQuad(hostPos + op.DrawPoints[op.DrawPoints.size() - 1], {circleFillTexSizefactor * escapePointDiameter}, m_CircleFillTexture, m_EscapePointColor);

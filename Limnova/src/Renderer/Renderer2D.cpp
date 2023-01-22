@@ -9,7 +9,7 @@
 namespace Limnova
 {
 
-    Ref<UniformBuffer> Renderer2D::m_SceneUniformBuffer = nullptr;
+    Ref<UniformBuffer> Renderer2D::s_SceneUniformBuffer = nullptr;
 
 
     struct Renderer2DData
@@ -17,19 +17,36 @@ namespace Limnova
         Ref<VertexArray> SquareVertexArray;
         Ref<Shader> TextureShader;
         Ref<Texture2D> WhiteTexture;
+        Ref<VertexArray> HyperbolaVertexArray;
+        Ref<Shader> HyperbolaShader;
+        Ref<UniformBuffer> HyperbolaUniformBuffer;
     };
 
     static Renderer2DData* s_Data;
+
+
+    struct HyperbolaData
+    {
+        float XLimit;
+        float YLimit;
+        float SemiMajorAxis;
+        float SemiMinorAxis;
+        float DrawThickness;
+    /*--pad 3bytes------------------------*/private: glm::vec3 pad0; public:
+    };
+
+    static HyperbolaData* s_HyperbolaData;
 
 
     void Renderer2D::Init(const Ref<UniformBuffer>& sceneUniformBuffer)
     {
         LV_PROFILE_FUNCTION();
 
-        m_SceneUniformBuffer = sceneUniformBuffer;
+        s_SceneUniformBuffer = sceneUniformBuffer;
 
         s_Data = new Renderer2DData();
 
+        // Color and texture quad
         s_Data->SquareVertexArray = VertexArray::Create();
 
         float squareVertices[(3 + 2) * 4] = {
@@ -57,6 +74,31 @@ namespace Limnova
         s_Data->TextureShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
         s_Data->TextureShader->Bind();
         s_Data->TextureShader->SetInt("u_Texture", 0);
+
+        // Color hyperbola
+        s_Data->HyperbolaVertexArray = VertexArray::Create();
+
+        float hyperbolaVertices[3 * 3] = {
+            0.f,  0.f,  0.f,
+           -1.f,  1.f,  0.f,
+           -1.f, -1.f,  0.f
+        };
+        Ref<VertexBuffer> hyperbolaVB = VertexBuffer::Create(hyperbolaVertices, sizeof(hyperbolaVertices));
+        hyperbolaVB->SetLayout({
+            { ShaderDataType::Float3, "a_Position" }
+            });
+        s_Data->HyperbolaVertexArray->AddVertexBuffer(hyperbolaVB);
+
+        uint32_t hyperbolaIndices[3] = { 0, 1, 2 };
+        Ref<IndexBuffer> hyperbolaIB = IndexBuffer::Create(hyperbolaIndices, std::size(hyperbolaIndices));
+        s_Data->HyperbolaVertexArray->SetIndexBuffer(hyperbolaIB);
+
+        s_Data->HyperbolaShader = Shader::Create(ASSET_DIR"\\shaders\\Hyperbola.lvglsl");
+        s_Data->HyperbolaShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
+
+        s_HyperbolaData = new HyperbolaData();
+        s_Data->HyperbolaUniformBuffer = UniformBuffer::Create((void*)&s_HyperbolaData, sizeof(HyperbolaData));
+        s_Data->HyperbolaShader->BindUniformBuffer(s_Data->HyperbolaUniformBuffer->GetRendererId(), "HyperbolaUniform");
     }
 
 
@@ -72,7 +114,7 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
-        m_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(Renderer::SceneData, Renderer::SceneData::CameraData), sizeof(Camera::Data));
+        s_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(Renderer::SceneData, Renderer::SceneData::CameraData), sizeof(Camera::Data));
 
         s_Data->TextureShader->Bind();
     }
@@ -186,6 +228,36 @@ namespace Limnova
         float rotation = atanf(line.y / line.x);
 
         DrawRotatedQuad({ midpoint.x, midpoint.y, (float)layer }, dimensions, rotation, color);
+    }
+
+
+    void Renderer2D::DrawHyperbola(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const float xLimit,
+        const float thickness, const Vector4& color, int layer)
+    {
+        LV_PROFILE_FUNCTION();
+
+        s_Data->HyperbolaShader->Bind();
+
+        float yLimit = xLimit * semiMinorAxis / semiMajorAxis;
+
+        glm::mat4 triangleTransform = glm::translate(glm::mat4(1.f), { (glm::vec2)centre, (float)layer });
+        triangleTransform = glm::rotate(triangleTransform, rotation, { 0.f, 0.f, 1.f });
+        triangleTransform = glm::scale(triangleTransform, glm::vec3(xLimit, yLimit, 1.f));
+        s_Data->HyperbolaShader->SetMat4("u_Transform", triangleTransform);
+
+        s_HyperbolaData->XLimit = xLimit;
+        s_HyperbolaData->YLimit = yLimit;
+        s_HyperbolaData->SemiMajorAxis = semiMajorAxis;
+        s_HyperbolaData->SemiMinorAxis = semiMinorAxis;
+        s_HyperbolaData->DrawThickness = thickness / 2.f;
+        s_Data->HyperbolaUniformBuffer->UpdateData(s_HyperbolaData, 0, sizeof(HyperbolaData));
+
+        s_Data->HyperbolaShader->SetVec4("u_Color", color);
+
+        s_Data->HyperbolaVertexArray->Bind();
+        RenderCommand::DrawIndexed(s_Data->HyperbolaVertexArray);
+
+        s_Data->TextureShader->Bind();
     }
 
 }

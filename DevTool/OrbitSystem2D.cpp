@@ -707,6 +707,10 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
                 * (op.BasisX * cosT - op.BasisY * sinT)
                 / (1.f + op.Eccentricity * cosT);
         }
+
+        // Distance along x-axis from focus to escape
+        float cosT = abs(cos(op.TrueAnomalyEscape));
+        op.xLimit = op.OParameter * cosT / (1.f + op.Eccentricity * cosT);
     }
     else if (op.TrueAnomalyEscape < LV::PI2f)
     {

@@ -8,7 +8,7 @@
 namespace Limnova
 {
 
-    Ref<UniformBuffer> Renderer::m_SceneUniformBuffer = nullptr;
+    Ref<UniformBuffer> Renderer::s_SceneUniformBuffer = nullptr;
 
 
     void Renderer::Init()
@@ -18,10 +18,10 @@ namespace Limnova
         RenderCommand::Init();
 
         SceneData scene = { { glm::mat4(1.f), glm::vec4(0.f), glm::vec4(0.f,0.f,-1.f,0.f) } };
-        m_SceneUniformBuffer = UniformBuffer::Create((void*)&scene, sizeof(Camera::Data));
+        s_SceneUniformBuffer = UniformBuffer::Create((void*)&scene, sizeof(Camera::Data)); // TODO - use SceneData ?
 
-        Renderer2D::Init(m_SceneUniformBuffer);
-        LV_CORE_ASSERT(m_SceneUniformBuffer.use_count() == 2, "Incorrect number of references to Renderer::m_SceneUniformBuffer!");
+        Renderer2D::Init(s_SceneUniformBuffer);
+        LV_CORE_ASSERT(s_SceneUniformBuffer.use_count() == 2, "Incorrect number of references to Renderer::s_SceneUniformBuffer!");
     }
 
 
@@ -33,7 +33,7 @@ namespace Limnova
 
     void Renderer::BeginScene(Camera& camera)
     {
-        m_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(SceneData, SceneData::CameraData), sizeof(Camera::Data));
+        s_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(SceneData, SceneData::CameraData), sizeof(Camera::Data));
     }
 
 
