@@ -29,10 +29,12 @@ namespace Limnova
     {
         float XLimit;
         float YLimit;
+        float XEscape;
+        float YEscape;
         float SemiMajorAxis;
         float SemiMinorAxis;
-        float DrawThickness;
-    /*--pad 3bytes------------------------*/private: glm::vec3 pad0; public:
+        float DrawRadius;
+        float XEscapeTangent;
     };
 
     static HyperbolaData* s_HyperbolaData;
@@ -231,14 +233,20 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawHyperbola(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const float xLimit,
+    void Renderer2D::DrawHyperbola(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePoint,
         const float thickness, const Vector4& color, int layer)
     {
         LV_PROFILE_FUNCTION();
 
         s_Data->HyperbolaShader->Bind();
 
-        float yLimit = xLimit * semiMinorAxis / semiMajorAxis;
+        // TODO - use thickness to pad xLimit and yLimit to draw full width of line at escape point
+        // Coordinates of the top-left corner of the triangle, measured in the hyperbola's coordinate system.
+        s_HyperbolaData->XEscapeTangent = escapePoint.y * semiMajorAxis * semiMajorAxis / (semiMinorAxis * semiMinorAxis * escapePoint.x);
+        float xEscapeTanNormalised = s_HyperbolaData->XEscapeTangent / sqrt(s_HyperbolaData->XEscapeTangent * s_HyperbolaData->XEscapeTangent + 1.f);
+        float drawRadius = thickness / 2.f;
+        float xLimit = escapePoint.x + drawRadius;
+        float yLimit = (escapePoint.y + drawRadius / xEscapeTanNormalised) * xLimit / escapePoint.x;
 
         glm::mat4 triangleTransform = glm::translate(glm::mat4(1.f), { (glm::vec2)centre, (float)layer });
         triangleTransform = glm::rotate(triangleTransform, rotation, { 0.f, 0.f, 1.f });
@@ -247,9 +255,11 @@ namespace Limnova
 
         s_HyperbolaData->XLimit = xLimit;
         s_HyperbolaData->YLimit = yLimit;
+        s_HyperbolaData->XEscape = escapePoint.x;
+        s_HyperbolaData->YEscape = escapePoint.y;
         s_HyperbolaData->SemiMajorAxis = semiMajorAxis;
         s_HyperbolaData->SemiMinorAxis = semiMinorAxis;
-        s_HyperbolaData->DrawThickness = thickness / 2.f;
+        s_HyperbolaData->DrawRadius = drawRadius;
         s_Data->HyperbolaUniformBuffer->UpdateData(s_HyperbolaData, 0, sizeof(HyperbolaData));
 
         s_Data->HyperbolaShader->SetVec4("u_Color", color);

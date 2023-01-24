@@ -54,8 +54,8 @@ public:
         // TrueAnomalyEscape is not necessary for engineered, fixed orbits
         // TODO ?? : separate structs for different types of orbiter
         Limnova::BigFloat TimePeriapseToEscape = 0.f;
-        float xLimit; // Distance from occupied focus (host) to escape/entry points, measured only along the x-axis of the perifocal frame
-        std::vector<Limnova::Vector2> DrawPoints;
+        Limnova::Vector2 EscapePointPerifocal;
+        Limnova::Vector2 EscapePointsScene[2];
     };
 
     class OrbitTreeNode;

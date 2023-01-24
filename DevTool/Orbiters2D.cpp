@@ -153,11 +153,12 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
                     }*/
                     // Draw hyperbola
                     float distanceCentreFocus = op.Eccentricity * op.SemiMajorAxis;
-                    Limnova::Renderer2D::DrawHyperbola(hostPos + op.Centre, op.RightAscensionPeriapsis, op.SemiMajorAxis, op.SemiMinorAxis, distanceCentreFocus + op.xLimit, trajectoryLineThickness, orbCol);
+                    Limnova::Vector2 escapePointFromCentre = { distanceCentreFocus + op.EscapePointPerifocal.x, op.EscapePointPerifocal.y };
+                    Limnova::Renderer2D::DrawHyperbola(hostPos + op.Centre, op.RightAscensionPeriapsis, op.SemiMajorAxis, op.SemiMinorAxis, escapePointFromCentre, trajectoryLineThickness, orbCol);
 
                     // Draw escape points
-                    Limnova::Renderer2D::DrawQuad(hostPos + op.DrawPoints[0], { circleFillTexSizefactor * escapePointDiameter }, m_CircleFillTexture, m_EscapePointColor);
-                    Limnova::Renderer2D::DrawQuad(hostPos + op.DrawPoints[op.DrawPoints.size() - 1], {circleFillTexSizefactor * escapePointDiameter}, m_CircleFillTexture, m_EscapePointColor);
+                    Limnova::Renderer2D::DrawQuad(hostPos + op.EscapePointsScene[0], { circleFillTexSizefactor * escapePointDiameter }, m_CircleFillTexture, m_EscapePointColor);
+                    Limnova::Renderer2D::DrawQuad(hostPos + op.EscapePointsScene[1], {circleFillTexSizefactor * escapePointDiameter}, m_CircleFillTexture, m_EscapePointColor);
                 }
                 else
                 {
@@ -169,8 +170,8 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
                     // Draw escape points
                     if (op.TrueAnomalyEscape < Limnova::PI2f)
                     {
-                        Limnova::Renderer2D::DrawQuad(hostPos + op.DrawPoints[0], { circleFillTexSizefactor * escapePointDiameter }, m_CircleFillTexture, m_EscapePointColor);
-                        Limnova::Renderer2D::DrawQuad(hostPos + op.DrawPoints[1], { circleFillTexSizefactor * escapePointDiameter }, m_CircleFillTexture, m_EscapePointColor);
+                        Limnova::Renderer2D::DrawQuad(hostPos + op.EscapePointsScene[0], { circleFillTexSizefactor * escapePointDiameter }, m_CircleFillTexture, m_EscapePointColor);
+                        Limnova::Renderer2D::DrawQuad(hostPos + op.EscapePointsScene[1], { circleFillTexSizefactor * escapePointDiameter }, m_CircleFillTexture, m_EscapePointColor);
                     }
                 }
             }

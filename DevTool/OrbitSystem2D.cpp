@@ -9,7 +9,7 @@ static const LV::BigFloat kGrav = { 6.6743f, -11 };
 static constexpr float kMinimumDeltaTAnom = 1e-4f;
 static constexpr float kMinimumDeltaT = 1.f / (60.f * 20.f); // maximum 20 updates per node per frame at 60 frames per second
 static constexpr float kEscapeDistance = 1.01f;
-static constexpr float kNumTrajectoryDrawPoints = 16; // Number of points used to draw the path of a trajectory, from periapsis to escape
+static constexpr float kNumTrajectoryEscapePointsScene = 16; // Number of points used to draw the path of a trajectory, from periapsis to escape
 
 
 OrbitSystem2D::OrbitSystem2D()
@@ -674,6 +674,20 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
                 ) - trueAnomalyTerm;
         }
         op.TimePeriapseToEscape = meanAnomaly * op.Period / LV::PI2f;
+
+        float sinT = sin(op.TrueAnomalyEscape);
+        float cosT = cos(op.TrueAnomalyEscape);
+        // Point of escape relative to the host, oriented to the perifocal frame (y = 0 is the apse line)
+        float r_escape = op.OParameter / (1.f + op.Eccentricity * cosT);
+        op.EscapePointPerifocal = { -cosT * r_escape, sinT * r_escape };
+
+        // Points of entry and escape relative to the host, oriented to the scene
+        op.EscapePointsScene[0] = op.OParameter
+            * (op.BasisX * cosT + op.BasisY * sinT)
+            / (1.f + op.Eccentricity * cosT);
+        op.EscapePointsScene[1] = op.OParameter
+            * (op.BasisX * cosT - op.BasisY * sinT)
+            / (1.f + op.Eccentricity * cosT);
     }
     else
     {
@@ -681,49 +695,6 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
     }
     // Orbit intersects:
     // TODO
-
-    // Render data - drawing points for trajectories
-    if (op.Type == OrbitType::Hyperbola)
-    {
-        op.DrawPoints.resize(1 + 2 * kNumTrajectoryDrawPoints);
-
-        // Periapsis: r_p = h^2 / mu(1 + e)
-        op.DrawPoints[kNumTrajectoryDrawPoints] = op.BasisX * op.OParameter / (1.f + op.Eccentricity);
-
-        // Points between escape and periapsis
-        for (int i = kNumTrajectoryDrawPoints; i > 0; i--)
-        {
-            float trueAnomaly = op.TrueAnomalyEscape * (float)i / (float)kNumTrajectoryDrawPoints;
-            float sinT = sin(trueAnomaly);
-            float cosT = cos(trueAnomaly);
-
-            // Points from escape to periapsis
-            op.DrawPoints[kNumTrajectoryDrawPoints - i] = op.OParameter
-                * (op.BasisX * cosT + op.BasisY * sinT)
-                / (1.f + op.Eccentricity * cosT);
-
-            // Points from entry to periapsis
-            op.DrawPoints[kNumTrajectoryDrawPoints + i] = op.OParameter
-                * (op.BasisX * cosT - op.BasisY * sinT)
-                / (1.f + op.Eccentricity * cosT);
-        }
-
-        // Distance along x-axis from focus to escape
-        float cosT = abs(cos(op.TrueAnomalyEscape));
-        op.xLimit = op.OParameter * cosT / (1.f + op.Eccentricity * cosT);
-    }
-    else if (op.TrueAnomalyEscape < LV::PI2f)
-    {
-        op.DrawPoints.resize(2);
-        float sinT = sin(op.TrueAnomalyEscape);
-        float cosT = cos(op.TrueAnomalyEscape);
-        op.DrawPoints[0] = op.OParameter
-            * (op.BasisX * cosT + op.BasisY * sinT)
-            / (1.f + op.Eccentricity * cosT);
-        op.DrawPoints[1] = op.OParameter
-            * (op.BasisX * cosT - op.BasisY * sinT)
-            / (1.f + op.Eccentricity * cosT);
-    }
 }
 
 

@@ -12,9 +12,12 @@ layout (std140) uniform HyperbolaUniform
 {
     float XLimit;
     float YLimit;
+    float XEscape;
+    float YEscape;
     float SemiMajorAxis;
     float SemiMinorAxis;
-    float DrawThickness;
+    float DrawRadius;
+    float XEscapeTangent;
 } u_Hyperbola;
 
 uniform mat4 u_Transform;
@@ -37,9 +40,12 @@ layout (std140) uniform HyperbolaUniform
 {
     float XLimit;
     float YLimit;
+    float XEscape;
+    float YEscape;
     float SemiMajorAxis;
     float SemiMinorAxis;
-    float DrawThickness;
+    float DrawRadius;
+    float XEscapeTangent;
 } u_Hyperbola;
 
 uniform vec4 u_Color;
@@ -48,24 +54,19 @@ in vec2 v_Position;
 
 layout(location = 0) out vec4 o_Color;
 
-bool TestGeneralCase()
+void TestGeneralCase(in float a2, in float b2, out bool success)
 {
-    float a2 = pow(u_Hyperbola.SemiMajorAxis, 2);
-    float b2 = pow(u_Hyperbola.SemiMinorAxis, 2);
-
     float A = sqrt(a2 * (1.0 + pow(v_Position.y, 2) / b2)) - v_Position.x;
     float B = abs(v_Position.y) - sqrt(b2 * (pow(v_Position.x, 2) / a2 - 1.0));
     float C = sqrt(pow(A,2) + pow(B,2));
 
     float d = A * B / C;
     
-    return d < u_Hyperbola.DrawThickness;
+    success = d < u_Hyperbola.DrawRadius;
 }
 
-bool TestSubSemiMajor()
+void TestSubSemiMajor(in float a2, in float b2, out bool success)
 {
-    float a2 = pow(u_Hyperbola.SemiMajorAxis, 2);
-    float b2 = pow(u_Hyperbola.SemiMinorAxis, 2);
     float Cy_x = sqrt(a2 * (1.0 + pow(v_Position.y, 2) / b2));
 
     vec2 n = normalize(vec2(v_Position.y, u_Hyperbola.SemiMajorAxis - Cy_x));
@@ -73,15 +74,32 @@ bool TestSubSemiMajor()
 
     float d = abs(abs(dot(v_Position, n)) - abs(dot(Cx, n)));
 
-    return d < u_Hyperbola.DrawThickness;
+    success = d < u_Hyperbola.DrawRadius;
 }
 
 void main()
 {
-    if ((v_Position.x >= u_Hyperbola.SemiMajorAxis
-        && TestGeneralCase()) ||
-        (v_Position.x < u_Hyperbola.SemiMajorAxis
-        && TestSubSemiMajor()))
+    float a2 = pow(u_Hyperbola.SemiMajorAxis, 2);
+    float b2 = pow(u_Hyperbola.SemiMinorAxis, 2);
+
+    vec2 absPositionRelativeEscape = vec2(v_Position.x - u_Hyperbola.XEscape, abs(v_Position.y) - u_Hyperbola.YEscape);
+    vec2 escapeTangent = vec2(u_Hyperbola.XEscapeTangent, 1.0);
+
+    bool fragIsInsideLine;
+    if (dot(absPositionRelativeEscape, escapeTangent) > 0)
+    {
+        fragIsInsideLine = false; // No drawing beyond the escape point
+    }
+    else if (v_Position.x < u_Hyperbola.SemiMajorAxis)
+    {
+        TestSubSemiMajor(a2, b2, fragIsInsideLine);
+    }
+    else
+    {
+        TestGeneralCase(a2, b2, fragIsInsideLine);
+    }
+
+    if (fragIsInsideLine)
     {
         o_Color = vec4(u_Color.rgb * u_Color.a, u_Color.a); // Premultiplied alpha
     }
