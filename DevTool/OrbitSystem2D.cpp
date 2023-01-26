@@ -679,7 +679,7 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
         float cosT = cos(op.TrueAnomalyEscape);
         // Point of escape relative to the host, oriented to the perifocal frame (y = 0 is the apse line)
         float r_escape = op.OParameter / (1.f + op.Eccentricity * cosT);
-        op.EscapePointPerifocal = { -cosT * r_escape, sinT * r_escape };
+        op.EscapePointPerifocal = { cosT * r_escape, sinT * r_escape };
 
         // Points of entry and escape relative to the host, oriented to the scene
         op.EscapePointsScene[0] = op.OParameter
@@ -726,7 +726,7 @@ void OrbitSystem2D::InfluencingNode::ComputeInfluence()
     if (this->Mass.GetExponent() > this->Parent->Mass.GetExponent()
         - (int)cbrtf((float)this->Parent->Mass.GetExponent()) - 1)
     {
-        LV_CORE_ERROR("Orbiter mass ({0}) is too high for lowest overlapping circle of influence (orbiter {1} with mass {2})!", this->Mass, this->Parent->Id, this->Parent->Mass);
+        LV_CORE_ERROR("Orbiter {0} mass ({1}) is too high to orbit influencing orbiter {2} ({3})!", this->Id, this->Mass, this->Parent->Id, this->Parent->Mass);
         LV_CORE_ASSERT(false, "");
     }
 #endif

@@ -8,8 +8,9 @@ layout (std140) uniform CameraUniform
     vec3 AimDirection;
 } u_Camera;
 
-layout (std140) uniform HyperbolaUniform
+layout (std140) uniform OrbitUniform
 {
+    float XOffset;
     float XLimit;
     float YLimit;
     float XEscape;
@@ -18,7 +19,7 @@ layout (std140) uniform HyperbolaUniform
     float SemiMinorAxis;
     float DrawRadius;
     float XEscapeTangent;
-} u_Hyperbola;
+} u_Orbit;
 
 uniform mat4 u_Transform;
 
@@ -28,7 +29,7 @@ out vec2 v_Position;
 
 void main()
 {
-    v_Position = vec2(-a_Position.x * u_Hyperbola.XLimit, a_Position.y * u_Hyperbola.YLimit);
+    v_Position = vec2(-a_Position.x * u_Orbit.XLimit, a_Position.y * u_Orbit.YLimit);
     gl_Position = u_Camera.ViewProj * u_Transform * vec4(a_Position, 1.0);
 }
 
@@ -36,8 +37,9 @@ void main()
 #type fragment
 #version 450
 
-layout (std140) uniform HyperbolaUniform
+layout (std140) uniform OrbitUniform
 {
+    float XOffset;
     float XLimit;
     float YLimit;
     float XEscape;
@@ -46,7 +48,7 @@ layout (std140) uniform HyperbolaUniform
     float SemiMinorAxis;
     float DrawRadius;
     float XEscapeTangent;
-} u_Hyperbola;
+} u_Orbit;
 
 uniform vec4 u_Color;
 
@@ -62,35 +64,35 @@ void TestGeneralCase(in float a2, in float b2, out bool success)
 
     float d = A * B / C;
     
-    success = d < u_Hyperbola.DrawRadius;
+    success = d < u_Orbit.DrawRadius;
 }
 
 void TestSubSemiMajor(in float a2, in float b2, out bool success)
 {
     float Cy_x = sqrt(a2 * (1.0 + pow(v_Position.y, 2) / b2));
 
-    vec2 n = normalize(vec2(v_Position.y, u_Hyperbola.SemiMajorAxis - Cy_x));
-    vec2 Cx = vec2(u_Hyperbola.SemiMajorAxis, 0);
+    vec2 n = normalize(vec2(v_Position.y, u_Orbit.SemiMajorAxis - Cy_x));
+    vec2 Cx = vec2(u_Orbit.SemiMajorAxis, 0);
 
     float d = abs(abs(dot(v_Position, n)) - abs(dot(Cx, n)));
 
-    success = d < u_Hyperbola.DrawRadius;
+    success = d < u_Orbit.DrawRadius;
 }
 
 void main()
 {
-    float a2 = pow(u_Hyperbola.SemiMajorAxis, 2);
-    float b2 = pow(u_Hyperbola.SemiMinorAxis, 2);
+    float a2 = pow(u_Orbit.SemiMajorAxis, 2);
+    float b2 = pow(u_Orbit.SemiMinorAxis, 2);
 
-    vec2 absPositionRelativeEscape = vec2(v_Position.x - u_Hyperbola.XEscape, abs(v_Position.y) - u_Hyperbola.YEscape);
-    vec2 escapeTangent = vec2(u_Hyperbola.XEscapeTangent, 1.0);
+    vec2 absPositionRelativeEscape = vec2(v_Position.x - u_Orbit.XEscape, abs(v_Position.y) - u_Orbit.YEscape);
+    vec2 escapeTangent = vec2(u_Orbit.XEscapeTangent, 1.0);
 
     bool fragIsInsideLine;
     if (dot(absPositionRelativeEscape, escapeTangent) > 0)
     {
         fragIsInsideLine = false; // No drawing beyond the escape point
     }
-    else if (v_Position.x < u_Hyperbola.SemiMajorAxis)
+    else if (v_Position.x < u_Orbit.SemiMajorAxis)
     {
         TestSubSemiMajor(a2, b2, fragIsInsideLine);
     }

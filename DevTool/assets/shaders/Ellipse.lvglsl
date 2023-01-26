@@ -1,0 +1,155 @@
+#type vertex
+#version 450
+
+layout (std140) uniform CameraUniform
+{
+    mat4 ViewProj;
+    vec3 Position;
+    vec3 AimDirection;
+} u_Camera;
+
+layout (std140) uniform OrbitUniform
+{
+    float XOffset;
+    float XLimit;
+    float YLimit;
+    float XEscape;
+    float YEscape;
+    float SemiMajorAxis;
+    float SemiMinorAxis;
+    float DrawRadius;
+    float XEscapeTangent;
+} u_Orbit;
+
+uniform mat4 u_Transform;
+
+layout(location = 0) in vec3 a_Position;
+
+out vec2 v_Position;
+out float v_A2;
+out float v_B2;
+
+void main()
+{
+    v_Position = vec2(a_Position.x * u_Orbit.XLimit + u_Orbit.XOffset, a_Position.y * u_Orbit.YLimit);
+    v_A2 = pow(u_Orbit.SemiMajorAxis, 2);
+    v_B2 = pow(u_Orbit.SemiMinorAxis, 2);
+    gl_Position = u_Camera.ViewProj * u_Transform * vec4(a_Position, 1.0);
+}
+
+
+#type fragment
+#version 450
+
+layout (std140) uniform OrbitUniform
+{
+    float XOffset;
+    float XLimit;
+    float YLimit;
+    float XEscape;
+    float YEscape;
+    float SemiMajorAxis;
+    float SemiMinorAxis;
+    float DrawRadius;
+    float XEscapeTangent;
+} u_Orbit;
+
+uniform vec4 u_Color;
+
+in vec2 v_Position;
+in float v_A2;
+in float v_B2;
+
+layout(location = 0) out vec4 o_Color;
+
+void TestGeneralCase(out bool success)
+{
+    float A = abs(v_Position.x) - sqrt(v_A2 * (1.0 - pow(v_Position.y, 2) / v_B2));
+    float B = abs(v_Position.y) - sqrt(v_B2 * (1.0 - pow(v_Position.x, 2) / v_A2));
+    float C = sqrt(pow(A,2) + pow(B,2));
+
+    float d = abs(A * B) / C;
+    
+    success = d < u_Orbit.DrawRadius;
+}
+
+void TestOutsideMajorAxis(out bool success)
+{
+    vec2 absolutePosition = vec2(abs(v_Position.x), abs(v_Position.y));
+
+    if (absolutePosition.y > u_Orbit.SemiMinorAxis)
+    {
+        success = false;
+        return;
+    }
+
+    float Ey_x = sqrt(v_A2 * (1.0 - pow(absolutePosition.y, 2) / v_B2));
+
+    vec2 n = normalize(vec2(absolutePosition.y, u_Orbit.SemiMajorAxis - Ey_x));
+    vec2 Ex = vec2(u_Orbit.SemiMajorAxis, 0);
+
+    float d = abs(dot(absolutePosition, n) - dot(Ex, n));
+
+    success = d < u_Orbit.DrawRadius;
+}
+
+void TestOutsideMinorAxis(out bool success)
+{
+    vec2 absolutePosition = vec2(abs(v_Position.x), abs(v_Position.y));
+
+    if (absolutePosition.x > u_Orbit.SemiMajorAxis)
+    {
+        success = false;
+        return;
+    }
+
+    float Ex_y = sqrt(v_B2 * (1.0 - pow(absolutePosition.x, 2) / v_A2));
+
+    vec2 n = normalize(vec2(u_Orbit.SemiMinorAxis - Ex_y, absolutePosition.x));
+    vec2 Ey = vec2(0, u_Orbit.SemiMinorAxis);
+
+    float d = abs(dot(absolutePosition, n) - dot(Ey, n));
+
+    success = d < u_Orbit.DrawRadius;
+}
+
+void main()
+{
+    bool escapes = !(u_Orbit.YEscape == 0);
+
+    vec2 absPositionRelativeEscape;
+    vec2 escapeTangent;
+    if (escapes)
+    {
+        absPositionRelativeEscape = vec2(v_Position.x - u_Orbit.XEscape, abs(v_Position.y) - u_Orbit.YEscape);
+        float yEscapeTangent = 1;
+        if (u_Orbit.XEscape < 0)
+        {
+            yEscapeTangent = -1;
+        }
+        escapeTangent = vec2(u_Orbit.XEscapeTangent, yEscapeTangent);
+    }
+
+    bool fragIsInsideLine = false;
+    if (escapes && dot(absPositionRelativeEscape, escapeTangent) > 0)
+    {
+        // No drawing beyond the escape point
+    }
+    else if (abs(v_Position.x) > u_Orbit.SemiMajorAxis)
+    {
+        TestOutsideMajorAxis(fragIsInsideLine);
+    }
+    else if (abs(v_Position.y) > u_Orbit.SemiMinorAxis)
+    {
+        TestOutsideMinorAxis(fragIsInsideLine);
+    }
+    else
+    {
+        TestGeneralCase(fragIsInsideLine);
+    }
+
+    if (fragIsInsideLine)
+    {
+        o_Color = vec4(u_Color.rgb * u_Color.a, u_Color.a); // Premultiplied alpha
+    }
+}
