@@ -26,10 +26,15 @@ uniform mat4 u_Transform;
 layout(location = 0) in vec3 a_Position;
 
 out vec2 v_Position;
+out float v_A2;
+out float v_B2;
 
 void main()
 {
     v_Position = vec2(-a_Position.x * u_Orbit.XLimit, a_Position.y * u_Orbit.YLimit);
+    v_A2 = pow(u_Orbit.SemiMajorAxis, 2);
+    v_B2 = pow(u_Orbit.SemiMinorAxis, 2);
+
     gl_Position = u_Camera.ViewProj * u_Transform * vec4(a_Position, 1.0);
 }
 
@@ -53,13 +58,15 @@ layout (std140) uniform OrbitUniform
 uniform vec4 u_Color;
 
 in vec2 v_Position;
+in float v_A2;
+in float v_B2;
 
 layout(location = 0) out vec4 o_Color;
 
-void TestGeneralCase(in float a2, in float b2, out bool success)
+void TestGeneralCase(out bool success)
 {
-    float A = sqrt(a2 * (1.0 + pow(v_Position.y, 2) / b2)) - v_Position.x;
-    float B = abs(v_Position.y) - sqrt(b2 * (pow(v_Position.x, 2) / a2 - 1.0));
+    float A = sqrt(v_A2 * (1.0 + pow(v_Position.y, 2) / v_B2)) - v_Position.x;
+    float B = abs(v_Position.y) - sqrt(v_B2 * (pow(v_Position.x, 2) / v_A2 - 1.0));
     float C = sqrt(pow(A,2) + pow(B,2));
 
     float d = A * B / C;
@@ -67,9 +74,9 @@ void TestGeneralCase(in float a2, in float b2, out bool success)
     success = d < u_Orbit.DrawRadius;
 }
 
-void TestSubSemiMajor(in float a2, in float b2, out bool success)
+void TestSubSemiMajor(out bool success)
 {
-    float Cy_x = sqrt(a2 * (1.0 + pow(v_Position.y, 2) / b2));
+    float Cy_x = sqrt(v_A2 * (1.0 + pow(v_Position.y, 2) / v_B2));
 
     vec2 n = normalize(vec2(v_Position.y, u_Orbit.SemiMajorAxis - Cy_x));
     vec2 Cx = vec2(u_Orbit.SemiMajorAxis, 0);
@@ -81,9 +88,6 @@ void TestSubSemiMajor(in float a2, in float b2, out bool success)
 
 void main()
 {
-    float a2 = pow(u_Orbit.SemiMajorAxis, 2);
-    float b2 = pow(u_Orbit.SemiMinorAxis, 2);
-
     vec2 absPositionRelativeEscape = vec2(v_Position.x - u_Orbit.XEscape, abs(v_Position.y) - u_Orbit.YEscape);
     vec2 escapeTangent = vec2(u_Orbit.XEscapeTangent, 1.0);
 
@@ -94,11 +98,11 @@ void main()
     }
     else if (v_Position.x < u_Orbit.SemiMajorAxis)
     {
-        TestSubSemiMajor(a2, b2, fragIsInsideLine);
+        TestSubSemiMajor(fragIsInsideLine);
     }
     else
     {
-        TestGeneralCase(a2, b2, fragIsInsideLine);
+        TestGeneralCase(fragIsInsideLine);
     }
 
     if (fragIsInsideLine)

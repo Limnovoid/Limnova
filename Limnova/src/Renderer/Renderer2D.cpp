@@ -265,7 +265,8 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
-        s_Data->EllipseShader->Bind();
+        //s_Data->EllipseShader->Bind();
+
         bool escapes = !(escapePointFromCentre.y == 0);
         s_OrbitData->XOffset = escapes ? 0.5f * (semiMajorAxis + escapePointFromCentre.x) : 0.f;
         s_OrbitData->XEscapeTangent = -abs(escapePointFromCentre.y * semiMajorAxis * semiMajorAxis / (semiMinorAxis * semiMinorAxis * escapePointFromCentre.x));
@@ -293,7 +294,7 @@ namespace Limnova
         s_Data->EllipseVertexArray->Bind();
         RenderCommand::DrawIndexed(s_Data->EllipseVertexArray);
 
-        s_Data->TextureShader->Bind();
+        //s_Data->TextureShader->Bind();
     }
 
 
@@ -302,7 +303,7 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
-        s_Data->HyperbolaShader->Bind();
+        //s_Data->HyperbolaShader->Bind();
 
         s_OrbitData->XOffset = 0;
 
@@ -332,7 +333,18 @@ namespace Limnova
         s_Data->HyperbolaVertexArray->Bind();
         RenderCommand::DrawIndexed(s_Data->HyperbolaVertexArray);
 
-        s_Data->TextureShader->Bind();
+        //s_Data->TextureShader->Bind();
+    }
+
+
+    void Renderer2D::TEMP_BeginEllipses()
+    {
+        s_Data->EllipseShader->Bind();
+    }
+
+    void Renderer2D::TEMP_BeginHyperbolae()
+    {
+        s_Data->HyperbolaShader->Bind();
     }
 
 }

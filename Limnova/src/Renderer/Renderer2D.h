@@ -32,6 +32,9 @@ namespace Limnova
 
         static void DrawEllipse(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer = 0);
         static void DrawHyperbola(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer = 0);
+
+        static void TEMP_BeginEllipses();
+        static void TEMP_BeginHyperbolae();
     private:
         static Ref<UniformBuffer> s_SceneUniformBuffer;
         static Ref<UniformBuffer> s_HyperbolaUniformBuffer;

@@ -47,7 +47,7 @@ void Orbiters2D::OnAttach()
     uint32_t id;
     id = orbs.CreateOrbiterES(false, Limnova::BigFloat(2.f, 6), 0, Limnova::Vector2(1.f, 0.f), Limnova::BigVector2(-0.3f, 1.f));
     m_OrbiterRenderInfo[id] = { "Planet 0", 0.001f, {0.2f, 0.3f, 1.f, 1.f}, true, true};
-    m_CameraHostId = id; // set camera orbit space to Planet 0
+    //m_CameraHostId = id; // set camera orbit space to Planet 0
     m_CameraTrackingId = id; // track Planet 0
     id = orbs.CreateOrbiterCS(false, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, 0.9f), false);
     m_OrbiterRenderInfo[id] = { "Moon 0.0", 0.00005f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
@@ -60,7 +60,7 @@ void Orbiters2D::OnAttach()
     m_OrbiterRenderInfo[id] = { "Moon 1.0", 0.00003f, {0.5f, 0.2f, .3f, 1.f}, true, true };
 
     // Testing dynamic orbits - orbiters moving between hosts at runtime
-    id = orbs.CreateOrbiterES(true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(1.01f, 0.f), Limnova::BigVector2(0.f - 0.31f, 0.16f + 1.f));
+    id = orbs.CreateOrbiterES(true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(1.01f, 0.f), Limnova::BigVector2(0.f - 0.3f, 0.15f + 1.f));
     m_OrbiterRenderInfo[id] = { "Comet 0", 0.00003f, {0.3f, 0.9f, 1.f, 1.f}, true, true };
     id = orbs.CreateOrbiterES(true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(0.96f, 0.f), Limnova::BigVector2(-0.13f, 0.95f));
     m_OrbiterRenderInfo[id] = { "Comet 1", 0.00003f, {1.f, 0.9f, 0.3f, 1.f}, true, true };
@@ -120,8 +120,9 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
 
         static constexpr float circleFillTexSizefactor = 4.f; // Texture widths per unit circle-RADII
         static constexpr float circleTexSizefactor = 2.f * 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
-        static constexpr float trajectoryLineThickness = 0.02f;
+        static constexpr float trajectoryLineThickness = 0.01f;
         static constexpr float escapePointRadii = 0.02f;
+        static constexpr float trackedSubOrbitersRadii = 0.001f;
 
         // Render camera's local host
         auto& host = orbs.GetHost(m_CameraHostId);
@@ -133,78 +134,76 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         Limnova::Vector2 hostPos = m_CameraTrackingId == m_CameraHostId ? 0.f : -1.f * orbs.GetParameters(m_CameraTrackingId).Position;
         Limnova::Renderer2D::DrawQuad(hostPos, { circleFillTexSizefactor * rih.Radius * drawScaling }, m_CircleFillTexture, rih.Color);
 
-        // Render host's orbiters
+        // Render visible orbiters and their influences
         std::vector<uint32_t> visibleOrbiters;
         host.GetChildren(visibleOrbiters);
-        for (auto orbId : visibleOrbiters)
-        {
-            auto& op = orbs.GetParameters(orbId);
-            Limnova::Vector2 orbPos = orbId == m_CameraTrackingId ? 0.f : hostPos + op.Position;
 
-            auto& ri = m_OrbiterRenderInfo[orbId];
-            Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * ri.Radius * drawScaling }, m_CircleFillTexture, ri.Color);
-            if (ri.DrawOrbit)
-            {
-                Limnova::Vector4 orbCol { ri.Color.x, ri.Color.y, ri.Color.z, .5f };
-                if (op.Type == OrbitSystem2D::OrbitType::Hyperbola)
-                {
-                    // Draw hyperbola
-                    float distanceCentreFocus = op.Eccentricity * op.SemiMajorAxis;
-                    Limnova::Vector2 escapePointFromCentre { distanceCentreFocus - op.EscapePointPerifocal.x, op.EscapePointPerifocal.y };
-                    Limnova::Renderer2D::DrawHyperbola(hostPos + op.Centre, op.RightAscensionPeriapsis, op.SemiMajorAxis, op.SemiMinorAxis, escapePointFromCentre, trajectoryLineThickness, orbCol);
-                }
-                else
-                {
-                    // Draw ellipse or circle
-                    /*Limnova::Renderer2D::DrawRotatedQuad(hostPos + op.Centre,
-                        circleTexSizefactor * Limnova::Vector2(op.SemiMajorAxis, op.SemiMinorAxis),
-                        op.RightAscensionPeriapsis, m_CircleTexture, orbCol
-                    );*/
-                    Limnova::Vector2 escapePointFromCentre { 0.f, 0.f };
-                    if (op.TrueAnomalyEscape < Limnova::PI2f)
-                    {
-                        float distanceCentreFocus = op.Eccentricity * op.SemiMajorAxis;
-                        escapePointFromCentre = { distanceCentreFocus + op.EscapePointPerifocal.x, op.EscapePointPerifocal.y };
-                    }
-                    Limnova::Renderer2D::DrawEllipse(hostPos + op.Centre, op.RightAscensionPeriapsis, op.SemiMajorAxis, op.SemiMinorAxis, escapePointFromCentre, trajectoryLineThickness, orbCol);
-                    // Draw escape points
-                    /*if (op.TrueAnomalyEscape < Limnova::PI2f)
-                    {
-                        Limnova::Renderer2D::DrawQuad(hostPos + op.EscapePointsScene[0], { circleFillTexSizefactor * escapePointRadii }, m_CircleFillTexture, m_EscapePointColor);
-                        Limnova::Renderer2D::DrawQuad(hostPos + op.EscapePointsScene[1], { circleFillTexSizefactor * escapePointRadii }, m_CircleFillTexture, m_EscapePointColor);
-                    }*/
-                }
-            }
-            if (ri.DrawInfluence)
-            {
-                Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * orbs.GetRadiusOfInfluence(orbId) }, m_CircleFillTexture, m_InfluenceColor);
-            }
-        }
-        // Render tracked orbiter's orbiters
+        size_t numCameraHostOrbiters = visibleOrbiters.size();
+        float troi = orbs.GetRadiusOfInfluence(m_CameraTrackingId);
         if (m_CameraTrackingId != m_CameraHostId)
         {
-            float troi = orbs.GetRadiusOfInfluence(m_CameraTrackingId);
-            drawScaling *= troi;
-            visibleOrbiters.clear();
             orbs.GetOrbiters(m_CameraTrackingId, visibleOrbiters);
-            for (auto orbId : visibleOrbiters)
-            {
-                auto& op = orbs.GetParameters(orbId);
-                Limnova::Vector2 orbPos = troi * op.Position;
+        }
 
-                auto& ri = m_OrbiterRenderInfo[orbId];
-                Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * ri.Radius * drawScaling }, m_CircleFillTexture, ri.Color);
-                if (ri.DrawOrbit)
+        for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
+        {
+            size_t orbId = visibleOrbiters[idx];
+
+            auto& op = orbs.GetParameters(orbId);
+            auto& ri = m_OrbiterRenderInfo[orbId];
+            Limnova::Vector2 orbPos = idx < numCameraHostOrbiters ? (orbId == m_CameraTrackingId ? 0.f : hostPos + op.Position) : troi * op.Position;
+            float orbRadius = idx < numCameraHostOrbiters ? ri.Radius : trackedSubOrbitersRadii;
+            Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * orbRadius * drawScaling }, m_CircleFillTexture, ri.Color);
+            if (ri.DrawInfluence)
+            {
+                float hostRelativeScaling = idx < numCameraHostOrbiters ? 1.f : troi;
+                Limnova::Renderer2D::DrawQuad(orbPos, { hostRelativeScaling * circleFillTexSizefactor * orbs.GetRadiusOfInfluence(orbId) }, m_CircleFillTexture, m_InfluenceColor);
+            }
+        }
+
+        // Render elliptical orbits/trajectories
+        Limnova::Renderer2D::TEMP_BeginEllipses(); // TEMPORARY: separate draw calls for different shaders - TODO: use render queue
+        for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
+        {
+            size_t orbId = visibleOrbiters[idx];
+            float hostRelativeScaling = idx < numCameraHostOrbiters ? 1.f : troi;
+
+            auto& op = orbs.GetParameters(orbId);
+            auto& ri = m_OrbiterRenderInfo[orbId];
+            if (ri.DrawOrbit && (op.Type == OrbitSystem2D::OrbitType::Circle || op.Type == OrbitSystem2D::OrbitType::Ellipse))
+            {
+                Limnova::Vector2 centrePos = idx < numCameraHostOrbiters ? hostPos + op.Centre : hostRelativeScaling * op.Centre;
+                Limnova::Vector2 escapePointFromCentre{ 0.f, 0.f };
+                if (op.TrueAnomalyEscape < Limnova::PI2f)
                 {
-                    Limnova::Renderer2D::DrawRotatedQuad(troi * op.Centre,
-                        circleTexSizefactor * troi * Limnova::Vector2(op.SemiMajorAxis, op.SemiMinorAxis),
-                        op.RightAscensionPeriapsis, m_CircleTexture, { ri.Color.x, ri.Color.y, ri.Color.z, .5f }
-                    );
+                    float distanceCentreFocus = op.Eccentricity * op.SemiMajorAxis;
+                    escapePointFromCentre = { distanceCentreFocus + op.EscapePointPerifocal.x, op.EscapePointPerifocal.y };
+                    escapePointFromCentre *= hostRelativeScaling;
                 }
-                if (ri.DrawInfluence)
-                {
-                    Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * troi * orbs.GetRadiusOfInfluence(orbId) }, m_CircleFillTexture, m_InfluenceColor);
-                }
+                Limnova::Renderer2D::DrawEllipse(centrePos, op.RightAscensionPeriapsis, hostRelativeScaling * op.SemiMajorAxis, hostRelativeScaling * op.SemiMinorAxis,
+                    escapePointFromCentre, hostRelativeScaling * trajectoryLineThickness, { ri.Color.x, ri.Color.y, ri.Color.z, .5f });
+            }
+        }
+
+        // Render hyperbolic trajectories
+        Limnova::Renderer2D::TEMP_BeginHyperbolae(); // TEMPORARY: separate draw calls for different shaders - TODO: use render queue
+        for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
+        {
+            size_t orbId = visibleOrbiters[idx];
+            float hostRelativeScaling = idx < numCameraHostOrbiters ? 1.f : troi;
+
+            auto& op = orbs.GetParameters(orbId);
+            auto& ri = m_OrbiterRenderInfo[orbId];
+            if (ri.DrawOrbit && op.Type == OrbitSystem2D::OrbitType::Hyperbola)
+            {
+                Limnova::Vector2 centrePos = idx < numCameraHostOrbiters ? hostPos + op.Centre : hostRelativeScaling * op.Centre;
+
+                float distanceCentreFocus = op.Eccentricity * op.SemiMajorAxis;
+                Limnova::Vector2 escapePointFromCentre{ distanceCentreFocus - op.EscapePointPerifocal.x, op.EscapePointPerifocal.y };
+                escapePointFromCentre *= hostRelativeScaling;
+
+                Limnova::Renderer2D::DrawHyperbola(centrePos, op.RightAscensionPeriapsis, hostRelativeScaling * op.SemiMajorAxis, hostRelativeScaling * op.SemiMinorAxis,
+                    escapePointFromCentre, hostRelativeScaling * trajectoryLineThickness, { ri.Color.x, ri.Color.y, ri.Color.z, .5f });
             }
         }
 

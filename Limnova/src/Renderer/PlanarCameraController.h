@@ -32,6 +32,8 @@ namespace Limnova
         void SetZoomLimits(const float minZoom, const float maxZoom) { m_MinZoom = minZoom; m_MaxZoom = maxZoom; SetZoom(m_ZoomLevel); }
         void SetZoomSensitivity(const float sensitivity) { m_ZoomSensitivity = m_ZoomSensitivity; }
 
+        float GetZoom() const { return m_ZoomLevel; }
+
         void SetXY(const Vector2& position) { m_Position.x = position.x; m_Position.y = position.y; m_NeedSetView = true; }
         void TranslateXY(const Vector2& translation) { m_Position.x += translation.x; m_Position.y += translation.y; m_NeedSetView = true; }
 

@@ -141,8 +141,8 @@ public:
     uint32_t GetOrbiterHost(const uint32_t orbiterId);
 
     /// <summary>
-    /// Append to the given vector the IDs of all orbiters which are orbiting the host with ID hostId.
-    /// Ordering of ID entries is arbitrary.
+    /// Append the IDs of all orbiters which are orbiting the host with ID = hostId to the given vector.
+    /// Ordering of IDs is arbitrary.
     /// </summary>
     void GetOrbiters(const uint32_t hostId, std::vector<uint32_t>& childIds);
 
