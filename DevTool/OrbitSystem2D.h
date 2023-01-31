@@ -71,7 +71,6 @@ public:
     void SetOrbiterEventCallback(const std::function<void(const uint32_t)> fn) { m_OrbiterChangedHostCallback = fn; };
 
     void Update(Limnova::Timestep dT);
-    void Update2(Limnova::Timestep dT);
 
     /// <summary>
     /// Initialise the orbit system by specifying the mass of the system host and the scaling ratio of the top-level orbit space.
@@ -88,7 +87,8 @@ public:
     // TODO : load level from file; save level to file
     
     /// <summary>
-    /// Create an orbiter with the given mass: Explicit and Scaled state.
+    /// Explicit, Scaled: create an orbiter with given mass and an initial state vector scaled to the specified host,
+    /// and place in orbit around the host whose gravitational influence dominates the initial position.
     /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
     /// </summary>
     /// <param name="mass">Mass of orbiter</param>
@@ -97,39 +97,41 @@ public:
     /// <param name="scaledPosition">Initial position of orbiter, scaled to the top-level orbit space</param>
     /// <param name="scaledVelocity">Initial velocity of orbiter, scaled to the top-level orbit space</param>
     /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
-    uint32_t CreateOrbiterES(const bool dynamic, const Limnova::BigFloat& mass, const uint32_t initialHostId, Limnova::Vector2 scaledPosition, Limnova::BigVector2 scaledVelocity);
+    uint32_t CreateOrbiterES(const bool influencing, const bool dynamic, const Limnova::BigFloat& mass, const uint32_t initialHostId, Limnova::Vector2 scaledPosition, Limnova::BigVector2 scaledVelocity);
 
     /// <summary>
-    /// Create an orbiter with the given mass: Circular orbit at Scaled position.
-    /// Computes velocity to produce circular orbit which is clockwise or counter-clockwise depending on the clockwise argument.
+    /// Circular, Scaled: create an orbiter with given mass and an initial position scaled to the specified host, and place in a circular orbit
+    /// which is clockwise or counter-clockwise as specified, around the host whose gravitational influence dominates the initial position.
     /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
     /// </summary>
     /// <param name="mass">Mass of orbiter</param>
     /// <param name="scaledPosition">Initial position of orbiter, scaled to the top-level orbit space</param>
     /// <param name="clockwise">Whether the circular orbit is clockwise or counter-clockwise</param>
     /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
-    uint32_t CreateOrbiterCS(const bool dynamic, const Limnova::BigFloat& mass, const uint32_t initialHostId, Limnova::Vector2 scaledPosition, const bool clockwise = false);
+    uint32_t CreateOrbiterCS(const bool influencing, const bool dynamic, const Limnova::BigFloat& mass, const uint32_t initialHostId, Limnova::Vector2 scaledPosition, const bool clockwise = false);
 
     /// <summary>
-    /// Create an orbiter with the given mass: Explicit and Unscaled state.
+    /// Explicit, Scaled: create an orbiter with given mass and an initial state vector,
+    /// and place in orbit around the host whose gravitational influence dominates the initial position.
     /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
     /// </summary>
     /// <param name="mass">Mass of orbiter</param>
-    /// <param name="scaledPosition">Initial position of orbiter (actual, unscaled)</param>
-    /// <param name="scaledVelocity">Initial velocity of orbiter (actual, unscaled)</param>
+    /// <param name="position">Initial position of orbiter (actual, unscaled)</param>
+    /// <param name="velocity">Initial velocity of orbiter (actual, unscaled)</param>
     /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
-    uint32_t CreateOrbiterEU(const bool dynamic, const Limnova::BigFloat& mass, const Limnova::BigVector2& position, const Limnova::BigVector2& velocity);
+    uint32_t CreateOrbiterEU(const bool influencing, const bool dynamic, const Limnova::BigFloat& mass, const Limnova::BigVector2& position, const Limnova::BigVector2& velocity);
 
     /// <summary>
-    /// Create an orbiter with the given mass: Circular orbit at Unscaled position.
-    /// Computes velocity to produce circular orbit which is clockwise or counter-clockwise depending on the clockwise argument.
+    /// Circular, Unscaled: create an orbiter with given mass and initial position, and place in a circular orbit
+    /// which is clockwise or counter-clockwise as specified, around the host whose gravitational influence dominates the initial position.
     /// CreateOrbiter returns ID of created orbiter - use ID to get render info with GetParameters.
     /// </summary>
     /// <param name="mass">Mass of orbiter</param>
-    /// <param name="scaledPosition">Initial position of orbiter (actual, unscaled)</param>
+    /// <param name="position">Initial position of orbiter (actual, unscaled)</param>
     /// <param name="clockwise">Whether the circular orbit is clockwise or counter-clockwise</param>
     /// <returns>ID of created orbiter, or numeric_limits::unit32_t::max() if creation fails</returns>
-    uint32_t CreateOrbiterCU(const bool dynamic, const Limnova::BigFloat& mass, const Limnova::BigVector2& position, const bool clockwise = false);
+    uint32_t CreateOrbiterCU(const bool influencing, const bool dynamic, const Limnova::BigFloat& mass, const Limnova::BigVector2& position, const bool clockwise = false);
+
     //uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, float eccentricity, float trueAnomaly = 0.f, bool clockwise = false);
 
     const OrbitTreeNode& GetOrbiter(const uint32_t orbiterId);
@@ -139,6 +141,7 @@ public:
     float GetScaling(const uint32_t hostId);
     float GetHostScaling(const uint32_t orbiterId);
     uint32_t GetOrbiterHost(const uint32_t orbiterId);
+    bool IsInfluencing(const uint32_t orbiterId);
 
     /// <summary>
     /// Append the IDs of all orbiters which are orbiting the host with ID = hostId to the given vector.
@@ -209,6 +212,10 @@ private:
             {
                 ids.push_back(child->Id);
             }
+            for (auto& child : NonInflChildren)
+            {
+                ids.push_back(child->Id);
+            }
         }
     private:
         Influence Influence;
@@ -221,9 +228,6 @@ private:
     InflRef m_LevelHost;
     std::vector<NodeRef> m_AllNodes;
     std::unordered_map<uint32_t, InflRef> m_InfluencingNodes;
-    std::unordered_map<uint32_t, NodeRef> m_DynamicNodes;
-    std::unordered_map<uint32_t, NodeRef> m_StaticNodes;
-    Limnova::SortedQueue<NodeRef, float> m_NodeUpdateQueue;
     NodeRef m_UpdateFirst = nullptr;
 
     float m_Timescale = 1.f;
@@ -232,6 +236,8 @@ private:
     std::function<void(const uint32_t)> m_OrbiterChangedHostCallback;
 private:
     uint32_t CreateInfluencingNode(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
+
+    uint32_t CreateNoninflNode(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
 
     /// <summary>
     /// Returns lowest-level node whose circle-of-influence overlaps the given position;

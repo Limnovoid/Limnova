@@ -13,10 +13,6 @@ static constexpr float kNumTrajectoryEscapePointsScene = 16; // Number of points
 
 
 OrbitSystem2D::OrbitSystem2D()
-    : m_NodeUpdateQueue(
-        [](const NodeRef& lhs, const NodeRef& rhs) -> bool { return lhs->Parameters.UpdateTimer < rhs->Parameters.UpdateTimer; },
-        [](NodeRef& lhs, const float& rhs) -> NodeRef& { lhs->Parameters.UpdateTimer = rhs; return lhs; }
-    )
 {
     m_MinimumDeltaT = m_Timescale * kMinimumDeltaT;
 }
@@ -56,133 +52,6 @@ void OrbitSystem2D::Shutdown()
     {
         s_OrbitSystem2D.RecordData();
     }
-}
-
-
-void OrbitSystem2D::Update(LV::Timestep dT)
-{
-    LV_PROFILE_FUNCTION();
-
-
-    // debug - integration accuracy
-    static auto TStart = std::chrono::steady_clock::now(); // Not safe with window interrupts - should use game time
-    static auto TPreviousFrame = TStart;
-    static std::chrono::steady_clock::time_point TThisFrame;
-    TThisFrame = std::chrono::steady_clock::now();
-    // debug - integration accuracy
-
-
-    float gameDeltaTime = m_Timescale * (float)dT;
-    for (auto& node : m_DynamicNodes)
-    {
-        // Integrate true anomaly
-        auto& orbiterNode = node.second;
-        auto& op = orbiterNode->Parameters;
-
-
-        // debug - integration accuracy
-        float oldTAnomaly = op.TrueAnomaly;
-        // debug - integration accuracy
-
-
-        // Disconnected update loop:
-        // To handle cases where the simulated orbit period is much longer than a frame (such that per-frame changes in
-        // true anomaly would be very small in comparison, potentially introducing significant finite-precision error),
-        // orbit position is only updated after a certain amount of time (governed by op.UpdateTimer).
-        // This longer timestep (simDeltaTime) is computed to ensure that the change in true anomaly (simDeltaTAnomaly)
-        // is equal to or greater than kMinimumDeltaTAnom.
-        while (orbiterNode->StepTrueAnomalyIntegration(gameDeltaTime))
-        {
-            orbiterNode->ComputeStateVector();
-
-            // Check influence events:
-            // If distance between this orbiter and another orbiter of the same host is less than that orbiter's
-            // ROI, this orbiter is now orbiting the other orbiter
-            // TODO ?? different scheme for checking overlaps if multiple updates can occur per frame:
-            // - checking overlaps between influencing orbiters which may have multiple updates per frame would require
-            // - updating all orbiters once, checking overlaps, updating and checking again, etc. until all orbiters are
-            // - fully updated, every frame.
-            
-            HandleOrbiterEscapingHost(orbiterNode);
-            HandleOrbiterOverlappingInfluence(orbiterNode);
-        }
-        op.UpdateTimer -= gameDeltaTime;
-        orbiterNode->NeedRecomputeState = true;
-
-        //float deltaTA = m_Timescale * (float)dT * (op.OSAMomentum / op.Position.SqrMagnitude()).Float();
-        //op.TrueAnomaly += deltaTA;
-
-        if (op.TrueAnomaly > LV::PI2f)
-        {
-            op.TrueAnomaly -= LV::PI2f;
-
-
-            // debug - integration accuracy
-            if (m_Testing)
-            {
-                auto TDelta = TThisFrame - TPreviousFrame;
-                auto TActualPeriapsePass = TPreviousFrame + (TDelta * (LV::PI2f - oldTAnomaly) / (oldTAnomaly - op.TrueAnomaly));
-                auto& data = m_DebugData[orbiterNode->Id];
-                if (data.NumPeriapsePasses == 0)
-                {
-                    data.TFirstPeriapsePass = TActualPeriapsePass;
-                }
-                else
-                {
-                    // Collect data
-                    float actualPeriapsePass = 1e-9 * (TActualPeriapsePass - data.TFirstPeriapsePass).count();
-                    float predictedPeriapsePass = data.NumPeriapsePasses * (op.Period / m_Timescale).Float(); // Assumes constant timescale
-                    float errorPeriapsePass = 1e3 * (predictedPeriapsePass - actualPeriapsePass);
-                    LV_CORE_INFO("Orbiter {0}: predicted periapse passage = {1} s, actual passage = {2} s, error = {3} ms", orbiterNode->Id, predictedPeriapsePass, actualPeriapsePass, errorPeriapsePass);
-                    float simulationTime = 1e-9 * (TThisFrame - TStart).count();
-                    data.Table->AddRow(simulationTime,
-                        data.NumPeriapsePasses,
-                        predictedPeriapsePass,
-                        actualPeriapsePass,
-                        errorPeriapsePass
-                    );
-                }
-                data.NumPeriapsePasses++;
-
-                // Record all data after orbiter 1 has completed 5 orbits.
-                if (orbiterNode->Id == 1 && data.NumPeriapsePasses > 5)
-                {
-                    RecordData();
-                    m_Testing = false;
-                    LV_CORE_ASSERT(false, "Orbiter integration test run complete");
-                }
-            }
-            // debug - integration accuracy
-        }
-    }
-
-    for (auto& node : m_StaticNodes)
-    {
-        // Integrate true anomaly
-        auto& orbiterNode = node.second;
-        auto& op = orbiterNode->Parameters;
-
-        // Disconnected update loop:
-        // To handle cases where the simulated orbit period is much longer than a frame (such that per-frame changes in
-        // true anomaly would be very small in comparison, potentially introducing significant finite-precision error),
-        // orbit position is only updated after a certain amount of time (governed by op.UpdateTimer).
-        // This longer timestep (simDeltaTime) is computed to ensure that the change in true anomaly (simDeltaTAnomaly)
-        // is equal to or greater than kMinimumDeltaTAnom.
-        while (orbiterNode->StepTrueAnomalyIntegration(gameDeltaTime))
-        {
-            orbiterNode->ComputeStateVector();
-        }
-        op.UpdateTimer -= gameDeltaTime;
-        orbiterNode->NeedRecomputeState = false;
-
-        if (op.TrueAnomaly > LV::PI2f)
-        {
-            op.TrueAnomaly -= LV::PI2f;
-        }
-    }
-
-    // debug - integration accuracy
-    TPreviousFrame = TThisFrame;
 }
 
 
@@ -333,7 +202,7 @@ void OrbitSystem2D::HandleOrbiterOverlappingInfluence(NodeRef& node)
 }
 
 
-void OrbitSystem2D::Update2(Limnova::Timestep dT)
+void OrbitSystem2D::Update(Limnova::Timestep dT)
 {
     LV_PROFILE_FUNCTION();
 
@@ -454,24 +323,22 @@ void OrbitSystem2D::LoadLevel(const LV::BigFloat& hostMass, const LV::BigFloat& 
     
     m_InfluencingNodes.clear();
     m_InfluencingNodes.insert({ 0, m_LevelHost });
-
-    m_StaticNodes.clear();
-    m_DynamicNodes.clear();
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiterES(const bool dynamic, const LV::BigFloat& mass, const uint32_t initialHostId, LV::Vector2 scaledPosition, LV::BigVector2 scaledVelocity)
+uint32_t OrbitSystem2D::CreateOrbiterES(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const uint32_t initialHostId, LV::Vector2 scaledPosition, LV::BigVector2 scaledVelocity)
 {
     LV_PROFILE_FUNCTION();
 
     // Determine parent node (host of orbit)
     auto& p = FindLowestOverlappingInfluence(scaledPosition, scaledVelocity, initialHostId);
 
-    return CreateInfluencingNode(dynamic, p, mass, scaledPosition, scaledVelocity);
+    return influencing ? CreateInfluencingNode(dynamic, p, mass, scaledPosition, scaledVelocity)
+        : CreateNoninflNode(dynamic, p, mass, scaledPosition, scaledVelocity);
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiterCS(const bool dynamic, const LV::BigFloat& mass, const uint32_t initialHostId, LV::Vector2 scaledPosition, const bool clockwise)
+uint32_t OrbitSystem2D::CreateOrbiterCS(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const uint32_t initialHostId, LV::Vector2 scaledPosition, const bool clockwise)
 {
     LV_PROFILE_FUNCTION();
 
@@ -486,11 +353,12 @@ uint32_t OrbitSystem2D::CreateOrbiterCS(const bool dynamic, const LV::BigFloat& 
         LV::BigVector2(-scaledPosition.y, scaledPosition.x).Normalized();
     scaledVelocity = vMag * vDir;
 
-    return CreateInfluencingNode(dynamic, p, mass, scaledPosition, scaledVelocity);
+    return influencing ? CreateInfluencingNode(dynamic, p, mass, scaledPosition, scaledVelocity)
+        : CreateNoninflNode(dynamic, p, mass, scaledPosition, scaledVelocity);
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiterEU(const bool dynamic, const LV::BigFloat& mass, const LV::BigVector2& position, const LV::BigVector2& velocity)
+uint32_t OrbitSystem2D::CreateOrbiterEU(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const LV::BigVector2& position, const LV::BigVector2& velocity)
 {
     LV_PROFILE_FUNCTION();
 
@@ -499,17 +367,18 @@ uint32_t OrbitSystem2D::CreateOrbiterEU(const bool dynamic, const LV::BigFloat& 
     LV::BigVector2 scaledVelocity = velocity * m_LevelHost->Influence.TotalScaling;
     auto& p = FindLowestOverlappingInfluence(scaledPosition, scaledVelocity);
 
-    return CreateInfluencingNode(dynamic, p, mass, scaledPosition, scaledVelocity);
+    return influencing ? CreateInfluencingNode(dynamic, p, mass, scaledPosition, scaledVelocity)
+        : CreateNoninflNode(dynamic, p, mass, scaledPosition, scaledVelocity);
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiterCU(const bool dynamic, const LV::BigFloat& mass, const LV::BigVector2& position, const bool clockwise)
+uint32_t OrbitSystem2D::CreateOrbiterCU(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const LV::BigVector2& position, const bool clockwise)
 {
     LV_PROFILE_FUNCTION();
 
     LV::Vector2 scaledPosition = (position * m_LevelHost->Influence.TotalScaling).Vector2();
 
-    return CreateOrbiterCS(dynamic, mass, 0, scaledPosition, clockwise);
+    return CreateOrbiterCS(influencing, dynamic, mass, 0, scaledPosition, clockwise);
 }
 
 
@@ -518,26 +387,8 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const bool dynamic, const InflRef&
     LV_PROFILE_FUNCTION();
 
     InfluencingNode* newNode = new InfluencingNode;
-    newNode->Id = m_AllNodes.size();
+    newNode->Id = m_AllNodes.size(); // NOT SAFE - orbiter deletion may result in subsequent creations having duplicate IDs
     newNode->Parent = parent;
-
-    // Add to tree
-    auto inflRef = InflRef(newNode);
-    auto orbRef = std::static_pointer_cast<OrbitTreeNode>(inflRef);
-    m_AllNodes.push_back(orbRef);
-    m_InfluencingNodes.insert({ newNode->Id, inflRef });
-    newNode->Parent->InfluencingChildren.push_back(inflRef);
-    // Add to helper structures
-    if (dynamic)
-    {
-        m_DynamicNodes.insert({ newNode->Id, orbRef });
-    }
-    else
-    {
-        m_StaticNodes.insert({ newNode->Id, orbRef });
-    }
-    newNode->m_UpdateNext = m_UpdateFirst;
-    m_UpdateFirst = orbRef;
 
     // Compute gravitational properties of system
     newNode->Mass = mass;
@@ -554,6 +405,15 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const bool dynamic, const InflRef&
     // Compute this orbiter's influence
     newNode->ComputeInfluence();
 
+    // Add to tree
+    auto inflRef = InflRef(newNode);
+    auto orbRef = std::static_pointer_cast<OrbitTreeNode>(inflRef);
+    m_AllNodes.push_back(orbRef);
+    m_InfluencingNodes.insert({ newNode->Id, inflRef });
+    newNode->Parent->InfluencingChildren.push_back(inflRef);
+    newNode->m_UpdateNext = m_UpdateFirst;
+    m_UpdateFirst = orbRef;
+
 
     // debug //
     m_DebugData.emplace(newNode->Id, std::make_shared<Limnova::CsvTable<float, uint32_t, float, float, float>>());
@@ -565,6 +425,37 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const bool dynamic, const InflRef&
     m_UpdateCounts[newNode->Id] = 0;
     // debug //
 
+
+    return newNode->Id;
+}
+
+
+uint32_t OrbitSystem2D::CreateNoninflNode(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity)
+{
+    LV_PROFILE_FUNCTION();
+
+    OrbitTreeNode* newNode = new OrbitTreeNode;
+    newNode->Id = m_AllNodes.size(); // NOT SAFE - orbiter deletion may result in subsequent creations having duplicate IDs
+    newNode->Parent = parent;
+
+    // Compute gravitational properties of system
+    newNode->Mass = mass;
+    auto& op = newNode->Parameters;
+    op.GravAsOrbiter = parent->Parameters.GravAsHost; // mu = GM -> Assumes mass of orbiter is insignificant compared to host
+
+    // Compute orbital elements
+    op.Position = scaledPosition;
+    op.Velocity = scaledVelocity;
+    newNode->Dynamic = dynamic;
+    newNode->NeedRecomputeState = false;
+    newNode->ComputeElementsFromState();
+
+    // Add to tree
+    auto orbRef = NodeRef(newNode);
+    m_AllNodes.push_back(orbRef);
+    newNode->Parent->NonInflChildren.push_back(orbRef);
+    newNode->m_UpdateNext = m_UpdateFirst;
+    m_UpdateFirst = orbRef;
 
     return newNode->Id;
 }
@@ -607,7 +498,7 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
         op.Eccentricity = 0;
         op.BasisX = ur;
     }
-    op.BasisY = op.CcwF * LV::Vector2(- op.BasisX.y, op.BasisX.x);
+    op.BasisY = op.CcwF * LV::Vector2(-op.BasisX.y, op.BasisX.x);
 
     op.TrueAnomaly = acosf(op.BasisX.Dot(ur));
     if (((op.Velocity.x * ur.x) + (op.Velocity.y * ur.y)).GetCoefficient() < 0) // disambiguate quadrant - is Velocity on the inside of the tangent vector?
@@ -730,6 +621,7 @@ void OrbitSystem2D::InfluencingNode::ComputeInfluence()
         LV_CORE_ASSERT(false, "");
     }
 #endif
+
     infl.Radius = op.SemiMajorAxis * LV::BigFloat::PowF(this->Mass / this->Parent->Mass, 0.4f).Float(); // roi = a(m/M)^(5/2)
     infl.TotalScaling = parentInfl.TotalScaling / LV::BigFloat(infl.Radius);
     op.GravAsHost = kGrav * this->Mass * LV::BigFloat::Pow(infl.TotalScaling, 3); // G's length dimension is cubed - scaling must be cubed: scaled-GM = GM / scale^3
@@ -825,6 +717,8 @@ const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_
 
 float OrbitSystem2D::GetRadiusOfInfluence(const uint32_t orbiterId)
 {
+    LV_PROFILE_FUNCTION();
+
     LV_CORE_ASSERT(m_InfluencingNodes.find(orbiterId) != m_InfluencingNodes.end(), "Invalid orbiter ID!");
 
     return m_InfluencingNodes[orbiterId]->Influence.Radius;
@@ -833,6 +727,8 @@ float OrbitSystem2D::GetRadiusOfInfluence(const uint32_t orbiterId)
 
 float OrbitSystem2D::GetScaling(const uint32_t hostId)
 {
+    LV_PROFILE_FUNCTION();
+
     LV_CORE_ASSERT(m_InfluencingNodes.find(hostId) != m_InfluencingNodes.end(), "Invalid orbiter ID!");
 
     return m_InfluencingNodes[hostId]->Influence.TotalScaling.Float();
@@ -841,6 +737,8 @@ float OrbitSystem2D::GetScaling(const uint32_t hostId)
 
 float OrbitSystem2D::GetHostScaling(const uint32_t orbiterId)
 {
+    LV_PROFILE_FUNCTION();
+
     LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId > 0, "Invalid orbiter ID!");
 
     return m_AllNodes[orbiterId]->Parent->Influence.TotalScaling.Float();
@@ -857,13 +755,27 @@ uint32_t OrbitSystem2D::GetOrbiterHost(const uint32_t orbiterId)
 }
 
 
+bool OrbitSystem2D::IsInfluencing(const uint32_t orbiterId)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId > 0, "Invalid orbiter ID!");
+
+    return m_AllNodes[orbiterId]->Influencing;
+}
+
+
 void OrbitSystem2D::GetOrbiters(const uint32_t hostId, std::vector<uint32_t>& childIds)
 {
     LV_PROFILE_FUNCTION();
 
-    LV_CORE_ASSERT(m_InfluencingNodes.find(hostId) != m_InfluencingNodes.end(), "Invalid orbiter ID!");
+    LV_CORE_ASSERT(m_InfluencingNodes.find(hostId) != m_InfluencingNodes.end(), "OrbitSystem2D::GetOrbiters() was passed an invalid host orbiter ID ({0})!");
 
     for (auto& child : m_InfluencingNodes[hostId]->InfluencingChildren)
+    {
+        childIds.push_back(child->Id);
+    }
+    for (auto& child : m_InfluencingNodes[hostId]->NonInflChildren)
     {
         childIds.push_back(child->Id);
     }

@@ -157,9 +157,9 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
-        m_MinZoom = 0.25;   // 60 * 0.25 = 15 degrees FoV
+        m_MinZoom = 0.25f;   // 60 * 0.25 = 15 degrees FoV
         m_MaxZoom = 1.5f;   // 60 * 1.5 = 90 degrees FoV
-        m_ZoomSensitivity = 0.05;
+        m_ZoomSensitivity = 0.05f;
     }
 
 
@@ -191,7 +191,7 @@ namespace Limnova
 
         m_MinZoom = 0.1f;
         m_MaxZoom = 4.f;
-        m_ZoomSensitivity = 0.1;
+        m_ZoomSensitivity = 0.1f;
     }
 
 
