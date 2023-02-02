@@ -13,6 +13,9 @@
 namespace Limnova
 {
 
+    double Wrap(double x, double lowerBound, double upperBound); // Return x wrapped to the range [0, 2PI]
+    float Wrap(float x, float lowerBound, float upperBound); // Return x wrapped to the range [0, 2PI]
+
     /// <summary>
     /// Rotate a vector. Implemented with quaternions.
     /// </summary>

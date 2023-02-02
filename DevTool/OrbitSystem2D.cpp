@@ -55,40 +55,11 @@ void OrbitSystem2D::Shutdown()
 }
 
 
-bool OrbitSystem2D::OrbitTreeNode::StepTrueAnomalyIntegration(const float gameDeltaTime)
-{
-    LV_PROFILE_FUNCTION();
-
-    if (this->Parameters.UpdateTimer > 0) return false;
-    //if (this->Parameters.UpdateTimer > gameDeltaTime) return false;
-
-    auto& op = this->Parameters;
-
-    // dTAnom / dT = h / r^2 --> dT_optimal = dTAnom_optimal * r^2 / h
-    float simDeltaTAnomaly = kMinimumDeltaTAnom;
-    float simDeltaTime = ((kMinimumDeltaTAnom * op.Position.SqrMagnitude()) / op.OSAMomentum).Float();
-
-    // TEMPORARY - never allows multiple updates per frame
-    // TODO - allow multiple updates to maintain integration accuracy for faster orbiters (and while speeding-up time)
-    //if (simDeltaTime < gameDeltaTime)
-    //{
-    //    // dTAnom = dT * h / r^2
-    //    simDeltaTime = gameDeltaTime;
-    //    simDeltaTAnomaly = gameDeltaTime * op.OSAMomentum.Float() / op.Position.SqrMagnitude();
-    //}
-
-    op.TrueAnomaly += simDeltaTAnomaly;
-    op.UpdateTimer += simDeltaTime;
-
-    return true;
-}
-
-
 void OrbitSystem2D::HandleOrbiterEscapingHost(NodeRef& node)
 {
     LV_PROFILE_FUNCTION();
 
-    // If true anomaly is greater than true anomaly of escape (and less than pi), orbiter has escaped its host's influence;
+    // If true anomaly is less than true anomaly of escape, orbiter has not escaped its host's influence;
     // if true anomaly is greater than pi, orbiter is still inside the influence and is approaching periapsis.
     if (node->Parameters.TrueAnomaly < node->Parameters.TrueAnomalyEscape
         || node->Parameters.TrueAnomaly > LV::PIf)
@@ -96,8 +67,8 @@ void OrbitSystem2D::HandleOrbiterEscapingHost(NodeRef& node)
         return;
     }
 
-    // Convert position and velocity (which are stored relative and scaled to host's orbit space) to new host's orbit space
     auto& op = node->Parameters;
+
     auto oldHost = node->Parent;
     node->Parent = oldHost->Parent;
 
@@ -132,6 +103,18 @@ void OrbitSystem2D::HandleOrbiterEscapingHost(NodeRef& node)
         oldHost->NonInflChildren.resize(childrenLastIdx);
         // Add node to new parent's children
         node->Parent->NonInflChildren.push_back(node);
+    }
+
+    // Update sibling intersects
+    for (auto& sibling : oldHost->InfluencingChildren)
+    {
+        op.Intersects.erase(sibling->Id);
+        sibling->Parameters.Intersects.erase(node->Id);
+    }
+    for (auto& sibling : oldHost->NonInflChildren)
+    {
+        op.Intersects.erase(sibling->Id);
+        sibling->Parameters.Intersects.erase(node->Id);
     }
 
     m_OrbiterChangedHostCallback(node->Id);
@@ -461,6 +444,48 @@ uint32_t OrbitSystem2D::CreateNoninflNode(const bool dynamic, const InflRef& par
 }
 
 
+Limnova::Vector2 OrbitSystem2D::OrbitTreeNode::GetPosition(const float trueAnomaly)
+{
+    LV_PROFILE_FUNCTION();
+
+    auto& op = this->Parameters;
+    float sinT = sin(trueAnomaly);
+    float cosT = cos(trueAnomaly);
+    return op.OParameter
+        * (op.BasisX * cosT + op.BasisY * sinT)
+        / (1.f + op.Eccentricity * cosT);
+}
+
+
+bool OrbitSystem2D::OrbitTreeNode::StepTrueAnomalyIntegration(const float gameDeltaTime)
+{
+    LV_PROFILE_FUNCTION();
+
+    if (this->Parameters.UpdateTimer > 0) return false;
+    //if (this->Parameters.UpdateTimer > gameDeltaTime) return false;
+
+    auto& op = this->Parameters;
+
+    // dTAnom / dT = h / r^2 --> dT_optimal = dTAnom_optimal * r^2 / h
+    float simDeltaTAnomaly = kMinimumDeltaTAnom;
+    float simDeltaTime = ((kMinimumDeltaTAnom * op.Position.SqrMagnitude()) / op.OSAMomentum).Float();
+
+    // TEMPORARY - never allows multiple updates per frame
+    // TODO - allow multiple updates to maintain integration accuracy for faster orbiters (and while speeding-up time)
+    //if (simDeltaTime < gameDeltaTime)
+    //{
+    //    // dTAnom = dT * h / r^2
+    //    simDeltaTime = gameDeltaTime;
+    //    simDeltaTAnomaly = gameDeltaTime * op.OSAMomentum.Float() / op.Position.SqrMagnitude();
+    //}
+
+    op.TrueAnomaly += simDeltaTAnomaly;
+    op.UpdateTimer += simDeltaTime;
+
+    return true;
+}
+
+
 void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
 {
     LV_PROFILE_FUNCTION();
@@ -584,8 +609,85 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
     {
         op.TrueAnomalyEscape = 2.f * LV::PI2f; // True anomaly can never exceed 4Pi - this orbiter will never pass the host-escape test
     }
+
     // Orbit intersects:
-    // TODO
+    op.Intersects.clear();
+    // Simplest case, intersects only (ignores influences):
+    for (auto& child : this->Parent->NonInflChildren)
+    {
+        if (child->Id == this->Id) { continue; }
+
+        this->FindIntersects(child);
+    }
+    for (auto& child : this->Parent->InfluencingChildren)
+    {
+        if (child->Id == this->Id) { continue; }
+
+        auto childBaseNode = std::static_pointer_cast<OrbitTreeNode>(child);
+        this->FindIntersects(childBaseNode);
+
+        // TODO - for influencing siblings, find points of influence overlap
+    }
+
+    // Complex case, detect nearest approaches which are closer than the radius of influence:
+    // Find where this orbit intersects another by finding the minima of a function which computes the distance between the two points
+    // on the orbits which sit on the same line from the shared focus (the points with the same right ascension relative to a shared frame of
+    // reference). If a minimum is less than the other orbiter's radius of influence, it counts as an intersect.
+    //for (auto& child : this->Parent->InfluencingChildren)
+    //{
+    //    if (child->Id == this->Id) { continue; }
+
+    //    std::pair<uint32_t, float[2]> intersects;
+    //    intersects.first = 0;
+
+    //    auto& cp = child->Parameters;
+
+    //    float rhoDelta = op.RightAscensionPeriapsis - cp.RightAscensionPeriapsis;
+
+    //    auto func = [&](const float theta0) -> float
+    //    {
+    //        float theta1 = op.CcwF > 0 ? rhoDelta + theta0 : rhoDelta - theta0;
+    //        return abs(cp.OParameter / (1.f + cp.Eccentricity * cosf(theta1)) - op.OParameter / (1.f + op.Eccentricity * cosf(theta0)));
+    //    };
+
+    //    static constexpr float baseStep = LV::PIover8f;
+    //    float start = 0.f;
+    //    float fPrev = func(start);
+    //    bool prevDecreased = false;
+    //    for (float theta = start + baseStep; theta < LV::PI2f; theta += baseStep)
+    //    {
+    //        float f = func(theta);
+    //        if (f < fPrev)
+    //        {
+    //            prevDecreased = true;
+    //        }
+    //        else if (prevDecreased && f < child->Influence.Radius)
+    //        {
+    //            intersects.second[intersects.first] = theta;
+    //            intersects.first++;
+    //            if (intersects.first == 2) { break; }
+    //            prevDecreased = false;
+    //        }
+    //        fPrev = f;
+    //    }
+
+    //    if (intersects.first > 0)
+    //    {
+    //        op.Intersects.emplace(child->Id, std::move(intersects));
+
+    //        // debug
+    //        std::ostringstream ioss;
+    //        ioss << intersects.second[0];
+    //        if (intersects.first == 2)
+    //        {
+    //            ioss << ", " << intersects.second[1];
+    //        }
+    //        LV_CORE_INFO("Orbiter {0} intersects {1}: {2}", this->Id, child->Id, ioss.str());
+    //    }
+    //}
+
+    // TODO : prohibit an influencing orbiter from (potentially) overlapping another's influence
+
 }
 
 
@@ -602,6 +704,86 @@ void OrbitSystem2D::OrbitTreeNode::ComputeStateVector()
         / (1.f + op.Eccentricity * cosT);
 
     op.Velocity = op.muh * (op.BasisY * (op.Eccentricity + cosT) - op.BasisX * sinT);
+}
+
+
+void OrbitSystem2D::OrbitTreeNode::FindIntersects(NodeRef& sibling)
+{
+    LV_PROFILE_FUNCTION();
+
+    auto& op = this->Parameters;
+    auto& sp = sibling->Parameters;
+
+    // True anomaly theta of orbit i intersecting with orbit f, where f has an apse line rotated by angle eta (relative to i's perifocal frame):
+    // theta = alpha +/- acos(c * cos(alpha) / a),
+    // alpha = atan(b / a),
+    // a = p_f * e_i - p_i * e_f * cos(eta),
+    // b = -p_i * e_f * sin(eta),
+    // c = p_i - p_f,
+    // where p is orbital parameter and e is eccentricity.
+
+    // Find eta = relative rotation of sibling's apse line
+    float eta = op.CcwF > 0 ? sp.RightAscensionPeriapsis - op.RightAscensionPeriapsis
+        : op.RightAscensionPeriapsis - sp.RightAscensionPeriapsis;
+    if (eta < 0) { eta = LV::PI2f + eta; }
+
+    float a = sp.OParameter * op.Eccentricity - op.OParameter * sp.Eccentricity * cosf(eta);
+    float b = -op.OParameter * sp.Eccentricity * sinf(eta);
+    float c = op.OParameter - sp.OParameter;
+    float alpha = atanf(b / a);
+
+    // Test if intersects are possible
+    float cCosAlpha = c * cosf(alpha);
+    if (abs(cCosAlpha) > abs(a))
+    {
+        op.Intersects[sibling->Id].first = 0;
+        sp.Intersects[this->Id].first = 0;
+        return;
+    }
+
+    // Compute intersects in this orbit
+    float theta0 = LV::Wrap(alpha + acosf(cCosAlpha / a), -LV::PIf, LV::PIf);
+    float theta1 = LV::Wrap(alpha - acosf(cCosAlpha / a), -LV::PIf, LV::PIf);
+
+    // Compute intersects in sibling orbit
+    float siblingTheta0 = op.RightAscensionPeriapsis - sp.RightAscensionPeriapsis + (op.CcwF > 0 ? theta0 : -theta0);
+    float siblingTheta1 = op.RightAscensionPeriapsis - sp.RightAscensionPeriapsis + (op.CcwF > 0 ? theta1 : -theta1);
+    if (sp.CcwF < 0)
+    {
+        siblingTheta0 = -siblingTheta0;
+        siblingTheta1 = -siblingTheta1;
+    }
+    siblingTheta0 = LV::Wrap(siblingTheta0, -LV::PIf, LV::PIf);
+    siblingTheta1 = LV::Wrap(siblingTheta1, -LV::PIf, LV::PIf);
+
+    // For each intersect:
+    // Add to both orbits if it is within both escape/entry points
+    auto& intersect = op.Intersects[sibling->Id];
+    intersect.first = 0;
+    auto& siblingIntersect = sp.Intersects[this->Id];
+    siblingIntersect.first = 0;
+
+    // TODO : ability to update all sibling intersects when this orbiter escapes its host:
+    // - use a central data structure in OrbitSystem2D to store intersects ?
+    // - iterate over siblings and remove Intersect entries for this orbiter's ID ?
+
+    int numIntersects = 0;
+    if (abs(theta0) < op.TrueAnomalyEscape && abs(siblingTheta0) < sp.TrueAnomalyEscape)
+    {
+        intersect.second[numIntersects] = this->GetPosition(theta0);
+        siblingIntersect.second[numIntersects] = sibling->GetPosition(siblingTheta0);
+
+        numIntersects++;
+    }
+    if (abs(theta1) < op.TrueAnomalyEscape && abs(siblingTheta1) < sp.TrueAnomalyEscape)
+    {
+        intersect.second[numIntersects] = this->GetPosition(theta1);
+        siblingIntersect.second[numIntersects] = sibling->GetPosition(siblingTheta1);
+
+        numIntersects++;
+    }
+    intersect.first = numIntersects;
+    siblingIntersect.first = numIntersects;
 }
 
 
@@ -759,7 +941,7 @@ bool OrbitSystem2D::IsInfluencing(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
-    LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId > 0, "Invalid orbiter ID!");
+    LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId >= 0, "Invalid orbiter ID!");
 
     return m_AllNodes[orbiterId]->Influencing;
 }

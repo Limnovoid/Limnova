@@ -56,6 +56,7 @@ public:
         Limnova::BigFloat TimePeriapseToEscape = 0.f;
         Limnova::Vector2 EscapePointPerifocal;
         Limnova::Vector2 EscapePointsScene[2];
+        std::unordered_map<uint32_t, std::pair<uint32_t, Limnova::Vector2[2]>> Intersects; // For each other orbit which intersects this orbit: maps ID of other orbit to a pair containing the number of intersects and their true anomalies (in this orbit).
     };
 
     class OrbitTreeNode;
@@ -182,9 +183,13 @@ private:
         bool Influencing = false;
         bool Dynamic;
     protected:
+        Limnova::Vector2 GetPosition(const float trueAnomaly);
+
         bool StepTrueAnomalyIntegration(const float gameDeltaTime);
         void ComputeElementsFromState();
         void ComputeStateVector();
+
+        void FindIntersects(NodeRef& sibling);
     protected:
         NodeRef m_UpdateNext;
     };

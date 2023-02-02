@@ -24,7 +24,7 @@ private:
     Limnova::Ref<Limnova::Texture2D> m_CircleFillTexture;
     Limnova::Ref<Limnova::Texture2D> m_CircleTexture;
     Limnova::Vector4 m_InfluenceColor = { 1.f, 0.8f, 0.2f, 0.25f };
-    Limnova::Vector4 m_EscapePointColor = { 1.f, 0.3f, 0.2f, 0.5f };
+    Limnova::Vector4 m_IntersectCircleColor = { 1.f, 0.3f, 0.2f, 0.5f };
     float m_Timescale = 0.1f;
 
     struct OrbiterRenderInfo
