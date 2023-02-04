@@ -55,7 +55,7 @@ void Orbiters2D::OnAttach()
     std::ostringstream nameoss;
     id = orbs.CreateOrbiterES(true, false, Limnova::BigFloat(2.f, 6), 0, Limnova::Vector2(1.f, 0.f), Limnova::BigVector2(-0.3f, 1.f));
     nameoss.str(""); nameoss << "Planet 0 (" << id << ")";
-    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.001f, {0.2f, 0.3f, 1.f, 1.f}};
+    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.001f, {0.3f, 0.5f, 1.f, 1.f}};
     //m_CameraHostId = id; // set camera orbit space to Planet 0
     m_CameraTrackingId = id; // track Planet 0
     id = orbs.CreateOrbiterCS(true, false, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, 0.9f), false);
@@ -92,6 +92,7 @@ void Orbiters2D::OnAttach()
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
     m_CircleFillTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\orbiter-0.png", Limnova::Texture::WrapMode::Clamp);
     m_CircleTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\orbit-a1270.png", Limnova::Texture::WrapMode::Clamp);
+    m_CircleThickTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\circleThick.png", Limnova::Texture::WrapMode::Clamp);
 }
 
 
@@ -135,15 +136,18 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
 
         Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
-        static constexpr float circleFillTexSizefactor = 4.f; // Texture widths per unit circle-RADII
-        static constexpr float circleTexSizefactor = 2.f * 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
+        static constexpr float circleFillTexSizeFactor = 4.f; // Texture widths per unit circle-RADII
+        static constexpr float circleTexSizeFactor = 2.f * 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
+        static constexpr float circleThickTexSizeFactor = 2.f * 128.f / 110.f;
         static constexpr float baseTrajectoryLineThickness = 0.008f;
         static constexpr float baseIntersectCircleRadius = 0.016f;
+        static constexpr float baseOrbiterCircleRadius = 0.024f;
         static constexpr float trackedSubOrbiterRadius = 0.001f;
 
         float zoom = m_CameraController->GetZoom();
         float trajectoryLineThickness = zoom * baseTrajectoryLineThickness;
         float intersectCircleRadius = zoom * baseIntersectCircleRadius;
+        float orbiterCircleRadius = zoom * baseOrbiterCircleRadius;
 
         // Render camera's local host
         auto& host = orbs.GetHost(m_CameraHostId);
@@ -153,47 +157,58 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         float drawScaling = host.GetScaling();
 
         Limnova::Vector2 hostPos = m_CameraTrackingId == m_CameraHostId ? 0.f : -1.f * orbs.GetParameters(m_CameraTrackingId).Position;
-        Limnova::Renderer2D::DrawQuad(hostPos, { circleFillTexSizefactor * rih.Radius * drawScaling }, m_CircleFillTexture, rih.Color);
+        Limnova::Renderer2D::DrawQuad(hostPos, { circleFillTexSizeFactor * rih.Radius * drawScaling }, m_CircleFillTexture, rih.Color);
 
         // Render visible orbiters and their influences
         std::vector<uint32_t> visibleOrbiters;
         host.GetChildren(visibleOrbiters);
-
         bool trackedIsInfluencing = orbs.IsInfluencing(m_CameraTrackingId);
-        float troi = trackedIsInfluencing ? orbs.GetRadiusOfInfluence(m_CameraTrackingId) : 0.f;
-
-        size_t numCameraHostOrbiters = visibleOrbiters.size();
         if (m_CameraTrackingId != m_CameraHostId)
         {
-            for (auto& intersect : orbs.GetParameters(m_CameraTrackingId).Intersects)
-            {
-                for (uint32_t i = 0; i < intersect.second.first; i++)
-                {
-                    auto intCol = m_OrbiterRenderInfo[intersect.first].Color;
-                    intCol.w = 0.5f;
-                    Limnova::Renderer2D::DrawQuad(hostPos + intersect.second.second[i], {circleFillTexSizefactor * intersectCircleRadius}, m_CircleFillTexture, intCol);
-                }
-            }
-
             if (trackedIsInfluencing)
             {
                 orbs.GetOrbiters(m_CameraTrackingId, visibleOrbiters);
             }
+
+            // As the camera-tracked orbiter is not also the camera host, we can draw the points where its orbit intersects with other orbits in the scene
+            auto intCol = m_OrbiterRenderInfo[m_CameraTrackingId].Color;
+            intCol.x = powf(intCol.x + 0.1f, 2);
+            intCol.y = powf(intCol.y + 0.1f, 2);
+            intCol.z = powf(intCol.z + 0.1f, 2);
+            intCol.w = 0.5f;
+            for (auto& intersectsEntry : orbs.GetParameters(m_CameraTrackingId).Intersects)
+            {
+                for (uint32_t i = 0; i < intersectsEntry.second.first; i++)
+                {
+                    Limnova::Renderer2D::DrawQuad(hostPos + intersectsEntry.second.second[i], {circleThickTexSizeFactor * intersectCircleRadius}, m_CircleThickTexture, intCol);
+                }
+            }
         }
 
+        size_t numCameraHostOrbiters = visibleOrbiters.size();
+        float troi = trackedIsInfluencing ? orbs.GetRadiusOfInfluence(m_CameraTrackingId) : 0.f;
         for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
         {
             size_t orbId = visibleOrbiters[idx];
 
             auto& op = orbs.GetParameters(orbId);
             auto& ri = m_OrbiterRenderInfo[orbId];
+
             Limnova::Vector2 orbPos = idx < numCameraHostOrbiters ? (orbId == m_CameraTrackingId ? 0.f : hostPos + op.Position) : troi * op.Position;
             float orbRadius = idx < numCameraHostOrbiters ? ri.Radius : trackedSubOrbiterRadius;
-            Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizefactor * orbRadius * drawScaling }, m_CircleFillTexture, ri.Color);
+            Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizeFactor * orbRadius * drawScaling }, m_CircleFillTexture, ri.Color);
+
+            auto iconCol = ri.Color;
+            iconCol.x = powf(iconCol.x + 0.1f, 2);
+            iconCol.y = powf(iconCol.y + 0.1f, 2);
+            iconCol.z = powf(iconCol.z + 0.1f, 2);
+            iconCol.w = orbId == m_CameraTrackingId ? 0.7f : 0.3f;
+            Limnova::Renderer2D::DrawQuad(orbPos, { circleThickTexSizeFactor * orbiterCircleRadius }, m_CircleThickTexture, iconCol);
+
             float hostRelativeScaling = idx < numCameraHostOrbiters ? 1.f : troi;
             if (orbs.IsInfluencing(orbId))
             {
-                Limnova::Renderer2D::DrawQuad(orbPos, { hostRelativeScaling * circleFillTexSizefactor * orbs.GetRadiusOfInfluence(orbId) }, m_CircleFillTexture, m_InfluenceColor);
+                Limnova::Renderer2D::DrawQuad(orbPos, { hostRelativeScaling * circleFillTexSizeFactor * orbs.GetRadiusOfInfluence(orbId) }, m_CircleFillTexture, m_InfluenceColor);
             }
         }
 
@@ -216,8 +231,10 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
                     escapePointFromCentre = { distanceCentreFocus + op.EscapePointPerifocal.x, op.EscapePointPerifocal.y };
                     escapePointFromCentre *= hostRelativeScaling;
                 }
+                auto col = ri.Color;
+                col.w = orbId == m_CameraTrackingId ? 0.7f : 0.3f;
                 Limnova::Renderer2D::DrawEllipse(centrePos, op.RightAscensionPeriapsis, hostRelativeScaling * op.SemiMajorAxis, hostRelativeScaling * op.SemiMinorAxis,
-                    escapePointFromCentre, trajectoryLineThickness, { ri.Color.x, ri.Color.y, ri.Color.z, .5f });
+                    escapePointFromCentre, trajectoryLineThickness, col);
             }
         }
 
@@ -238,8 +255,10 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
                 Limnova::Vector2 escapePointFromCentre{ distanceCentreFocus - op.EscapePointPerifocal.x, op.EscapePointPerifocal.y };
                 escapePointFromCentre *= hostRelativeScaling;
 
+                auto col = ri.Color;
+                col.w = orbId == m_CameraTrackingId ? 0.7f : 0.3f;
                 Limnova::Renderer2D::DrawHyperbola(centrePos, op.RightAscensionPeriapsis, hostRelativeScaling * op.SemiMajorAxis, hostRelativeScaling * op.SemiMinorAxis,
-                    escapePointFromCentre, trajectoryLineThickness, { ri.Color.x, ri.Color.y, ri.Color.z, .5f });
+                    escapePointFromCentre, trajectoryLineThickness, col);
             }
         }
 

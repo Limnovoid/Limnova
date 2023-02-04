@@ -23,6 +23,7 @@ private:
     Limnova::Ref<Limnova::Texture2D> m_CheckerboardTexture;
     Limnova::Ref<Limnova::Texture2D> m_CircleFillTexture;
     Limnova::Ref<Limnova::Texture2D> m_CircleTexture;
+    Limnova::Ref<Limnova::Texture2D> m_CircleThickTexture;
     Limnova::Vector4 m_InfluenceColor = { 1.f, 0.8f, 0.2f, 0.25f };
     Limnova::Vector4 m_IntersectCircleColor = { 1.f, 0.3f, 0.2f, 0.5f };
     float m_Timescale = 0.1f;

@@ -56,7 +56,9 @@ public:
         Limnova::BigFloat TimePeriapseToEscape = 0.f;
         Limnova::Vector2 EscapePointPerifocal;
         Limnova::Vector2 EscapePointsScene[2];
-        std::unordered_map<uint32_t, std::pair<uint32_t, Limnova::Vector2[2]>> Intersects; // For each other orbit which intersects this orbit: maps ID of other orbit to a pair containing the number of intersects and their true anomalies (in this orbit).
+
+        // For each other orbit which intersects this orbit, this member maps the ID of the other orbiter to the relevant intersect data: data is stored as a pair in which 'first' stores the number of intersects (0, 1, or 2), and 'second' stores their position vectors as an array of size 2.
+        std::unordered_map<uint32_t, std::pair<uint32_t, Limnova::Vector2[2]>> Intersects;
     };
 
     class OrbitTreeNode;
@@ -143,19 +145,19 @@ public:
     float GetHostScaling(const uint32_t orbiterId);
     uint32_t GetOrbiterHost(const uint32_t orbiterId);
     bool IsInfluencing(const uint32_t orbiterId);
-
     /// <summary>
     /// Append the IDs of all orbiters which are orbiting the host with ID = hostId to the given vector.
     /// Ordering of IDs is arbitrary.
     /// </summary>
     void GetOrbiters(const uint32_t hostId, std::vector<uint32_t>& childIds);
+    /// <summary>
+    /// Ordering of results is arbitrary.
+    /// </summary>
+    void GetAllHosts(std::vector<uint32_t>& ids);
 
     void SetOrbiterRightAscension(const uint32_t orbiterId, const float rightAscension);
 
-    /// <summary>
-    /// Ordering of results is arbitrary: works by copying IDs from the unordered_map of all influencing nodes.
-    /// </summary>
-    void GetAllHosts(std::vector<uint32_t>& ids);
+    void AccelerateOrbiter(const uint32_t orbiterId, const Limnova::Vector2& accelaration); // TODO
 
     void SetTimeScale(const float timescale);
 private:
@@ -262,6 +264,8 @@ private:
 
     void HandleOrbiterEscapingHost(NodeRef& node);
     void HandleOrbiterOverlappingInfluence(NodeRef& node);
+
+    void RemoveOrbiterIntersectsFromSiblings(NodeRef& node, InflRef& parent);
 
     // debug resources
 private:
