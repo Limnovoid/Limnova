@@ -66,13 +66,27 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
     debugoss << "Node update counts:\n"; // debug
 
 
+    float gameDeltaTime = m_Timescale * (float)dT;
+
+    // TEMPORARY - apply all accelerations:
+    for (auto& node : m_DynamicNodes)
+    {
+        auto& op = node.second->Parameters;
+
+        // Recompute orbits after applying acceleration
+        op.Velocity += gameDeltaTime * op.Acceleration;
+        node.second->ComputeElementsFromState();
+
+        op.Acceleration = LV::BigVector2::Zero();
+    }
+
+
     // Update all orbit nodes:
     // Nodes are queued in ascending order of their individual times until next update (stored in OrbitParameters::UpdateTimer),
     // which is measured from the start of the current frame - when a node is updated, its UpdateTimer increases by the size of
     // its individual timestep. The queue is iterated through in order until all UpdateTimers are greater than the gameDeltaTime.
     // This allows nodes to be updated with different time steps, zero or more times per frame (for each node), while still
     // updating them all chronologically for more accurate collision tracking.
-    float gameDeltaTime = m_Timescale * (float)dT;
     while (m_UpdateFirst->Parameters.UpdateTimer < gameDeltaTime)
     {
         m_UpdateCounts[m_UpdateFirst->Id]++; // debug
@@ -109,7 +123,7 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
 
         UpdateQueueSortFirst();
     }
-    // Per-frame orbit node updates complete: subtract gameDeltaTime from all UpdateTimers.
+    // Per-frame updates are now complete for all orbit nodes: subtract gameDeltaTime from all UpdateTimers.
     OrbitTreeNode* node = m_UpdateFirst.get();
     while (node != nullptr)
     {
@@ -397,11 +411,15 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const bool dynamic, const InflRef&
     // Compute this orbiter's influence
     newNode->ComputeInfluence();
 
-    // Add to tree
+    // Add to data structures
     auto inflRef = InflRef(newNode);
     auto orbRef = std::static_pointer_cast<OrbitTreeNode>(inflRef);
     m_AllNodes.push_back(orbRef);
     m_InfluencingNodes.insert({ newNode->Id, inflRef });
+    if (dynamic)
+    {
+        m_DynamicNodes.insert({ newNode->Id, orbRef });
+    }
     newNode->Parent->InfluencingChildren.push_back(inflRef);
     newNode->m_UpdateNext = m_UpdateFirst;
     m_UpdateFirst = orbRef;
@@ -442,9 +460,13 @@ uint32_t OrbitSystem2D::CreateNoninflNode(const bool dynamic, const InflRef& par
     newNode->NeedRecomputeState = false;
     newNode->ComputeElementsFromState();
 
-    // Add to tree
+    // Add to data structures
     auto orbRef = NodeRef(newNode);
     m_AllNodes.push_back(orbRef);
+    if (dynamic)
+    {
+        m_DynamicNodes.insert({ newNode->Id, orbRef });
+    }
     newNode->Parent->NonInflChildren.push_back(orbRef);
     newNode->m_UpdateNext = m_UpdateFirst;
     m_UpdateFirst = orbRef;
@@ -463,35 +485,6 @@ Limnova::Vector2 OrbitSystem2D::OrbitTreeNode::GetPosition(const float trueAnoma
     return op.OParameter
         * (op.BasisX * cosT + op.BasisY * sinT)
         / (1.f + op.Eccentricity * cosT);
-}
-
-
-bool OrbitSystem2D::OrbitTreeNode::StepTrueAnomalyIntegration(const float gameDeltaTime)
-{
-    LV_PROFILE_FUNCTION();
-
-    if (this->Parameters.UpdateTimer > 0) return false;
-    //if (this->Parameters.UpdateTimer > gameDeltaTime) return false;
-
-    auto& op = this->Parameters;
-
-    // dTAnom / dT = h / r^2 --> dT_optimal = dTAnom_optimal * r^2 / h
-    float simDeltaTAnomaly = kMinimumDeltaTAnom;
-    float simDeltaTime = ((kMinimumDeltaTAnom * op.Position.SqrMagnitude()) / op.OSAMomentum).Float();
-
-    // TEMPORARY - never allows multiple updates per frame
-    // TODO - allow multiple updates to maintain integration accuracy for faster orbiters (and while speeding-up time)
-    //if (simDeltaTime < gameDeltaTime)
-    //{
-    //    // dTAnom = dT * h / r^2
-    //    simDeltaTime = gameDeltaTime;
-    //    simDeltaTAnomaly = gameDeltaTime * op.OSAMomentum.Float() / op.Position.SqrMagnitude();
-    //}
-
-    op.TrueAnomaly += simDeltaTAnomaly;
-    op.UpdateTimer += simDeltaTime;
-
-    return true;
 }
 
 
@@ -988,6 +981,17 @@ void OrbitSystem2D::SetOrbiterRightAscension(const uint32_t orbiterId, const flo
     }
 
     m_AllNodes[orbiterId]->NeedRecomputeState = true;
+}
+
+
+void OrbitSystem2D::AccelerateOrbiter(const uint32_t orbiterId, const Limnova::BigVector2& accelaration)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(m_DynamicNodes.find(orbiterId) != m_DynamicNodes.end(), "AccelerateOrbiter() was passed an invalid orbiter ID!");
+
+    LV::BigVector2 scaledAcceleration = accelaration * m_DynamicNodes[orbiterId]->Parent->Influence.TotalScaling;
+    m_DynamicNodes[orbiterId]->Parameters.Acceleration += scaledAcceleration;
 }
 
 

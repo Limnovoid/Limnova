@@ -56,8 +56,8 @@ void Orbiters2D::OnAttach()
     id = orbs.CreateOrbiterES(true, false, Limnova::BigFloat(2.f, 6), 0, Limnova::Vector2(1.f, 0.f), Limnova::BigVector2(-0.3f, 1.f));
     nameoss.str(""); nameoss << "Planet 0 (" << id << ")";
     m_OrbiterRenderInfo[id] = { nameoss.str(), 0.001f, {0.3f, 0.5f, 1.f, 1.f}};
-    //m_CameraHostId = id; // set camera orbit space to Planet 0
-    m_CameraTrackingId = id; // track Planet 0
+    m_CameraHostId = id; // set camera orbit space to Planet 0
+    //m_CameraTrackingId = id; // track Planet 0
     id = orbs.CreateOrbiterCS(true, false, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, 0.9f), false);
     nameoss.str(""); nameoss << "Moon 0.0 (" << id << ")";
     m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00005f, {0.3f, 0.9f, 1.f, 1.f}};
@@ -76,17 +76,24 @@ void Orbiters2D::OnAttach()
     id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(1.01f, 0.f), Limnova::BigVector2(0.f - 0.3f, 0.15f + 1.f));
     nameoss.str(""); nameoss << "Comet 0 (" << id << ")";
     m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.3f, 0.9f, 1.f, 1.f}};
-    id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(0.96f, 0.f), Limnova::BigVector2(-0.13f, 0.95f));
-    nameoss.str(""); nameoss << "Comet 1 (" << id << ")";
-    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {1.f, 0.9f, 0.3f, 1.f}};
-    id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 1, Limnova::Vector2(0.f, 0.3f), Limnova::BigVector2(-4.9f, 0.f));
-    nameoss.str(""); nameoss << "Comet 2 (" << id << ")";
-    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {1.f, 0.5f, 0.2f, 1.f}};
+    //id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(0.96f, 0.f), Limnova::BigVector2(-0.13f, 0.95f));
+    //nameoss.str(""); nameoss << "Comet 1 (" << id << ")";
+    //m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {1.f, 0.9f, 0.3f, 1.f}};
+    //id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 1, Limnova::Vector2(0.f, 0.3f), Limnova::BigVector2(-4.9f, 0.f));
+    //nameoss.str(""); nameoss << "Comet 2 (" << id << ")";
+    //m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {1.f, 0.5f, 0.2f, 1.f}};
 
     // Testing hyperbolic trajectories
     id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(0.99f, 0.f), Limnova::BigVector2(-0.3f, 0.8));
     nameoss.str(""); nameoss << "Comet 3 (" << id << ")";
     m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.3f, 0.9f, 1.f, 1.f}};
+
+    // Testing dynamic orbits - orbiter self-acceleration
+    id = orbs.CreateOrbiterCS(false, true, Limnova::BigFloat(1.f, 2), 1, Limnova::Vector2(0.3f, 0.f), false);
+    m_PlayerShipId = id;
+    nameoss.str(""); nameoss << "Player Ship (" << id << ")";
+    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.6f, 0.5f, .7f, 1.f} };
+    m_CameraTrackingId = id; // track Comet 4
 
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
@@ -108,9 +115,43 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
 
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
 
+    // Player input data - relevant to both Update and Render scopes
+    Limnova::Vector2 shipPos, shipToMouseLine;
+    bool shipIsBeingControlled, shipIsThrusting;
+
     // Update
     {
         LV_PROFILE_SCOPE("Update - Dev2DLayer::OnUpdate");
+
+        // Player Ship input
+        static constexpr float shipAcceleration = 0.3f;
+
+        shipIsBeingControlled = !m_CameraController->IsBeingControlled() && m_CameraTrackingId == m_PlayerShipId;
+        if (shipIsBeingControlled)
+        {
+            // Get line from Player Ship to mouse position
+            shipPos = m_CameraController->GetXY();
+            float mouseX, mouseY;
+            std::tie(mouseX, mouseY) = Limnova::Input::GetMousePosition();
+            float windowW = 0.5f * Limnova::Application::Get().GetWindow().GetWidth();
+            float windowH = 0.5f * Limnova::Application::Get().GetWindow().GetHeight();
+            Limnova::Vector2 windowCentreToMouse{ (mouseX - windowW) / windowH,
+                (windowH - mouseY) / windowH };
+            shipToMouseLine = windowCentreToMouse - shipPos;
+
+            // On left-click, apply acceleration along ship-mouse vector
+            shipIsThrusting = Limnova::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT) && shipToMouseLine.SqrMagnitude() > 0;
+            if (shipIsThrusting)
+            {
+                Limnova::BigVector2 acceleration{ shipAcceleration * shipToMouseLine.Normalize() };
+                orbs.AccelerateOrbiter(m_PlayerShipId, acceleration);
+            }
+        }
+        else
+        {
+            shipToMouseLine = Limnova::Vector2::Zero();
+        }
+
 
         orbs.Update(dT);
 
@@ -143,11 +184,13 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         static constexpr float baseIntersectCircleRadius = 0.016f;
         static constexpr float baseOrbiterCircleRadius = 0.024f;
         static constexpr float trackedSubOrbiterRadius = 0.001f;
+        static constexpr float baseShipThrustLineThickness = 0.008f;
 
         float zoom = m_CameraController->GetZoom();
         float trajectoryLineThickness = zoom * baseTrajectoryLineThickness;
         float intersectCircleRadius = zoom * baseIntersectCircleRadius;
         float orbiterCircleRadius = zoom * baseOrbiterCircleRadius;
+        float shipThrustLineThickness = zoom * baseShipThrustLineThickness;
 
         // Render camera's local host
         auto& host = orbs.GetHost(m_CameraHostId);
@@ -210,6 +253,17 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             {
                 Limnova::Renderer2D::DrawQuad(orbPos, { hostRelativeScaling * circleFillTexSizeFactor * orbs.GetRadiusOfInfluence(orbId) }, m_CircleFillTexture, m_InfluenceColor);
             }
+        }
+
+        // Draw line from Player Ship to mouse position
+        if (shipIsBeingControlled)
+        {
+            auto shipInputUICol = m_OrbiterRenderInfo[m_PlayerShipId].Color;
+            shipInputUICol.x = powf(shipInputUICol.x + 0.1f, 2);
+            shipInputUICol.y = powf(shipInputUICol.y + 0.1f, 2);
+            shipInputUICol.z = powf(shipInputUICol.z + 0.1f, 2);
+            shipInputUICol.w = shipIsThrusting ? 0.7f : 0.3f;
+            Limnova::Renderer2D::DrawLine({ 0.f }, shipToMouseLine, shipThrustLineThickness, shipInputUICol);
         }
 
         // Render elliptical orbits/trajectories

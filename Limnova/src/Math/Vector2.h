@@ -18,12 +18,15 @@ namespace Limnova
 
         inline float SqrMagnitude() const { return x * x + y * y; }
 
-        // Normalized() returns a normalized copy of a vector.
+        // Returns a normalized copy of a vector.
         Vector2 Normalized() const;
-        // Normalize() normalizes a vector in-place and returns it by reference.
+        // Normalizes a vector in-place and returns it by reference.
         Vector2& Normalize();
 
         float Dot(const Vector2 rhs) const;
+
+        // Returns the zero vector.
+        static Vector2 Zero() { return Vector2{ 0.f, 0.f }; }
     public:
         Vector2 operator+(const Vector2 rhs) const;
         Vector2& operator+=(const Vector2 rhs);
@@ -39,7 +42,7 @@ namespace Limnova
         inline glm::vec2 glm_vec2() const { return glm::vec2(x, y); }
     };
 
-
+    Vector2 operator-(const Vector2& vector);
     Vector2 operator*(const float scalar, const Vector2 vector);
 
     std::ostream& operator<<(std::ostream& ostream, const Vector2& v);

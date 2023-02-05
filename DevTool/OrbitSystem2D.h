@@ -22,9 +22,10 @@ public:
         Limnova::BigFloat GravAsHost = { 0.f, 0 }; // Gravitational parameter of this orbiter, used by its own children for computing their orbits around this host = mass * GravitationalConstant
         Limnova::BigFloat GravAsOrbiter = { 0.f, 0 }; // Gravitation parameter of this orbiter's host, used for this orbiter's own computations = hostmass * GravitationalConstant
 
-        // State
-        Limnova::Vector2 Position = { 0.f, 0.f };
-        Limnova::BigVector2 Velocity = { 0.f, 0.f };
+        // State - scaled to host's radius of influence
+        Limnova::Vector2 Position           = { 0.f, 0.f };
+        Limnova::BigVector2 Velocity        = { 0.f, 0.f };
+        Limnova::BigVector2 Acceleration    = { 0.f, 0.f };
         float UpdateTimer = 0.f;
 
         // Perifocal frame
@@ -157,7 +158,7 @@ public:
 
     void SetOrbiterRightAscension(const uint32_t orbiterId, const float rightAscension);
 
-    void AccelerateOrbiter(const uint32_t orbiterId, const Limnova::Vector2& accelaration); // TODO
+    void AccelerateOrbiter(const uint32_t orbiterId, const Limnova::BigVector2& cceleration); // TODO
 
     void SetTimeScale(const float timescale);
 private:
@@ -187,7 +188,6 @@ private:
     protected:
         Limnova::Vector2 GetPosition(const float trueAnomaly);
 
-        bool StepTrueAnomalyIntegration(const float gameDeltaTime);
         void ComputeElementsFromState();
         void ComputeStateVector();
 
@@ -199,7 +199,7 @@ private:
 
     struct Influence
     {
-        Limnova::BigFloat TotalScaling; // Use to multiply children's parameters to convert them from relative-scaled dimensions to unscaled-absolute dimensions.
+        Limnova::BigFloat TotalScaling; // Use to multiply children's parameters to convert them from unscaled-absolute dimensions to relative-scaled dimensions.
         float Radius = 0.f; // Scaled by parent - use to multiply children's parameters to convert them from this influence's scale to the parent scale (move from this influence to the next-higher influence in the level).
     };
 
@@ -235,6 +235,7 @@ private:
     InflRef m_LevelHost;
     std::vector<NodeRef> m_AllNodes;
     std::unordered_map<uint32_t, InflRef> m_InfluencingNodes;
+    std::unordered_map<uint32_t, NodeRef> m_DynamicNodes;
     NodeRef m_UpdateFirst = nullptr;
 
     float m_Timescale = 1.f;

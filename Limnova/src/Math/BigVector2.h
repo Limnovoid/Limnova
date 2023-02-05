@@ -22,12 +22,15 @@ namespace Limnova
 
         inline BigFloat SqrMagnitude() const { return x * x + y * y; }
 
-        // Normalized() returns a normalized copy of a vector.
+        // Returns a normalized copy of a vector.
         BigVector2 Normalized() const;
-        // Normalize() normalizes a vector in-place and returns it by reference.
+        // Normalizes a vector in-place and returns it by reference.
         BigVector2& Normalize();
 
         BigFloat Dot(const BigVector2 rhs) const;
+
+        // Returns the zero vector.
+        static BigVector2 Zero() { return BigVector2{ {0.f, 0}, {0.f, 0} }; }
     public:
         BigVector2 operator+(const BigVector2 rhs) const;
         BigVector2& operator+=(const BigVector2 rhs);
@@ -46,6 +49,7 @@ namespace Limnova
     };
 
 
+    BigVector2 operator*(const float scalar, const BigVector2 vector);
     BigVector2 operator*(const BigFloat scalar, const BigVector2 vector);
 
     std::ostream& operator<<(std::ostream& ostream, const BigVector2& v);

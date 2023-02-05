@@ -8,15 +8,19 @@ namespace Limnova
     Vector2 Vector2::Normalized() const
     {
         float sqrmag = this->SqrMagnitude();
-        if (sqrmag == 0)
-            return *this;
+        if (sqrmag == 0) { return *this; }
         return (*this) / sqrt(sqrmag);
     }
 
 
     Vector2& Vector2::Normalize()
     {
-        *this = this->Normalized();
+        float mag = this->SqrMagnitude();
+        if (mag == 0) { return *this; }
+
+        mag = sqrt(mag);
+        this->x /= mag;
+        this->y /= mag;
         return *this;
     }
 
@@ -80,6 +84,12 @@ namespace Limnova
         this->x /= scalar;
         this->y /= scalar;
         return *this;
+    }
+
+
+    Vector2 operator-(const Vector2& vector)
+    {
+        return vector * -1.f;
     }
 
 
