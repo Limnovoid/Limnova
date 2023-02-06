@@ -74,6 +74,8 @@ namespace Limnova
 
         Camera& GetCamera() override { return m_Camera; }
         const Camera& GetCamera() const override { return m_Camera; }
+
+        Vector3 GetWorldPos(const Vector2& screenPos, const float viewDepth); /* !!! UNTESTED !!! */
     private:
         void SetView() override;
         void SetProjection() override;
@@ -92,6 +94,8 @@ namespace Limnova
 
         Camera& GetCamera() override { return m_Camera; }
         const Camera& GetCamera() const override { return m_Camera; }
+
+        Vector2 GetWorldXY(const Vector2& screenXY);
     private:
         void SetView() override;
         void SetProjection() override;

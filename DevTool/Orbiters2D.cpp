@@ -130,20 +130,16 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         if (shipIsBeingControlled)
         {
             // Get line from Player Ship to mouse position
-            shipPos = m_CameraController->GetXY();
             float mouseX, mouseY;
             std::tie(mouseX, mouseY) = Limnova::Input::GetMousePosition();
-            float windowW = 0.5f * Limnova::Application::Get().GetWindow().GetWidth();
-            float windowH = 0.5f * Limnova::Application::Get().GetWindow().GetHeight();
-            Limnova::Vector2 windowCentreToMouse{ (mouseX - windowW) / windowH,
-                (windowH - mouseY) / windowH };
-            shipToMouseLine = windowCentreToMouse - shipPos;
+            auto mousePos = m_CameraController->GetWorldXY({ mouseX, mouseY });
+            shipToMouseLine = mousePos;
 
             // On left-click, apply acceleration along ship-mouse vector
             shipIsThrusting = Limnova::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT) && shipToMouseLine.SqrMagnitude() > 0;
             if (shipIsThrusting)
             {
-                Limnova::BigVector2 acceleration{ shipAcceleration * shipToMouseLine.Normalize() };
+                Limnova::BigVector2 acceleration{ shipAcceleration * shipToMouseLine.Normalized() };
                 orbs.AccelerateOrbiter(m_PlayerShipId, acceleration);
             }
         }

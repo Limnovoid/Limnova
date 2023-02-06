@@ -180,6 +180,21 @@ namespace Limnova
     }
 
 
+    Vector3 PerspectivePlanarCameraController::GetWorldPos(const Vector2& screenPos, const float viewDepth)
+    {
+        /* !!! UNTESTED !!! */
+
+        float screenW = Application::Get().GetWindow().GetWidth();
+        float screenH = Application::Get().GetWindow().GetHeight();
+
+        float nearH = 2.f * tanf(0.5f * m_BaseFov * m_ZoomLevel) * m_Near;
+        float nearW = m_AspectRatio * nearH;
+
+        Vector3 nearPos{ nearW * (screenPos.x - 0.5f * screenW) / screenW, nearH * (0.5f * screenH - screenPos.y) / screenH, m_Near };
+        return viewDepth / m_Near * nearPos + m_Position;
+    }
+
+
     // Orthographic ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     OrthographicPlanarCameraController::OrthographicPlanarCameraController(const Vector3& position, const Vector3& aimDirection,
@@ -209,6 +224,21 @@ namespace Limnova
     void OrthographicPlanarCameraController::SetProjection()
     {
         m_Camera.SetProjection(m_AspectRatio, m_ZoomLevel, m_Near, m_Far);
+    }
+
+
+    Vector2 OrthographicPlanarCameraController::GetWorldXY(const Vector2& screenXY)
+    {
+        float screenW = Application::Get().GetWindow().GetWidth();
+        float screenH = Application::Get().GetWindow().GetHeight();
+
+        float x = 2.f * m_ZoomLevel * (screenXY.x - 0.5f * screenW) / screenW * m_AspectRatio;
+        float y = 2.f * m_ZoomLevel * (0.5f * screenH - screenXY.y) / screenH;
+
+        x += m_Position.x;
+        y += m_Position.y;
+
+        return { x, y };
     }
 
 }
