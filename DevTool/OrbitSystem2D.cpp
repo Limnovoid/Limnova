@@ -68,10 +68,15 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
 
     float gameDeltaTime = m_Timescale * (float)dT;
 
-    // TEMPORARY - apply all accelerations:
+    // TEMPORARY - apply all non-gravitational accelerations:
     for (auto& node : m_DynamicNodes)
     {
         auto& op = node.second->Parameters;
+
+        if (op.Acceleration.SqrMagnitude() == 0)
+        {
+            continue;
+        }
 
         // Recompute orbits after applying acceleration
         op.Velocity += gameDeltaTime * op.Acceleration;
@@ -121,7 +126,7 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
             HandleOrbiterOverlappingInfluence(m_UpdateFirst);
         }
 
-        UpdateQueueSortFirst();
+        SortUpdateFirst();
     }
     // Per-frame updates are now complete for all orbit nodes: subtract gameDeltaTime from all UpdateTimers.
     OrbitTreeNode* node = m_UpdateFirst.get();
@@ -142,7 +147,7 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
 }
 
 
-void OrbitSystem2D::UpdateQueueSortFirst()
+void OrbitSystem2D::SortUpdateFirst()
 {
     LV_PROFILE_FUNCTION();
 
@@ -184,48 +189,34 @@ void OrbitSystem2D::HandleOrbiterEscapingHost(NodeRef& node)
         return;
     }
 
+    if (node->Parent == m_LevelHost)
+    {
+        LV_CORE_WARN("Orbiter {0} escaped the level and was destroyed!", node->Id);
+        DestroyOrbiter(node->Id);
+    }
+
+    // Escape confirmed
     auto& op = node->Parameters;
 
     auto oldHost = node->Parent;
-    node->Parent = oldHost->Parent;
 
     // Compute state relative to new host
     op.GravAsOrbiter = oldHost->Parent->Parameters.GravAsHost;
     op.Position = oldHost->Parameters.Position + (op.Position * oldHost->Influence.Radius);
     op.Velocity = oldHost->Parameters.Velocity + (op.Velocity * oldHost->Influence.Radius);
 
-    // Recompute parameters and update orbit tree:
+    // Update node references
+    ChangeNodeParent(node, oldHost, oldHost->Parent);
+    RemoveOrbiterIntersectsFromSiblings(node, oldHost);
+
+    // Recompute parameters and influence
     node->ComputeElementsFromState();
     if (node->Influencing)
     {
-        auto inflNode = std::static_pointer_cast<InfluencingNode>(node);
-
-        // Remove node from old parent's children
-        auto childrenOrbiterIt = std::find(oldHost->InfluencingChildren.begin(), oldHost->InfluencingChildren.end(), inflNode);
-        size_t childrenLastIdx = oldHost->InfluencingChildren.size() - 1;
-        childrenOrbiterIt->swap(oldHost->InfluencingChildren[childrenLastIdx]);
-        oldHost->InfluencingChildren.resize(childrenLastIdx);
-        // Add node to new parent's children
-        node->Parent->InfluencingChildren.push_back(inflNode);
-
-        // Compute influence with new host
-        inflNode->ComputeInfluence();
-    }
-    else
-    {
-        // Remove node from old parent's children
-        auto childrenOrbiterIt = std::find(oldHost->NonInflChildren.begin(), oldHost->NonInflChildren.end(), node);
-        size_t childrenLastIdx = oldHost->NonInflChildren.size() - 1;
-        childrenOrbiterIt->swap(oldHost->NonInflChildren[childrenLastIdx]);
-        oldHost->NonInflChildren.resize(childrenLastIdx);
-        // Add node to new parent's children
-        node->Parent->NonInflChildren.push_back(node);
+        std::static_pointer_cast<InfluencingNode>(node)->ComputeInfluence();
     }
 
-    // Update sibling intersects
-    RemoveOrbiterIntersectsFromSiblings(node, oldHost);
-
-    m_OrbiterChangedHostCallback(node->Id);
+    m_OrbiterChangedHostCallback(node->Id, true);
 }
 
 
@@ -250,46 +241,24 @@ void OrbitSystem2D::HandleOrbiterOverlappingInfluence(NodeRef& node)
         // Overlap confirmed
         LV_CORE_INFO("Overlap: orbiter {0} -> influence {1}!", node->Id, other->Id);
 
-        auto oldHost = node->Parent;
-        node->Parent = other;
-
         // Compute state relative to new host
         op.GravAsOrbiter = other->Parameters.GravAsHost;
         op.Position = rPosition / other->Influence.Radius;
         op.Velocity = (op.Velocity - other->Parameters.Velocity) / other->Influence.Radius;
 
-        // Recompute parameters and update orbit tree:
+        // Update node references
+        auto oldHost = node->Parent;
+        ChangeNodeParent(node, oldHost, other);
+        RemoveOrbiterIntersectsFromSiblings(node, oldHost);
+
+        // Recompute parameters and influence
         node->ComputeElementsFromState();
         if (node->Influencing)
         {
-            auto inflNode = std::static_pointer_cast<InfluencingNode>(node);
-
-            // Remove node from old parent's children
-            auto childrenOrbiterIt = std::find(oldHost->InfluencingChildren.begin(), oldHost->InfluencingChildren.end(), inflNode);
-            size_t childrenLastIdx = oldHost->InfluencingChildren.size() - 1;
-            childrenOrbiterIt->swap(oldHost->InfluencingChildren[childrenLastIdx]);
-            oldHost->InfluencingChildren.resize(childrenLastIdx);
-            // Add node to new parent's children
-            other->InfluencingChildren.push_back(inflNode);
-
-            // Compute influence with new host
-            inflNode->ComputeInfluence();
-        }
-        else
-        {
-            // Remove node from old parent's children
-            auto childrenOrbiterIt = std::find(oldHost->NonInflChildren.begin(), oldHost->NonInflChildren.end(), node);
-            size_t childrenLastIdx = oldHost->NonInflChildren.size() - 1;
-            childrenOrbiterIt->swap(oldHost->NonInflChildren[childrenLastIdx]);
-            oldHost->NonInflChildren.resize(childrenLastIdx);
-            // Add node to new parent's children
-            other->NonInflChildren.push_back(node);
+            std::static_pointer_cast<InfluencingNode>(node)->ComputeInfluence();
         }
 
-        // Update sibling intersects
-        RemoveOrbiterIntersectsFromSiblings(node, oldHost);
-
-        m_OrbiterChangedHostCallback(node->Id);
+        m_OrbiterChangedHostCallback(node->Id, false);
 
         break;
     }
@@ -298,6 +267,8 @@ void OrbitSystem2D::HandleOrbiterOverlappingInfluence(NodeRef& node)
 
 void OrbitSystem2D::RemoveOrbiterIntersectsFromSiblings(NodeRef& node, InflRef& parent)
 {
+    LV_PROFILE_FUNCTION();
+
     for (auto& sibling : parent->InfluencingChildren)
     {
         node->Parameters.Intersects.erase(sibling->Id);
@@ -307,6 +278,53 @@ void OrbitSystem2D::RemoveOrbiterIntersectsFromSiblings(NodeRef& node, InflRef& 
     {
         node->Parameters.Intersects.erase(sibling->Id);
         sibling->Parameters.Intersects.erase(node->Id);
+    }
+}
+
+
+void OrbitSystem2D::ChangeNodeParent(NodeRef& node, InflRef& oldParent, InflRef& newParent)
+{
+    node->Parent = newParent;
+
+    if (node->Influencing)
+    {
+        auto inflNode = std::static_pointer_cast<InfluencingNode>(node);
+
+        // Remove node from old parent's children
+        auto childrenOrbiterIt = std::find(oldParent->InfluencingChildren.begin(), oldParent->InfluencingChildren.end(), inflNode);
+        LV_CORE_ASSERT(childrenOrbiterIt != oldParent->InfluencingChildren.end(), "Could not find influencing node in its parent's InfluenceChildren vector!");
+        oldParent->InfluencingChildren.erase(childrenOrbiterIt);
+
+        // Add node to new parent's children
+        newParent->InfluencingChildren.push_back(inflNode);
+    }
+    else
+    {
+        // Remove node from old parent's children
+        auto childrenOrbiterIt = std::find(oldParent->NonInflChildren.begin(), oldParent->NonInflChildren.end(), node);
+        LV_CORE_ASSERT(childrenOrbiterIt != oldParent->NonInflChildren.end(), "Could not find non-influencing node in its parent's NonInflChildren vector!");
+        oldParent->NonInflChildren.erase(childrenOrbiterIt);
+
+        // Add node to new parent's children
+        newParent->NonInflChildren.push_back(node);
+    }
+}
+
+
+void OrbitSystem2D::RemoveNodeFromUpdateQueue(NodeRef& node)
+{
+    if (node == m_UpdateFirst)
+    {
+        m_UpdateFirst = node->m_UpdateNext;
+    }
+    else
+    {
+        OrbitTreeNode* updatePrev = m_UpdateFirst.get();
+        while (updatePrev->m_UpdateNext != node)
+        {
+            updatePrev = updatePrev->m_UpdateNext.get();
+        }
+        updatePrev->m_UpdateNext = node->m_UpdateNext;
     }
 }
 
@@ -329,6 +347,15 @@ void OrbitSystem2D::LoadLevel(const LV::BigFloat& hostMass, const LV::BigFloat& 
     
     m_InfluencingNodes.clear();
     m_InfluencingNodes.insert({ 0, m_LevelHost });
+}
+
+
+void OrbitSystem2D::SetTimeScale(const float timescale)
+{
+    LV_PROFILE_FUNCTION();
+
+    m_Timescale = timescale;
+    m_MinimumDeltaT = m_Timescale * kMinimumDeltaT;
 }
 
 
@@ -392,6 +419,8 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const bool dynamic, const InflRef&
 {
     LV_PROFILE_FUNCTION();
 
+    LV_CORE_ASSERT(scaledPosition.SqrMagnitude() > 0, "Position cannot be zero!");
+
     InfluencingNode* newNode = new InfluencingNode;
     newNode->Id = m_AllNodes.size(); // NOT SAFE - orbiter deletion may result in subsequent creations having duplicate IDs
     newNode->Parent = parent;
@@ -443,6 +472,8 @@ uint32_t OrbitSystem2D::CreateInfluencingNode(const bool dynamic, const InflRef&
 uint32_t OrbitSystem2D::CreateNoninflNode(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity)
 {
     LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(scaledPosition.SqrMagnitude() > 0, "Position cannot be zero!");
 
     OrbitTreeNode* newNode = new OrbitTreeNode;
     newNode->Id = m_AllNodes.size(); // NOT SAFE - orbiter deletion may result in subsequent creations having duplicate IDs
@@ -553,18 +584,15 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
 
     op.Period = LV::PI2f * op.SemiMajorAxis * op.SemiMinorAxis / op.OSAMomentum;
 
-    // Predicting orbit events:
-    // If distance to apoapsis is greater than escape distance, or if the orbit is hyperbolic,
-    // the orbiter will leave the host's influence:
     LV_CORE_ASSERT(this->Dynamic
-        || this->Parent == s_OrbitSystem2D.m_LevelHost
-        || op.OParameter / (1.f - op.Eccentricity) < kEscapeDistance, // r_a = h^2 / mu(1 - e)
+        || op.OParameter / (1.f - op.Eccentricity) < kEscapeDistance,
         "Static orbits should not leave their host's influence!");
 
-    if ((this->Dynamic
-        && this->Parent != s_OrbitSystem2D.m_LevelHost
-        && op.OParameter / (1.f - op.Eccentricity) > kEscapeDistance
-        ) || op.Type == OrbitType::Hyperbola)
+    // Predicting orbit events:
+    // If distance to apoapsis is greater than escape distance, or if the orbit is hyperbolic,
+    // the orbiter will leave the host's influence: r_a = p / (1 - e)
+    if ((this->Dynamic && op.OParameter / (1.f - op.Eccentricity) > kEscapeDistance)
+        || op.Type == OrbitType::Hyperbola)
     {
         // Orbiter leaves host's influence at the point that its orbital distance is equal to the escape distance (r_esc):
         // cos(TAnomaly) = (h^2 / (mu * r_esc) - 1) / e
@@ -851,6 +879,32 @@ OrbitSystem2D::InflRef& OrbitSystem2D::FindOverlappingChildInfluence(InflRef& pa
 }
 
 
+void OrbitSystem2D::DestroyOrbiter(const uint32_t orbiterId)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId >= 0, "Invalid orbiter ID!");
+
+    NodeRef nodeRef = m_AllNodes[orbiterId];
+
+    LV_CORE_ASSERT(!nodeRef->Influencing, "Influencing nodes cannot be destroyed (at this point in development)!");
+
+    // Call callback before deleting the node in case the callback requests data from the node
+    m_OrbiterDestroyedCallback(orbiterId);
+
+    // Remove from update queue
+    RemoveNodeFromUpdateQueue(nodeRef);
+
+    // Remove from parent's children
+    auto childrenOrbiterIt = std::find(nodeRef->Parent->NonInflChildren.begin(), nodeRef->Parent->NonInflChildren.end(), nodeRef);
+    LV_CORE_ASSERT(childrenOrbiterIt != nodeRef->Parent->NonInflChildren.end(), "Could not find non-influencing node in its parent's NonInflChildren vector!");
+    nodeRef->Parent->NonInflChildren.erase(childrenOrbiterIt);
+
+    // Remove from sibling intersects
+    RemoveOrbiterIntersectsFromSiblings(nodeRef, nodeRef->Parent);
+}
+
+
 const OrbitSystem2D::OrbitTreeNode& OrbitSystem2D::GetOrbiter(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
@@ -980,7 +1034,7 @@ void OrbitSystem2D::SetOrbiterRightAscension(const uint32_t orbiterId, const flo
         op.TrueAnomaly += LV::PI2f;
     }
 
-    m_AllNodes[orbiterId]->NeedRecomputeState = true;
+    m_AllNodes[orbiterId]->ComputeStateVector();
 }
 
 
@@ -1003,13 +1057,6 @@ void OrbitSystem2D::GetAllHosts(std::vector<uint32_t>& ids)
     {
         ids.push_back(infl.first);
     }
-}
-
-
-void OrbitSystem2D::SetTimeScale(const float timescale)
-{
-    m_Timescale = timescale;
-    m_MinimumDeltaT = m_Timescale * kMinimumDeltaT;
 }
 
 

@@ -72,7 +72,12 @@ public:
     static OrbitSystem2D& Get();
     static void Shutdown();
 
-    void SetOrbiterEventCallback(const std::function<void(const uint32_t)> fn) { m_OrbiterChangedHostCallback = fn; };
+    // Callback parameters:
+    // uint32_t - ID of orbiter whose host has changed
+    // bool - true if orbiter changed host by escaping old host's influence, false otherwise
+    void SetOrbiterChangedHostCallback(const std::function<void(const uint32_t, const bool)> fn) { m_OrbiterChangedHostCallback = fn; };
+
+    void SetOrbiterDestroyedCallback(const std::function<void(const uint32_t)> fn) { m_OrbiterDestroyedCallback = fn; };
 
     void Update(Limnova::Timestep dT);
 
@@ -89,7 +94,9 @@ public:
     void LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& baseScaling);
 
     // TODO : load level from file; save level to file
-    
+
+    void SetTimeScale(const float timescale);
+
     /// <summary>
     /// Explicit, Scaled: create an orbiter with given mass and an initial state vector scaled to the specified host,
     /// and place in orbit around the host whose gravitational influence dominates the initial position.
@@ -138,6 +145,8 @@ public:
 
     //uint32_t CreateOrbiter(const Limnova::BigFloat& mass, const Limnova::Vector2& position, float eccentricity, float trueAnomaly = 0.f, bool clockwise = false);
 
+    void DestroyOrbiter(const uint32_t orbiterId);
+
     const OrbitTreeNode& GetOrbiter(const uint32_t orbiterId);
     const InfluencingNode& GetHost(const uint32_t hostId);
     const OrbitParameters& GetParameters(const uint32_t orbiterId);
@@ -158,9 +167,7 @@ public:
 
     void SetOrbiterRightAscension(const uint32_t orbiterId, const float rightAscension);
 
-    void AccelerateOrbiter(const uint32_t orbiterId, const Limnova::BigVector2& cceleration); // TODO
-
-    void SetTimeScale(const float timescale);
+    void AccelerateOrbiter(const uint32_t orbiterId, const Limnova::BigVector2& cceleration);
 private:
     using NodeRef = std::shared_ptr<OrbitTreeNode>;
     using InflRef = std::shared_ptr<InfluencingNode>;
@@ -241,7 +248,14 @@ private:
     float m_Timescale = 1.f;
     float m_MinimumDeltaT;
 
-    std::function<void(const uint32_t)> m_OrbiterChangedHostCallback;
+    // Callback parameters:
+    // uint32_t - ID of orbiter whose host has changed
+    // bool - true if orbiter changed host by escaping old host's influence, false otherwise
+    std::function<void(const uint32_t /*ID*/, const bool /*escaped*/)> m_OrbiterChangedHostCallback;
+
+    // Callback parameters:
+    // uint32_t - ID of orbiter which has been destroyed
+    std::function<void(const uint32_t /*ID*/)> m_OrbiterDestroyedCallback;
 private:
     uint32_t CreateInfluencingNode(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
 
@@ -261,12 +275,14 @@ private:
     InflRef& FindOverlappingChildInfluence(InflRef& parent, const Limnova::Vector2& scaledPosition);
 
     // Sorts m_UpdateFirst in the update queue - assumes only the first item in the queue may have been altered.
-    void UpdateQueueSortFirst();
+    void SortUpdateFirst();
 
     void HandleOrbiterEscapingHost(NodeRef& node);
     void HandleOrbiterOverlappingInfluence(NodeRef& node);
 
     void RemoveOrbiterIntersectsFromSiblings(NodeRef& node, InflRef& parent);
+    void ChangeNodeParent(NodeRef& node, InflRef& oldParent, InflRef& newParent);
+    void RemoveNodeFromUpdateQueue(NodeRef& node);
 
     // debug resources
 private:

@@ -36,16 +36,42 @@ void Orbiters2D::OnAttach()
     m_Timescale = 0.01;
     orbs.SetTimeScale(m_Timescale);
 
-    orbs.SetOrbiterEventCallback([&](const uint32_t id)
-    {
-        if (m_CameraTrackingId == id &&
-            m_CameraHostId != m_CameraTrackingId)
+    orbs.SetOrbiterChangedHostCallback([&](const uint32_t id, const bool escaped)
         {
-            m_CameraHostId = orbs.GetOrbiterHost(id);
-            m_CameraTrackingChanged = true; // Re-centre camera on tracked orbiter
-            m_CameraController->SetZoom(kZoomMin);
-        }
-    });
+            if (m_CameraTrackingId == id &&
+                m_CameraHostId != m_CameraTrackingId)
+            {
+                m_CameraHostId = orbs.GetOrbiterHost(id);
+                m_CameraTrackingChanged = true; // Re-centre camera on tracked orbiter
+
+                // Adjust zoom for easiest-to-understand visual transition between orbit spaces
+                if (escaped)
+                {
+                    // Orbiter escaped old host - set closest zoom
+                    m_CameraController->SetZoom(kZoomMin);
+                }
+                else
+                {
+                    // Orbiter overlapped new host - set zoom to fit entire orbit space of new host
+                    m_CameraController->SetZoom(kZoomDef);
+                }
+            }
+        });
+
+    orbs.SetOrbiterDestroyedCallback([&](const uint32_t id)
+        {
+            // If camera is tracking the destroyed orbiter, switch tracking to the orbiter's host and reset camera zoom
+            if (id == m_CameraTrackingId || id == m_CameraHostId)
+            {
+                m_CameraHostId = orbs.GetOrbiterHost(id);
+                m_CameraTrackingId = m_CameraHostId;
+                m_CameraTrackingChanged = true; // Re-centre camera on tracked orbiter
+                m_CameraController->SetZoom(kZoomDef);
+            }
+
+            // Delete information
+            m_OrbiterRenderInfo.erase(id);
+        });
 
     orbs.LoadLevel({ 1.498284464f, 10 }, { 1.f, 0 }); // Host mass initialised to inverse of gravitational constant --> M_host * G = 1
     m_CameraHostId = 0;
@@ -53,46 +79,44 @@ void Orbiters2D::OnAttach()
     m_OrbiterRenderInfo[0] = { "Star (0)", 0.05f, {0.9f, 1.f, 1.f, 1.f}};
     uint32_t id;
     std::ostringstream nameoss;
-    id = orbs.CreateOrbiterES(true, false, Limnova::BigFloat(2.f, 6), 0, Limnova::Vector2(1.f, 0.f), Limnova::BigVector2(-0.3f, 1.f));
+    id = orbs.CreateOrbiterES(true, false, Limnova::BigFloat(2.f, 6), 0, Limnova::Vector2(1.f, 0.f), Limnova::BigVector2(0.f, 0.8f));
+    orbs.SetOrbiterRightAscension(id, Limnova::PIover4f);
     nameoss.str(""); nameoss << "Planet 0 (" << id << ")";
     m_OrbiterRenderInfo[id] = { nameoss.str(), 0.001f, {0.3f, 0.5f, 1.f, 1.f}};
-    m_CameraHostId = id; // set camera orbit space to Planet 0
+    //m_CameraHostId = id; // set camera orbit space to Planet 0
     //m_CameraTrackingId = id; // track Planet 0
-    id = orbs.CreateOrbiterCS(true, false, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, 0.9f), false);
-    nameoss.str(""); nameoss << "Moon 0.0 (" << id << ")";
-    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00005f, {0.3f, 0.9f, 1.f, 1.f}};
-    id = orbs.CreateOrbiterCU(true, false, Limnova::BigFloat(1.5f, 2), Limnova::BigVector2(1.02f, 0.f), true);
-    nameoss.str(""); nameoss << "Moon 0.1 (" << id << ")";
-    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00007f, {0.3f, 0.9f, 0.2f, 1.f}};
+    uint32_t planet0Id = id;
+    {
+        id = orbs.CreateOrbiterCS(true, false, Limnova::BigFloat(1.f, 2), planet0Id, Limnova::Vector2(0.f, 0.9f), false);
+        nameoss.str(""); nameoss << "Moon 0.0 (" << id << ")";
+        m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00005f, {0.3f, 0.9f, 1.f, 1.f} };
+        id = orbs.CreateOrbiterCS(true, false, Limnova::BigFloat(1.5f, 2), planet0Id, Limnova::BigVector2(-0.3f, 0.f), true);
+        nameoss.str(""); nameoss << "Moon 0.1 (" << id << ")";
+        m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00007f, {0.3f, 0.9f, 0.2f, 1.f} };
+
+        // Testing dynamic orbits - orbiter self-acceleration
+        id = orbs.CreateOrbiterCS(false, true, Limnova::BigFloat(1.f, 2), planet0Id, Limnova::Vector2(0.5f, 0.f), false);
+        m_PlayerShipId = id;
+        nameoss.str(""); nameoss << "Player Ship (" << id << ")";
+        m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.6f, 0.5f, .7f, 1.f} };
+        //m_CameraTrackingId = id; // Track Player Ship
+    }
 
     id = orbs.CreateOrbiterCS(true, false, Limnova::BigFloat(1.f, 6), 0, Limnova::Vector2(0.f, -.5f), false);
     nameoss.str(""); nameoss << "Planet 1 (" << id << ")";
     m_OrbiterRenderInfo[id] = { nameoss.str(), 0.001f, {0.2f, 0.7f, 1.f, 1.f}};
-    id = orbs.CreateOrbiterCS(true, false, Limnova::BigFloat(1.f, 2), id, Limnova::Vector2(0.f, -.7f), false);
-    nameoss.str(""); nameoss << "Moon 1.0 (" << id << ")";
-    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.5f, 0.2f, .3f, 1.f}};
+    uint32_t planet1Id = id;
+    {
+        id = orbs.CreateOrbiterCS(true, false, Limnova::BigFloat(1.f, 2), planet1Id, Limnova::Vector2(0.f, -.7f), false);
+        nameoss.str(""); nameoss << "Moon 1.0 (" << id << ")";
+        m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.5f, 0.2f, .3f, 1.f} };
+    }
 
-    // Testing dynamic orbits - orbiters moving between hosts at runtime
-    id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(1.01f, 0.f), Limnova::BigVector2(0.f - 0.3f, 0.15f + 1.f));
-    nameoss.str(""); nameoss << "Comet 0 (" << id << ")";
-    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.3f, 0.9f, 1.f, 1.f}};
-    //id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(0.96f, 0.f), Limnova::BigVector2(-0.13f, 0.95f));
-    //nameoss.str(""); nameoss << "Comet 1 (" << id << ")";
-    //m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {1.f, 0.9f, 0.3f, 1.f}};
-    //id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 1, Limnova::Vector2(0.f, 0.3f), Limnova::BigVector2(-4.9f, 0.f));
-    //nameoss.str(""); nameoss << "Comet 2 (" << id << ")";
-    //m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {1.f, 0.5f, 0.2f, 1.f}};
 
-    // Testing hyperbolic trajectories
-    id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(0.99f, 0.f), Limnova::BigVector2(-0.3f, 0.8));
-    nameoss.str(""); nameoss << "Comet 3 (" << id << ")";
-    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.3f, 0.9f, 1.f, 1.f}};
-
-    // Testing dynamic orbits - orbiter self-acceleration
-    id = orbs.CreateOrbiterCS(false, true, Limnova::BigFloat(1.f, 2), 1, Limnova::Vector2(0.3f, 0.f), false);
-    m_PlayerShipId = id;
-    nameoss.str(""); nameoss << "Player Ship (" << id << ")";
-    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.6f, 0.5f, .7f, 1.f} };
+    // Testing orbit destruction
+    id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(-1.f, 0.f), Limnova::Vector2(0.f, -1.5f));
+    nameoss.str(""); nameoss << "Comet 4 (" << id << ")";
+    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.3f, 0.3f, .3f, 1.f} };
     m_CameraTrackingId = id; // track Comet 4
 
     // Textures
@@ -148,7 +172,7 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             shipToMouseLine = Limnova::Vector2::Zero();
         }
 
-
+        // Orbit system
         orbs.Update(dT);
 
         // Camera
@@ -198,12 +222,18 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         Limnova::Vector2 hostPos = m_CameraTrackingId == m_CameraHostId ? 0.f : -1.f * orbs.GetParameters(m_CameraTrackingId).Position;
         Limnova::Renderer2D::DrawQuad(hostPos, { circleFillTexSizeFactor * rih.Radius * drawScaling }, m_CircleFillTexture, rih.Color);
 
-        // Render visible orbiters and their influences
+        // Get the orbiters of the scene host - these are all the orbiters in the same orbit space as the camera
         std::vector<uint32_t> visibleOrbiters;
         host.GetChildren(visibleOrbiters);
+        size_t numCameraHostOrbiters = visibleOrbiters.size();
+
+        // Get additional information about the orbiter being tracked by the camera
         bool trackedIsInfluencing = orbs.IsInfluencing(m_CameraTrackingId);
+        float troi = trackedIsInfluencing ? orbs.GetRadiusOfInfluence(m_CameraTrackingId) : 0.f;
         if (m_CameraTrackingId != m_CameraHostId)
         {
+            // If the tracked orbiter is not the scene host, get its orbiters:
+            // this allows the player to 'peek' into the tracked orbiter's orbit space
             if (trackedIsInfluencing)
             {
                 orbs.GetOrbiters(m_CameraTrackingId, visibleOrbiters);
@@ -224,8 +254,7 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             }
         }
 
-        size_t numCameraHostOrbiters = visibleOrbiters.size();
-        float troi = trackedIsInfluencing ? orbs.GetRadiusOfInfluence(m_CameraTrackingId) : 0.f;
+        // Render all visible orbiters and their influences
         for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
         {
             size_t orbId = visibleOrbiters[idx];
@@ -234,20 +263,26 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             auto& ri = m_OrbiterRenderInfo[orbId];
 
             Limnova::Vector2 orbPos = idx < numCameraHostOrbiters ? (orbId == m_CameraTrackingId ? 0.f : hostPos + op.Position) : troi * op.Position;
-            float orbRadius = idx < numCameraHostOrbiters ? ri.Radius : trackedSubOrbiterRadius;
-            Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizeFactor * orbRadius * drawScaling }, m_CircleFillTexture, ri.Color);
-
-            auto iconCol = ri.Color;
-            iconCol.x = powf(iconCol.x + 0.1f, 2);
-            iconCol.y = powf(iconCol.y + 0.1f, 2);
-            iconCol.z = powf(iconCol.z + 0.1f, 2);
-            iconCol.w = orbId == m_CameraTrackingId ? 0.7f : 0.3f;
-            Limnova::Renderer2D::DrawQuad(orbPos, { circleThickTexSizeFactor * orbiterCircleRadius }, m_CircleThickTexture, iconCol);
 
             float hostRelativeScaling = idx < numCameraHostOrbiters ? 1.f : troi;
             if (orbs.IsInfluencing(orbId))
             {
                 Limnova::Renderer2D::DrawQuad(orbPos, { hostRelativeScaling * circleFillTexSizeFactor * orbs.GetRadiusOfInfluence(orbId) }, m_CircleFillTexture, m_InfluenceColor);
+            }
+
+            if (idx < numCameraHostOrbiters)
+            {
+                Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizeFactor * ri.Radius * drawScaling }, m_CircleFillTexture, ri.Color);
+                auto iconCol = ri.Color;
+                iconCol.x = powf(iconCol.x + 0.1f, 2);
+                iconCol.y = powf(iconCol.y + 0.1f, 2);
+                iconCol.z = powf(iconCol.z + 0.1f, 2);
+                iconCol.w = orbId == m_CameraTrackingId ? 0.7f : 0.3f;
+                Limnova::Renderer2D::DrawQuad(orbPos, { circleThickTexSizeFactor * orbiterCircleRadius }, m_CircleThickTexture, iconCol);
+            }
+            else
+            {
+                Limnova::Renderer2D::DrawQuad(orbPos, { circleFillTexSizeFactor * trackedSubOrbiterRadius * drawScaling }, m_CircleFillTexture, ri.Color);
             }
         }
 
