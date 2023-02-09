@@ -73,7 +73,7 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
     {
         auto& op = node.second->Parameters;
 
-        if (op.Acceleration.SqrMagnitude() == 0)
+        if (op.Acceleration.IsZero())
         {
             continue;
         }

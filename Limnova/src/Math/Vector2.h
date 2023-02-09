@@ -25,6 +25,8 @@ namespace Limnova
 
         float Dot(const Vector2 rhs) const;
 
+        bool IsZero() const { return x == 0.f && y == 0.f; }
+
         // Returns the zero vector.
         static Vector2 Zero() { return Vector2{ 0.f, 0.f }; }
     public:

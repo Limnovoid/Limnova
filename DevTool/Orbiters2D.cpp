@@ -124,6 +124,7 @@ void Orbiters2D::OnAttach()
     m_CircleFillTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\orbiter-0.png", Limnova::Texture::WrapMode::Clamp);
     m_CircleTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\orbit-a1270.png", Limnova::Texture::WrapMode::Clamp);
     m_CircleThickTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\circleThick.png", Limnova::Texture::WrapMode::Clamp);
+    m_CircleLargeFillTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\circleFill_d1270.png", Limnova::Texture::WrapMode::Clamp);
 }
 
 
@@ -205,6 +206,8 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         static constexpr float baseOrbiterCircleRadius = 0.024f;
         static constexpr float trackedSubOrbiterRadius = 0.001f;
         static constexpr float baseShipThrustLineThickness = 0.008f;
+        static constexpr float smallCircleMaxDiameter = 0.008f;
+        static constexpr float circleLargeFillTexSizeFactor = 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
 
         float zoom = m_CameraController->GetZoom();
         float trajectoryLineThickness = zoom * baseTrajectoryLineThickness;
@@ -220,7 +223,10 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         float drawScaling = host.GetScaling();
 
         Limnova::Vector2 hostPos = m_CameraTrackingId == m_CameraHostId ? 0.f : -1.f * orbs.GetParameters(m_CameraTrackingId).Position;
-        Limnova::Renderer2D::DrawQuad(hostPos, { circleFillTexSizeFactor * rih.Radius * drawScaling }, m_CircleFillTexture, rih.Color);
+        float hostQuadWidth = circleLargeFillTexSizeFactor * 2.f * rih.Radius * drawScaling;
+        Limnova::Renderer2D::DrawQuad(hostPos, { hostQuadWidth, hostQuadWidth }, m_CircleLargeFillTexture, rih.Color);
+        //float hostQuadWidth = circleFillTexSizeFactor * rih.Radius * drawScaling;
+        //Limnova::Renderer2D::DrawQuad(hostPos, hostQuadWidth, m_CircleFillTexture, rih.Color);
 
         // Get the orbiters of the scene host - these are all the orbiters in the same orbit space as the camera
         std::vector<uint32_t> visibleOrbiters;
@@ -267,7 +273,8 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             float hostRelativeScaling = idx < numCameraHostOrbiters ? 1.f : troi;
             if (orbs.IsInfluencing(orbId))
             {
-                Limnova::Renderer2D::DrawQuad(orbPos, { hostRelativeScaling * circleFillTexSizeFactor * orbs.GetRadiusOfInfluence(orbId) }, m_CircleFillTexture, m_InfluenceColor);
+                float quadWidth = hostRelativeScaling * circleLargeFillTexSizeFactor * 2.f * orbs.GetRadiusOfInfluence(orbId);
+                Limnova::Renderer2D::DrawQuad(orbPos, { quadWidth, quadWidth }, m_CircleLargeFillTexture, m_InfluenceColor);
             }
 
             if (idx < numCameraHostOrbiters)

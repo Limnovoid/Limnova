@@ -29,6 +29,8 @@ namespace Limnova
 
         BigFloat Dot(const BigVector2 rhs) const;
 
+        bool IsZero() const { return x.IsZero() && y.IsZero(); }
+
         // Returns the zero vector.
         static BigVector2 Zero() { return BigVector2{ {0.f, 0}, {0.f, 0} }; }
     public:
