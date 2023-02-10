@@ -29,8 +29,14 @@ void OrbitSystem2D::Init()
 {
     LV_PROFILE_FUNCTION();
 
+    s_OrbitSystem2D.m_NumNodesAllocated = 0;
+    s_OrbitSystem2D.m_FreeNodes.clear();
+    s_OrbitSystem2D.m_FreeInflNodes.clear();
+
     s_OrbitSystem2D.m_LevelHost.reset();
     s_OrbitSystem2D.m_AllNodes.clear();
+    s_OrbitSystem2D.m_InfluencingNodes.clear();
+    s_OrbitSystem2D.m_DynamicNodes.clear();
 
 
     // debug - orbiter integration accuracy
@@ -333,7 +339,11 @@ void OrbitSystem2D::LoadLevel(const LV::BigFloat& hostMass, const LV::BigFloat& 
 {
     LV_PROFILE_FUNCTION();
 
-    m_LevelHost.reset(new InfluencingNode);
+    m_NumNodesAllocated = 0;
+    m_FreeNodes.clear();
+    m_FreeInflNodes.clear();
+
+    m_LevelHost = GetFreeInflNode();
     m_LevelHost->Id = 0;
     m_LevelHost->Mass = hostMass;
     m_LevelHost->Parameters.GravAsOrbiter = kGrav * hostMass;
@@ -343,10 +353,12 @@ void OrbitSystem2D::LoadLevel(const LV::BigFloat& hostMass, const LV::BigFloat& 
     m_LevelHost->Parameters.GravAsHost = m_LevelHost->Parameters.GravAsOrbiter / LV::BigFloat::Pow(baseScaling, 3);
 
     m_AllNodes.clear();
-    m_AllNodes.push_back(m_LevelHost);
-    
+    m_AllNodes[0] = m_LevelHost;
+
     m_InfluencingNodes.clear();
-    m_InfluencingNodes.insert({ 0, m_LevelHost });
+    m_InfluencingNodes[0] = m_LevelHost;
+
+    m_DynamicNodes.clear();
 }
 
 
@@ -366,8 +378,8 @@ uint32_t OrbitSystem2D::CreateOrbiterES(const bool influencing, const bool dynam
     // Determine parent node (host of orbit)
     auto& p = FindLowestOverlappingInfluence(scaledPosition, scaledVelocity, initialHostId);
 
-    return influencing ? CreateInfluencingNode(dynamic, p, mass, scaledPosition, scaledVelocity)
-        : CreateNoninflNode(dynamic, p, mass, scaledPosition, scaledVelocity);
+    return influencing ? CreateInfluencingOrbiter(dynamic, p, mass, scaledPosition, scaledVelocity)
+        : CreateNoninflOrbiter(dynamic, p, mass, scaledPosition, scaledVelocity);
 }
 
 
@@ -386,8 +398,8 @@ uint32_t OrbitSystem2D::CreateOrbiterCS(const bool influencing, const bool dynam
         LV::BigVector2(-scaledPosition.y, scaledPosition.x).Normalized();
     scaledVelocity = vMag * vDir;
 
-    return influencing ? CreateInfluencingNode(dynamic, p, mass, scaledPosition, scaledVelocity)
-        : CreateNoninflNode(dynamic, p, mass, scaledPosition, scaledVelocity);
+    return influencing ? CreateInfluencingOrbiter(dynamic, p, mass, scaledPosition, scaledVelocity)
+        : CreateNoninflOrbiter(dynamic, p, mass, scaledPosition, scaledVelocity);
 }
 
 
@@ -400,8 +412,8 @@ uint32_t OrbitSystem2D::CreateOrbiterEU(const bool influencing, const bool dynam
     LV::BigVector2 scaledVelocity = velocity * m_LevelHost->Influence.TotalScaling;
     auto& p = FindLowestOverlappingInfluence(scaledPosition, scaledVelocity);
 
-    return influencing ? CreateInfluencingNode(dynamic, p, mass, scaledPosition, scaledVelocity)
-        : CreateNoninflNode(dynamic, p, mass, scaledPosition, scaledVelocity);
+    return influencing ? CreateInfluencingOrbiter(dynamic, p, mass, scaledPosition, scaledVelocity)
+        : CreateNoninflOrbiter(dynamic, p, mass, scaledPosition, scaledVelocity);
 }
 
 
@@ -415,98 +427,146 @@ uint32_t OrbitSystem2D::CreateOrbiterCU(const bool influencing, const bool dynam
 }
 
 
-uint32_t OrbitSystem2D::CreateInfluencingNode(const bool dynamic, const InflRef& parent, const LV::BigFloat& mass, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
+OrbitSystem2D::NodeRef OrbitSystem2D::GetFreeNode()
+{
+    LV_PROFILE_FUNCTION();
+
+    if (m_FreeNodes.size() > 0)
+    {
+        auto it = m_FreeNodes.begin();
+        auto nodeRef = *it;
+        m_FreeNodes.erase(it);
+        return nodeRef;
+    }
+
+    return std::make_shared<OrbitTreeNode>(m_NumNodesAllocated++);
+}
+
+
+OrbitSystem2D::InflRef OrbitSystem2D::GetFreeInflNode()
+{
+    LV_PROFILE_FUNCTION();
+
+    if (m_FreeInflNodes.size() > 0)
+    {
+        auto it = m_FreeInflNodes.begin();
+        auto inflRef = *it;
+        m_FreeInflNodes.erase(it);
+        return inflRef;
+    }
+
+    return std::make_shared<InfluencingNode>(m_NumNodesAllocated++);
+}
+
+
+void OrbitSystem2D::SetNodeFree(NodeRef& node)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(m_FreeNodes.find(node) == m_FreeNodes.end(), "Node ID is already free!");
+
+    m_FreeNodes.insert(node);
+}
+
+
+void OrbitSystem2D::SetInflNodeFree(InflRef& inflNode)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(m_FreeInflNodes.find(inflNode) == m_FreeInflNodes.end(), "Node ID is already free!");
+
+    m_FreeInflNodes.insert(inflNode);
+}
+
+
+uint32_t OrbitSystem2D::CreateInfluencingOrbiter(const bool dynamic, const InflRef& parent, const LV::BigFloat& mass, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
 {
     LV_PROFILE_FUNCTION();
 
     LV_CORE_ASSERT(scaledPosition.SqrMagnitude() > 0, "Position cannot be zero!");
 
-    InfluencingNode* newNode = new InfluencingNode;
-    newNode->Id = m_AllNodes.size(); // NOT SAFE - orbiter deletion may result in subsequent creations having duplicate IDs
-    newNode->Parent = parent;
+    InflRef inflRef = GetFreeInflNode();
+    inflRef->Parent = parent;
 
     // Compute gravitational properties of system
-    newNode->Mass = mass;
-    auto& op = newNode->Parameters;
+    inflRef->Mass = mass;
+    auto& op = inflRef->Parameters;
     op.GravAsOrbiter = parent->Parameters.GravAsHost; // mu = GM -> Assumes mass of orbiter is insignificant compared to host
 
     // Compute orbital elements
     op.Position = scaledPosition;
     op.Velocity = scaledVelocity;
-    newNode->Dynamic = dynamic;
-    newNode->NeedRecomputeState = false;
-    newNode->ComputeElementsFromState();
+    inflRef->Dynamic = dynamic;
+    inflRef->NeedRecomputeState = false;
+    inflRef->ComputeElementsFromState();
 
     // Compute this orbiter's influence
-    newNode->ComputeInfluence();
+    inflRef->ComputeInfluence();
 
     // Add to data structures
-    auto inflRef = InflRef(newNode);
     auto orbRef = std::static_pointer_cast<OrbitTreeNode>(inflRef);
-    m_AllNodes.push_back(orbRef);
-    m_InfluencingNodes.insert({ newNode->Id, inflRef });
+    m_AllNodes[inflRef->Id] = orbRef;
+    m_InfluencingNodes[inflRef->Id] = inflRef;
     if (dynamic)
     {
-        m_DynamicNodes.insert({ newNode->Id, orbRef });
+        m_DynamicNodes[inflRef->Id] = orbRef;
     }
-    newNode->Parent->InfluencingChildren.push_back(inflRef);
-    newNode->m_UpdateNext = m_UpdateFirst;
+    inflRef->Parent->InfluencingChildren.push_back(inflRef);
+    inflRef->m_UpdateNext = m_UpdateFirst;
     m_UpdateFirst = orbRef;
 
 
     // debug //
-    m_DebugData.emplace(newNode->Id, std::make_shared<Limnova::CsvTable<float, uint32_t, float, float, float>>());
-    m_DebugData[newNode->Id].Table->Init(
-        "Orbiter Debug Data: Orbiter " + std::to_string(newNode->Id),
-        "OrbiterDebugData/orbiter" + std::to_string(newNode->Id) + ".txt",
+    m_DebugData.emplace(inflRef->Id, std::make_shared<Limnova::CsvTable<float, uint32_t, float, float, float>>());
+    m_DebugData[inflRef->Id].Table->Init(
+        "Orbiter Debug Data: Orbiter " + std::to_string(inflRef->Id),
+        "OrbiterDebugData/orbiter" + std::to_string(inflRef->Id) + ".txt",
         { "T (s)", "Num.Passes", "Predicted Pass Time(s)", "Actual Pass Time(s)", "Error(ms)" }, false
     );
-    m_UpdateCounts[newNode->Id] = 0;
+    m_UpdateCounts[inflRef->Id] = 0;
     // debug //
 
 
-    return newNode->Id;
+    return inflRef->Id;
 }
 
 
-uint32_t OrbitSystem2D::CreateNoninflNode(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity)
+uint32_t OrbitSystem2D::CreateNoninflOrbiter(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity)
 {
     LV_PROFILE_FUNCTION();
 
     LV_CORE_ASSERT(scaledPosition.SqrMagnitude() > 0, "Position cannot be zero!");
 
-    OrbitTreeNode* newNode = new OrbitTreeNode;
-    newNode->Id = m_AllNodes.size(); // NOT SAFE - orbiter deletion may result in subsequent creations having duplicate IDs
-    newNode->Parent = parent;
+    NodeRef nodeRef = GetFreeNode();
+    nodeRef->Parent = parent;
 
     // Compute gravitational properties of system
-    newNode->Mass = mass;
-    auto& op = newNode->Parameters;
+    nodeRef->Mass = mass;
+    auto& op = nodeRef->Parameters;
     op.GravAsOrbiter = parent->Parameters.GravAsHost; // mu = GM -> Assumes mass of orbiter is insignificant compared to host
 
     // Compute orbital elements
     op.Position = scaledPosition;
     op.Velocity = scaledVelocity;
-    newNode->Dynamic = dynamic;
-    newNode->NeedRecomputeState = false;
-    newNode->ComputeElementsFromState();
+    nodeRef->Dynamic = dynamic;
+    nodeRef->NeedRecomputeState = false;
+    nodeRef->ComputeElementsFromState();
 
     // Add to data structures
-    auto orbRef = NodeRef(newNode);
-    m_AllNodes.push_back(orbRef);
+    m_AllNodes[nodeRef->Id] = nodeRef;
     if (dynamic)
     {
-        m_DynamicNodes.insert({ newNode->Id, orbRef });
+        m_DynamicNodes[nodeRef->Id] = nodeRef;
     }
-    newNode->Parent->NonInflChildren.push_back(orbRef);
-    newNode->m_UpdateNext = m_UpdateFirst;
-    m_UpdateFirst = orbRef;
+    nodeRef->Parent->NonInflChildren.push_back(nodeRef);
+    nodeRef->m_UpdateNext = m_UpdateFirst;
+    m_UpdateFirst = nodeRef;
 
-    return newNode->Id;
+    return nodeRef->Id;
 }
 
 
-Limnova::Vector2 OrbitSystem2D::OrbitTreeNode::GetPosition(const float trueAnomaly)
+Limnova::Vector2 OrbitSystem2D::OrbitTreeNode::ComputePositionAtTrueAnomaly(const float trueAnomaly)
 {
     LV_PROFILE_FUNCTION();
 
@@ -800,15 +860,15 @@ void OrbitSystem2D::OrbitTreeNode::FindIntersects(NodeRef& sibling)
     int numIntersects = 0;
     if (abs(theta0) < op.TrueAnomalyEscape && abs(siblingTheta0) < sp.TrueAnomalyEscape)
     {
-        intersect.second[numIntersects] = this->GetPosition(theta0);
-        siblingIntersect.second[numIntersects] = sibling->GetPosition(siblingTheta0);
+        intersect.second[numIntersects] = this->ComputePositionAtTrueAnomaly(theta0);
+        siblingIntersect.second[numIntersects] = sibling->ComputePositionAtTrueAnomaly(siblingTheta0);
 
         numIntersects++;
     }
     if (abs(theta1) < op.TrueAnomalyEscape && abs(siblingTheta1) < sp.TrueAnomalyEscape)
     {
-        intersect.second[numIntersects] = this->GetPosition(theta1);
-        siblingIntersect.second[numIntersects] = sibling->GetPosition(siblingTheta1);
+        intersect.second[numIntersects] = this->ComputePositionAtTrueAnomaly(theta1);
+        siblingIntersect.second[numIntersects] = sibling->ComputePositionAtTrueAnomaly(siblingTheta1);
 
         numIntersects++;
     }
@@ -902,6 +962,28 @@ void OrbitSystem2D::DestroyOrbiter(const uint32_t orbiterId)
 
     // Remove from sibling intersects
     RemoveOrbiterIntersectsFromSiblings(nodeRef, nodeRef->Parent);
+
+    // Remove from structures
+    LV_CORE_ASSERT(m_AllNodes.find(nodeRef->Id) != m_AllNodes.end(), "Node does not have an existing reference!");
+    m_AllNodes.erase(nodeRef->Id);
+    if (nodeRef->Dynamic)
+    {
+        LV_CORE_ASSERT(m_DynamicNodes.find(nodeRef->Id) != m_DynamicNodes.end(), "Dynamic node does not have an existing reference!");
+        m_DynamicNodes.erase(nodeRef->Id);
+    }
+    if (nodeRef->Influencing)
+    {
+        LV_CORE_ASSERT(m_InfluencingNodes.find(nodeRef->Id) != m_InfluencingNodes.end(), "Node does not have an existing reference!");
+        m_InfluencingNodes.erase(nodeRef->Id);
+
+        // Free node so it can be re-used
+        auto inflNode = std::static_pointer_cast<InfluencingNode>(nodeRef);
+        SetInflNodeFree(inflNode);
+    }
+    else
+    {
+        SetNodeFree(nodeRef);
+    }
 }
 
 
@@ -909,7 +991,7 @@ const OrbitSystem2D::OrbitTreeNode& OrbitSystem2D::GetOrbiter(const uint32_t orb
 {
     LV_PROFILE_FUNCTION();
 
-    LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId >= 0, "Invalid orbiter ID!");
+    LV_CORE_ASSERT(m_AllNodes.find(orbiterId) != m_AllNodes.end(), "Invalid orbiter ID!");
 
     auto& node = m_AllNodes[orbiterId];
     if (node->NeedRecomputeState)
@@ -941,7 +1023,7 @@ const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_
 {
     LV_PROFILE_FUNCTION();
 
-    LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId >= 0, "Invalid orbiter ID!");
+    LV_CORE_ASSERT(m_AllNodes.find(orbiterId) != m_AllNodes.end(), "Invalid orbiter ID!");
 
     auto& node = m_AllNodes[orbiterId];
     if (node->NeedRecomputeState)
@@ -977,7 +1059,7 @@ float OrbitSystem2D::GetHostScaling(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
-    LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId > 0, "Invalid orbiter ID!");
+    LV_CORE_ASSERT(m_AllNodes.find(orbiterId) != m_AllNodes.end(), "Invalid orbiter ID!");
 
     return m_AllNodes[orbiterId]->Parent->Influence.TotalScaling.Float();
 }
@@ -987,7 +1069,7 @@ uint32_t OrbitSystem2D::GetOrbiterHost(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
-    LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId > 0, "Invalid orbiter ID!");
+    LV_CORE_ASSERT(orbiterId > 0 && m_AllNodes.find(orbiterId) != m_AllNodes.end(), "Invalid orbiter ID!");
 
     return m_AllNodes[orbiterId]->Parent->Id;
 }
@@ -997,7 +1079,7 @@ bool OrbitSystem2D::IsInfluencing(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
-    LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId >= 0, "Invalid orbiter ID!");
+    LV_CORE_ASSERT(m_AllNodes.find(orbiterId) != m_AllNodes.end(), "Invalid orbiter ID!");
 
     return m_AllNodes[orbiterId]->Influencing;
 }
@@ -1024,7 +1106,7 @@ void OrbitSystem2D::SetOrbiterRightAscension(const uint32_t orbiterId, const flo
 {
     LV_PROFILE_FUNCTION();
 
-    LV_CORE_ASSERT(orbiterId < m_AllNodes.size() && orbiterId > 0, "Invalid orbiter ID!");
+    LV_CORE_ASSERT(orbiterId > 0 && m_AllNodes.find(orbiterId) != m_AllNodes.end(), "Invalid orbiter ID!");
 
     auto& op = m_AllNodes[orbiterId]->Parameters;
 
@@ -1035,6 +1117,17 @@ void OrbitSystem2D::SetOrbiterRightAscension(const uint32_t orbiterId, const flo
     }
 
     m_AllNodes[orbiterId]->ComputeStateVector();
+}
+
+
+void OrbitSystem2D::GetAllHosts(std::vector<uint32_t>& ids)
+{
+    LV_PROFILE_FUNCTION();
+
+    for (auto& infl : m_InfluencingNodes)
+    {
+        ids.push_back(infl.first);
+    }
 }
 
 
@@ -1049,14 +1142,23 @@ void OrbitSystem2D::AccelerateOrbiter(const uint32_t orbiterId, const Limnova::B
 }
 
 
-void OrbitSystem2D::GetAllHosts(std::vector<uint32_t>& ids)
+OrbitSystem2D::NodeRef& OrbitSystem2D::GetNodeRef(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
-    for (auto& infl : m_InfluencingNodes)
-    {
-        ids.push_back(infl.first);
-    }
+    LV_CORE_ASSERT(m_AllNodes.find(orbiterId) != m_AllNodes.end(), "Invalid orbiter ID!");
+
+    return m_AllNodes[orbiterId];
+}
+
+
+OrbitSystem2D::InflRef& OrbitSystem2D::GetInflRef(const uint32_t orbiterId)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(m_InfluencingNodes.find(orbiterId) != m_InfluencingNodes.end(), "AccelerateOrbiter() was passed an invalid orbiter ID!");
+
+    return m_InfluencingNodes[orbiterId];
 }
 
 

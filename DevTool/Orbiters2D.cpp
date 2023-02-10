@@ -2,7 +2,7 @@
 
 #include "OrbitSystem2D.h"
 
-#define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\assets"
+#define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\Assets"
 
 
 static constexpr float kZoomMin = 0.1f;
@@ -83,7 +83,6 @@ void Orbiters2D::OnAttach()
     orbs.SetOrbiterRightAscension(id, Limnova::PIover4f);
     nameoss.str(""); nameoss << "Planet 0 (" << id << ")";
     m_OrbiterRenderInfo[id] = { nameoss.str(), 0.001f, {0.3f, 0.5f, 1.f, 1.f}};
-    //m_CameraHostId = id; // set camera orbit space to Planet 0
     //m_CameraTrackingId = id; // track Planet 0
     uint32_t planet0Id = id;
     {
@@ -95,11 +94,17 @@ void Orbiters2D::OnAttach()
         m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00007f, {0.3f, 0.9f, 0.2f, 1.f} };
 
         // Testing dynamic orbits - orbiter self-acceleration
-        id = orbs.CreateOrbiterCS(false, true, Limnova::BigFloat(1.f, 2), planet0Id, Limnova::Vector2(0.5f, 0.f), false);
+        id = orbs.CreateOrbiterCS(false, true, Limnova::BigFloat(1.f, -1.f), planet0Id, Limnova::Vector2(0.6f, 0.f), false);
         m_PlayerShipId = id;
         nameoss.str(""); nameoss << "Player Ship (" << id << ")";
-        m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.6f, 0.5f, .7f, 1.f} };
-        //m_CameraTrackingId = id; // Track Player Ship
+        m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.6f, 0.6f, 0.4f, 1.f} };
+        
+        m_CameraHostId = planet0Id; // set camera orbit space to Planet 0
+        m_CameraTrackingId = m_PlayerShipId; // Track Player Ship
+
+        id = orbs.CreateOrbiterCS(false, true, Limnova::BigFloat(1.f, 2.f), planet0Id, Limnova::Vector2(-0.7f, 0.f), false);
+        nameoss.str(""); nameoss << "Practice Target 0 (" << id << ")";
+        m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.7f, 0.4f, 0.3f, 1.f} };
     }
 
     id = orbs.CreateOrbiterCS(true, false, Limnova::BigFloat(1.f, 6), 0, Limnova::Vector2(0.f, -.5f), false);
@@ -111,13 +116,6 @@ void Orbiters2D::OnAttach()
         nameoss.str(""); nameoss << "Moon 1.0 (" << id << ")";
         m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.5f, 0.2f, .3f, 1.f} };
     }
-
-
-    // Testing orbit destruction
-    id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 2), 0, Limnova::Vector2(-1.f, 0.f), Limnova::Vector2(0.f, -1.5f));
-    nameoss.str(""); nameoss << "Comet 4 (" << id << ")";
-    m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.3f, 0.3f, .3f, 1.f} };
-    m_CameraTrackingId = id; // track Comet 4
 
     // Textures
     m_CheckerboardTexture = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Limnova::Texture::WrapMode::MirroredTile);
@@ -206,7 +204,6 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
         static constexpr float baseOrbiterCircleRadius = 0.024f;
         static constexpr float trackedSubOrbiterRadius = 0.001f;
         static constexpr float baseShipThrustLineThickness = 0.008f;
-        static constexpr float smallCircleMaxDiameter = 0.008f;
         static constexpr float circleLargeFillTexSizeFactor = 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
 
         float zoom = m_CameraController->GetZoom();

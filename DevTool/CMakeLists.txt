@@ -1,6 +1,13 @@
 project(DevTool)
 
-add_executable(${PROJECT_NAME} "DevTool.cpp" "Dev2D.cpp" "Orbiter.cpp" "Orbiters2D.cpp" "OrbitSystem2D.cpp")
+add_executable(${PROJECT_NAME}
+    "DevTool.cpp"
+    "Dev2D.cpp"
+    "Orbiters2D.cpp"
+    "OrbitSystem2D.cpp"
+
+    "Entities/OrbitalEntity.cpp"
+)
 
 
 set_property(TARGET ${PROJECT_NAME}
@@ -10,6 +17,8 @@ set_property(TARGET ${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE
+        "${PROJECT_SOURCE_DIR}"
+
         "${CMAKE_SOURCE_DIR}/Limnova"
         "${CMAKE_SOURCE_DIR}/Limnova/src"
         "${CMAKE_SOURCE_DIR}/Limnova/thirdparty"

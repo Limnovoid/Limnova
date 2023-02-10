@@ -3,8 +3,6 @@
 #include <Limnova.h>
 #include <Core/Layer.h>
 
-#include "Orbiter.h"
-
 
 class LIMNOVA_API Orbiters2D : public Limnova::Layer
 {
@@ -39,7 +37,5 @@ private:
     uint32_t m_CameraTrackingId = 0;
     uint32_t m_CameraHostId = 0;
     bool m_CameraTrackingChanged = false;
-
-    // debug
     uint32_t m_PlayerShipId;
 };

@@ -2,7 +2,19 @@
 
 #include <Limnova.h>
 
-#include "Orbiter.h"
+#define INITIALIZER_REPEAT_2(x) x, x
+#define INITIALIZER_REPEAT_4(x) INITIALIZER_REPEAT_2(x), INITIALIZER_REPEAT_2(x)
+#define INITIALIZER_REPEAT_8(x) INITIALIZER_REPEAT_4(x), INITIALIZER_REPEAT_4(x)
+#define INITIALIZER_REPEAT_16(x) INITIALIZER_REPEAT_8(x), INITIALIZER_REPEAT_8(x)
+#define INITIALIZER_REPEAT_32(x) INITIALIZER_REPEAT_16(x), INITIALIZER_REPEAT_16(x)
+#define INITIALIZER_REPEAT_64(x) INITIALIZER_REPEAT_32(x), INITIALIZER_REPEAT_32(x)
+#define INITIALIZER_EXPAND(...) __VA_ARGS__
+#define INITIALIZER_REPEAT__(N, X) INITIALIZER_EXPAND(INITIALIZER_REPEAT_ ## N)(X)
+#define INITIALIZER_REPEAT_(N, X) INITIALIZER_REPEAT__(N, X)
+#define INITIALIZER_REPEAT(N, X) INITIALIZER_REPEAT_(INITIALIZER_EXPAND(N), X)
+
+#define MAX_NODES 64
+#define MAX_INFLNODES 64
 
 
 class OrbitSystem2D
@@ -62,8 +74,78 @@ public:
         std::unordered_map<uint32_t, std::pair<uint32_t, Limnova::Vector2[2]>> Intersects;
     };
 
+
     class OrbitTreeNode;
     class InfluencingNode;
+    using NodeRef = std::shared_ptr<OrbitTreeNode>;
+    using InflRef = std::shared_ptr<InfluencingNode>;
+
+
+    class OrbitTreeNode
+    {
+        friend class OrbitSystem2D;
+    public:
+        OrbitTreeNode(const uint32_t id) : Id(id) {}
+        virtual ~OrbitTreeNode() {}
+
+        const OrbitParameters& GetParameters() const { return Parameters; }
+        float GetHostScaling() const { return Parent->Influence.TotalScaling.Float(); }
+        uint32_t GetHost() const { return Parent->Id; }
+
+        Limnova::Vector2 ComputePositionAtTrueAnomaly(const float trueAnomaly);
+    protected:
+        uint32_t Id;
+        InflRef Parent = nullptr;
+
+        Limnova::BigFloat Mass;
+        OrbitParameters Parameters;
+        bool NeedRecomputeState = false;
+        bool Influencing = false;
+        bool Dynamic = false;
+    protected:
+        void ComputeElementsFromState();
+        void ComputeStateVector();
+
+        void FindIntersects(NodeRef& sibling);
+    protected:
+        NodeRef m_UpdateNext;
+    };
+
+
+    struct Influence
+    {
+        Limnova::BigFloat TotalScaling; // Use to multiply children's parameters to convert them from unscaled-absolute dimensions to relative-scaled dimensions.
+        float Radius = 0.f; // Scaled by parent - use to multiply children's parameters to convert them from this influence's scale to the parent scale (move from this influence to the next-higher influence in the level).
+    };
+
+
+    class InfluencingNode : public OrbitTreeNode
+    {
+        friend class OrbitSystem2D;
+    public:
+        InfluencingNode(const uint32_t id) : OrbitTreeNode(id) { Influencing = true; }
+        ~InfluencingNode() {}
+
+        float GetScaling() const { return Influence.TotalScaling.Float(); }
+        float GetRadiusOfInfluence() const { return Influence.Radius; }
+        void GetChildren(std::vector<uint32_t>& ids) const
+        {
+            for (auto& child : InfluencingChildren)
+            {
+                ids.push_back(child->Id);
+            }
+            for (auto& child : NonInflChildren)
+            {
+                ids.push_back(child->Id);
+            }
+        }
+    private:
+        Influence Influence;
+        std::vector<InflRef> InfluencingChildren;
+        std::vector<NodeRef> NonInflChildren;
+    private:
+        void ComputeInfluence();
+    };
 public:
     OrbitSystem2D();
     ~OrbitSystem2D();
@@ -168,79 +250,16 @@ public:
     void SetOrbiterRightAscension(const uint32_t orbiterId, const float rightAscension);
 
     void AccelerateOrbiter(const uint32_t orbiterId, const Limnova::BigVector2& cceleration);
+
+    NodeRef& GetNodeRef(const uint32_t orbiterId);
+    InflRef& GetInflRef(const uint32_t orbiterId);
 private:
-    using NodeRef = std::shared_ptr<OrbitTreeNode>;
-    using InflRef = std::shared_ptr<InfluencingNode>;
+    uint32_t m_NumNodesAllocated;
+    std::unordered_set<NodeRef> m_FreeNodes;
+    std::unordered_set<InflRef> m_FreeInflNodes;
 
-
-    class OrbitTreeNode
-    {
-    public:
-        OrbitTreeNode() {}
-        virtual ~OrbitTreeNode() {}
-        friend class OrbitSystem2D;
-
-        const OrbitParameters& GetParameters() const { return Parameters; }
-        float GetHostScaling() const { return Parent->Influence.TotalScaling.Float(); }
-        uint32_t GetHost() const { return Parent->Id; }
-    protected:
-        InflRef Parent = nullptr;
-        uint32_t Id = std::numeric_limits<uint32_t>::max();
-
-        Limnova::BigFloat Mass;
-        OrbitParameters Parameters;
-        bool NeedRecomputeState = false;
-        bool Influencing = false;
-        bool Dynamic;
-    protected:
-        Limnova::Vector2 GetPosition(const float trueAnomaly);
-
-        void ComputeElementsFromState();
-        void ComputeStateVector();
-
-        void FindIntersects(NodeRef& sibling);
-    protected:
-        NodeRef m_UpdateNext;
-    };
-
-
-    struct Influence
-    {
-        Limnova::BigFloat TotalScaling; // Use to multiply children's parameters to convert them from unscaled-absolute dimensions to relative-scaled dimensions.
-        float Radius = 0.f; // Scaled by parent - use to multiply children's parameters to convert them from this influence's scale to the parent scale (move from this influence to the next-higher influence in the level).
-    };
-
-
-    class InfluencingNode : public OrbitTreeNode
-    {
-    public:
-        InfluencingNode() { Influencing = true; }
-        ~InfluencingNode() {}
-        friend class OrbitSystem2D;
-
-        float GetScaling() const { return Influence.TotalScaling.Float(); }
-        float GetRadiusOfInfluence() const { return Influence.Radius; }
-        void GetChildren(std::vector<uint32_t>& ids) const
-        {
-            for (auto& child : InfluencingChildren)
-            {
-                ids.push_back(child->Id);
-            }
-            for (auto& child : NonInflChildren)
-            {
-                ids.push_back(child->Id);
-            }
-        }
-    private:
-        Influence Influence;
-        std::vector<InflRef> InfluencingChildren;
-        std::vector<NodeRef> NonInflChildren; // Non-influencing children - low-mass orbiters, ships, etc
-    private:
-        void ComputeInfluence();
-    };
-private:
     InflRef m_LevelHost;
-    std::vector<NodeRef> m_AllNodes;
+    std::unordered_map<uint32_t, NodeRef> m_AllNodes;
     std::unordered_map<uint32_t, InflRef> m_InfluencingNodes;
     std::unordered_map<uint32_t, NodeRef> m_DynamicNodes;
     NodeRef m_UpdateFirst = nullptr;
@@ -257,9 +276,14 @@ private:
     // uint32_t - ID of orbiter which has been destroyed
     std::function<void(const uint32_t /*ID*/)> m_OrbiterDestroyedCallback;
 private:
-    uint32_t CreateInfluencingNode(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
+    NodeRef GetFreeNode(); // Returns a reference to an unused node - assigns it a valid ID before returning
+    InflRef GetFreeInflNode(); // Returns a reference to an unused influencing node - assigns it a valid before returning
+    void SetNodeFree(NodeRef& node);
+    void SetInflNodeFree(InflRef& inflNode);
 
-    uint32_t CreateNoninflNode(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
+    uint32_t CreateInfluencingOrbiter(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
+
+    uint32_t CreateNoninflOrbiter(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
 
     /// <summary>
     /// Returns lowest-level node whose circle-of-influence overlaps the given position;
