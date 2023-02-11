@@ -2,20 +2,6 @@
 
 #include <Limnova.h>
 
-#define INITIALIZER_REPEAT_2(x) x, x
-#define INITIALIZER_REPEAT_4(x) INITIALIZER_REPEAT_2(x), INITIALIZER_REPEAT_2(x)
-#define INITIALIZER_REPEAT_8(x) INITIALIZER_REPEAT_4(x), INITIALIZER_REPEAT_4(x)
-#define INITIALIZER_REPEAT_16(x) INITIALIZER_REPEAT_8(x), INITIALIZER_REPEAT_8(x)
-#define INITIALIZER_REPEAT_32(x) INITIALIZER_REPEAT_16(x), INITIALIZER_REPEAT_16(x)
-#define INITIALIZER_REPEAT_64(x) INITIALIZER_REPEAT_32(x), INITIALIZER_REPEAT_32(x)
-#define INITIALIZER_EXPAND(...) __VA_ARGS__
-#define INITIALIZER_REPEAT__(N, X) INITIALIZER_EXPAND(INITIALIZER_REPEAT_ ## N)(X)
-#define INITIALIZER_REPEAT_(N, X) INITIALIZER_REPEAT__(N, X)
-#define INITIALIZER_REPEAT(N, X) INITIALIZER_REPEAT_(INITIALIZER_EXPAND(N), X)
-
-#define MAX_NODES 64
-#define MAX_INFLNODES 64
-
 
 class OrbitSystem2D
 {
@@ -26,7 +12,8 @@ public:
     {
         Circle      = 0,
         Ellipse     = 1,
-        Hyperbola   = 2
+        Hyperbola   = 2,
+        Line        = 3
     };
 
     struct OrbitParameters
@@ -69,6 +56,7 @@ public:
         Limnova::BigFloat TimePeriapseToEscape = 0.f;
         Limnova::Vector2 EscapePointPerifocal;
         Limnova::Vector2 EscapePointsScene[2];
+        Limnova::BigVector2 DynamicAcceleration = { 0.f, 0.f };
 
         // For each other orbit which intersects this orbit, this member maps the ID of the other orbiter to the relevant intersect data: data is stored as a pair in which 'first' stores the number of intersects (0, 1, or 2), and 'second' stores their position vectors as an array of size 2.
         std::unordered_map<uint32_t, std::pair<uint32_t, Limnova::Vector2[2]>> Intersects;
@@ -105,6 +93,7 @@ public:
     protected:
         void ComputeElementsFromState();
         void ComputeStateVector();
+        void ComputeGravityAccelerationFromState();
 
         void FindIntersects(NodeRef& sibling);
     protected:

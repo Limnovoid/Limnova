@@ -26,8 +26,6 @@ namespace Limnova
         float Float() { return m_Coefficient * (float)pow(10.f, m_Exponent); }
         const float Float() const { return m_Coefficient * (float)pow(10.f, m_Exponent); }
     public:
-        BigFloat operator-() const;
-
         BigFloat operator*(const float rhs) const;
         BigFloat operator/(const float rhs) const;
 
@@ -41,6 +39,7 @@ namespace Limnova
         BigFloat operator-(const BigFloat& rhs) const;
         BigFloat& operator-=(const BigFloat& rhs);
 
+        friend BigFloat operator-(const BigFloat& value);
         friend BigFloat operator/(const float lhs, const BigFloat& rhs);
 
         friend bool operator== (const BigFloat& lhs, const BigFloat& rhs);
@@ -53,6 +52,7 @@ namespace Limnova
     };
 
 
+    BigFloat operator-(const BigFloat& value);
     BigFloat operator*(const float lhs, const BigFloat& rhs);
     BigFloat operator/(const float lhs, const BigFloat& rhs);
 

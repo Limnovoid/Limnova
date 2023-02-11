@@ -19,5 +19,4 @@ class OrbitSystemHost : public OrbitalEntity
 public:
     OrbitSystemHost();
     ~OrbitSystemHost();
-
 };

@@ -100,11 +100,17 @@ void Orbiters2D::OnAttach()
         m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.6f, 0.6f, 0.4f, 1.f} };
         
         m_CameraHostId = planet0Id; // set camera orbit space to Planet 0
-        m_CameraTrackingId = m_PlayerShipId; // Track Player Ship
+        //m_CameraTrackingId = m_PlayerShipId; // Track Player Ship
 
         id = orbs.CreateOrbiterCS(false, true, Limnova::BigFloat(1.f, 2.f), planet0Id, Limnova::Vector2(-0.7f, 0.f), false);
         nameoss.str(""); nameoss << "Practice Target 0 (" << id << ")";
         m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00003f, {0.7f, 0.4f, 0.3f, 1.f} };
+
+        // Testing linear trajectory
+        id = orbs.CreateOrbiterES(false, true, Limnova::BigFloat(1.f, 0), planet0Id, Limnova::Vector2(0.f, -0.9f), Limnova::Vector2(0.f, 0.f));
+        nameoss.str(""); nameoss << "Comet 0 (" << id << ")";
+        m_OrbiterRenderInfo[id] = { nameoss.str(), 0.00005f, {0.5f, 0.45f, 0.3f, 1.f} };
+        m_CameraTrackingId = id;
     }
 
     id = orbs.CreateOrbiterCS(true, false, Limnova::BigFloat(1.f, 6), 0, Limnova::Vector2(0.f, -.5f), false);
@@ -299,6 +305,24 @@ void Orbiters2D::OnUpdate(Limnova::Timestep dT)
             shipInputUICol.z = powf(shipInputUICol.z + 0.1f, 2);
             shipInputUICol.w = shipIsThrusting ? 0.7f : 0.3f;
             Limnova::Renderer2D::DrawLine({ 0.f }, shipToMouseLine, shipThrustLineThickness, shipInputUICol);
+        }
+
+        // Render linear trajectories
+        for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
+        {
+            size_t orbId = visibleOrbiters[idx];
+
+            auto& op = orbs.GetParameters(orbId);
+            auto& ri = m_OrbiterRenderInfo[orbId];
+            if (op.Type == OrbitSystem2D::OrbitType::Line)
+            {
+                Limnova::Vector2 centrePos = idx < numCameraHostOrbiters ? hostPos : Limnova::Vector2::Zero();
+                Limnova::Vector2 orbPos = idx < numCameraHostOrbiters ? (orbId == m_CameraTrackingId ? 0.f : op.Position) : troi * op.Position;
+
+                auto col = ri.Color;
+                col.w = orbId == m_CameraTrackingId ? 0.7f : 0.3f;
+                Limnova::Renderer2D::DrawLine(centrePos, orbPos, trajectoryLineThickness, col);
+            }
         }
 
         // Render elliptical orbits/trajectories

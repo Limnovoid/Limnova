@@ -29,7 +29,7 @@ namespace Limnova
     BigFloat::BigFloat(float coefficient, int exponent)
         : m_Coefficient(coefficient), m_Exponent(exponent)
     {
-        if (m_Coefficient == 0)
+        if (m_Coefficient == 0.f)
         {
             m_Exponent = 0;
             return;
@@ -115,15 +115,6 @@ namespace Limnova
     }
 
 
-    BigFloat BigFloat::operator-() const
-    {
-        BigFloat ret;
-        ret.m_Coefficient = -1.f * this->m_Coefficient;
-        ret.m_Exponent = this->m_Exponent;
-        return ret;
-    }
-
-
     BigFloat BigFloat::operator*(const float rhs) const
     {
         float coef = this->m_Coefficient * rhs;
@@ -178,6 +169,7 @@ namespace Limnova
         {
             return { 0.f, 0 };
         }
+        LV_CORE_ASSERT(!rhs.IsZero(), "BigFloat division by zero!");
         float coef = this->m_Coefficient / rhs.m_Coefficient;
         int exp = this->m_Exponent - rhs.m_Exponent;
         return { coef, exp };
@@ -310,6 +302,15 @@ namespace Limnova
             this->m_Exponent--;
         }
         return *this;
+    }
+
+
+    BigFloat operator-(const BigFloat& value)
+    {
+        BigFloat ret;
+        ret.m_Coefficient = -value.m_Coefficient;
+        ret.m_Exponent = value.m_Exponent;
+        return ret;
     }
 
 

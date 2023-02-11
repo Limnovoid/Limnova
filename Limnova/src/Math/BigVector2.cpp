@@ -82,6 +82,12 @@ namespace Limnova
     }
 
 
+    BigVector2 operator-(const BigVector2& vector)
+    {
+        return { -vector.x, -vector.y };
+    }
+
+
     BigVector2 operator*(const float scalar, const BigVector2 vector)
     {
         return vector * (BigFloat)scalar;

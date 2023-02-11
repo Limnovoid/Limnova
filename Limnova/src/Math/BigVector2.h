@@ -51,6 +51,7 @@ namespace Limnova
     };
 
 
+    BigVector2 operator-(const BigVector2& vector);
     BigVector2 operator*(const float scalar, const BigVector2 vector);
     BigVector2 operator*(const BigFloat scalar, const BigVector2 vector);
 
