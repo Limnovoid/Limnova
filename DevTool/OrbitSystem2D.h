@@ -12,8 +12,7 @@ public:
     {
         Circle      = 0,
         Ellipse     = 1,
-        Hyperbola   = 2,
-        Line        = 3
+        Hyperbola   = 2
     };
 
     struct OrbitParameters
@@ -57,6 +56,7 @@ public:
         Limnova::Vector2 EscapePointPerifocal;
         Limnova::Vector2 EscapePointsScene[2];
         Limnova::BigVector2 DynamicAcceleration = { 0.f, 0.f };
+        bool NewtonianMotion = false;
 
         // For each other orbit which intersects this orbit, this member maps the ID of the other orbiter to the relevant intersect data: data is stored as a pair in which 'first' stores the number of intersects (0, 1, or 2), and 'second' stores their position vectors as an array of size 2.
         std::unordered_map<uint32_t, std::pair<uint32_t, Limnova::Vector2[2]>> Intersects;

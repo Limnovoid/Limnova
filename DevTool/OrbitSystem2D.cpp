@@ -11,7 +11,9 @@ static constexpr uint32_t kMaxUpdatesPerNodePerFrame = 20;
 static constexpr float kMinimumDeltaT = 1.f / (60.f * (float)kMaxUpdatesPerNodePerFrame); // maximum 20 updates per node per frame at 60 frames per second
 static constexpr float kMinimumNewtonStep = 1e-6f;
 static constexpr float kEscapeDistance = 1.01f;
-static constexpr float kNumTrajectoryEscapePointsScene = 16; // Number of points used to draw the path of a trajectory, from periapsis to escape
+static constexpr float kMinimumAxisRatioSqrt = 1e-2f; // Minimum ratio of semi-minor to semi-major axis for a well-defined orbit
+static constexpr float kEpsilonE2term = 1e-4f;
+static constexpr float kEpsilonEccentricity = 1e-2f;
 
 
 OrbitSystem2D::OrbitSystem2D()
@@ -76,7 +78,7 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
 
     float gameDeltaTime = m_Timescale * (float)dT;
 
-    // TEMPORARY - apply all non-gravitational accelerations:
+    // TEMPORARY - apply all non-gravitational accelerations
     for (auto& node : m_DynamicNodes)
     {
         auto& op = node.second->Parameters;
@@ -91,7 +93,7 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
         node.second->ComputeElementsFromState();
 
         // If orbit type has become a linear trajectory, prepare for Newtonian integration
-        if (op.Type == OrbitType::Line)
+        if (node.second->Parameters.NewtonianMotion)
         {
             m_UpdateFirst->ComputeGravityAccelerationFromState();
         }
@@ -101,6 +103,8 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
         // Update timer is not affected:
         // Assumes per-frame acceleration is not enough to significantly change the optimal time to next update
         // TODO - test this assumption
+
+        // TODO - explore moving the integration step into the main update loop
     }
 
     // Update all orbit nodes:
@@ -124,10 +128,13 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
 
         float r2 = op.Position.SqrMagnitude();
 
-        if (op.Type == OrbitType::Line)
+        if (op.NewtonianMotion)
         {
             // Newtonian integration for ill-defined orbits:
             nodeDeltaTime = sqrt(kMinimumNewtonStep / sqrt(op.Acceleration.SqrMagnitude().Float()));
+
+            // TODO - ASSERT that nodeDeltaTime computed above is a reasonable approximation of
+            // the timestep required to produce a change in position equal to kMinimumNewtonStep
 
             // Limit number of steps per frame
             nodeDeltaTime = gameDeltaTime / nodeDeltaTime < kMaxUpdatesPerNodePerFrame
@@ -135,11 +142,13 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
 
             // Velocity Verlet
             op.Position = op.Position + op.Velocity * nodeDeltaTime + 0.5f * op.Acceleration * powf(nodeDeltaTime, 2.f);
-            LV::BigVector2 accelerationGrav = -LV::BigVector2(op.Position) * (op.GravAsOrbiter / (r2 * sqrt(r2)));
-            op.Velocity = op.Velocity + 0.5f * (op.Acceleration + accelerationGrav) * nodeDeltaTime;
-            op.Acceleration = accelerationGrav;
+            LV::BigVector2 newAcceleration = -LV::BigVector2(op.Position) * (op.GravAsOrbiter / (r2 * sqrt(r2)));
+            op.Velocity = op.Velocity + 0.5f * (op.Acceleration + newAcceleration) * nodeDeltaTime;
+            op.Acceleration = newAcceleration;
 
             op.TrueAnomaly = op.Position.SqrMagnitude() / powf(kEscapeDistance, 2.f) * op.TrueAnomalyEscape;
+
+            op.DynamicAcceleration = LV::BigVector2::Zero();
         }
         else
         {
@@ -249,6 +258,7 @@ void OrbitSystem2D::HandleOrbiterEscapingHost(NodeRef& node)
     op.GravAsOrbiter = oldHost->Parent->Parameters.GravAsHost;
     op.Position = oldHost->Parameters.Position + (op.Position * oldHost->Influence.Radius);
     op.Velocity = oldHost->Parameters.Velocity + (op.Velocity * oldHost->Influence.Radius);
+    op.Acceleration *= oldHost->Influence.Radius;
 
     // Update node references
     ChangeNodeParent(node, oldHost, oldHost->Parent);
@@ -290,6 +300,7 @@ void OrbitSystem2D::HandleOrbiterOverlappingInfluence(NodeRef& node)
         op.GravAsOrbiter = other->Parameters.GravAsHost;
         op.Position = rPosition / other->Influence.Radius;
         op.Velocity = (op.Velocity - other->Parameters.Velocity) / other->Influence.Radius;
+        op.Acceleration /= other->Influence.Radius;
 
         // Update node references
         auto oldHost = node->Parent;
@@ -437,8 +448,10 @@ uint32_t OrbitSystem2D::CreateOrbiterCS(const bool influencing, const bool dynam
         LV::BigVector2(-scaledPosition.y, scaledPosition.x).Normalized();
     scaledVelocity = vMag * vDir;
 
-    return influencing ? CreateInfluencingOrbiter(dynamic, p, mass, scaledPosition, scaledVelocity)
+    uint32_t id = influencing ? CreateInfluencingOrbiter(dynamic, p, mass, scaledPosition, scaledVelocity)
         : CreateNoninflOrbiter(dynamic, p, mass, scaledPosition, scaledVelocity);
+    LV_CORE_ASSERT(m_AllNodes[id]->Parameters.Type == OrbitType::Circle, "Circular orbit creator function produced non-circular orbit parameters!");
+    return id;
 }
 
 
@@ -462,7 +475,9 @@ uint32_t OrbitSystem2D::CreateOrbiterCU(const bool influencing, const bool dynam
 
     LV::Vector2 scaledPosition = (position * m_LevelHost->Influence.TotalScaling).Vector2();
 
-    return CreateOrbiterCS(influencing, dynamic, mass, 0, scaledPosition, clockwise);
+    uint32_t id = CreateOrbiterCS(influencing, dynamic, mass, 0, scaledPosition, clockwise);
+    LV_CORE_ASSERT(m_AllNodes[id]->Parameters.Type == OrbitType::Circle, "Circular orbit creator function produced non-circular orbit parameters!");
+    return id;
 }
 
 
@@ -635,15 +650,7 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
     LV::BigVector2 vCrossh = { op.Velocity.y * signedH, -op.Velocity.x * signedH };
     LV::Vector2 eVec = (vCrossh / op.GravAsOrbiter).Vector2() - ur;
     float e2 = eVec.SqrMagnitude();
-    if (op.OSAMomentum.IsZero())
-    {
-        op.Type = OrbitType::Line;
-        op.Eccentricity = 0.f;
-        op.BasisX = eVec.Normalized();
-
-        this->ComputeGravityAccelerationFromState();
-    }
-    else if (e2 > 1.f)
+    if (e2 > 1.f)
     {
         LV_CORE_ASSERT(this->Dynamic, "Static orbits cannot be hyperbolic trajectories - they must be circular or elliptical!");
 
@@ -651,7 +658,7 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
         op.Eccentricity = sqrtf(e2);
         op.BasisX = eVec.Normalized();
     }
-    else if (e2 > 0.f)
+    else if (e2 - kEpsilonEccentricity > 0.f)
     {
         op.Type = OrbitType::Ellipse;
         op.Eccentricity = sqrtf(e2);
@@ -681,12 +688,32 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
     op.muh = op.OSAMomentum.IsZero() ? 0.f : op.GravAsOrbiter / op.OSAMomentum;
 
     float E2term = op.Type == OrbitType::Hyperbola ? e2 - 1.f : 1.f - e2;
+    if (E2term < kEpsilonE2term)
+    {
+        E2term = kEpsilonE2term;
+    }
     op.SemiMajorAxis = op.OParameter / E2term;
     op.SemiMinorAxis = op.SemiMajorAxis * sqrtf(E2term);
     op.Centre = -op.SemiMajorAxis * op.Eccentricity * op.BasisX;
     if (op.Type == OrbitType::Hyperbola)
     {
         op.Centre *= -1.f;
+    }
+
+    // Detect orbits which are too steep for true anomaly-based integration
+    if (E2term < kMinimumAxisRatioSqrt)
+    {
+        op.NewtonianMotion = true;
+
+        this->ComputeGravityAccelerationFromState();
+
+        op.TrueAnomaly = op.Position.SqrMagnitude() / powf(kEscapeDistance, 2.f) * op.TrueAnomalyEscape;
+
+        LV_CORE_WARN("Orbit is too steep for integration of true-anomaly!");
+    }
+    else
+    {
+        op.NewtonianMotion = false;
     }
 
     op.Period = LV::PI2f * op.SemiMajorAxis * op.SemiMinorAxis / op.OSAMomentum;
@@ -705,6 +732,7 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
         // cos(TAnomaly) = (h^2 / (mu * r_esc) - 1) / e
         op.TrueAnomalyEscape = acosf((op.OParameter / kEscapeDistance - 1.f) / op.Eccentricity);
         LV_CORE_INFO("Orbiter {0} will escape {1} at true anomaly {2} (current true anomaly {3})", this->Id, this->Parent->Id, op.TrueAnomalyEscape, op.TrueAnomaly);
+        LV_CORE_ASSERT(op.TrueAnomaly < op.TrueAnomalyEscape || op.TrueAnomaly > LV::PIf, "Orbiter true anomaly is in its computed escape range at the time of computing the escape true anomaly - the orbit is escaped before it is defined!");
 
         // Determine orbit time from periapse to escape
         float meanAnomaly;
@@ -736,16 +764,15 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
 
         // Points of entry and escape relative to the host, oriented to the scene
         op.EscapePointsScene[0] = op.OParameter
-            * (op.BasisX * cosT + op.BasisY * sinT)
+            * (op.BasisX * cosT + op.BasisY * sinT) // +Uy
             / (1.f + op.Eccentricity * cosT);
         op.EscapePointsScene[1] = op.OParameter
-            * (op.BasisX * cosT - op.BasisY * sinT)
+            * (op.BasisX * cosT - op.BasisY * sinT) // -Uy
             / (1.f + op.Eccentricity * cosT);
     }
-    else if (op.Type == OrbitType::Line)
+    else if (op.NewtonianMotion)
     {
-        op.TrueAnomalyEscape = LV::PIover2f;
-        op.TrueAnomaly = op.Position.SqrMagnitude() / powf(kEscapeDistance, 2.f) * op.TrueAnomalyEscape;
+        op.TrueAnomalyEscape = LV::PIf - kMinimumDeltaTAnom;
     }
     else
     {
