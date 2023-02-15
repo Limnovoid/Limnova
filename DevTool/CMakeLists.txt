@@ -6,7 +6,8 @@ add_executable(${PROJECT_NAME}
     "Orbiters2D.cpp"
     "OrbitSystem2D.cpp"
 
-    "Entities/OrbitalEntity.cpp"
+    "Entities/Entity.cpp"
+    "Entities/Orbiter.cpp"
 )
 
 

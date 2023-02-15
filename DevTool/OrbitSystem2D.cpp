@@ -37,7 +37,7 @@ void OrbitSystem2D::Init()
     s_OrbitSystem2D.m_FreeNodes.clear();
     s_OrbitSystem2D.m_FreeInflNodes.clear();
 
-    s_OrbitSystem2D.m_LevelHost.reset();
+    s_OrbitSystem2D.m_SystemHost.reset();
     s_OrbitSystem2D.m_AllNodes.clear();
     s_OrbitSystem2D.m_InfluencingNodes.clear();
     s_OrbitSystem2D.m_DynamicNodes.clear();
@@ -243,10 +243,12 @@ void OrbitSystem2D::HandleOrbiterEscapingHost(NodeRef& node)
         return;
     }
 
-    if (node->Parent == m_LevelHost)
+    if (node->Parent == m_SystemHost)
     {
         LV_CORE_WARN("Orbiter {0} escaped the level and was destroyed!", node->Id);
-        DestroyOrbiter(node->Id);
+        m_OrbiterDestroyedCallback(node->Id);
+        RemoveNodeFromUpdateQueue(node); // In case the callback is missing or does not call DestroyNode()
+        // RemoveNodeFromUpdateQueue() is safe to call on nodes which are not in the queue - it will print a WARN if that is the case
     }
 
     // Escape confirmed
@@ -369,6 +371,8 @@ void OrbitSystem2D::ChangeNodeParent(NodeRef& node, InflRef& oldParent, InflRef&
 
 void OrbitSystem2D::RemoveNodeFromUpdateQueue(NodeRef& node)
 {
+    LV_PROFILE_FUNCTION();
+
     if (node == m_UpdateFirst)
     {
         m_UpdateFirst = node->m_UpdateNext;
@@ -378,14 +382,22 @@ void OrbitSystem2D::RemoveNodeFromUpdateQueue(NodeRef& node)
         OrbitTreeNode* updatePrev = m_UpdateFirst.get();
         while (updatePrev->m_UpdateNext != node)
         {
+            if (updatePrev->m_UpdateNext == nullptr)
+            {
+                LV_CORE_WARN("Node ({0}) passed to RemoveNodeFromUpdateQueue() was not found in the queue!", node->Id);
+                node->m_UpdateNext = nullptr;
+                return;
+            }
+
             updatePrev = updatePrev->m_UpdateNext.get();
         }
         updatePrev->m_UpdateNext = node->m_UpdateNext;
     }
+    node->m_UpdateNext = nullptr;
 }
 
 
-void OrbitSystem2D::LoadLevel(const LV::BigFloat& hostMass, const LV::BigFloat& baseScaling)
+uint32_t OrbitSystem2D::LoadLevel(const LV::BigFloat& hostMass, const LV::BigFloat& baseScaling)
 {
     LV_PROFILE_FUNCTION();
 
@@ -393,22 +405,24 @@ void OrbitSystem2D::LoadLevel(const LV::BigFloat& hostMass, const LV::BigFloat& 
     m_FreeNodes.clear();
     m_FreeInflNodes.clear();
 
-    m_LevelHost = GetFreeInflNode();
-    m_LevelHost->Id = 0;
-    m_LevelHost->Mass = hostMass;
-    m_LevelHost->Parameters.GravAsOrbiter = kGrav * hostMass;
-    m_LevelHost->Influence.TotalScaling = baseScaling;
+    m_SystemHost = GetFreeInflNode();
+    m_SystemHost->Id = 0;
+    m_SystemHost->Mass = hostMass;
+    m_SystemHost->Parameters.GravAsOrbiter = kGrav * hostMass;
+    m_SystemHost->Influence.TotalScaling = baseScaling;
 
     // Length dimension in G (the gravitational constant) is cubed - scaling must be cubed when computing scaled-GM
-    m_LevelHost->Parameters.GravAsHost = m_LevelHost->Parameters.GravAsOrbiter / LV::BigFloat::Pow(baseScaling, 3);
+    m_SystemHost->Parameters.GravAsHost = m_SystemHost->Parameters.GravAsOrbiter / LV::BigFloat::Pow(baseScaling, 3);
 
     m_AllNodes.clear();
-    m_AllNodes[0] = m_LevelHost;
+    m_AllNodes[0] = m_SystemHost;
 
     m_InfluencingNodes.clear();
-    m_InfluencingNodes[0] = m_LevelHost;
+    m_InfluencingNodes[0] = m_SystemHost;
 
     m_DynamicNodes.clear();
+
+    return m_SystemHost->Id;
 }
 
 
@@ -460,8 +474,8 @@ uint32_t OrbitSystem2D::CreateOrbiterEU(const bool influencing, const bool dynam
     LV_PROFILE_FUNCTION();
 
     // Determine parent node (host of orbit)
-    LV::Vector2 scaledPosition = (position * m_LevelHost->Influence.TotalScaling).Vector2();
-    LV::BigVector2 scaledVelocity = velocity * m_LevelHost->Influence.TotalScaling;
+    LV::Vector2 scaledPosition = (position * m_SystemHost->Influence.TotalScaling).Vector2();
+    LV::BigVector2 scaledVelocity = velocity * m_SystemHost->Influence.TotalScaling;
     auto& p = FindLowestOverlappingInfluence(scaledPosition, scaledVelocity);
 
     return influencing ? CreateInfluencingOrbiter(dynamic, p, mass, scaledPosition, scaledVelocity)
@@ -473,7 +487,7 @@ uint32_t OrbitSystem2D::CreateOrbiterCU(const bool influencing, const bool dynam
 {
     LV_PROFILE_FUNCTION();
 
-    LV::Vector2 scaledPosition = (position * m_LevelHost->Influence.TotalScaling).Vector2();
+    LV::Vector2 scaledPosition = (position * m_SystemHost->Influence.TotalScaling).Vector2();
 
     uint32_t id = CreateOrbiterCS(influencing, dynamic, mass, 0, scaledPosition, clockwise);
     LV_CORE_ASSERT(m_AllNodes[id]->Parameters.Type == OrbitType::Circle, "Circular orbit creator function produced non-circular orbit parameters!");
@@ -1009,7 +1023,7 @@ OrbitSystem2D::InflRef& OrbitSystem2D::FindLowestOverlappingInfluence(LV::Vector
         parentId = inflNode->Id;
     }
     LV_CORE_ASSERT(false, "Function should never reach this line!");
-    return m_LevelHost;
+    return m_SystemHost;
 }
 
 
@@ -1038,9 +1052,6 @@ void OrbitSystem2D::DestroyOrbiter(const uint32_t orbiterId)
     NodeRef nodeRef = m_AllNodes[orbiterId];
 
     LV_CORE_ASSERT(!nodeRef->Influencing, "Influencing nodes cannot be destroyed (at this point in development)!");
-
-    // Call callback before deleting the node in case the callback requests data from the node
-    m_OrbiterDestroyedCallback(orbiterId);
 
     // Remove from update queue
     RemoveNodeFromUpdateQueue(nodeRef);
@@ -1122,6 +1133,16 @@ const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_
         node->NeedRecomputeState = false;
     }
     return m_AllNodes[orbiterId]->Parameters;
+}
+
+
+uint32_t OrbitSystem2D::GetHostId(const uint32_t orbiterId)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(m_AllNodes.find(orbiterId) != m_AllNodes.end() && m_AllNodes[orbiterId]->Parent != nullptr, "Invalid orbiter ID!");
+
+    return m_AllNodes[orbiterId]->Parent->Id;
 }
 
 

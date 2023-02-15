@@ -76,6 +76,7 @@ public:
         OrbitTreeNode(const uint32_t id) : Id(id) {}
         virtual ~OrbitTreeNode() {}
 
+        const uint32_t GetId() { return Id; }
         const OrbitParameters& GetParameters() const { return Parameters; }
         float GetHostScaling() const { return Parent->Influence.TotalScaling.Float(); }
         uint32_t GetHost() const { return Parent->Id; }
@@ -97,7 +98,7 @@ public:
 
         void FindIntersects(NodeRef& sibling);
     protected:
-        NodeRef m_UpdateNext;
+        NodeRef m_UpdateNext = nullptr;
     };
 
 
@@ -162,7 +163,7 @@ public:
     /// internal computations more manageable; most objects will have a separation from their host between 0 and 1.
     /// baseScaling is the ratio of the top-level host: its value converts measurements in the top-level orbit space to
     /// real-world measurements.</param>
-    void LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& baseScaling);
+    uint32_t LoadLevel(const Limnova::BigFloat& hostMass, const Limnova::BigFloat& baseScaling);
 
     // TODO : load level from file; save level to file
 
@@ -221,6 +222,7 @@ public:
     const OrbitTreeNode& GetOrbiter(const uint32_t orbiterId);
     const InfluencingNode& GetHost(const uint32_t hostId);
     const OrbitParameters& GetParameters(const uint32_t orbiterId);
+    uint32_t GetHostId(const uint32_t orbiterId);
     float GetRadiusOfInfluence(const uint32_t orbiterId);
     float GetScaling(const uint32_t hostId);
     float GetHostScaling(const uint32_t orbiterId);
@@ -247,7 +249,7 @@ private:
     std::unordered_set<NodeRef> m_FreeNodes;
     std::unordered_set<InflRef> m_FreeInflNodes;
 
-    InflRef m_LevelHost;
+    InflRef m_SystemHost;
     std::unordered_map<uint32_t, NodeRef> m_AllNodes;
     std::unordered_map<uint32_t, InflRef> m_InfluencingNodes;
     std::unordered_map<uint32_t, NodeRef> m_DynamicNodes;
