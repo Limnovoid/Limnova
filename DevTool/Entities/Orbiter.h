@@ -21,23 +21,6 @@ protected:
 public:
     virtual ~Orbiter() {}
 
-public:
-    void OnUpdate(Limnova::Timestep dT) override;
-
-    void Destroy();
-
-    uint32_t GetOrbitSystemId() { return m_Node->GetId(); }
-
-    float GetRadius() { return m_Radius; }
-    LV::Vector4 GetColor() { return m_Color; }
-
-    void SetRadius(const float radius) { m_Radius = radius; }
-    void SetColor(const LV::Vector4& color) { m_Color = color; }
-protected:
-    float m_Radius;
-    LV::Vector4 m_Color;
-    OrbitSystem2D::NodeRef m_Node;
-public:
     // Create a non-influencing static orbiter - specify initial position and velocity.
     static OrbRef Create(const std::string& name, const float radius, const LV::Vector4& color,
         const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity);
@@ -46,7 +29,23 @@ public:
     static OrbRef Create(const std::string& name, const float radius, const LV::Vector4& color,
         const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const bool clockwise);
 public:
+    void OnUpdate(Limnova::Timestep dT) override;
+
+    void Destroy();
+
+    float GetRadius() { return m_Radius; }
+    LV::Vector4 GetColor() { return m_Color; }
+
+    uint32_t GetOrbitSystemId() { return m_Node->GetId(); }
+    uint32_t GetHostOrbitSystemId() { return m_Node->GetHost(); }
     const OrbitSystem2D::OrbitParameters& GetParameters() { return m_Node->GetParameters(); }
+
+    void SetRadius(const float radius) { m_Radius = radius; }
+    void SetColor(const LV::Vector4& color) { m_Color = color; }
+protected:
+    float m_Radius;
+    LV::Vector4 m_Color;
+    OrbitSystem2D::NodeRef m_Node;
 protected:
     const OrbitSystem2D::NodeRef& GetNode() { return m_Node; }
 };
@@ -59,9 +58,6 @@ protected:
 public:
     ~InfluencingOrbiter();
 
-protected:
-    OrbitSystem2D::InflRef m_InflNode;
-public:
     // Create an influencing static orbiter - specify initial position and velocity.
     static InflOrbRef Create(const std::string& name, const float radius, const LV::Vector4& color,
         const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity);
@@ -69,6 +65,8 @@ public:
     // Create an influencing static orbiter - specify initial position and orientation of circular orbit.
     static InflOrbRef Create(const std::string& name, const float radius, const LV::Vector4& color,
         const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const bool clockwise);
+protected:
+    OrbitSystem2D::InflRef m_InflNode;
 };
 
 
@@ -82,7 +80,6 @@ private:
 public:
     ~SystemHost();
 
-public:
     // Create/load a new orbit system - unloads the previous system and invalidates the objects belonging to it.
     static SystemRef Create(const std::string& name, const float radius, const LV::Vector4& color,
         const LV::BigFloat& mass, const Limnova::BigFloat& baseScaling);
@@ -99,7 +96,6 @@ private:
 public:
     ~PlayerShip();
 
-public:
     // Create a non-influencing dynamic orbiter with controllable self-acceleration - specify initial position and velocity.
     static PlayerRef Create(const std::string& name, const float radius, const LV::Vector4& color,
         const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity);
@@ -107,4 +103,6 @@ public:
     // Create a non-influencing dynamic orbiter with controllable self-acceleration - specify initial position and orientation of circular orbit.
     static PlayerRef Create(const std::string& name, const float radius, const LV::Vector4& color,
         const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const bool clockwise);
+public:
+    void Accelerate(const LV::BigVector2& acceleration);
 };

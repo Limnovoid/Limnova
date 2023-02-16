@@ -3,9 +3,10 @@
 #define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\Assets"
 
 
-static constexpr float kZoomMin = 0.1f;
+static constexpr float kZoomMin = 0.05f;
 static constexpr float kZoomMax = 1.5f;
 static constexpr float kZoomDef = 1.f;
+static constexpr float kZoomSen = 0.01f;
 
 
 Orbiters2D::Orbiters2D()
@@ -27,6 +28,7 @@ void Orbiters2D::OnAttach()
         (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight(), 0.1f, 100.f
     );
     m_CameraController->SetZoomLimits(kZoomMin, kZoomMax);
+    m_CameraController->SetZoomSensitivity(kZoomSen);
 
     // OrbitSystem
     OrbitSystem2D::Init();
@@ -36,22 +38,44 @@ void Orbiters2D::OnAttach()
 
     orbs.SetOrbiterChangedHostCallback([&](const uint32_t id, const bool escaped)
         {
-            if (m_CameraTrackingId == id &&
-                m_CameraHostId != m_CameraTrackingId)
+            if (m_CameraTrackingId == id)
             {
-                m_CameraHostId = orbs.GetOrbiterHost(id);
-                m_CameraTrackingChanged = true; // Re-centre camera on tracked orbiter
+                m_CameraController->SetXY({ 0.f,0.f });
 
                 // Adjust zoom for easiest-to-understand visual transition between orbit spaces
                 if (escaped)
                 {
-                    // Orbiter escaped old host - set closest zoom
-                    m_CameraController->SetZoom(kZoomMin);
+                    // If 'zoomed' out to a higher orbital system such that the camera is not tracking the tracked orbiter itself,
+                    // decrement the camera's relative level such that the camera is not zoomed out to an even higher system when
+                    // the orbiter moves up a level. E.g, with a relative level of 2, the camera would be tracking the tracked
+                    // orbiter's host; if the tracked orbiter escaped, the relative level would decrement to 1 and the camera
+                    // would stay in the same system but would now be tracking the tracked orbiter which has entered this system.
+                    if (m_CameraRelativeLevel > 1)
+                    {
+                        m_CameraRelativeLevel--;
+                    }
+                    else
+                    {
+                        // Tracked orbiter escaped old host - set closest zoom
+                        m_CameraController->SetZoom(kZoomMin);
+                    }
                 }
                 else
                 {
-                    // Orbiter overlapped new host - set zoom to fit entire orbit space of new host
-                    m_CameraController->SetZoom(kZoomDef);
+                    // If 'zoomed' out to a higher orbital system such that the camera is not tracking the tracked orbiter itself,
+                    // decrement the camera's relative level such that the camera is not zoomed in to a lower system when the
+                    // orbiter moves down a level.
+                    if (m_CameraRelativeLevel > 1)
+                    {
+                        m_CameraRelativeLevel++;
+
+                        // TODO - signal the player that the ship has entered a new influence (e.g. alert sound + message)
+                    }
+                    else
+                    {
+                        // Orbiter overlapped new host - set zoom to fit entire orbit space of new host
+                        m_CameraController->SetZoom(kZoomDef);
+                    }
                 }
             }
         });
@@ -59,11 +83,11 @@ void Orbiters2D::OnAttach()
     orbs.SetOrbiterDestroyedCallback([&](const uint32_t id)
         {
             // If camera is tracking the destroyed orbiter, switch tracking to the orbiter's host and reset camera zoom
-            if (id == m_CameraTrackingId || id == m_CameraHostId)
+            if (id == m_CameraTrackingId)
             {
-                m_CameraHostId = orbs.GetOrbiterHost(id);
-                m_CameraTrackingId = m_CameraHostId;
-                m_CameraTrackingChanged = true; // Re-centre camera on tracked orbiter
+                m_CameraTrackingId = orbs.GetOrbiterHost(id);
+                m_CameraRelativeLevel = 0;
+                m_CameraController->SetXY({ 0.f,0.f });
                 m_CameraController->SetZoom(kZoomDef);
             }
 
@@ -74,7 +98,6 @@ void Orbiters2D::OnAttach()
 
     m_SystemHost = SystemHost::Create("Star", 0.05f, { 0.9f, 1.f, 1.f, 1.f }, { 1.498284464f, 10 }, { 1.f, 0 });
     m_Orbiters[m_SystemHost->GetOrbitSystemId()] = m_SystemHost;
-    m_CameraHostId = m_SystemHost->GetOrbitSystemId();
     m_CameraTrackingId = m_SystemHost->GetOrbitSystemId();
 
     InflOrbRef planet0 = InfluencingOrbiter::Create("Planet 0", 0.001f, { 0.3f, 0.5f, 1.f, 1.f },
@@ -105,7 +128,6 @@ void Orbiters2D::OnAttach()
         m_PlayerShip->SetName(nameoss.str());
         m_Orbiters[m_PlayerShip->GetOrbitSystemId()] = m_PlayerShip;
 
-        m_CameraHostId = planet0->GetOrbitSystemId(); // set camera orbit space to Planet 0
         m_CameraTrackingId = m_PlayerShip->GetOrbitSystemId(); // Track Player Ship
 
         //id = orbs.CreateOrbiterCS(false, true, LV::BigFloat(1.f, 2.f), planet0Id, LV::Vector2(-0.7f, 0.f), false);
@@ -114,7 +136,7 @@ void Orbiters2D::OnAttach()
     }
 
     InflOrbRef planet1 = InfluencingOrbiter::Create("Planet 1", 0.001f, { 0.2f, 0.7f, 1.f, 1.f },
-        LV::BigFloat(1.f, 6), 0, LV::Vector2(0.f, -.5f), false);
+        LV::BigFloat(1.f, 6), m_SystemHost, LV::Vector2(0.f, -.5f), false);
     nameoss.str(""); nameoss << "Planet 1 (" << planet1->GetOrbitSystemId() << ")";
     planet1->SetName(nameoss.str());
     m_Orbiters[planet1->GetOrbitSystemId()] = planet1;
@@ -147,9 +169,16 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
 
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
 
+    
+
+    uint32_t sceneHostId, sceneTrackingId;
+    GetCameraTrackingIds(&sceneHostId, &sceneTrackingId);
+    bool cameraIsTrackingHost = sceneTrackingId == sceneHostId;
+    auto& hostRef = m_Orbiters[sceneHostId];
+
     // Player input data - relevant to both Update and Render scopes
-    LV::Vector2 shipPos, shipToMouseLine;
-    bool shipIsBeingControlled, shipIsThrusting;
+    LV::Vector2 shipPos{0.f, 0.f}, shipToMouseLine;
+    bool shipIsBeingControlled, shipIsThrusting = false;
 
     // Update
     {
@@ -158,24 +187,23 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         // Player Ship input
         static constexpr float shipAcceleration = 0.5f;
 
-        shipIsBeingControlled = !m_CameraController->IsBeingControlled();//&& m_CameraTrackingId == m_PlayerShipId;
+        // Ship is controlled if the cursor is enabled (camera is not being controlled) and the player ship is visible
+        shipIsBeingControlled = !m_CameraController->IsBeingControlled() && PlayerShipIsVisible(sceneHostId, sceneTrackingId);
         if (shipIsBeingControlled)
         {
             // Get line from Player Ship to mouse position
             float mouseX, mouseY;
             std::tie(mouseX, mouseY) = LV::Input::GetMousePosition();
             auto mousePos = m_CameraController->GetWorldXY({ mouseX, mouseY });
-            LV::Vector2 hostPos{ 0.f, 0.f };
-            shipPos = orbs.GetParameters(m_PlayerShip->GetOrbitSystemId()).Position;
-            if (m_CameraTrackingId == m_PlayerShip->GetOrbitSystemId())
+
+            if (sceneTrackingId == m_PlayerShip->GetHostOrbitSystemId())
             {
-                hostPos = -shipPos;
-                shipPos = { 0.f, 0.f };
+                float posScaling = sceneHostId == sceneTrackingId ? 1.f : orbs.GetRadiusOfInfluence(sceneTrackingId);
+                shipPos = posScaling * orbs.GetParameters(m_PlayerShip->GetOrbitSystemId()).Position;
             }
-            else if (m_CameraTrackingId != m_CameraHostId)
+            else if (sceneTrackingId != m_PlayerShip->GetOrbitSystemId())
             {
-                hostPos = -orbs.GetParameters(m_CameraTrackingId).Position;
-                shipPos += hostPos;
+                shipPos = orbs.GetParameters(m_PlayerShip->GetOrbitSystemId()).Position - orbs.GetParameters(sceneTrackingId).Position;
             }
             shipToMouseLine = mousePos - shipPos;
 
@@ -183,8 +211,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             shipIsThrusting = LV::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT) && shipToMouseLine.SqrMagnitude() > 0;
             if (shipIsThrusting)
             {
-                LV::BigVector2 acceleration{ shipAcceleration * shipToMouseLine.Normalized() };
-                orbs.AccelerateOrbiter(m_PlayerShip->GetOrbitSystemId(), acceleration);
+                m_PlayerShip->Accelerate(LV::BigVector2{ shipAcceleration * shipToMouseLine.Normalized() });
             }
         }
         else
@@ -195,13 +222,23 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         // Orbit system
         orbs.Update(dT);
 
-        // Camera
-        if (m_CameraTrackingChanged)
-        {
-            m_CameraController->SetXY(0);
-            m_CameraTrackingChanged = false;
-        }
         m_CameraController->OnUpdate(dT);
+
+        // Check if camera is zooming in or out of the current scene sytem
+        if (m_ZoomingIntoSystem && m_CameraRelativeLevel > 0)
+        {
+            m_CameraRelativeLevel--;
+            m_CameraController->SetXY({ 0.f, 0.f });
+            m_CameraController->SetZoom(kZoomMax);
+            m_ZoomingIntoSystem = false;
+        }
+        if (m_ZoomingOutOfSystem && sceneHostId != m_SystemHost->GetOrbitSystemId())
+        {
+            m_CameraRelativeLevel++;
+            m_CameraController->SetXY({ 0.f, 0.f });
+            m_CameraController->SetZoom(kZoomMin);
+            m_ZoomingOutOfSystem = false;
+        }
     }
 
     // Render
@@ -233,18 +270,8 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         float orbiterCircleRadius = zoom * baseOrbiterCircleRadius;
         float shipThrustLineThickness = zoom * baseShipThrustLineThickness;
 
-        // Get IDs of scene host and camera-tracked orbiter
-        uint32_t sceneHostId = m_CameraTrackingId, cameraTrackingId = m_CameraTrackingId;
-        for (uint32_t l = 0; l < m_CameraRelativeLevel; l++)
-        {
-            cameraTrackingId = sceneHostId;
-            sceneHostId = orbs.GetHostId(sceneHostId);
-        }
-        bool cameraIsTrackingHost = cameraTrackingId == sceneHostId;
-
-        auto& hostRef = m_Orbiters[sceneHostId];
         float hostScaling = orbs.GetScaling(sceneHostId);
-        LV::Vector2 hostPos = cameraIsTrackingHost ? 0.f : -1.f * orbs.GetParameters(cameraTrackingId).Position;
+        LV::Vector2 hostPos = cameraIsTrackingHost ? 0.f : -1.f * orbs.GetParameters(sceneTrackingId).Position;
 
         float hostQuadWidth = circleLargeFillTexSizeFactor * 2.f * hostRef->GetRadius() * hostScaling;
         LV::Renderer2D::DrawQuad(hostPos, { hostQuadWidth, hostQuadWidth }, m_CircleLargeFillTexture, hostRef->GetColor());
@@ -255,24 +282,24 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         size_t numHostOrbiters = visibleOrbiters.size();
 
         // Get additional information about the orbiter being tracked by the camera
-        bool trackedIsInfluencing = orbs.IsInfluencing(cameraTrackingId);
-        float troi = trackedIsInfluencing ? orbs.GetRadiusOfInfluence(cameraTrackingId) : 0.f;
+        bool trackedIsInfluencing = orbs.IsInfluencing(sceneTrackingId);
+        float troi = trackedIsInfluencing ? orbs.GetRadiusOfInfluence(sceneTrackingId) : 0.f;
         if (!cameraIsTrackingHost)
         {
             // If the tracked orbiter is not the scene host, get its orbiters:
             // this allows the player to 'peek' into the tracked orbiter's orbit space
             if (trackedIsInfluencing)
             {
-                orbs.GetOrbiters(cameraTrackingId, visibleOrbiters);
+                orbs.GetOrbiters(sceneTrackingId, visibleOrbiters);
             }
 
             // As the camera-tracked orbiter is not also the camera host, we can draw the points where its orbit intersects with other orbits in the scene
-            auto intCol = m_Orbiters[cameraTrackingId]->GetColor();
+            auto intCol = m_Orbiters[sceneTrackingId]->GetColor();
             intCol.x = powf(intCol.x + 0.1f, 2);
             intCol.y = powf(intCol.y + 0.1f, 2);
             intCol.z = powf(intCol.z + 0.1f, 2);
             intCol.w = 0.5f;
-            for (auto& intersectsEntry : orbs.GetParameters(cameraTrackingId).Intersects)
+            for (auto& intersectsEntry : orbs.GetParameters(sceneTrackingId).Intersects)
             {
                 for (uint32_t i = 0; i < intersectsEntry.second.first; i++)
                 {
@@ -286,7 +313,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         {
             size_t orbId = visibleOrbiters[idx];
 
-            bool cameraIsTrackingOrbiter = orbId == cameraTrackingId;
+            bool cameraIsTrackingOrbiter = orbId == sceneTrackingId;
             bool orbiterIsInSceneSpace = idx < numHostOrbiters;
 
             auto& orbRef = m_Orbiters[orbId];
@@ -308,7 +335,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
                 iconCol.x = powf(iconCol.x + 0.1f, 2);
                 iconCol.y = powf(iconCol.y + 0.1f, 2);
                 iconCol.z = powf(iconCol.z + 0.1f, 2);
-                iconCol.w = orbId == m_CameraTrackingId ? 0.7f : 0.3f;
+                iconCol.w = cameraIsTrackingOrbiter ? 0.7f : 0.3f;
                 LV::Renderer2D::DrawQuad(orbPos, { circleThickTexSizeFactor * orbiterCircleRadius }, m_CircleThickTexture, iconCol);
             }
             else
@@ -332,8 +359,8 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
         {
             size_t orbId = visibleOrbiters[idx];
+            bool cameraIsTrackingOrbiter = orbId == sceneTrackingId;
             bool orbiterIsInSceneSpace = idx < numHostOrbiters;
-            bool cameraIsTrackingOrbiter = orbId == cameraTrackingId;
 
             auto& orbRef = m_Orbiters[orbId];
             auto& op = orbRef->GetParameters();
@@ -354,8 +381,8 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
         {
             size_t orbId = visibleOrbiters[idx];
+            bool cameraIsTrackingOrbiter = orbId == sceneTrackingId;
             bool orbiterIsInSceneSpace = idx < numHostOrbiters;
-            bool cameraIsTrackingOrbiter = orbId == cameraTrackingId;
 
             float hostRelativeScaling = orbiterIsInSceneSpace ? 1.f : troi;
 
@@ -384,8 +411,8 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
         {
             size_t orbId = visibleOrbiters[idx];
+            bool cameraIsTrackingOrbiter = orbId == sceneTrackingId;
             bool orbiterIsInSceneSpace = idx < numHostOrbiters;
-            bool cameraIsTrackingOrbiter = orbId == cameraTrackingId;
 
             float hostRelativeScaling = orbiterIsInSceneSpace ? 1.f : troi;
 
@@ -401,7 +428,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
                 escapePointFromCentre *= hostRelativeScaling;
 
                 auto col = orbRef->GetColor();
-                col.w = orbId == m_CameraTrackingId ? 0.7f : 0.3f;
+                col.w = cameraIsTrackingOrbiter ? 0.7f : 0.3f;
                 LV::Renderer2D::DrawHyperbola(centrePos, op.RightAscensionPeriapsis, hostRelativeScaling * op.SemiMajorAxis, hostRelativeScaling * op.SemiMinorAxis,
                     escapePointFromCentre, trajectoryLineThickness, col);
             }
@@ -414,6 +441,8 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
 
 void Orbiters2D::OnImGuiRender()
 {
+    return;
+
     ImGui::Begin("Orbiters2D");
 
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
@@ -424,13 +453,9 @@ void Orbiters2D::OnImGuiRender()
     }
 
     // Get IDs of scene host and camera-tracked orbiter
-    uint32_t sceneHostId = m_CameraTrackingId, cameraTrackingId = m_CameraTrackingId;
-    for (uint32_t l = 0; l < m_CameraRelativeLevel; l++)
-    {
-        cameraTrackingId = sceneHostId;
-        sceneHostId = orbs.GetHostId(sceneHostId);
-    }
-    bool cameraIsTrackingHost = cameraTrackingId == sceneHostId;
+    uint32_t sceneHostId, sceneTrackingId;
+    GetCameraTrackingIds(&sceneHostId, &sceneTrackingId);
+    bool cameraIsTrackingHost = sceneTrackingId == sceneHostId;
 
     // Orbiter HUD colors
     std::vector<uint32_t> trackableOrbiterIds;
@@ -444,32 +469,11 @@ void Orbiters2D::OnImGuiRender()
         m_Orbiters[trackableOrbiterIds[idx]]->SetColor(col);
     }
 
-    // Camera host selection
-    std::vector<uint32_t> hostIds;
-    orbs.GetAllHosts(hostIds);
-    if (ImGui::BeginCombo("Scene Host", m_Orbiters[sceneHostId]->GetName().c_str()))
-    {
-        for (uint32_t id : hostIds)
-        {
-            const bool isSelected = (m_CameraHostId == id);
-            if (ImGui::Selectable(m_Orbiters[id]->GetName().c_str(), isSelected))
-            {
-                m_CameraHostId = id;
-                m_CameraTrackingId = id;
-                m_CameraTrackingChanged = true;
-                m_CameraController->SetZoom(1.f);
-            }
-
-            // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-            if (isSelected)
-                ImGui::SetItemDefaultFocus();
-        }
-        ImGui::EndCombo();
-    }
-    auto& host = orbs.GetHost(m_CameraHostId);
+    // Camera level changing
+    
 
     // Camera tracking orbiter selection
-    if (ImGui::BeginCombo("Orbiter Tracking", m_Orbiters[cameraTrackingId]->GetName().c_str()))
+    if (ImGui::BeginCombo("Orbiter Tracking", m_Orbiters[sceneTrackingId]->GetName().c_str()))
     {
         for (uint32_t id : trackableOrbiterIds)
         {
@@ -477,7 +481,7 @@ void Orbiters2D::OnImGuiRender()
             if (ImGui::Selectable(m_Orbiters[id]->GetName().c_str(), isSelected))
             {
                 m_CameraTrackingId = id;
-                m_CameraTrackingChanged = true;
+                m_CameraController->SetXY({ 0.f, 0.f });
             }
 
             // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
@@ -502,7 +506,8 @@ void Orbiters2D::OnImGuiRender()
     ImGui::TableSetColumnIndex(4);
     ImGui::Text("Semi-major Axis");
     // Information - host
-    float scaling = 0 == m_CameraHostId ? 1.f : host.GetHostScaling();
+    auto& host = orbs.GetHost(sceneHostId);
+    float scaling = 0 == sceneHostId ? 1.f : host.GetHostScaling();
     auto& op = host.GetParameters();
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
@@ -544,5 +549,38 @@ void Orbiters2D::OnImGuiRender()
 
 void Orbiters2D::OnEvent(LV::Event& e)
 {
+    LV::EventDispatcher dispatcher(e);
+    dispatcher.Dispatch<LV::MouseScrolledEvent>(LV_BIND_EVENT_FN(Orbiters2D::OnMouseScrolled));
+
     m_CameraController->OnEvent(e);
+
+}
+
+
+void Orbiters2D::GetCameraTrackingIds(uint32_t* sceneHostId, uint32_t* sceneTrackingId)
+{
+    auto& orbs = OrbitSystem2D::Get();
+    *sceneHostId = m_CameraTrackingId;
+    *sceneTrackingId = m_CameraTrackingId;
+    for (uint32_t l = 0; l < m_CameraRelativeLevel; l++)
+    {
+        *sceneTrackingId = *sceneHostId;
+        *sceneHostId = orbs.GetHostId(*sceneHostId);
+    }
+}
+
+
+bool Orbiters2D::PlayerShipIsVisible(const uint32_t sceneHostId, const uint32_t sceneTrackingId)
+{
+    return (m_CameraTrackingId == m_PlayerShip->GetOrbitSystemId() && m_CameraRelativeLevel < 2)
+        || sceneTrackingId == m_PlayerShip->GetHostOrbitSystemId();
+}
+
+
+bool Orbiters2D::OnMouseScrolled(LV::MouseScrolledEvent& e)
+{
+    m_ZoomingOutOfSystem = e.GetYOffset() < 0 && m_CameraController->GetZoom() == kZoomMax;
+    m_ZoomingIntoSystem = e.GetYOffset() > 0 && m_CameraController->GetZoom() == kZoomMin;
+
+    return false;
 }

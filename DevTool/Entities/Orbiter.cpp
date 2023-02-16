@@ -7,19 +7,6 @@ Orbiter::Orbiter(const std::string& name, const float radius, const LV::Vector4&
 }
 
 
-void Orbiter::OnUpdate(Limnova::Timestep dT)
-{
-}
-
-
-void Orbiter::Destroy()
-{
-    OrbitSystem2D::Get().DestroyOrbiter(m_Node->GetId());
-
-    Entity::Destroy();
-}
-
-
 OrbRef Orbiter::Create(const std::string& name, const float radius, const LV::Vector4& color,
     const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
 {
@@ -33,6 +20,19 @@ OrbRef Orbiter::Create(const std::string& name, const float radius, const LV::Ve
 {
     uint32_t id = OrbitSystem2D::Get().CreateOrbiterCS(false, false, mass, initialHost->m_Node->GetId(), scaledPosition, clockwise);
     return OrbRef(new Orbiter(name, radius, color, OrbitSystem2D::Get().GetNodeRef(id)));
+}
+
+
+void Orbiter::OnUpdate(Limnova::Timestep dT)
+{
+}
+
+
+void Orbiter::Destroy()
+{
+    OrbitSystem2D::Get().DestroyOrbiter(m_Node->GetId());
+
+    Entity::Destroy();
 }
 
 
@@ -101,7 +101,7 @@ PlayerShip::~PlayerShip()
 PlayerRef PlayerShip::Create(const std::string& name, const float radius, const LV::Vector4& color,
     const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
 {
-    uint32_t id = OrbitSystem2D::Get().CreateOrbiterES(true, false, mass, initialHost->GetOrbitSystemId(), scaledPosition, scaledVelocity);
+    uint32_t id = OrbitSystem2D::Get().CreateOrbiterES(true, true, mass, initialHost->GetOrbitSystemId(), scaledPosition, scaledVelocity);
     return std::shared_ptr<PlayerShip>(new PlayerShip(name, radius, color, OrbitSystem2D::Get().GetNodeRef(id)));
 }
 
@@ -109,6 +109,12 @@ PlayerRef PlayerShip::Create(const std::string& name, const float radius, const 
 PlayerRef PlayerShip::Create(const std::string& name, const float radius, const LV::Vector4& color,
     const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const bool clockwise)
 {
-    uint32_t id = OrbitSystem2D::Get().CreateOrbiterCS(true, false, mass, initialHost->GetOrbitSystemId(), scaledPosition, clockwise);
+    uint32_t id = OrbitSystem2D::Get().CreateOrbiterCS(true, true, mass, initialHost->GetOrbitSystemId(), scaledPosition, clockwise);
     return PlayerRef(new PlayerShip(name, radius, color, OrbitSystem2D::Get().GetNodeRef(id)));
+}
+
+
+void PlayerShip::Accelerate(const LV::BigVector2& acceleration)
+{
+    OrbitSystem2D::Get().AccelerateOrbiter(m_Node->GetId(), acceleration);
 }

@@ -28,15 +28,21 @@ private:
     LV::Ref<LV::Texture2D> m_CircleTexture;
     LV::Ref<LV::Texture2D> m_CircleThickTexture;
     LV::Ref<LV::Texture2D> m_CircleLargeFillTexture;
-    LV::Vector4 m_InfluenceColor = { 1.f, 0.8f, 0.2f, 0.25f };
+    LV::Vector4 m_InfluenceColor = { 1.f, 0.7f, 0.2f, 0.25f };
     LV::Vector4 m_IntersectCircleColor = { 1.f, 0.3f, 0.2f, 0.5f };
     float m_Timescale = 0.1f;
 
     SystemRef m_SystemHost;
     std::unordered_map<uint32_t, OrbRef> m_Orbiters; // TEMPORARY - to be replaced by entities/components
     uint32_t m_CameraTrackingId = 0;
-    uint32_t m_CameraHostId = 0;
-    uint32_t m_CameraRelativeLevel = 0;
-    bool m_CameraTrackingChanged = false;
+    uint32_t m_CameraRelativeLevel = 1;
     PlayerRef m_PlayerShip;
+
+    bool m_ZoomingIntoSystem = false;
+    bool m_ZoomingOutOfSystem = false;
+private:
+    void GetCameraTrackingIds(uint32_t* sceneHostId, uint32_t* cameraTrackingId);
+    bool PlayerShipIsVisible(const uint32_t sceneHostId, const uint32_t sceneTrackingId);
+
+    bool OnMouseScrolled(LV::MouseScrolledEvent& e);
 };

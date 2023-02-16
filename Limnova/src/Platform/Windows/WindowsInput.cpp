@@ -9,31 +9,31 @@
 namespace Limnova
 {
 
-	bool Input::IsKeyPressed(int keycode)
-	{
-		auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-		auto state = glfwGetKey(window, keycode);
+    bool Input::IsKeyPressed(int keycode)
+    {
+        auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+        auto state = glfwGetKey(window, keycode);
 
-		return state == GLFW_PRESS || state == GLFW_REPEAT;
-	}
-
-
-	bool Input::IsMouseButtonPressed(int button)
-	{
-		auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-		auto state = glfwGetMouseButton(window, button);
-
-		return state == GLFW_PRESS;
-	}
+        return state == GLFW_PRESS || state == GLFW_REPEAT;
+    }
 
 
-	std::pair<float, float> Input::GetMousePosition()
-	{
-		auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-		double x, y;
-		glfwGetCursorPos(window, &x, &y);
+    bool Input::IsMouseButtonPressed(int button)
+    {
+        auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+        auto state = glfwGetMouseButton(window, button);
 
-		return { (float)x, (float)y };
-	}
+        return state == GLFW_PRESS;
+    }
+
+
+    std::pair<float, float> Input::GetMousePosition()
+    {
+        auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+        double x, y;
+        glfwGetCursorPos(window, &x, &y);
+
+        return { (float)x, (float)y };
+    }
 
 }
