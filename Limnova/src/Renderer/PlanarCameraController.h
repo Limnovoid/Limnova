@@ -23,10 +23,11 @@ namespace Limnova
 
         void OnUpdate(Timestep dT);
 
-        inline bool IsBeingControlled() { return m_BeingControlled; }
 
         virtual Camera& GetCamera() = 0;                // override per camera type
         virtual const Camera& GetCamera() const = 0;    // override per camera type
+
+        void SetControlled(const bool isControlled) { m_BeingControlled = isControlled; }
 
         void SetZoom(const float zoom) { m_ZoomLevel = std::clamp(zoom, m_MinZoom, m_MaxZoom); m_NeedSetProjection = true; }
         void SetZoomLimits(const float minZoom, const float maxZoom) { m_MinZoom = minZoom; m_MaxZoom = maxZoom; SetZoom(m_ZoomLevel); }
@@ -35,8 +36,9 @@ namespace Limnova
         void SetXY(const Vector2& position) { m_Position.x = position.x; m_Position.y = position.y; m_NeedSetView = true; }
         void TranslateXY(const Vector2& translation) { m_Position.x += translation.x; m_Position.y += translation.y; m_NeedSetView = true; }
 
-        float GetZoom() const { return m_ZoomLevel; }
+        inline bool IsBeingControlled() { return m_BeingControlled; }
         Vector2 GetXY() const { return { m_Position.x, m_Position.y }; }
+        float GetZoom() const { return m_ZoomLevel; }
 
         void OnEvent(Event& e);
     private:

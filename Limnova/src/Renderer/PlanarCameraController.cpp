@@ -98,21 +98,10 @@ namespace Limnova
 
         switch(event.GetMouseButton())
         {
-            case LV_MOUSE_BUTTON_RIGHT:
-                if (m_BeingControlled)
-                {
-                    m_BeingControlled = false;
-                    Application::Get().GetWindow().EnableCursor();
-                }
-                else
-                {
-                    m_BeingControlled = true;
-                    Application::Get().GetWindow().DisableCursor();
-                }
-                break;
             case LV_MOUSE_BUTTON_MIDDLE:
                 if (m_BeingControlled)
                 {
+                    m_Position = { 0.f, 0.f, m_Position.z };
                     m_ZoomLevel = 1.f;
                     m_NeedSetProjection = true;
                 }

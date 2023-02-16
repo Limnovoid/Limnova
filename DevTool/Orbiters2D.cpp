@@ -27,6 +27,7 @@ void Orbiters2D::OnAttach()
         LV::Vector3(0.f, 0.f, 2.f), LV::Vector3(0.f, 0.f, -1.f),
         (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight(), 0.1f, 100.f
     );
+    m_CameraController->SetControlled(true);
     m_CameraController->SetZoomLimits(kZoomMin, kZoomMax);
     m_CameraController->SetZoomSensitivity(kZoomSen);
 
@@ -177,6 +178,10 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
     auto& hostRef = m_Orbiters[sceneHostId];
 
     // Player input data - relevant to both Update and Render scopes
+    float mouseX, mouseY;
+    std::tie(mouseX, mouseY) = LV::Input::GetMousePosition();
+    LV::Vector2 mousePos = m_CameraController->GetWorldXY({ mouseX, mouseY });
+
     LV::Vector2 shipPos{0.f, 0.f}, shipToMouseLine;
     bool shipIsBeingControlled, shipIsThrusting = false;
 
@@ -188,14 +193,10 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         static constexpr float shipAcceleration = 0.5f;
 
         // Ship is controlled if the cursor is enabled (camera is not being controlled) and the player ship is visible
-        shipIsBeingControlled = !m_CameraController->IsBeingControlled() && PlayerShipIsVisible(sceneHostId, sceneTrackingId);
+        shipIsBeingControlled = PlayerShipIsVisible(sceneHostId, sceneTrackingId);
         if (shipIsBeingControlled)
         {
             // Get line from Player Ship to mouse position
-            float mouseX, mouseY;
-            std::tie(mouseX, mouseY) = LV::Input::GetMousePosition();
-            auto mousePos = m_CameraController->GetWorldXY({ mouseX, mouseY });
-
             if (sceneTrackingId == m_PlayerShip->GetHostOrbitSystemId())
             {
                 float posScaling = sceneHostId == sceneTrackingId ? 1.f : orbs.GetRadiusOfInfluence(sceneTrackingId);
@@ -335,8 +336,16 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
                 iconCol.x = powf(iconCol.x + 0.1f, 2);
                 iconCol.y = powf(iconCol.y + 0.1f, 2);
                 iconCol.z = powf(iconCol.z + 0.1f, 2);
-                iconCol.w = cameraIsTrackingOrbiter ? 0.7f : 0.3f;
+                bool hoverOrbiter = sqrt((mousePos - orbPos).SqrMagnitude()) < orbiterCircleRadius; // TODO - move to Update (map out visible orbiters and apparent distances)
+                iconCol.w = (cameraIsTrackingOrbiter || hoverOrbiter) ? 0.7f : 0.3f;
                 LV::Renderer2D::DrawQuad(orbPos, { circleThickTexSizeFactor * orbiterCircleRadius }, m_CircleThickTexture, iconCol);
+
+                // TODO - move to Update (map out visible orbiters and apparent distances)
+                if (hoverOrbiter && LV::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT))
+                {
+                    m_CameraTrackingId = orbId;
+                    m_CameraRelativeLevel = 1;
+                }
             }
             else
             {
@@ -441,8 +450,6 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
 
 void Orbiters2D::OnImGuiRender()
 {
-    return;
-
     ImGui::Begin("Orbiters2D");
 
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
@@ -469,27 +476,24 @@ void Orbiters2D::OnImGuiRender()
         m_Orbiters[trackableOrbiterIds[idx]]->SetColor(col);
     }
 
-    // Camera level changing
-    
-
     // Camera tracking orbiter selection
-    if (ImGui::BeginCombo("Orbiter Tracking", m_Orbiters[sceneTrackingId]->GetName().c_str()))
-    {
-        for (uint32_t id : trackableOrbiterIds)
-        {
-            const bool isSelected = (m_CameraTrackingId == id);
-            if (ImGui::Selectable(m_Orbiters[id]->GetName().c_str(), isSelected))
-            {
-                m_CameraTrackingId = id;
-                m_CameraController->SetXY({ 0.f, 0.f });
-            }
+    //if (ImGui::BeginCombo("Orbiter Tracking", m_Orbiters[sceneTrackingId]->GetName().c_str()))
+    //{
+    //    for (uint32_t id : trackableOrbiterIds)
+    //    {
+    //        const bool isSelected = (m_CameraTrackingId == id);
+    //        if (ImGui::Selectable(m_Orbiters[id]->GetName().c_str(), isSelected))
+    //        {
+    //            m_CameraTrackingId = id;
+    //            m_CameraController->SetXY({ 0.f, 0.f });
+    //        }
 
-            // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-            if (isSelected)
-                ImGui::SetItemDefaultFocus();
-        }
-        ImGui::EndCombo();
-    }
+    //        // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+    //        if (isSelected)
+    //            ImGui::SetItemDefaultFocus();
+    //    }
+    //    ImGui::EndCombo();
+    //}
 
     // Orbiter information table
     ImGui::BeginTable("Orbiter Information", 5, ImGuiTableFlags_Borders);
