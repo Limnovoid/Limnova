@@ -170,17 +170,19 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
 
     OrbitSystem2D& orbs = OrbitSystem2D::Get();
 
-    
+    float zoom;
+    float orbiterCircleRadius;
 
+    // Player input data
+    LV::Vector2 mousePos;
+
+    // Map the scene - get IDs of orbiters in the scene, update their Entity positions (transforms)
+    // with their positions relative to the tracked orbiter.
     uint32_t sceneHostId, sceneTrackingId;
-    GetCameraTrackingIds(&sceneHostId, &sceneTrackingId);
-    bool cameraIsTrackingHost = sceneTrackingId == sceneHostId;
-    auto& hostRef = m_Orbiters[sceneHostId];
+    bool cameraIsTrackingHost;
 
-    // Player input data - relevant to both Update and Render scopes
-    float mouseX, mouseY;
-    std::tie(mouseX, mouseY) = LV::Input::GetMousePosition();
-    LV::Vector2 mousePos = m_CameraController->GetWorldXY({ mouseX, mouseY });
+    std::vector<uint32_t> sceneOrbiters;
+    std::unordered_map<uint32_t, OrbiterUI> sceneOrbiterUi;
 
     LV::Vector2 shipPos{0.f, 0.f}, shipToMouseLine;
     bool shipIsBeingControlled, shipIsThrusting = false;
@@ -189,8 +191,55 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
     {
         LV_PROFILE_SCOPE("Update - Dev2DLayer::OnUpdate");
 
-        // Player Ship input
         static constexpr float shipAcceleration = 0.5f;
+        static constexpr float baseOrbiterCircleRadius = 0.024f;
+
+        zoom = m_CameraController->GetZoom();
+        orbiterCircleRadius = zoom * baseOrbiterCircleRadius;
+
+        // Player input data
+        float mouseX, mouseY;
+        std::tie(mouseX, mouseY) = LV::Input::GetMousePosition();
+        mousePos = m_CameraController->GetWorldXY({ mouseX, mouseY });
+
+        // Map the scene - get IDs of orbiters in the scene, update their Entity positions (transforms)
+        // with their positions relative to the tracked orbiter.
+        GetCameraTrackingIds(&sceneHostId, &sceneTrackingId);
+        cameraIsTrackingHost = sceneTrackingId == sceneHostId;
+
+        LV::Vector2 sceneHostPos = cameraIsTrackingHost ? 0.f : -1.f * m_Orbiters[sceneTrackingId]->GetParameters().Position;
+        m_Orbiters[sceneHostId]->SetPosition({ sceneHostPos, 0.f });
+
+        orbs.GetOrbiters(sceneHostId, sceneOrbiters);
+        for (uint32_t id : sceneOrbiters)
+        {
+            auto& orbRef = m_Orbiters[id];
+
+            LV::Vector2 sceneOrbPos{ 0.f, 0.f };
+            if (id != sceneTrackingId)
+            {
+                sceneOrbPos = sceneHostPos + orbRef->GetParameters().Position;
+            }
+            orbRef->SetPosition({ sceneOrbPos, 0.f });
+
+            sceneOrbiterUi[id].IsHovered = sqrt((mousePos - orbRef->GetPosition().XY()).SqrMagnitude()) < orbiterCircleRadius; // TODO - move to Update (map out visible orbiters and apparent positions)
+            if (sceneOrbiterUi[id].IsHovered && LV::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT))
+            {
+                m_CameraTrackingId = id;
+                m_CameraRelativeLevel = 1;
+            }
+
+            if (orbs.IsInfluencing(id) && id == sceneTrackingId)
+            {
+                float roi = orbs.GetRadiusOfInfluence(id);
+                orbs.GetOrbiters(id, sceneOrbiterUi[id].SubOrbiters);
+                for (uint32_t sid : sceneOrbiterUi[id].SubOrbiters)
+                {
+                    LV::Vector2 subPos = m_Orbiters[sid]->GetParameters().Position * roi;
+                    m_Orbiters[sid]->SetPosition({ subPos, 0.f });
+                }
+            }
+        }
 
         // Ship is controlled if the cursor is enabled (camera is not being controlled) and the player ship is visible
         shipIsBeingControlled = PlayerShipIsVisible(sceneHostId, sceneTrackingId);
@@ -200,11 +249,11 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             if (sceneTrackingId == m_PlayerShip->GetHostOrbitSystemId())
             {
                 float posScaling = sceneHostId == sceneTrackingId ? 1.f : orbs.GetRadiusOfInfluence(sceneTrackingId);
-                shipPos = posScaling * orbs.GetParameters(m_PlayerShip->GetOrbitSystemId()).Position;
+                shipPos = posScaling * m_PlayerShip->GetParameters().Position;
             }
             else if (sceneTrackingId != m_PlayerShip->GetOrbitSystemId())
             {
-                shipPos = orbs.GetParameters(m_PlayerShip->GetOrbitSystemId()).Position - orbs.GetParameters(sceneTrackingId).Position;
+                shipPos = m_PlayerShip->GetParameters().Position - m_Orbiters[sceneTrackingId]->GetParameters().Position;
             }
             shipToMouseLine = mousePos - shipPos;
 
@@ -259,97 +308,54 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         static constexpr float circleTexSizeFactor = 2.f * 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
         static constexpr float circleThickTexSizeFactor = 2.f * 128.f / 110.f;
         static constexpr float baseTrajectoryLineThickness = 0.008f;
+        static constexpr float subTrajectoryLineThickness = kZoomMin * baseTrajectoryLineThickness;
         static constexpr float baseIntersectCircleRadius = 0.016f;
-        static constexpr float baseOrbiterCircleRadius = 0.024f;
         static constexpr float trackedSubOrbiterRadius = 0.001f;
         static constexpr float baseShipThrustLineThickness = 0.008f;
         static constexpr float circleLargeFillTexSizeFactor = 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
 
-        float zoom = m_CameraController->GetZoom();
         float trajectoryLineThickness = zoom * baseTrajectoryLineThickness;
         float intersectCircleRadius = zoom * baseIntersectCircleRadius;
-        float orbiterCircleRadius = zoom * baseOrbiterCircleRadius;
         float shipThrustLineThickness = zoom * baseShipThrustLineThickness;
 
-        float hostScaling = orbs.GetScaling(sceneHostId);
-        LV::Vector2 hostPos = cameraIsTrackingHost ? 0.f : -1.f * orbs.GetParameters(sceneTrackingId).Position;
+        float sceneScaling = orbs.GetScaling(sceneHostId);
 
-        float hostQuadWidth = circleLargeFillTexSizeFactor * 2.f * hostRef->GetRadius() * hostScaling;
-        LV::Renderer2D::DrawQuad(hostPos, { hostQuadWidth, hostQuadWidth }, m_CircleLargeFillTexture, hostRef->GetColor());
-
-        // Get the orbiters of the scene host - these are all the orbiters in the same orbit space as the camera
-        std::vector<uint32_t> visibleOrbiters;
-        orbs.GetOrbiters(sceneHostId, visibleOrbiters);
-        size_t numHostOrbiters = visibleOrbiters.size();
-
-        // Get additional information about the orbiter being tracked by the camera
-        bool trackedIsInfluencing = orbs.IsInfluencing(sceneTrackingId);
-        float troi = trackedIsInfluencing ? orbs.GetRadiusOfInfluence(sceneTrackingId) : 0.f;
-        if (!cameraIsTrackingHost)
-        {
-            // If the tracked orbiter is not the scene host, get its orbiters:
-            // this allows the player to 'peek' into the tracked orbiter's orbit space
-            if (trackedIsInfluencing)
-            {
-                orbs.GetOrbiters(sceneTrackingId, visibleOrbiters);
-            }
-
-            // As the camera-tracked orbiter is not also the camera host, we can draw the points where its orbit intersects with other orbits in the scene
-            auto intCol = m_Orbiters[sceneTrackingId]->GetColor();
-            intCol.x = powf(intCol.x + 0.1f, 2);
-            intCol.y = powf(intCol.y + 0.1f, 2);
-            intCol.z = powf(intCol.z + 0.1f, 2);
-            intCol.w = 0.5f;
-            for (auto& intersectsEntry : orbs.GetParameters(sceneTrackingId).Intersects)
-            {
-                for (uint32_t i = 0; i < intersectsEntry.second.first; i++)
-                {
-                    LV::Renderer2D::DrawQuad(hostPos + intersectsEntry.second.second[i], {circleThickTexSizeFactor * intersectCircleRadius}, m_CircleThickTexture, intCol);
-                }
-            }
-        }
+        auto& hostRef = m_Orbiters[sceneHostId];
+        float hostQuadWidth = circleLargeFillTexSizeFactor * 2.f * hostRef->GetRadius() * sceneScaling;
+        LV::Renderer2D::DrawQuad(hostRef->GetPosition(), {hostQuadWidth, hostQuadWidth}, m_CircleLargeFillTexture, hostRef->GetColor());
 
         // Render all visible orbiters and their influences
-        for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
+        for (uint32_t id : sceneOrbiters)
         {
-            size_t orbId = visibleOrbiters[idx];
+            auto& orbRef = m_Orbiters[id];
+            bool cameraIsTrackingOrbiter = id == sceneTrackingId;
 
-            bool cameraIsTrackingOrbiter = orbId == sceneTrackingId;
-            bool orbiterIsInSceneSpace = idx < numHostOrbiters;
+            // Orbiter
+            LV::Renderer2D::DrawQuad(orbRef->GetPosition(), {circleFillTexSizeFactor * orbRef->GetRadius() * sceneScaling}, m_CircleFillTexture, orbRef->GetColor());
 
-            auto& orbRef = m_Orbiters[orbId];
-            auto& op = orbRef->GetParameters();
+            // UI orbiter icon
+            // TEMPORARY - UI elements should be separate ?
+            auto iconCol = orbRef->GetColor();
+            iconCol.x = powf(iconCol.x + 0.1f, 2);
+            iconCol.y = powf(iconCol.y + 0.1f, 2);
+            iconCol.z = powf(iconCol.z + 0.1f, 2);
+            iconCol.w = (cameraIsTrackingOrbiter || sceneOrbiterUi[id].IsHovered) ? 0.7f : 0.3f;
+            LV::Renderer2D::DrawQuad(orbRef->GetPosition().XY(), {circleThickTexSizeFactor * orbiterCircleRadius}, m_CircleThickTexture, iconCol);
 
-            LV::Vector2 orbPos = orbiterIsInSceneSpace ? (cameraIsTrackingOrbiter ? 0.f : hostPos + op.Position) : troi * op.Position;
-
-            float hostRelativeScaling = orbiterIsInSceneSpace ? 1.f : troi;
-            if (orbs.IsInfluencing(orbId))
+            // Influence
+            float roi = orbs.GetRadiusOfInfluence(id);
+            if (orbs.IsInfluencing(id))
             {
-                float quadWidth = hostRelativeScaling * circleLargeFillTexSizeFactor * 2.f * orbs.GetRadiusOfInfluence(orbId);
-                LV::Renderer2D::DrawQuad(orbPos, { quadWidth, quadWidth }, m_CircleLargeFillTexture, m_InfluenceColor);
+                float roiQuadDiameter = circleLargeFillTexSizeFactor * 2.f * roi;
+                LV::Renderer2D::DrawQuad(orbRef->GetPosition(), { roiQuadDiameter }, m_CircleLargeFillTexture, m_InfluenceColor);
             }
 
-            if (orbiterIsInSceneSpace)
+            // Suborbiters
+            for (uint32_t sid : sceneOrbiterUi[id].SubOrbiters)
             {
-                LV::Renderer2D::DrawQuad(orbPos, { circleFillTexSizeFactor * orbRef->GetRadius() * hostScaling}, m_CircleFillTexture, orbRef->GetColor());
-                auto iconCol = orbRef->GetColor();
-                iconCol.x = powf(iconCol.x + 0.1f, 2);
-                iconCol.y = powf(iconCol.y + 0.1f, 2);
-                iconCol.z = powf(iconCol.z + 0.1f, 2);
-                bool hoverOrbiter = sqrt((mousePos - orbPos).SqrMagnitude()) < orbiterCircleRadius; // TODO - move to Update (map out visible orbiters and apparent distances)
-                iconCol.w = (cameraIsTrackingOrbiter || hoverOrbiter) ? 0.7f : 0.3f;
-                LV::Renderer2D::DrawQuad(orbPos, { circleThickTexSizeFactor * orbiterCircleRadius }, m_CircleThickTexture, iconCol);
-
-                // TODO - move to Update (map out visible orbiters and apparent distances)
-                if (hoverOrbiter && LV::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT))
-                {
-                    m_CameraTrackingId = orbId;
-                    m_CameraRelativeLevel = 1;
-                }
-            }
-            else
-            {
-                LV::Renderer2D::DrawQuad(orbPos, { circleFillTexSizeFactor * trackedSubOrbiterRadius * hostScaling }, m_CircleFillTexture, orbRef->GetColor());
+                auto col = m_Orbiters[sid]->GetColor();
+                col.w = sid == m_CameraTrackingId ? 0.7f : 0.3f;
+                LV::Renderer2D::DrawQuad(m_Orbiters[sid]->GetPosition().XY(), { circleFillTexSizeFactor * trackedSubOrbiterRadius}, m_CircleFillTexture, col);
             }
         }
 
@@ -365,81 +371,119 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         }
 
         // Render linear trajectories
-        for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
+        for (uint32_t id : sceneOrbiters)
         {
-            size_t orbId = visibleOrbiters[idx];
-            bool cameraIsTrackingOrbiter = orbId == sceneTrackingId;
-            bool orbiterIsInSceneSpace = idx < numHostOrbiters;
+            bool cameraIsTrackingOrbiter = id == sceneTrackingId;
 
-            auto& orbRef = m_Orbiters[orbId];
-            auto& op = orbRef->GetParameters();
+            auto& orbRef = m_Orbiters[id];
 
-            if (op.NewtonianMotion)
+            if (orbRef->GetParameters().NewtonianMotion)
             {
-                LV::Vector2 centrePos = orbiterIsInSceneSpace ? hostPos : 0.f;
-                LV::Vector2 orbPos = orbiterIsInSceneSpace ? (cameraIsTrackingOrbiter ? 0.f : op.Position) : troi * op.Position;
-
                 auto col = orbRef->GetColor();
                 col.w = cameraIsTrackingOrbiter ? 0.7f : 0.3f;
-                LV::Renderer2D::DrawLine(centrePos, orbPos, trajectoryLineThickness, col);
+                LV::Renderer2D::DrawLine(hostRef->GetPosition().XY(), orbRef->GetPosition().XY(), trajectoryLineThickness, col);
+            }
+
+            // Sub-orbiters
+            for (uint32_t sid : sceneOrbiterUi[id].SubOrbiters)
+            {
+                auto& subOrbRef = m_Orbiters[sid];
+                if (subOrbRef->GetParameters().NewtonianMotion)
+                {
+                    auto col = subOrbRef->GetColor();
+                    col.w = sid == m_CameraTrackingId ? 0.7f : 0.3f;
+                    LV::Renderer2D::DrawLine(orbRef->GetPosition().XY(), subOrbRef->GetPosition().XY(), subTrajectoryLineThickness, col);
+                }
             }
         }
 
         // Render elliptical orbits/trajectories
         LV::Renderer2D::TEMP_BeginEllipses(); // TEMPORARY: separate draw calls for different shaders - TODO: use render queue
-        for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
+        for (uint32_t id : sceneOrbiters)
         {
-            size_t orbId = visibleOrbiters[idx];
-            bool cameraIsTrackingOrbiter = orbId == sceneTrackingId;
-            bool orbiterIsInSceneSpace = idx < numHostOrbiters;
+            bool cameraIsTrackingOrbiter = id == sceneTrackingId;
 
-            float hostRelativeScaling = orbiterIsInSceneSpace ? 1.f : troi;
-
-            auto& orbRef = m_Orbiters[orbId];
+            auto& orbRef = m_Orbiters[id];
             auto& op = orbRef->GetParameters();
 
             if (op.Type == OrbitSystem2D::OrbitType::Circle || op.Type == OrbitSystem2D::OrbitType::Ellipse)
             {
-                LV::Vector2 centrePos = orbiterIsInSceneSpace ? hostPos + op.Centre : hostRelativeScaling * op.Centre;
+                LV::Vector2 centrePos = hostRef->GetPosition().XY() + op.Centre;
                 LV::Vector2 escapePointFromCentre{ 0.f, 0.f };
                 if (op.TrueAnomalyEscape < LV::PI2f)
                 {
                     float distanceCentreFocus = op.Eccentricity * op.SemiMajorAxis;
                     escapePointFromCentre = { distanceCentreFocus + op.EscapePointPerifocal.x, op.EscapePointPerifocal.y };
-                    escapePointFromCentre *= hostRelativeScaling;
                 }
                 auto col = orbRef->GetColor();
                 col.w = cameraIsTrackingOrbiter ? 0.7f : 0.3f;
-                LV::Renderer2D::DrawEllipse(centrePos, op.RightAscensionPeriapsis, hostRelativeScaling * op.SemiMajorAxis, hostRelativeScaling * op.SemiMinorAxis,
+                LV::Renderer2D::DrawEllipse(centrePos, op.RightAscensionPeriapsis, op.SemiMajorAxis, op.SemiMinorAxis,
                     escapePointFromCentre, trajectoryLineThickness, col);
+            }
+
+            // Sub-orbiters
+            float roi = orbs.GetRadiusOfInfluence(id);
+            for (uint32_t sid : sceneOrbiterUi[id].SubOrbiters)
+            {
+                auto& subOrbRef = m_Orbiters[sid];
+                auto& sop = subOrbRef->GetParameters();
+                if (sop.Type == OrbitSystem2D::OrbitType::Circle || sop.Type == OrbitSystem2D::OrbitType::Ellipse)
+                {
+                    LV::Vector2 centrePos = orbRef->GetPosition().XY() + roi * sop.Centre;
+                    LV::Vector2 escapePointFromCentre{ 0.f, 0.f };
+                    if (sop.TrueAnomalyEscape < LV::PI2f)
+                    {
+                        float distanceCentreFocus = sop.Eccentricity * sop.SemiMajorAxis;
+                        escapePointFromCentre = { distanceCentreFocus + sop.EscapePointPerifocal.x, sop.EscapePointPerifocal.y };
+                    }
+                    auto col = subOrbRef->GetColor();
+                    col.w = sid == m_CameraTrackingId ? 0.7f : 0.3f;
+                    LV::Renderer2D::DrawEllipse(centrePos, sop.RightAscensionPeriapsis, roi * sop.SemiMajorAxis, roi * sop.SemiMinorAxis,
+                        roi * escapePointFromCentre, subTrajectoryLineThickness, col);
+                }
             }
         }
 
         // Render hyperbolic trajectories
         LV::Renderer2D::TEMP_BeginHyperbolae(); // TEMPORARY: separate draw calls for different shaders - TODO: use render queue
-        for (size_t idx = 0; idx < visibleOrbiters.size(); idx++)
+        for (uint32_t id : sceneOrbiters)
         {
-            size_t orbId = visibleOrbiters[idx];
-            bool cameraIsTrackingOrbiter = orbId == sceneTrackingId;
-            bool orbiterIsInSceneSpace = idx < numHostOrbiters;
+            bool cameraIsTrackingOrbiter = id == sceneTrackingId;
 
-            float hostRelativeScaling = orbiterIsInSceneSpace ? 1.f : troi;
-
-            auto& orbRef = m_Orbiters[orbId];
+            auto& orbRef = m_Orbiters[id];
             auto& op = orbRef->GetParameters();
 
             if (op.Type == OrbitSystem2D::OrbitType::Hyperbola)
             {
-                LV::Vector2 centrePos = idx < numHostOrbiters ? hostPos + op.Centre : hostRelativeScaling * op.Centre;
+                LV::Vector2 centrePos = orbRef->GetPosition().XY() + op.Centre;
 
                 float distanceCentreFocus = op.Eccentricity * op.SemiMajorAxis;
                 LV::Vector2 escapePointFromCentre{ distanceCentreFocus - op.EscapePointPerifocal.x, op.EscapePointPerifocal.y };
-                escapePointFromCentre *= hostRelativeScaling;
 
                 auto col = orbRef->GetColor();
                 col.w = cameraIsTrackingOrbiter ? 0.7f : 0.3f;
-                LV::Renderer2D::DrawHyperbola(centrePos, op.RightAscensionPeriapsis, hostRelativeScaling * op.SemiMajorAxis, hostRelativeScaling * op.SemiMinorAxis,
+                LV::Renderer2D::DrawEllipse(centrePos, op.RightAscensionPeriapsis, op.SemiMajorAxis, op.SemiMinorAxis,
                     escapePointFromCentre, trajectoryLineThickness, col);
+            }
+
+            // Sub-orbiters
+            float roi = orbs.GetRadiusOfInfluence(id);
+            for (uint32_t sid : sceneOrbiterUi[id].SubOrbiters)
+            {
+                auto& subOrbRef = m_Orbiters[sid];
+                auto& sop = subOrbRef->GetParameters();
+                if (sop.Type == OrbitSystem2D::OrbitType::Hyperbola)
+                {
+                    LV::Vector2 centrePos = orbRef->GetPosition().XY() + roi * sop.Centre;
+
+                    float distanceCentreFocus = op.Eccentricity * op.SemiMajorAxis;
+                    LV::Vector2 escapePointFromCentre{ distanceCentreFocus - op.EscapePointPerifocal.x, op.EscapePointPerifocal.y };
+
+                    auto col = subOrbRef->GetColor();
+                    col.w = sid == m_CameraTrackingId ? 0.7f : 0.3f;
+                    LV::Renderer2D::DrawEllipse(centrePos, sop.RightAscensionPeriapsis, roi * sop.SemiMajorAxis, roi * sop.SemiMinorAxis,
+                        roi * escapePointFromCentre, subTrajectoryLineThickness, col);
+                }
             }
         }
 

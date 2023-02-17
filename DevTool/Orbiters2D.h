@@ -40,6 +40,12 @@ private:
 
     bool m_ZoomingIntoSystem = false;
     bool m_ZoomingOutOfSystem = false;
+
+    struct OrbiterUI
+    {
+        bool IsHovered = false;
+        std::vector<uint32_t> SubOrbiters;
+    };
 private:
     void GetCameraTrackingIds(uint32_t* sceneHostId, uint32_t* cameraTrackingId);
     bool PlayerShipIsVisible(const uint32_t sceneHostId, const uint32_t sceneTrackingId);

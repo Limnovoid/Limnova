@@ -14,7 +14,7 @@ namespace Limnova
         Vector2() : x(0), y(0) {}
         Vector2(float v) : x(v), y(v) {}
         Vector2(float x, float y) : x(x), y(y) {}
-        Vector2(glm::vec2 glmv) : x(glmv.x), y(glmv.y) {}
+        Vector2(glm::vec2& glmv) : x(glmv.x), y(glmv.y) {}
 
         inline float SqrMagnitude() const { return x * x + y * y; }
 
