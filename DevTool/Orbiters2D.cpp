@@ -95,6 +95,7 @@ void Orbiters2D::OnAttach()
             // Delete information
             m_Orbiters[id]->Destroy();
             m_Orbiters.erase(id);
+            m_Projectiles.erase(id);
         });
 
     m_SystemHost = SystemHost::Create("Star", 0.05f, { 0.9f, 1.f, 1.f, 1.f }, { 1.498284464f, 10 }, { 1.f, 0 });
@@ -181,7 +182,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
     std::vector<uint32_t> sceneOrbiters;
     std::unordered_map<uint32_t, OrbiterUI> sceneOrbiterUi;
 
-    LV::Vector2 shipPos, shipToMouseLine;
+    LV::Vector2 shipPos;
 
     // Update
     {
@@ -189,7 +190,6 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
 
         static constexpr float shipAcceleration = 0.5f;
         static constexpr float baseOrbiterCircleRadius = 0.024f;
-        static constexpr float weaponMuzzleVelocity = 5.f;
 
         zoom = m_CameraController->GetZoom();
         orbiterCircleRadius = zoom * baseOrbiterCircleRadius;
@@ -252,19 +252,19 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             {
                 shipPos = m_PlayerShip->GetParameters().Position - m_Orbiters[sceneTrackingId]->GetParameters().Position;
             }
-            shipToMouseLine = m_Input.MouseScenePosition - shipPos;
-            if (shipToMouseLine.SqrMagnitude() > 0)
+            m_Input.ShipToMouse = m_Input.MouseScenePosition - shipPos;
+            if (m_Input.ShipToMouse.SqrMagnitude() > 0)
             {
                 if (m_Input.WeaponSelected)
                 {
-                    LV::BigVector2 weaponLaunchVelocity = weaponMuzzleVelocity * shipToMouseLine.Normalized();
+                    LV::BigVector2 weaponLaunchVelocity = m_Input.MuzzleVelocity * m_Input.ShipToMouse.Normalized();
                     m_Input.TargetingOrbit = orbs.ComputeOrbit(m_PlayerShip->GetHostOrbitSystemId(),
                         m_PlayerShip->GetParameters().Position, m_PlayerShip->GetParameters().Velocity + weaponLaunchVelocity);
                 }
                 else if (LV::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT))
                 {
                     m_Input.ShipIsThrusting = true;
-                    m_PlayerShip->Accelerate(LV::BigVector2{ shipAcceleration * shipToMouseLine.Normalized() });
+                    m_PlayerShip->Accelerate(LV::BigVector2{ shipAcceleration * m_Input.ShipToMouse.Normalized() });
                 }
             }
             else
@@ -279,7 +279,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         m_CameraController->OnUpdate(dT);
 
         // Check if camera is zooming in or out of the current scene sytem
-        if (m_ZoomingIntoSystem && m_CameraRelativeLevel > 0)
+        if (m_ZoomingIntoSystem && (m_CameraRelativeLevel > 1 || (m_CameraRelativeLevel > 0 && OrbitSystem2D::Get().IsInfluencing(m_CameraTrackingId))))
         {
             m_CameraRelativeLevel--;
             m_CameraController->SetXY({ 0.f, 0.f });
@@ -317,7 +317,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         static constexpr float trackedSubOrbiterRadius = 0.001f;
         static constexpr float baseShipThrustLineThickness = 0.008f;
         static constexpr float circleLargeFillTexSizeFactor = 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
-        static const LV::Vector4 weaponCol{ 0.5f, 1.f, 1.f, 0.3f };
+        static const LV::Vector4 aimingCol{ 1.f, 1.f, 0.f, 0.3f };
 
         float trajectoryLineThickness = zoom * baseTrajectoryLineThickness;
         float intersectCircleRadius = zoom * baseIntersectCircleRadius;
@@ -348,10 +348,9 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             LV::Renderer2D::DrawQuad(orbRef->GetPosition().XY(), {circleThickTexSizeFactor * orbiterCircleRadius}, m_CircleThickTexture, iconCol);
 
             // Influence
-            float roi = orbs.GetRadiusOfInfluence(id);
             if (orbs.IsInfluencing(id))
             {
-                float roiQuadDiameter = circleLargeFillTexSizeFactor * 2.f * roi;
+                float roiQuadDiameter = circleLargeFillTexSizeFactor * 2.f * orbs.GetRadiusOfInfluence(id);
                 LV::Renderer2D::DrawQuad(orbRef->GetPosition(), { roiQuadDiameter }, m_CircleLargeFillTexture, m_InfluenceColor);
             }
 
@@ -372,7 +371,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             shipInputUICol.y = powf(shipInputUICol.y + 0.1f, 2);
             shipInputUICol.z = powf(shipInputUICol.z + 0.1f, 2);
             shipInputUICol.w = m_Input.ShipIsThrusting ? 0.7f : 0.3f;
-            LV::Renderer2D::DrawLine(shipPos, shipPos + shipToMouseLine, shipThrustLineThickness, shipInputUICol);
+            LV::Renderer2D::DrawLine(shipPos, shipPos + m_Input.ShipToMouse, shipThrustLineThickness, shipInputUICol);
         }
 
         // Render linear trajectories
@@ -407,7 +406,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         {
             float scale = m_CameraRelativeLevel == 1 ? 1.f : orbs.GetScaling(m_PlayerShip->GetHostOrbitSystemId());
             LV::Renderer2D::DrawLine(m_Orbiters[m_PlayerShip->GetHostOrbitSystemId()]->GetPosition().XY(),
-                m_PlayerShip->GetPosition().XY(), m_CameraRelativeLevel == 1 ? trajectoryLineThickness : subTrajectoryLineThickness, weaponCol);
+                m_PlayerShip->GetPosition().XY(), m_CameraRelativeLevel == 1 ? trajectoryLineThickness : subTrajectoryLineThickness, aimingCol);
         }
 
         // Render elliptical orbits/trajectories
@@ -435,7 +434,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             }
 
             // Sub-orbiters
-            float roi = orbs.GetRadiusOfInfluence(id);
+            float roi = orbs.IsInfluencing(id) ? orbs.GetRadiusOfInfluence(id) : 0.f;
             for (uint32_t sid : sceneOrbiterUi[id].SubOrbiters)
             {
                 auto& subOrbRef = m_Orbiters[sid];
@@ -470,7 +469,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             }
             LV::Renderer2D::DrawEllipse(centrePos, m_Input.TargetingOrbit.RightAscensionPeriapsis,
                 m_Input.TargetingOrbit.SemiMajorAxis * scale, m_Input.TargetingOrbit.SemiMinorAxis * scale,
-                escapePointFromCentre * scale, m_CameraRelativeLevel == 1 ? trajectoryLineThickness : subTrajectoryLineThickness, weaponCol);
+                escapePointFromCentre * scale, m_CameraRelativeLevel == 1 ? trajectoryLineThickness : subTrajectoryLineThickness, aimingCol);
         }
 
         // Render hyperbolic trajectories
@@ -496,7 +495,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             }
 
             // Sub-orbiters
-            float roi = orbs.GetRadiusOfInfluence(id);
+            float roi = orbs.IsInfluencing(id) ? orbs.GetRadiusOfInfluence(id) : 0.f;
             for (uint32_t sid : sceneOrbiterUi[id].SubOrbiters)
             {
                 auto& subOrbRef = m_Orbiters[sid];
@@ -525,7 +524,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             LV::Vector2 escapePointFromCentre{ distanceCentreFocus - m_Input.TargetingOrbit.EscapePointPerifocal.x, m_Input.TargetingOrbit.EscapePointPerifocal.y };
             LV::Renderer2D::DrawHyperbola(centrePos, m_Input.TargetingOrbit.RightAscensionPeriapsis,
                 m_Input.TargetingOrbit.SemiMajorAxis * scale, m_Input.TargetingOrbit.SemiMinorAxis * scale,
-                escapePointFromCentre * scale, m_CameraRelativeLevel == 1 ? trajectoryLineThickness : subTrajectoryLineThickness, weaponCol);
+                escapePointFromCentre * scale, m_CameraRelativeLevel == 1 ? trajectoryLineThickness : subTrajectoryLineThickness, aimingCol);
         }
 
         LV::Renderer2D::EndScene();
@@ -675,6 +674,10 @@ bool Orbiters2D::OnMouseButtonPressed(LV::MouseButtonPressedEvent& e)
         if (m_Input.ShipIsBeingControlled && m_Input.WeaponSelected)
         {
             // Fire weapon
+            auto projectileRef = ProjectileRef(new Projectile(m_PlayerShip, std::static_pointer_cast<InfluencingOrbiter>(m_Orbiters[m_PlayerShip->GetHostOrbitSystemId()]),
+                LV::BigVector2{ m_Input.ShipToMouse.Normalized() } * m_Input.MuzzleVelocity));
+            m_Orbiters[projectileRef->GetRef()->GetOrbitSystemId()] = projectileRef->GetRef();
+            m_Projectiles[projectileRef->GetRef()->GetOrbitSystemId()] = projectileRef;
         }
         break;
     }
@@ -705,10 +708,10 @@ bool Orbiters2D::OnKeyPressed(LV::KeyPressedEvent& e)
 
 // Projectile ////
 
-//const LV::Vector4 Orbiters2D::Projectile::s_Color = { 1.f, 1.f, 0.5f, 1.f };
-//const LV::BigFloat Orbiters2D::Projectile::s_Mass = { 1.f, -4 };
-//
-//Orbiters2D::Projectile::Projectile(const OrbRef& launcher, const InflOrbRef& launcherHost, const OrbRef& target, const LV::Vector2& scaledLaunchVelocity)
-//{
-//    m_OrbRef = Orbiter::Create("Projectile", s_Radius, s_Color, s_Mass, launcherHost, launcher->GetParameters().Position, launcher->GetParameters().Velocity + scaledLaunchVelocity);
-//}
+const LV::Vector4 Orbiters2D::Projectile::s_Color = { 1.f, 1.f, 0.5f, 1.f };
+const LV::BigFloat Orbiters2D::Projectile::s_Mass = { 1.f, -4 };
+
+Orbiters2D::Projectile::Projectile(const OrbRef& launcher, const InflOrbRef& launcherHost, const LV::BigVector2& scaledLaunchVelocity)
+{
+    m_SpacecraftRef = Spacecraft::Create("Projectile", s_Radius, s_Color, s_Mass, launcherHost, launcher->GetParameters().Position, launcher->GetParameters().Velocity + scaledLaunchVelocity);
+}

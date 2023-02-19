@@ -47,8 +47,10 @@ private:
 
         bool ShipIsBeingControlled = false;
         bool ShipIsThrusting = false;
+        LV::Vector2 ShipToMouse;
 
         bool WeaponSelected = false;
+        LV::BigFloat MuzzleVelocity{ 5.f, 0 };
         OrbitSystem2D::OrbitParameters TargetingOrbit;
     } m_Input;
 
@@ -58,21 +60,22 @@ private:
         std::vector<uint32_t> SubOrbiters;
     };
 
-    //class Projectile
-    //{
-    //public:
-    //    Projectile(const OrbRef& launcher, const InflOrbRef& launcherHost, const OrbRef& target, const LV::Vector2& scaledLaunchVelocity);
-    //    ~Projectile() {}
-    //
-    //    const OrbRef& GetRef() { return m_OrbRef; }
-    //private:
-    //    OrbRef m_OrbRef;
-    //private:
-    //    static constexpr float s_Radius = 0.012f;
-    //    static const LV::Vector4 s_Color;
-    //    static const LV::BigFloat s_Mass;
-    //};
-    //std::unordered_map<uint32_t, Projectile> m_Projectiles;
+    class Projectile
+    {
+    public:
+        Projectile(const OrbRef& launcher, const InflOrbRef& launcherHost, const LV::BigVector2& scaledLaunchVelocity);
+        ~Projectile() {}
+    
+        const SpacecraftRef& GetRef() { return m_SpacecraftRef; }
+    private:
+        SpacecraftRef m_SpacecraftRef;
+    private:
+        static constexpr float s_Radius = 0.000015f;
+        static const LV::Vector4 s_Color;
+        static const LV::BigFloat s_Mass;
+    };
+    using ProjectileRef = std::shared_ptr<Projectile>;
+    std::unordered_map<uint32_t, ProjectileRef> m_Projectiles;
 private:
     void GetCameraTrackingIds(uint32_t* sceneHostId, uint32_t* cameraTrackingId);
     bool PlayerShipIsVisible(const uint32_t sceneHostId, const uint32_t sceneTrackingId);

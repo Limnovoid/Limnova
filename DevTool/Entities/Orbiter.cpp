@@ -101,7 +101,7 @@ Spacecraft::~Spacecraft()
 SpacecraftRef Spacecraft::Create(const std::string& name, const float radius, const LV::Vector4& color,
     const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
 {
-    uint32_t id = OrbitSystem2D::Get().CreateOrbiterES(true, true, mass, initialHost->GetOrbitSystemId(), scaledPosition, scaledVelocity);
+    uint32_t id = OrbitSystem2D::Get().CreateOrbiterES(false, true, mass, initialHost->GetOrbitSystemId(), scaledPosition, scaledVelocity);
     return SpacecraftRef(new Spacecraft(name, radius, color, OrbitSystem2D::Get().GetNodeRef(id)));
 }
 
@@ -109,7 +109,7 @@ SpacecraftRef Spacecraft::Create(const std::string& name, const float radius, co
 SpacecraftRef Spacecraft::Create(const std::string& name, const float radius, const LV::Vector4& color,
     const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const bool clockwise)
 {
-    uint32_t id = OrbitSystem2D::Get().CreateOrbiterCS(true, true, mass, initialHost->GetOrbitSystemId(), scaledPosition, clockwise);
+    uint32_t id = OrbitSystem2D::Get().CreateOrbiterCS(false, true, mass, initialHost->GetOrbitSystemId(), scaledPosition, clockwise);
     return SpacecraftRef(new Spacecraft(name, radius, color, OrbitSystem2D::Get().GetNodeRef(id)));
 }
 
