@@ -36,19 +36,48 @@ private:
     std::unordered_map<uint32_t, OrbRef> m_Orbiters; // TEMPORARY - to be replaced by entities/components
     uint32_t m_CameraTrackingId = 0;
     uint32_t m_CameraRelativeLevel = 1;
-    PlayerRef m_PlayerShip;
+    SpacecraftRef m_PlayerShip;
 
     bool m_ZoomingIntoSystem = false;
     bool m_ZoomingOutOfSystem = false;
+
+    struct InputInfo
+    {
+        LV::Vector2 MouseScenePosition;
+
+        bool ShipIsBeingControlled = false;
+        bool ShipIsThrusting = false;
+
+        bool WeaponSelected = false;
+        OrbitSystem2D::OrbitParameters TargetingOrbit;
+    } m_Input;
 
     struct OrbiterUI
     {
         bool IsHovered = false;
         std::vector<uint32_t> SubOrbiters;
     };
+
+    //class Projectile
+    //{
+    //public:
+    //    Projectile(const OrbRef& launcher, const InflOrbRef& launcherHost, const OrbRef& target, const LV::Vector2& scaledLaunchVelocity);
+    //    ~Projectile() {}
+    //
+    //    const OrbRef& GetRef() { return m_OrbRef; }
+    //private:
+    //    OrbRef m_OrbRef;
+    //private:
+    //    static constexpr float s_Radius = 0.012f;
+    //    static const LV::Vector4 s_Color;
+    //    static const LV::BigFloat s_Mass;
+    //};
+    //std::unordered_map<uint32_t, Projectile> m_Projectiles;
 private:
     void GetCameraTrackingIds(uint32_t* sceneHostId, uint32_t* cameraTrackingId);
     bool PlayerShipIsVisible(const uint32_t sceneHostId, const uint32_t sceneTrackingId);
 
     bool OnMouseScrolled(LV::MouseScrolledEvent& e);
+    bool OnMouseButtonPressed(LV::MouseButtonPressedEvent& event);
+    bool OnKeyPressed(LV::KeyPressedEvent& e);
 };

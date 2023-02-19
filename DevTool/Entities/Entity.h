@@ -39,3 +39,6 @@ private:
     static uint32_t ReserveId();
     static void ReleaseId(const uint32_t id);
 };
+
+
+using EntityRef = std::shared_ptr<Entity>;

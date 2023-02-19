@@ -88,7 +88,6 @@ public:
 
         Limnova::BigFloat Mass;
         OrbitParameters Parameters;
-        bool NeedRecomputeState = false;
         bool Influencing = false;
         bool Dynamic = false;
     protected:
@@ -240,10 +239,12 @@ public:
 
     void SetOrbiterRightAscension(const uint32_t orbiterId, const float rightAscension);
 
-    void AccelerateOrbiter(const uint32_t orbiterId, const Limnova::BigVector2& cceleration);
+    void AccelerateOrbiter(const uint32_t orbiterId, const Limnova::BigVector2& acceleration);
 
     NodeRef& GetNodeRef(const uint32_t orbiterId);
     InflRef& GetInflRef(const uint32_t orbiterId);
+
+    OrbitParameters ComputeOrbit(const uint32_t hostId, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity);
 private:
     uint32_t m_NumNodesAllocated;
     std::unordered_set<NodeRef> m_FreeNodes;

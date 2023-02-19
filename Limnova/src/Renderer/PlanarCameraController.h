@@ -42,7 +42,7 @@ namespace Limnova
 
         void OnEvent(Event& e);
     private:
-        bool OnMouseButtonPressedEvent(MouseButtonPressedEvent& event);
+        bool OnMouseButtonPressed(MouseButtonPressedEvent& e);
         bool OnMouseScrolled(MouseScrolledEvent& e);
         bool OnWindowResized(WindowResizeEvent& e);
 

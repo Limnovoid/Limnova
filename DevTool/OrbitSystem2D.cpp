@@ -565,7 +565,6 @@ uint32_t OrbitSystem2D::CreateInfluencingOrbiter(const bool dynamic, const InflR
     op.Position = scaledPosition;
     op.Velocity = scaledVelocity;
     inflRef->Dynamic = dynamic;
-    inflRef->NeedRecomputeState = false;
     inflRef->ComputeElementsFromState();
 
     // Compute this orbiter's influence
@@ -617,7 +616,6 @@ uint32_t OrbitSystem2D::CreateNoninflOrbiter(const bool dynamic, const InflRef& 
     op.Position = scaledPosition;
     op.Velocity = scaledVelocity;
     nodeRef->Dynamic = dynamic;
-    nodeRef->NeedRecomputeState = false;
     nodeRef->ComputeElementsFromState();
 
     // Add to data structures
@@ -746,7 +744,7 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
         // cos(TAnomaly) = (h^2 / (mu * r_esc) - 1) / e
         op.TrueAnomalyEscape = acosf((op.OParameter / kEscapeDistance - 1.f) / op.Eccentricity);
         LV_CORE_INFO("Orbiter {0} will escape {1} at true anomaly {2} (current true anomaly {3})", this->Id, this->Parent->Id, op.TrueAnomalyEscape, op.TrueAnomaly);
-        LV_CORE_ASSERT(op.TrueAnomaly < op.TrueAnomalyEscape || op.TrueAnomaly > LV::PIf, "Orbiter true anomaly is in its computed escape range at the time of computing the escape true anomaly - the orbit is escaped before it is defined!");
+        LV_CORE_ASSERT(op.TrueAnomaly < op.TrueAnomalyEscape || op.TrueAnomaly > LV::PIf, "Orbiter true anomaly is in its computed escape range at the time of computing the escape true anomaly!");
 
         // Determine orbit time from periapse to escape
         float meanAnomaly;
@@ -957,10 +955,6 @@ void OrbitSystem2D::OrbitTreeNode::FindIntersects(NodeRef& sibling)
     auto& siblingIntersect = sp.Intersects[this->Id];
     siblingIntersect.first = 0;
 
-    // TODO : ability to update all sibling intersects when this orbiter escapes its host:
-    // - use a central data structure in OrbitSystem2D to store intersects ?
-    // - iterate over siblings and remove Intersect entries for this orbiter's ID ?
-
     int numIntersects = 0;
     if (abs(theta0) < op.TrueAnomalyEscape && abs(siblingTheta0) < sp.TrueAnomalyEscape)
     {
@@ -1095,11 +1089,6 @@ const OrbitSystem2D::OrbitTreeNode& OrbitSystem2D::GetOrbiter(const uint32_t orb
     LV_CORE_ASSERT(m_AllNodes.find(orbiterId) != m_AllNodes.end(), "Invalid orbiter ID!");
 
     auto& node = m_AllNodes[orbiterId];
-    if (node->NeedRecomputeState)
-    {
-        node->ComputeStateVector();
-        node->NeedRecomputeState = false;
-    }
     return *node;
 }
 
@@ -1111,11 +1100,6 @@ const OrbitSystem2D::InfluencingNode& OrbitSystem2D::GetHost(const uint32_t host
     LV_CORE_ASSERT(m_InfluencingNodes.find(hostId) != m_InfluencingNodes.end(), "Invalid orbiter ID!");
     
     auto& node = m_InfluencingNodes[hostId];
-    if (node->NeedRecomputeState)
-    {
-        node->ComputeStateVector();
-        node->NeedRecomputeState = false;
-    }
     return *node;
 }
 
@@ -1127,11 +1111,6 @@ const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_
     LV_CORE_ASSERT(m_AllNodes.find(orbiterId) != m_AllNodes.end(), "Invalid orbiter ID!");
 
     auto& node = m_AllNodes[orbiterId];
-    if (node->NeedRecomputeState)
-    {
-        node->ComputeStateVector();
-        node->NeedRecomputeState = false;
-    }
     return m_AllNodes[orbiterId]->Parameters;
 }
 
@@ -1270,6 +1249,23 @@ OrbitSystem2D::InflRef& OrbitSystem2D::GetInflRef(const uint32_t orbiterId)
     LV_CORE_ASSERT(m_InfluencingNodes.find(orbiterId) != m_InfluencingNodes.end(), "AccelerateOrbiter() was passed an invalid orbiter ID!");
 
     return m_InfluencingNodes[orbiterId];
+}
+
+
+OrbitSystem2D::OrbitParameters OrbitSystem2D::ComputeOrbit(const uint32_t hostId, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
+{
+    LV_PROFILE_FUNCTION();
+
+    OrbitTreeNode tempNode(std::numeric_limits<uint32_t>::max());
+
+    LV_CORE_ASSERT(m_InfluencingNodes.find(hostId) != m_InfluencingNodes.end(), "ComputeParameters() was passed an invalid host ID!");
+    tempNode.Parent = m_InfluencingNodes[hostId];
+    tempNode.Parameters.GravAsOrbiter = tempNode.Parent->Parameters.GravAsHost;
+    tempNode.Parameters.Position = scaledPosition;
+    tempNode.Parameters.Velocity = scaledVelocity;
+    tempNode.Dynamic = true;
+    tempNode.ComputeElementsFromState();
+    return tempNode.Parameters;
 }
 
 

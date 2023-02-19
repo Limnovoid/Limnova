@@ -86,17 +86,17 @@ namespace Limnova
         LV_PROFILE_FUNCTION();
 
         EventDispatcher dispatcher(e);
-        dispatcher.Dispatch<MouseButtonPressedEvent>(LV_BIND_EVENT_FN(PlanarCameraController::OnMouseButtonPressedEvent));
+        dispatcher.Dispatch<MouseButtonPressedEvent>(LV_BIND_EVENT_FN(PlanarCameraController::OnMouseButtonPressed));
         dispatcher.Dispatch<MouseScrolledEvent>(LV_BIND_EVENT_FN(PlanarCameraController::OnMouseScrolled));
         dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(PlanarCameraController::OnWindowResized));
     }
 
 
-    bool PlanarCameraController::OnMouseButtonPressedEvent(MouseButtonPressedEvent& event)
+    bool PlanarCameraController::OnMouseButtonPressed(MouseButtonPressedEvent& e)
     {
         LV_PROFILE_FUNCTION();
 
-        switch(event.GetMouseButton())
+        switch(e.GetMouseButton())
         {
             case LV_MOUSE_BUTTON_MIDDLE:
                 if (m_BeingControlled)

@@ -86,22 +86,22 @@ public:
 };
 
 
-class PlayerShip;
-using PlayerRef = std::shared_ptr<PlayerShip>;
+class Spacecraft;
+using SpacecraftRef = std::shared_ptr<Spacecraft>;
 
-class PlayerShip : public Orbiter
+class Spacecraft : public Orbiter
 {
-private:
-    PlayerShip(const std::string& name, const float radius, const LV::Vector4& color, const OrbitSystem2D::NodeRef& nodeRef);
+protected:
+    Spacecraft(const std::string& name, const float radius, const LV::Vector4& color, const OrbitSystem2D::NodeRef& nodeRef);
 public:
-    ~PlayerShip();
+    ~Spacecraft();
 
     // Create a non-influencing dynamic orbiter with controllable self-acceleration - specify initial position and velocity.
-    static PlayerRef Create(const std::string& name, const float radius, const LV::Vector4& color,
+    static SpacecraftRef Create(const std::string& name, const float radius, const LV::Vector4& color,
         const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity);
 
     // Create a non-influencing dynamic orbiter with controllable self-acceleration - specify initial position and orientation of circular orbit.
-    static PlayerRef Create(const std::string& name, const float radius, const LV::Vector4& color,
+    static SpacecraftRef Create(const std::string& name, const float radius, const LV::Vector4& color,
         const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const bool clockwise);
 public:
     void Accelerate(const LV::BigVector2& acceleration);

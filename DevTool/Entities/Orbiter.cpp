@@ -87,34 +87,34 @@ SystemRef SystemHost::Create(const std::string& name, const float radius, const 
 
 //// PlayerShip ////////////////////////////////////////////////
 
-PlayerShip::PlayerShip(const std::string& name, const float radius, const LV::Vector4& color, const OrbitSystem2D::NodeRef& nodeRef)
+Spacecraft::Spacecraft(const std::string& name, const float radius, const LV::Vector4& color, const OrbitSystem2D::NodeRef& nodeRef)
     : Orbiter(name, radius, color, nodeRef)
 {
 }
 
 
-PlayerShip::~PlayerShip()
+Spacecraft::~Spacecraft()
 {
 }
 
 
-PlayerRef PlayerShip::Create(const std::string& name, const float radius, const LV::Vector4& color,
+SpacecraftRef Spacecraft::Create(const std::string& name, const float radius, const LV::Vector4& color,
     const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
 {
     uint32_t id = OrbitSystem2D::Get().CreateOrbiterES(true, true, mass, initialHost->GetOrbitSystemId(), scaledPosition, scaledVelocity);
-    return std::shared_ptr<PlayerShip>(new PlayerShip(name, radius, color, OrbitSystem2D::Get().GetNodeRef(id)));
+    return SpacecraftRef(new Spacecraft(name, radius, color, OrbitSystem2D::Get().GetNodeRef(id)));
 }
 
 
-PlayerRef PlayerShip::Create(const std::string& name, const float radius, const LV::Vector4& color,
+SpacecraftRef Spacecraft::Create(const std::string& name, const float radius, const LV::Vector4& color,
     const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const bool clockwise)
 {
     uint32_t id = OrbitSystem2D::Get().CreateOrbiterCS(true, true, mass, initialHost->GetOrbitSystemId(), scaledPosition, clockwise);
-    return PlayerRef(new PlayerShip(name, radius, color, OrbitSystem2D::Get().GetNodeRef(id)));
+    return SpacecraftRef(new Spacecraft(name, radius, color, OrbitSystem2D::Get().GetNodeRef(id)));
 }
 
 
-void PlayerShip::Accelerate(const LV::BigVector2& acceleration)
+void Spacecraft::Accelerate(const LV::BigVector2& acceleration)
 {
     OrbitSystem2D::Get().AccelerateOrbiter(m_Node->GetId(), acceleration);
 }
