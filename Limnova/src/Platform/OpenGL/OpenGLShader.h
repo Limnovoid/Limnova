@@ -22,6 +22,7 @@ namespace Limnova
         void Unbind() const override;
 
         void SetInt(const std::string& name, const int value) override;
+        void SetIntArray(const std::string& name, const int* values, const uint32_t count) override;
         void SetFloat(const std::string& name, const float value) override;
         void SetVec2(const std::string& name, const Vector2& value) override;
         void SetVec3(const std::string& name, const Vector3& value) override;
@@ -34,6 +35,7 @@ namespace Limnova
         // Update the values of uniforms in this shader.
         // This shader is bound separately with Bind() - there must be a call to Bind() from this shader anywhere before calling UploadUniform* and after any calls to Bind() from a different shader.
         void UploadUniformInt(const std::string& uniformName, const int value);
+        void UploadUniformIntArray(const std::string& uniformName, const int* values, const uint32_t count);
 
         void UploadUniformFloat(const std::string& uniformName, const float value);
         void UploadUniformFloat2(const std::string& uniformName, const glm::vec2& values);

@@ -38,4 +38,10 @@ namespace Limnova
         s_RendererApi->DrawIndexed(vertexArray);
     }
 
+
+    void RenderCommand::DrawIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount)
+    {
+        s_RendererApi->DrawIndexed(vertexArray, indexCount);
+    }
+
 }

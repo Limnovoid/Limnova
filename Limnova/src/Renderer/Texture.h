@@ -22,6 +22,8 @@ namespace Limnova
         virtual void SetWrapMode(const WrapMode wrap) = 0;
 
         virtual void SetData(void* data, uint32_t size) = 0;
+
+        virtual bool operator==(const Texture& other) const = 0;
     };
 
 

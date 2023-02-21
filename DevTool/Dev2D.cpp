@@ -20,6 +20,8 @@ void Dev2DLayer::OnAttach()
         (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight(),
         0.1f, 100.f, glm::radians(60.f)
     );
+    m_CameraController->SetControlled(true);
+
     /*m_CameraController = std::make_shared<Limnova::OrthographicPlanarCameraController>(
         Limnova::Vector3(0.f, 0.f, 1.f), Limnova::Vector3(0.f, 0.f, -1.f),
         (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight(),
@@ -42,11 +44,16 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
 {
     LV_PROFILE_FUNCTION();
 
+    static float s_AnimatedRotation;
+    constexpr float rotationSpeed = 30.f;
+
     // Update
     {
         LV_PROFILE_SCOPE("m_CameraController->OnUpdate - Dev2DLayer::OnUpdate");
 
         m_CameraController->OnUpdate(dT);
+
+        s_AnimatedRotation = Limnova::Wrap(s_AnimatedRotation + dT * rotationSpeed, 0.f, 360.f);
     }
 
     // Render
@@ -61,10 +68,10 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
         LV_PROFILE_SCOPE("Render Draw - Dev2DLayer::OnUpdate");
 
         Limnova::Renderer2D::BeginScene(m_CameraController->GetCamera());
-
         Limnova::Renderer2D::DrawRotatedQuad({ 0.f, 0.f }, { 3.f, 3.f }, glm::radians(m_BackgroundRotation), m_CheckerboardTexture, m_TextureTint, m_TextureScale);
-        Limnova::Renderer2D::DrawQuad({ 1.f, 0.f }, { 2.f, 1.f }, m_SquareColor);
-        Limnova::Renderer2D::DrawQuad({-.5f, 0.f }, { 1.f, 1.f }, m_TurretTexture);
+        //Limnova::Renderer2D::DrawQuad({ 0.f, 0.f }, { 3.f, 3.f }, m_CheckerboardTexture, m_TextureTint, m_TextureScale);
+        Limnova::Renderer2D::DrawRotatedQuad({ 0.f, 0.5f, 1.f }, { 0.5f, 0.5f }, glm::radians(s_AnimatedRotation), m_TextureTint);
+        Limnova::Renderer2D::DrawQuad({ 0.75f, 0.f, 0.5f }, { 1.5f, 1.f }, m_SquareColor);
 
         Limnova::Renderer2D::EndScene();
     }

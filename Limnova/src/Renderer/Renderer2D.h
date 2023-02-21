@@ -17,6 +17,7 @@ namespace Limnova
 
         static void BeginScene(Camera& camera);
         static void EndScene();
+        static void Flush();
 
         static void DrawQuad(const Vector3& positionCentre, const Vector2& size, const Vector4& color);
         static void DrawQuad(const Vector2& positionCentre, const Vector2& size, const Vector4& color);

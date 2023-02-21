@@ -16,6 +16,7 @@ namespace Limnova
         static void Clear();
 
         static void DrawIndexed(const Ref<VertexArray>& vertexArray);
+        static void DrawIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount);
     private:
         static RendererAPI* s_RendererApi;
     };

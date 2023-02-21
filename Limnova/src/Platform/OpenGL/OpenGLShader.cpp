@@ -225,6 +225,14 @@ namespace Limnova
     }
 
 
+    void OpenGLShader::SetIntArray(const std::string& name, const int* values, const uint32_t count)
+    {
+        LV_PROFILE_FUNCTION();
+
+        UploadUniformIntArray(name, values, count);
+    }
+
+
     void OpenGLShader::SetFloat(const std::string& name, const float value)
     {
         LV_PROFILE_FUNCTION();
@@ -312,6 +320,14 @@ namespace Limnova
         uint32_t uniformIndex = glGetUniformLocation(m_RendererId, uniformName.c_str());
         if (CheckUniformIndex(uniformName, uniformIndex)) return;
         glUniform1i(uniformIndex, value);
+    }
+
+
+    void OpenGLShader::UploadUniformIntArray(const std::string& uniformName, const int* values, const uint32_t count)
+    {
+        uint32_t uniformIndex = glGetUniformLocation(m_RendererId, uniformName.c_str());
+        if (CheckUniformIndex(uniformName, uniformIndex)) return;
+        glUniform1iv(uniformIndex, count, values);
     }
 
 

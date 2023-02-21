@@ -8,34 +8,42 @@ layout (std140) uniform CameraUniform
     vec3 AimDirection;
 } u_Camera;
 
-uniform mat4 u_Transform;
-
 layout(location = 0) in vec3 a_Position;
-layout(location = 1) in vec2 a_TexCoord;
+layout(location = 1) in vec4 a_Color;
+layout(location = 2) in vec2 a_TexCoord;
+layout(location = 3) in vec2 a_TexScale;
+layout(location = 4) in float a_TexIndex;
 
+out vec4 v_Color;
 out vec2 v_TexCoord;
+out vec2 v_TexScale;
+out float v_TexIndex;
 
 void main()
 {
+    v_TexIndex = a_TexIndex;
+    v_TexScale = a_TexScale;
     v_TexCoord = a_TexCoord;
-    gl_Position = u_Camera.ViewProj * u_Transform * vec4(a_Position, 1.0);
+    v_Color = a_Color;
+    gl_Position = u_Camera.ViewProj * vec4(a_Position, 1.0);
 }
 
 
 #type fragment
 #version 450
 
-uniform vec4 u_Color;
-uniform sampler2D u_Texture;
-uniform vec2 u_TexScale;
+uniform sampler2D u_Textures[32];
 
+in vec4 v_Color;
 in vec2 v_TexCoord;
+in vec2 v_TexScale;
+in float v_TexIndex;
 
 layout(location = 0) out vec4 o_Color;
 
 void main()
 {
-    vec4 color = texture(u_Texture, v_TexCoord * u_TexScale) * u_Color;
+    vec4 color = texture(u_Textures[int(v_TexIndex)], v_TexCoord * v_TexScale) * v_Color;
     color.rgb = color.rgb * color.a; // Premultiplied alpha
     o_Color = color;
 }

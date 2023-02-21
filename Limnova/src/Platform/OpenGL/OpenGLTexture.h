@@ -21,6 +21,11 @@ namespace Limnova
         void SetWrapMode(const WrapMode wrap) override;
 
         void SetData(void* data, uint32_t size) override;
+
+        bool operator==(const Texture& other) const override
+        {
+            return m_RendererId == ((OpenGLTexture2D&)other).m_RendererId;
+        }
     private:
         std::string m_Path; // TODO : move to asset manager
         uint32_t m_RendererId;

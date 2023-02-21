@@ -47,13 +47,22 @@ namespace Limnova
     }
 
 
-    Vector3 Vector3::operator+(const Vector3 rhs) const
+    Vector3& Vector3::operator=(const glm::vec3& rhs)
+    {
+        this->x = rhs.x;
+        this->y = rhs.y;
+        this->z = rhs.z;
+        return *this;
+    }
+
+
+    Vector3 Vector3::operator+(const Vector3& rhs) const
     {
         return Vector3(this->x + rhs.x, this->y + rhs.y, this->z + rhs.z);
     }
 
 
-    Vector3& Vector3::operator+=(const Vector3 rhs)
+    Vector3& Vector3::operator+=(const Vector3& rhs)
     {
         this->x += rhs.x;
         this->y += rhs.y;
@@ -62,13 +71,13 @@ namespace Limnova
     }
 
 
-    Vector3 Vector3::operator-(const Vector3 rhs) const
+    Vector3 Vector3::operator-(const Vector3& rhs) const
     {
         return Vector3(this->x - rhs.x, this->y - rhs.y, this->z - rhs.z);
     }
 
 
-    Vector3& Vector3::operator-=(const Vector3 rhs)
+    Vector3& Vector3::operator-=(const Vector3& rhs)
     {
         this->x -= rhs.x;
         this->y -= rhs.y;
