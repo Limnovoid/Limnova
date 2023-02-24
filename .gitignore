@@ -5,6 +5,9 @@ build/
 Profiling/
 !src/Profiling/
 
+## Ignore large assets
+DevTool/Assets/textures
+
 ### Below is from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 ## Ignore Visual Studio temporary files, build results, and

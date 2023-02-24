@@ -34,6 +34,7 @@
 #include <src/Renderer/OrthographicCamera.h>
 #include <src/Renderer/PerspectiveCamera.h>
 #include <src/Renderer/Texture.h>
+#include <src/Renderer/SubTexture.h>
 
 #include <src/Structures/Queue.h>
 // ------------------------------------

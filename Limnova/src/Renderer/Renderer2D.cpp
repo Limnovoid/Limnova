@@ -48,6 +48,8 @@ namespace Limnova
         uint32_t TextureSlotIndex = 1; // 0 = white texture
 
         Vector4 QuadVertexPositions[4];
+
+        Renderer2D::Statistics Stats;
     };
 
     static Renderer2DData s_Data;
@@ -195,21 +197,13 @@ namespace Limnova
 
         s_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(Renderer::SceneData, Renderer::SceneData::CameraData), sizeof(Camera::Data));
 
-        s_Data.TextureShader->Bind();
-
-        s_Data.QuadIndexCount = 0;
-        s_Data.QuadVertexBufferPtr = s_Data.QuadVertexBufferBase;
-
-        s_Data.TextureSlotIndex = 1;
+        ResetBatch();
     }
 
 
     void Renderer2D::EndScene()
     {
         LV_PROFILE_FUNCTION();
-
-        uint32_t dataSize = (uint8_t*)s_Data.QuadVertexBufferPtr - (uint8_t*)s_Data.QuadVertexBufferBase;
-        s_Data.QuadVertexBuffer->SetData(s_Data.QuadVertexBufferBase, dataSize);
 
         Flush();
     }
@@ -219,12 +213,31 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
+        s_Data.TextureShader->Bind();
+
         for (uint32_t i = 0; i < s_Data.TextureSlotIndex; i++)
         {
             s_Data.TextureSlots[i]->Bind(i);
         }
 
+        uint32_t dataSize = (uint8_t*)s_Data.QuadVertexBufferPtr - (uint8_t*)s_Data.QuadVertexBufferBase;
+        s_Data.QuadVertexBuffer->SetData(s_Data.QuadVertexBufferBase, dataSize);
+
         RenderCommand::DrawIndexed(s_Data.QuadVertexArray, s_Data.QuadIndexCount);
+
+
+        s_Data.Stats.DrawCalls++;
+    }
+
+
+    void Renderer2D::ResetBatch()
+    {
+        LV_PROFILE_FUNCTION();
+
+        s_Data.QuadIndexCount = 0;
+        s_Data.QuadVertexBufferPtr = s_Data.QuadVertexBufferBase;
+
+        s_Data.TextureSlotIndex = 1;
     }
 
 
@@ -232,41 +245,33 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
+        if (s_Data.QuadIndexCount >= s_Data.MaxIndices)
+        {
+            Flush();
+            ResetBatch();
+        }
+
         glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
         transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
 
+        const Vector2 textureCoords[4]{ { 0.f, 0.f }, { 1.f, 0.f }, { 1.f, 1.f }, { 0.f, 1.f } };
         const Vector2 textureScale{ 1.f, 1.f };
         const float textureIndex = 0.f;
 
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[0].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = color;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 0.f, 0.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[1].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = color;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 1.f, 0.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[2].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = color;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 1.f, 1.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[3].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = color;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 0.f, 1.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[i].glm_vec4()); // TODO : Limnova::Math matrices
+            s_Data.QuadVertexBufferPtr->Color = color;
+            s_Data.QuadVertexBufferPtr->TexCoord = textureCoords[i];
+            s_Data.QuadVertexBufferPtr->TexScale = textureScale;
+            s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+            s_Data.QuadVertexBufferPtr++;
+        }
 
         s_Data.QuadIndexCount += 6;
+
+
+        s_Data.Stats.QuadCount++;
     }
 
 
@@ -280,9 +285,16 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
+        if (s_Data.QuadIndexCount >= s_Data.MaxIndices)
+        {
+            Flush();
+            ResetBatch();
+        }
+
         glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
         transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
 
+        const Vector2 textureCoords[4]{ { 0.f, 0.f }, { 1.f, 0.f }, { 1.f, 1.f }, { 0.f, 1.f } };
         float textureIndex = 0.f;
         for (uint32_t i = 1; i < s_Data.TextureSlotIndex; i++)
         {
@@ -298,35 +310,20 @@ namespace Limnova
             s_Data.TextureSlotIndex++;
         }
 
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[0].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = tint;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 0.f, 0.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[1].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = tint;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 1.f, 0.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[2].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = tint;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 1.f, 1.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[3].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = tint;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 0.f, 1.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[i].glm_vec4()); // TODO : Limnova::Math matrices
+            s_Data.QuadVertexBufferPtr->Color = tint;
+            s_Data.QuadVertexBufferPtr->TexCoord = textureCoords[i];
+            s_Data.QuadVertexBufferPtr->TexScale = textureScale;
+            s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+            s_Data.QuadVertexBufferPtr++;
+        }
 
         s_Data.QuadIndexCount += 6;
+
+
+        s_Data.Stats.QuadCount++;
     }
 
 
@@ -336,46 +333,92 @@ namespace Limnova
     }
 
 
+    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Ref<SubTexture2D>& subTexture, const Vector4& tint, const Vector2& textureScale)
+    {
+        LV_PROFILE_FUNCTION();
+
+        if (s_Data.QuadIndexCount >= s_Data.MaxIndices)
+        {
+            Flush();
+            ResetBatch();
+        }
+
+        const Ref<Texture2D>& texture = subTexture->GetTexture();
+
+        glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
+        transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
+
+        const Vector2* textureCoords = subTexture->GetTexCoords();
+        float textureIndex = 0.f;
+        for (uint32_t i = 1; i < s_Data.TextureSlotIndex; i++)
+        {
+            if (*s_Data.TextureSlots[i].get() == *texture.get())
+            {
+                textureIndex = (float)i;
+            }
+        }
+        if (textureIndex == 0.f)
+        {
+            textureIndex = (float)s_Data.TextureSlotIndex;
+            s_Data.TextureSlots[s_Data.TextureSlotIndex] = texture;
+            s_Data.TextureSlotIndex++;
+        }
+
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[i].glm_vec4()); // TODO : Limnova::Math matrices
+            s_Data.QuadVertexBufferPtr->Color = tint;
+            s_Data.QuadVertexBufferPtr->TexCoord = textureCoords[i];
+            s_Data.QuadVertexBufferPtr->TexScale = textureScale;
+            s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+            s_Data.QuadVertexBufferPtr++;
+        }
+
+        s_Data.QuadIndexCount += 6;
+
+
+        s_Data.Stats.QuadCount++;
+    }
+
+
+    void Renderer2D::DrawQuad(const Vector2& position, const Vector2& size, const Ref<SubTexture2D>& subTexture, const Vector4& tint, const Vector2& textureScale)
+    {
+        DrawQuad({ position.x, position.y, 0.f }, size, subTexture, tint, textureScale);
+    }
+
+
     void Renderer2D::DrawRotatedQuad(const Vector3& position, const Vector2& size, const float rotation, const Vector4& color)
     {
         LV_PROFILE_FUNCTION();
+
+        if (s_Data.QuadIndexCount >= s_Data.MaxIndices)
+        {
+            Flush();
+            ResetBatch();
+        }
 
         glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
         transform = glm::rotate(transform, rotation, { 0.f, 0.f, 1.f });
         transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
 
+        const Vector2 textureCoords[4]{ { 0.f, 0.f }, { 1.f, 0.f }, { 1.f, 1.f }, { 0.f, 1.f } };
         const Vector2 textureScale{ 1.f, 1.f };
         const float textureIndex = 0.f;
 
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[0].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = color;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 0.f, 0.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[1].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = color;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 1.f, 0.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[2].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = color;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 1.f, 1.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[3].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = color;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 0.f, 1.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[i].glm_vec4()); // TODO : Limnova::Math matrices
+            s_Data.QuadVertexBufferPtr->Color = color;
+            s_Data.QuadVertexBufferPtr->TexCoord = textureCoords[i];
+            s_Data.QuadVertexBufferPtr->TexScale = textureScale;
+            s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+            s_Data.QuadVertexBufferPtr++;
+        }
 
         s_Data.QuadIndexCount += 6;
+
+
+        s_Data.Stats.QuadCount++;
     }
 
 
@@ -389,10 +432,17 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
+        if (s_Data.QuadIndexCount >= s_Data.MaxIndices)
+        {
+            Flush();
+            ResetBatch();
+        }
+
         glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
         transform = glm::rotate(transform, rotation, { 0.f, 0.f, 1.f });
         transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
 
+        const Vector2 textureCoords[4]{ { 0.f, 0.f }, { 1.f, 0.f }, { 1.f, 1.f }, { 0.f, 1.f } };
         float textureIndex = 0.f;
         for (uint32_t i = 1; i < s_Data.TextureSlotIndex; i++)
         {
@@ -408,41 +458,81 @@ namespace Limnova
             s_Data.TextureSlotIndex++;
         }
 
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[0].glm_vec4()); // TODO : Limnova::Math matrices
-        s_Data.QuadVertexBufferPtr->Color = tint;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 0.f, 0.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[1].glm_vec4());
-        s_Data.QuadVertexBufferPtr->Color = tint;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 1.f, 0.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[2].glm_vec4());
-        s_Data.QuadVertexBufferPtr->Color = tint;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 1.f, 1.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
-
-        s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[3].glm_vec4());
-        s_Data.QuadVertexBufferPtr->Color = tint;
-        s_Data.QuadVertexBufferPtr->TexCoord = { 0.f, 1.f };
-        s_Data.QuadVertexBufferPtr->TexScale = textureScale;
-        s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
-        s_Data.QuadVertexBufferPtr++;
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[i].glm_vec4()); // TODO : Limnova::Math matrices
+            s_Data.QuadVertexBufferPtr->Color = tint;
+            s_Data.QuadVertexBufferPtr->TexCoord = textureCoords[i];
+            s_Data.QuadVertexBufferPtr->TexScale = textureScale;
+            s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+            s_Data.QuadVertexBufferPtr++;
+        }
 
         s_Data.QuadIndexCount += 6;
+
+
+        s_Data.Stats.QuadCount++;
     }
 
 
     void Renderer2D::DrawRotatedQuad(const Vector2& position, const Vector2& size, const float rotation, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
     {
         DrawRotatedQuad({ position.x, position.y, 0.f }, size, rotation, texture, tint, textureScale);
+    }
+
+
+    void Renderer2D::DrawRotatedQuad(const Vector3& position, const Vector2& size, const float rotation, const Ref<SubTexture2D>& subTexture, const Vector4& tint, const Vector2& textureScale)
+    {
+        LV_PROFILE_FUNCTION();
+
+        if (s_Data.QuadIndexCount >= s_Data.MaxIndices)
+        {
+            Flush();
+            ResetBatch();
+        }
+
+        const Ref<Texture2D>& texture = subTexture->GetTexture();
+
+        glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
+        transform = glm::rotate(transform, rotation, { 0.f, 0.f, 1.f });
+        transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
+
+        const Vector2* textureCoords = subTexture->GetTexCoords();
+        float textureIndex = 0.f;
+        for (uint32_t i = 1; i < s_Data.TextureSlotIndex; i++)
+        {
+            if (*s_Data.TextureSlots[i].get() == *texture.get())
+            {
+                textureIndex = (float)i;
+            }
+        }
+        if (textureIndex == 0.f)
+        {
+            textureIndex = (float)s_Data.TextureSlotIndex;
+            s_Data.TextureSlots[s_Data.TextureSlotIndex] = texture;
+            s_Data.TextureSlotIndex++;
+        }
+
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[i].glm_vec4()); // TODO : Limnova::Math matrices
+            s_Data.QuadVertexBufferPtr->Color = tint;
+            s_Data.QuadVertexBufferPtr->TexCoord = textureCoords[i];
+            s_Data.QuadVertexBufferPtr->TexScale = textureScale;
+            s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+            s_Data.QuadVertexBufferPtr++;
+        }
+
+        s_Data.QuadIndexCount += 6;
+
+
+        s_Data.Stats.QuadCount++;
+    }
+
+
+    void Renderer2D::DrawRotatedQuad(const Vector2& position, const Vector2& size, const float rotation, const Ref<SubTexture2D>& subTexture, const Vector4& tint, const Vector2& textureScale)
+    {
+        DrawRotatedQuad({ position.x, position.y, 0.f }, size, rotation, subTexture, tint, textureScale);
     }
 
 
@@ -543,4 +633,14 @@ namespace Limnova
         s_Data.HyperbolaShader->Bind();
     }
 
+
+    Renderer2D::Statistics& Renderer2D::GetStatistics()
+    {
+        return s_Data.Stats;
+    }
+
+    void Renderer2D::ResetStatistics()
+    {
+        memset(&s_Data.Stats, 0, sizeof(Statistics));
+    }
 }
