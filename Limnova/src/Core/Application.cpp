@@ -108,6 +108,14 @@ namespace Limnova
     }
 
 
+    void Application::Close()
+    {
+        LV_PROFILE_FUNCTION();
+
+        m_Running = false;
+    }
+
+
     void Application::OnEvent(Event& e)
     {
         LV_PROFILE_FUNCTION();
