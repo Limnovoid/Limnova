@@ -13,7 +13,6 @@ namespace Limnova
         OpenGLTexture2D(const std::string& path, const WrapMode wrap);
         ~OpenGLTexture2D();
 
-        uint32_t GetRendererId() const override { return m_RendererId; }
         uint32_t GetWidth() const override { return m_Width; };
         uint32_t GetHeight() const override { return m_Height; }
 

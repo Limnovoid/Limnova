@@ -53,7 +53,6 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/RendererAPI.cpp"
     "src/Renderer/RenderingContext.h"
     "src/Renderer/Shader.cpp"
-    "src/Renderer/SubTexture.cpp"
     "src/Renderer/Texture.cpp"
     "src/Renderer/VertexArray.cpp"
 

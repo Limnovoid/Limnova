@@ -4,7 +4,6 @@
 
 #include "Camera.h"
 #include "Texture.h"
-#include "SubTexture.h"
 
 
 namespace Limnova
@@ -24,15 +23,11 @@ namespace Limnova
         static void DrawQuad(const Vector2& positionCentre, const Vector2& size, const Vector4& color);
         static void DrawQuad(const Vector3& positionCentre, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
         static void DrawQuad(const Vector2& positionCentre, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
-        static void DrawQuad(const Vector3& positionCentre, const Vector2& size, const Ref<SubTexture2D>& subTexture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
-        static void DrawQuad(const Vector2& positionCentre, const Vector2& size, const Ref<SubTexture2D>& subTexture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
 
         static void DrawRotatedQuad(const Vector3& positionCentre, const Vector2& size, const float rotation, const Vector4& color);
         static void DrawRotatedQuad(const Vector2& positionCentre, const Vector2& size, const float rotation, const Vector4& color);
         static void DrawRotatedQuad(const Vector3& positionCentre, const Vector2& size, const float rotation, const Ref<Texture2D>& texture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
         static void DrawRotatedQuad(const Vector2& positionCentre, const Vector2& size, const float rotation, const Ref<Texture2D>& texture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
-        static void DrawRotatedQuad(const Vector3& positionCentre, const Vector2& size, const float rotation, const Ref<SubTexture2D>& subTexture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
-        static void DrawRotatedQuad(const Vector2& positionCentre, const Vector2& size, const float rotation, const Ref<SubTexture2D>& subTexture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
 
         static void DrawLine(const Vector2& start, const Vector2& end, const float thickness, const Vector4& color, int layer = 0);
 
@@ -44,21 +39,6 @@ namespace Limnova
     private:
         static Ref<UniformBuffer> s_SceneUniformBuffer;
         static Ref<UniformBuffer> s_HyperbolaUniformBuffer;
-    private:
-        static void ResetBatch();
-
-        // stats
-    public:
-        struct Statistics
-        {
-            uint32_t DrawCalls;
-            uint32_t QuadCount;
-
-            uint32_t GetNumVertices() { return QuadCount * 4; }
-            uint32_t GetNumIndices() { return QuadCount * 6; }
-        };
-        static Statistics& GetStatistics();
-        static void ResetStatistics();
     };
 
 }

@@ -15,8 +15,6 @@ namespace Limnova
 
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
-
-        glEnable(GL_LINE_SMOOTH);
     }
 
 

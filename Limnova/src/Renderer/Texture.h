@@ -8,7 +8,6 @@ namespace Limnova
     public:
         virtual ~Texture() {}
 
-        virtual uint32_t GetRendererId() const = 0;
         virtual uint32_t GetWidth() const = 0;
         virtual uint32_t GetHeight() const = 0;
 

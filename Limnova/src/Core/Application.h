@@ -21,17 +21,16 @@ namespace Limnova
         Application();
         virtual ~Application();
 
-        static Application& Get();
+        void Run();
 
-        inline Window& GetWindow() { return *m_Window; }
+        void OnEvent(Event& e);
 
         void PushLayer(Layer* layer);
         void PushOverlay(Layer* overlay);
 
-        void Run();
-        void Close();
+        inline Window& GetWindow() { return *m_Window; }
 
-        void OnEvent(Event& e);
+        static Application& Get();
     private:
         bool OnWindowClose(WindowCloseEvent& e);
         bool OnWindowResize(WindowResizeEvent& e);
