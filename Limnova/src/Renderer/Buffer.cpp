@@ -14,7 +14,7 @@ namespace Limnova
         switch (Renderer::GetAPI())
         {
         case RendererAPI::API::None: LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
-        case RendererAPI::API::OpenGL: return std::make_shared<OpenGLVertexBuffer>(size);
+        case RendererAPI::API::OpenGL: return CreateRef<OpenGLVertexBuffer>(size);
         }
         LV_CORE_ASSERT(false, "Renderer::GetAPI() returned unknown RendererAPI!");
         return nullptr;
@@ -26,7 +26,7 @@ namespace Limnova
         switch (Renderer::GetAPI())
         {
             case RendererAPI::API::None: LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
-            case RendererAPI::API::OpenGL: return std::make_shared<OpenGLVertexBuffer>(vertices, size);
+            case RendererAPI::API::OpenGL: return CreateRef<OpenGLVertexBuffer>(vertices, size);
         }
         LV_CORE_ASSERT(false, "Renderer::GetAPI() returned unknown RendererAPI!");
         return nullptr;
@@ -40,7 +40,7 @@ namespace Limnova
         switch (Renderer::GetAPI())
         {
             case RendererAPI::API::None: LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
-            case RendererAPI::API::OpenGL: return std::make_shared<OpenGLIndexBuffer>(indices, count);
+            case RendererAPI::API::OpenGL: return CreateRef<OpenGLIndexBuffer>(indices, count);
         }
         LV_CORE_ASSERT(false, "Renderer::GetAPI() returned unknown RendererAPI!");
         return nullptr;
@@ -54,7 +54,7 @@ namespace Limnova
         switch (Renderer::GetAPI())
         {
             case RendererAPI::API::None: LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
-            case RendererAPI::API::OpenGL: return std::make_shared<OpenGLUniformBuffer>(data, size);
+            case RendererAPI::API::OpenGL: return CreateRef<OpenGLUniformBuffer>(data, size);
         }
         LV_CORE_ASSERT(false, "Renderer::GetAPI() returned unknown RendererAPI!");
         return nullptr;

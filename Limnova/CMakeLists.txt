@@ -30,6 +30,7 @@ add_library(${PROJECT_NAME} STATIC
 
     "src/Platform/OpenGL/OpenGLBuffer.cpp"
     "src/Platform/OpenGL/OpenGLContext.cpp"
+    "src/Platform/OpenGL/OpenGLFramebuffer.cpp"
     "src/Platform/OpenGL/OpenGLRendererAPI.cpp"
     "src/Platform/OpenGL/OpenGLShader.cpp"
     "src/Platform/OpenGL/OpenGLTexture.cpp"
@@ -43,6 +44,7 @@ add_library(${PROJECT_NAME} STATIC
 
     "src/Renderer/Buffer.cpp"
     "src/Renderer/Camera.h"
+    "src/Renderer/Framebuffer.cpp"
     "src/Renderer/OrthographicCamera.cpp"
     "src/Renderer/PerspectiveCamera.cpp"
     "src/Renderer/PlanarCameraController.cpp"

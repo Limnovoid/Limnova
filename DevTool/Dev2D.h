@@ -31,4 +31,6 @@ private:
     Limnova::Vector4 m_TextureTint = { 0.2f, 0.2f, 0.2f, 1.f };
     Limnova::Vector2 m_TextureScale = { 3.f, 3.f };
     float m_BackgroundRotation = 0.f;
+
+    Limnova::Ref<Limnova::Framebuffer> m_Framebuffer;
 };

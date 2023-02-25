@@ -34,6 +34,11 @@ void Dev2DLayer::OnAttach()
     m_SpriteSheet = Limnova::Texture2D::Create(ASSET_DIR"\\textures\\kenney-sheet\\Spritesheet\\RPGpack_sheet_2X.png", Limnova::Texture::WrapMode::Clamp);
     m_SpriteStairs = Limnova::SubTexture2D::CreateFromCoords(m_SpriteSheet, { 7, 6 }, { 128, 128 });
     m_SpriteTree = Limnova::SubTexture2D::CreateFromCoords(m_SpriteSheet, { 2, 1 }, { 128, 128 }, { 1, 2 });
+
+    Limnova::FramebufferSpecification fbspec;
+    fbspec.Width = 1280;
+    fbspec.Height = 720;
+    m_Framebuffer = Limnova::Framebuffer::Create(fbspec);
 }
 
 
@@ -64,6 +69,7 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
     {
         LV_PROFILE_SCOPE("Render Prep - Dev2DLayer::OnUpdate");
 
+        m_Framebuffer->Bind();
         Limnova::RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.f });
         Limnova::RenderCommand::Clear();
     }
@@ -95,6 +101,8 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
         Limnova::Renderer2D::DrawQuad({ 0.f, -1.f, 0.5f }, { 0.25f, 0.25f }, m_SpriteStairs);
         Limnova::Renderer2D::DrawQuad({ -0.25f, -1.f, 0.5f }, { 0.25f, 0.5f }, m_SpriteTree);
         Limnova::Renderer2D::EndScene();
+
+        m_Framebuffer->Unbind();
     }
 }
 
@@ -139,7 +147,7 @@ void Dev2DLayer::OnImGuiRender()
     // any change of dockspace/settings would lead to windows being stuck in limbo and never being visible.
     if (!opt_padding)
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::Begin("DockSpace Demo", &dockspaceOpen, window_flags);
+    ImGui::Begin("DockSpace", &dockspaceOpen, window_flags);
     if (!opt_padding)
         ImGui::PopStyleVar();
 
@@ -174,7 +182,7 @@ void Dev2DLayer::OnImGuiRender()
     ImGui::ColorEdit4("Texture Tint", glm::value_ptr(*(glm::vec4*)&m_TextureTint));
     ImGui::SliderFloat2("Texture Scale", glm::value_ptr(*(glm::vec2*)&m_TextureScale), 0.1f, 10.f);
     ImGui::SliderFloat("BackgroundRotation", &m_BackgroundRotation, 0.f, 360.f);
-    ImGui::End();
+    ImGui::End(); // Scene Properties
 
     ImGui::Begin("Renderer2D Statistics");
     auto& stats = Limnova::Renderer2D::GetStatistics();
@@ -182,14 +190,15 @@ void Dev2DLayer::OnImGuiRender()
     ImGui::Text("Quads:         %d", stats.QuadCount);
     ImGui::Text("Vertices:      %d", stats.GetNumVertices());
     ImGui::Text("Indices:       %d", stats.GetNumIndices());
-    ImGui::End();
+    ImGui::End(); // Renderer2D Statistics
 
     ImGui::Begin("Viewport");
-    uint32_t viewportRendererId = m_CheckerboardTexture->GetRendererId();
-    ImGui::Image((void*)viewportRendererId, ImVec2{128.f, 128.f});
-    ImGui::End();
+    uint32_t viewportRendererId = m_Framebuffer->GetColorAttachmentRendererId();
+    ImGui::Image((void*)viewportRendererId, ImVec2{ (float)m_Framebuffer->GetSpecification().Width,
+        (float)m_Framebuffer->GetSpecification().Height }, { 0, 1 }, { 1, 0 });
+    ImGui::End(); // Viewport
 
-    ImGui::End();
+    ImGui::End(); // DockSpace
 }
 
 
