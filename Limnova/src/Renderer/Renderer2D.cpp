@@ -34,12 +34,6 @@ namespace Limnova
         Ref<Shader> TextureShader;
         Ref<Texture2D> WhiteTexture;
 
-        Ref<VertexArray> HyperbolaVertexArray;
-        Ref<Shader> HyperbolaShader;
-        Ref<VertexArray> EllipseVertexArray;
-        Ref<Shader> EllipseShader;
-        Ref<UniformBuffer> OrbitUniformBuffer;
-
         uint32_t QuadIndexCount = 0;
         QuadVertex* QuadVertexBufferBase = nullptr;
         QuadVertex* QuadVertexBufferPtr = nullptr;
@@ -50,6 +44,13 @@ namespace Limnova
         Vector4 QuadVertexPositions[4];
 
         Renderer2D::Statistics Stats;
+
+        // Orbit resources
+        Ref<VertexArray> HyperbolaVertexArray;
+        Ref<Shader> HyperbolaShader;
+        Ref<VertexArray> EllipseVertexArray;
+        Ref<Shader> EllipseShader;
+        Ref<UniformBuffer> OrbitUniformBuffer;
     };
 
     static Renderer2DData s_Data;
@@ -134,7 +135,6 @@ namespace Limnova
         s_Data.QuadVertexPositions[3] = { -0.5f,  0.5f, 0.f, 1.f };
 
         // Color hyperbola
-        /*
         s_Data.HyperbolaVertexArray = VertexArray::Create();
 
         float hyperbolaVertices[3 * 3] = {
@@ -181,7 +181,6 @@ namespace Limnova
         s_Data.EllipseShader = Shader::Create(ASSET_DIR"\\shaders\\Ellipse.lvglsl");
         s_Data.EllipseShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
         s_Data.EllipseShader->BindUniformBuffer(s_Data.OrbitUniformBuffer->GetRendererId(), "OrbitUniform");
-        */
     }
 
 
@@ -223,6 +222,7 @@ namespace Limnova
         uint32_t dataSize = (uint8_t*)s_Data.QuadVertexBufferPtr - (uint8_t*)s_Data.QuadVertexBufferBase;
         s_Data.QuadVertexBuffer->SetData(s_Data.QuadVertexBufferBase, dataSize);
 
+        s_Data.QuadVertexArray->Bind(); // TEMPORARY - necessary because DrawEllipse and DrawHyperbola bind their different vertex buffers
         RenderCommand::DrawIndexed(s_Data.QuadVertexArray, s_Data.QuadIndexCount);
 
 
@@ -538,20 +538,20 @@ namespace Limnova
 
     void Renderer2D::DrawLine(const Vector2& start, const Vector2& end, const float thickness, const Vector4& color, int layer)
     {
+        LV_PROFILE_FUNCTION();
+
         auto line = end - start;
         auto midpoint = start + (0.5f * line);
         Vector2 dimensions = { sqrt(line.SqrMagnitude()) + thickness, thickness };
         float rotation = atanf(line.y / line.x);
 
-        DrawRotatedQuad({ midpoint.x, midpoint.y, (float)layer }, dimensions, rotation, color);
+        DrawRotatedQuad({ midpoint, (float)layer }, dimensions, rotation, color);
     }
 
 
     void Renderer2D::DrawEllipse(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer)
     {
         LV_PROFILE_FUNCTION();
-
-        //s_Data.EllipseShader->Bind();
 
         bool escapes = !(escapePointFromCentre.y == 0);
         s_OrbitData->XOffset = escapes ? 0.5f * (semiMajorAxis + escapePointFromCentre.x) : 0.f;
@@ -579,8 +579,6 @@ namespace Limnova
 
         s_Data.EllipseVertexArray->Bind();
         RenderCommand::DrawIndexed(s_Data.EllipseVertexArray);
-
-        //s_Data.TextureShader->Bind();
     }
 
 
@@ -588,8 +586,6 @@ namespace Limnova
         const float thickness, const Vector4& color, int layer)
     {
         LV_PROFILE_FUNCTION();
-
-        //s_Data.HyperbolaShader->Bind();
 
         s_OrbitData->XOffset = 0;
 
@@ -618,8 +614,6 @@ namespace Limnova
 
         s_Data.HyperbolaVertexArray->Bind();
         RenderCommand::DrawIndexed(s_Data.HyperbolaVertexArray);
-
-        //s_Data.TextureShader->Bind();
     }
 
 
@@ -627,6 +621,7 @@ namespace Limnova
     {
         s_Data.EllipseShader->Bind();
     }
+
 
     void Renderer2D::TEMP_BeginHyperbolae()
     {

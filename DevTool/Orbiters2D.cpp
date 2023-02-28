@@ -173,6 +173,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
 
     float zoom;
     float orbiterCircleRadius;
+    float intersectCircleRadius;
 
     // Map the scene - get IDs of orbiters in the scene, update their Entity positions (transforms)
     // with their positions relative to the tracked orbiter.
@@ -181,6 +182,10 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
 
     std::vector<uint32_t> sceneOrbiters;
     std::unordered_map<uint32_t, OrbiterUI> sceneOrbiterUi;
+    std::vector<IntersectUI> sceneIntersectUi;
+    LV::Vector2 selectedIntersectOtherOrbiterScenePosition;
+
+    // TODO - array of intersect scene positions; scene position of selected intersect's other orbiter position
 
     LV::Vector2 shipPos;
 
@@ -190,14 +195,18 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
 
         static constexpr float shipAcceleration = 0.5f;
         static constexpr float baseOrbiterCircleRadius = 0.024f;
+        static constexpr float baseIntersectCircleRadius = 0.016f;
 
         zoom = m_CameraController->GetZoom();
         orbiterCircleRadius = zoom * baseOrbiterCircleRadius;
+        intersectCircleRadius = zoom * baseIntersectCircleRadius;
 
         // Player input data
         float mouseX, mouseY;
         std::tie(mouseX, mouseY) = LV::Input::GetMousePosition();
         m_Input.MouseScenePosition = m_CameraController->GetWorldXY({ mouseX, mouseY });
+
+        bool clickHandled = false;
 
         // Map the scene - get IDs of orbiters in the scene, update their Entity positions (transforms)
         // with their positions relative to the tracked orbiter.
@@ -212,6 +221,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         {
             auto& orbRef = m_Orbiters[id];
 
+            // Orbiter scene position
             LV::Vector2 sceneOrbPos{ 0.f, 0.f };
             if (id != sceneTrackingId)
             {
@@ -219,27 +229,65 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             }
             orbRef->SetPosition({ sceneOrbPos, 0.f });
 
+            // UI orbiter circle
             sceneOrbiterUi[id].IsHovered = sqrt((m_Input.MouseScenePosition - orbRef->GetPosition().XY()).SqrMagnitude()) < orbiterCircleRadius;
-            if (sceneOrbiterUi[id].IsHovered && LV::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT))
+            if (!clickHandled && sceneOrbiterUi[id].IsHovered && LV::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT))
             {
                 m_CameraTrackingId = id;
                 m_CameraRelativeLevel = 1;
-            }
 
-            if (orbs.IsInfluencing(id) && id == sceneTrackingId)
-            {
-                float roi = orbs.GetRadiusOfInfluence(id);
-                orbs.GetOrbiters(id, sceneOrbiterUi[id].SubOrbiters);
-                for (uint32_t sid : sceneOrbiterUi[id].SubOrbiters)
-                {
-                    LV::Vector2 subPos = m_Orbiters[sid]->GetParameters().Position * roi;
-                    m_Orbiters[sid]->SetPosition({ subPos, 0.f });
-                }
+                clickHandled = true;
             }
         }
 
-        // Ship is controlled if the player ship is visible
-        m_Input.ShipIsBeingControlled = PlayerShipIsVisible(sceneHostId, sceneTrackingId);
+        // Information specific to the tracked orbiter:
+        // 
+        // Suborbiter scene positions
+        if (orbs.IsInfluencing(sceneTrackingId))
+        {
+            float roi = orbs.GetRadiusOfInfluence(sceneTrackingId);
+            orbs.GetOrbiters(sceneTrackingId, sceneOrbiterUi[sceneTrackingId].SubOrbiters);
+            for (uint32_t sid : sceneOrbiterUi[sceneTrackingId].SubOrbiters)
+            {
+                LV::Vector2 subPos = m_Orbiters[sid]->GetParameters().Position * roi;
+                m_Orbiters[sid]->SetPosition({ subPos, 0.f });
+            }
+        }
+        // Intersects
+        auto& trackedOrbRef = m_Orbiters[sceneTrackingId];
+        for (auto& is : trackedOrbRef->GetParameters().Intersects)
+        {
+            for (uint32_t i = 0; i < is.second.Count; i++)
+            {
+                IntersectUI ui;
+                ui.ScenePosition = sceneHostPos + is.second.Positions[i];
+                ui.IsHovered = sqrt((m_Input.MouseScenePosition - ui.ScenePosition).SqrMagnitude()) < orbiterCircleRadius;
+
+                // Detect when a new intersect is selected
+                if (!clickHandled && ui.IsHovered && LV::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT))
+                {
+                    m_Input.IntersectSelected = true;
+                    m_Input.SelectedIntersectOtherOrbiterId = is.second.OtherOrbiterId;
+                    m_Input.SelectedIntersectIndex = i;
+
+                    clickHandled = true;
+                }
+
+                sceneIntersectUi.push_back(std::move(ui));
+            }
+        }
+        // Update the scene position of the selected intersect's other orbiter (to account for the host, and
+        // therefore the intersects, moving around the scene)
+        if (m_Input.IntersectSelected)
+        {
+            selectedIntersectOtherOrbiterScenePosition = sceneHostPos
+                + trackedOrbRef->GetOtherOrbiterPositionAtIntersect(m_Input.SelectedIntersectOtherOrbiterId, m_Input.SelectedIntersectIndex);
+        }
+
+
+        // Ship is controlled if the tracked orbiter in the scene is the player ship
+        m_Input.ShipIsBeingControlled = PlayerShipIsVisible(sceneHostId, sceneTrackingId) && m_CameraTrackingId == m_PlayerShip->GetOrbitSystemId();
+        m_Input.ShipIsThrusting = false;
         if (m_Input.ShipIsBeingControlled)
         {
             // Get line from Player Ship to mouse position
@@ -261,15 +309,11 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
                     m_Input.TargetingOrbit = orbs.ComputeOrbit(m_PlayerShip->GetHostOrbitSystemId(),
                         m_PlayerShip->GetParameters().Position, m_PlayerShip->GetParameters().Velocity + weaponLaunchVelocity);
                 }
-                else if (LV::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT))
+                else if (!clickHandled && LV::Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_LEFT))
                 {
                     m_Input.ShipIsThrusting = true;
                     m_PlayerShip->Accelerate(LV::BigVector2{ shipAcceleration * m_Input.ShipToMouse.Normalized() });
                 }
-            }
-            else
-            {
-                m_Input.ShipIsThrusting = false;
             }
         }
 
@@ -313,14 +357,12 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         static constexpr float circleThickTexSizeFactor = 2.f * 128.f / 110.f;
         static constexpr float baseTrajectoryLineThickness = 0.008f;
         static constexpr float subTrajectoryLineThickness = kZoomMin * baseTrajectoryLineThickness;
-        static constexpr float baseIntersectCircleRadius = 0.016f;
         static constexpr float trackedSubOrbiterRadius = 0.001f;
         static constexpr float baseShipThrustLineThickness = 0.008f;
         static constexpr float circleLargeFillTexSizeFactor = 1280.f / 1270.f; // Texture widths per unit circle-DIAMETERS
         static const LV::Vector4 aimingCol{ 1.f, 1.f, 0.f, 0.3f };
 
         float trajectoryLineThickness = zoom * baseTrajectoryLineThickness;
-        float intersectCircleRadius = zoom * baseIntersectCircleRadius;
         float shipThrustLineThickness = zoom * baseShipThrustLineThickness;
 
         float sceneScaling = orbs.GetScaling(sceneHostId);
@@ -359,7 +401,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             {
                 auto col = m_Orbiters[sid]->GetColor();
                 col.w = sid == m_CameraTrackingId ? 0.7f : 0.3f;
-                LV::Renderer2D::DrawQuad(m_Orbiters[sid]->GetPosition().XY(), { circleFillTexSizeFactor * trackedSubOrbiterRadius}, m_CircleFillTexture, col);
+                LV::Renderer2D::DrawQuad(m_Orbiters[sid]->GetPosition().XY(), { circleFillTexSizeFactor * trackedSubOrbiterRadius }, m_CircleFillTexture, col);
             }
         }
 
@@ -406,8 +448,34 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         {
             float scale = m_CameraRelativeLevel == 1 ? 1.f : orbs.GetScaling(m_PlayerShip->GetHostOrbitSystemId());
             LV::Renderer2D::DrawLine(m_Orbiters[m_PlayerShip->GetHostOrbitSystemId()]->GetPosition().XY(),
-                m_PlayerShip->GetPosition().XY(), m_CameraRelativeLevel == 1 ? trajectoryLineThickness : subTrajectoryLineThickness, aimingCol);
+                m_PlayerShip->GetPosition().XY(), m_CameraRelativeLevel == 1 ? trajectoryLineThickness : subTrajectoryLineThickness, aimingCol, m_PlayerShip->GetPosition().z);
         }
+        // Intersects
+        auto& trackedOrbRef = m_Orbiters[sceneTrackingId];
+        for (uint32_t i = 0; i < sceneIntersectUi.size(); i++)
+        {
+            auto iconCol = trackedOrbRef->GetColor();
+            iconCol.x = powf(iconCol.x + 0.1f, 2);
+            iconCol.y = powf(iconCol.y + 0.1f, 2);
+            iconCol.z = powf(iconCol.z + 0.1f, 2);
+            iconCol.w = sceneIntersectUi[i].IsHovered ? 0.7f : 0.3f;
+            LV::Renderer2D::DrawQuad(sceneIntersectUi[i].ScenePosition, { circleThickTexSizeFactor * intersectCircleRadius }, m_CircleThickTexture, iconCol);
+        }
+        if (m_Input.IntersectSelected)
+        {
+            auto orbiterCol = m_Orbiters[m_Input.SelectedIntersectOtherOrbiterId]->GetColor();
+            orbiterCol.x = powf(orbiterCol.x + 0.1f, 2);
+            orbiterCol.y = powf(orbiterCol.y + 0.1f, 2);
+            orbiterCol.z = powf(orbiterCol.z + 0.1f, 2);
+            orbiterCol.w = 0.7f;
+            LV::Renderer2D::DrawQuad(selectedIntersectOtherOrbiterScenePosition, { circleThickTexSizeFactor * orbiterCircleRadius }, m_CircleThickTexture, orbiterCol);
+        }
+
+        LV::Renderer2D::EndScene(); // Flush quads
+
+
+        // Render orbits
+        LV::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
         // Render elliptical orbits/trajectories
         LV::Renderer2D::TEMP_BeginEllipses(); // TEMPORARY: separate draw calls for different shaders - TODO: use render queue

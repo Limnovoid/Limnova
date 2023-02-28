@@ -42,6 +42,11 @@ public:
 
     void SetRadius(const float radius) { m_Radius = radius; }
     void SetColor(const LV::Vector4& color) { m_Color = color; }
+
+    Limnova::Vector2 GetOtherOrbiterPositionAtIntersect(const uint32_t otherOrbiterId, const uint32_t intersect)
+    {
+        return m_Node->GetOtherOrbiterPositionAtIntersect(otherOrbiterId, intersect);
+    }
 protected:
     float m_Radius;
     LV::Vector4 m_Color;

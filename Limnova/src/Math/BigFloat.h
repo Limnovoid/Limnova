@@ -25,6 +25,8 @@ namespace Limnova
         //operator float() { return m_Coefficient * (float)pow(10.f, m_Exponent); } // casting conflicts with stream operator overload
         float Float() { return m_Coefficient * (float)pow(10.f, m_Exponent); }
         const float Float() const { return m_Coefficient * (float)pow(10.f, m_Exponent); }
+
+        static const BigFloat Zero;
     public:
         BigFloat operator*(const float rhs) const;
         BigFloat operator/(const float rhs) const;
@@ -42,10 +44,12 @@ namespace Limnova
         friend BigFloat operator-(const BigFloat& value);
         friend BigFloat operator/(const float lhs, const BigFloat& rhs);
 
-        friend bool operator== (const BigFloat& lhs, const BigFloat& rhs);
-        friend bool operator!= (const BigFloat& lhs, const BigFloat& rhs);
-        friend bool operator< (const BigFloat& lhs, const BigFloat& rhs);
-        friend bool operator> (const BigFloat& lhs, const BigFloat& rhs);
+        friend bool operator==(const BigFloat& lhs, const BigFloat& rhs);
+        friend bool operator!=(const BigFloat& lhs, const BigFloat& rhs);
+        friend bool operator<(const BigFloat& lhs, const BigFloat& rhs);
+        friend bool operator>(const BigFloat& lhs, const BigFloat& rhs);
+        friend bool operator<=(const BigFloat& lhs, const BigFloat& rhs);
+        friend bool operator>=(const BigFloat& lhs, const BigFloat& rhs);
     private:
         float m_Coefficient;
         int m_Exponent;
@@ -56,8 +60,12 @@ namespace Limnova
     BigFloat operator*(const float lhs, const BigFloat& rhs);
     BigFloat operator/(const float lhs, const BigFloat& rhs);
 
-    bool operator== (const BigFloat& lhs, const BigFloat& rhs);
-    bool operator!= (const BigFloat& lhs, const BigFloat& rhs);
+    bool operator==(const BigFloat& lhs, const BigFloat& rhs);
+    bool operator!=(const BigFloat& lhs, const BigFloat& rhs);
+    bool operator<(const BigFloat& lhs, const BigFloat& rhs);
+    bool operator>(const BigFloat& lhs, const BigFloat& rhs);
+    bool operator<=(const BigFloat& lhs, const BigFloat& rhs);
+    bool operator>=(const BigFloat& lhs, const BigFloat& rhs);
 
     std::ostream& operator<<(std::ostream& ostream, const BigFloat& bf);
 

@@ -7,6 +7,9 @@ static constexpr float kRoot10 = 3.16227766;
 namespace Limnova
 {
 
+    const BigFloat BigFloat::Zero{ 0.f, 0 };
+
+
     BigFloat::BigFloat(float value)
         : m_Coefficient(value), m_Exponent(0)
     {
@@ -341,6 +344,62 @@ namespace Limnova
     bool operator!= (const BigFloat& lhs, const BigFloat& rhs)
     {
         return lhs.m_Coefficient != rhs.m_Coefficient || lhs.m_Exponent != rhs.m_Exponent;
+    }
+
+
+    bool operator<(const BigFloat& lhs, const BigFloat& rhs)
+    {
+        if (lhs.m_Coefficient * rhs.m_Coefficient <= 0)
+        {
+            // Different signs; or one or both is zero
+            return lhs.m_Coefficient < rhs.m_Coefficient;
+        }
+        // Same signs; both are non-zero
+        if (lhs.m_Exponent == rhs.m_Exponent)
+        {
+            return lhs.m_Coefficient < rhs.m_Coefficient;
+        }
+        if (lhs.m_Coefficient < 0)
+        {
+            // Both negative
+            return lhs.m_Exponent > rhs.m_Exponent;
+        }
+        // Both positive
+        return lhs.m_Exponent < rhs.m_Exponent;
+    }
+
+
+    bool operator>(const BigFloat& lhs, const BigFloat& rhs)
+    {
+        if (lhs.m_Coefficient * rhs.m_Coefficient <= 0)
+        {
+            // Different signs; or one or both is zero
+            return lhs.m_Coefficient > rhs.m_Coefficient;
+        }
+        // Same signs; both are non-zero
+        if (lhs.m_Exponent == rhs.m_Exponent)
+        {
+            return lhs.m_Coefficient > rhs.m_Coefficient;
+        }
+        if (lhs.m_Coefficient < 0)
+        {
+            // Both negative
+            return lhs.m_Exponent < rhs.m_Exponent;
+        }
+        // Both positive
+        return lhs.m_Exponent > rhs.m_Exponent;
+    }
+
+
+    bool operator<=(const BigFloat& lhs, const BigFloat& rhs)
+    {
+        return lhs < rhs || lhs == rhs;
+    }
+
+
+    bool operator>=(const BigFloat& lhs, const BigFloat& rhs)
+    {
+        return lhs > rhs || lhs == rhs;
     }
 
 

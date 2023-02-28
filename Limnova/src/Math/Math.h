@@ -12,9 +12,11 @@
 
 namespace Limnova
 {
+    BigFloat WrapBf(BigFloat x, const BigFloat& lowerBound, const BigFloat& upperBound);
+    double Wrap(double x, double lowerBound, double upperBound);
+    float Wrapf(float x, float lowerBound, float upperBound);
 
-    double Wrap(double x, double lowerBound, double upperBound); // Return x wrapped to the range [0, 2PI]
-    float Wrap(float x, float lowerBound, float upperBound); // Return x wrapped to the range [0, 2PI]
+    uint32_t Factorial(uint32_t x);
 
     /// <summary>
     /// Rotate a vector. Implemented with quaternions.

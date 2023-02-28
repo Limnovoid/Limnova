@@ -127,6 +127,7 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
         float nodeDeltaTime;
 
         float r2 = op.Position.SqrMagnitude();
+        float prevTrueAnomaly = op.TrueAnomaly;
 
         if (op.NewtonianMotion)
         {
@@ -178,6 +179,19 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
         {
             HandleOrbiterEscapingHost(m_UpdateFirst);
             HandleOrbiterOverlappingInfluence(m_UpdateFirst);
+
+            // Check if intersects have been passed in this update
+            for (auto& intersect : op.Intersects)
+            {
+                for (uint32_t i = 0; i < intersect.second.Count; i++)
+                {
+                    if (prevTrueAnomaly < intersect.second.TrueAnomalies[i] 
+                        && op.TrueAnomaly > intersect.second.TrueAnomalies[i])
+                    {
+                        intersect.second.NeedComputeOtherOrbiterPositions[i] = true;
+                    }
+                }
+            }
         }
 
         SortUpdateFirst();
@@ -197,7 +211,7 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
         node = node->m_UpdateNext.get();
     }
 
-    std::cout << debugoss.str() << std::endl;
+    std::cout << debugoss.str() << std::endl; // debug
 }
 
 
@@ -296,6 +310,7 @@ void OrbitSystem2D::HandleOrbiterOverlappingInfluence(NodeRef& node)
         }
 
         // Overlap confirmed
+        LV_CORE_ASSERT(other->Id != node->Parent->Id, "Orbiter (re-)overlapped its parent's influence!");
         LV_CORE_INFO("Overlap: orbiter {0} -> influence {1}!", node->Id, other->Id);
 
         // Compute state relative to new host
@@ -636,12 +651,37 @@ Limnova::Vector2 OrbitSystem2D::OrbitTreeNode::ComputePositionAtTrueAnomaly(cons
 {
     LV_PROFILE_FUNCTION();
 
-    auto& op = this->Parameters;
     float sinT = sin(trueAnomaly);
     float cosT = cos(trueAnomaly);
-    return op.OParameter
-        * (op.BasisX * cosT + op.BasisY * sinT)
-        / (1.f + op.Eccentricity * cosT);
+    return Parameters.OParameter
+        * (Parameters.BasisX * cosT + Parameters.BasisY * sinT)
+        / (1.f + Parameters.Eccentricity * cosT);
+}
+
+
+Limnova::Vector2 OrbitSystem2D::OrbitTreeNode::GetOtherOrbiterPositionAtIntersect(const uint32_t otherOrbiterId, const uint32_t intersect)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(Parameters.Intersects.find(otherOrbiterId) != Parameters.Intersects.end()
+        && intersect < Parameters.Intersects[otherOrbiterId].Count, "Intersect does not exist!");
+
+    auto& is = Parameters.Intersects[otherOrbiterId];
+
+    if (is.NeedComputeOtherOrbiterPositions[intersect])
+    {
+        // Compute time to next intersect
+        LV::BigFloat timeOfCurrentPosition = FindTimeOfTrueAnomaly(Parameters.TrueAnomaly);
+        LV::BigFloat timeOfIntersect = FindTimeOfTrueAnomaly(is.TrueAnomalies[intersect]);
+        LV::BigFloat timeToNextIntersection = LV::WrapBf(timeOfIntersect - timeOfCurrentPosition, LV::BigFloat::Zero, Parameters.Period);
+
+        auto& otherOrbiter = s_OrbitSystem2D.m_AllNodes[otherOrbiterId];
+        float otherOrbiterTrueAnomalyAtNextIntersection = otherOrbiter->FindFutureTrueAnomaly(timeToNextIntersection);
+        is.OtherOrbiterPositions[intersect] = otherOrbiter->ComputePositionAtTrueAnomaly(otherOrbiterTrueAnomalyAtNextIntersection);
+
+        is.NeedComputeOtherOrbiterPositions[intersect] = false;
+    }
+    return is.OtherOrbiterPositions[intersect];
 }
 
 
@@ -928,14 +968,14 @@ void OrbitSystem2D::OrbitTreeNode::FindIntersects(NodeRef& sibling)
     float cCosAlpha = c * cosf(alpha);
     if (abs(cCosAlpha) > abs(a))
     {
-        op.Intersects[sibling->Id].first = 0;
-        sp.Intersects[this->Id].first = 0;
+        sp.Intersects[this->Id].Count = 0;
+        op.Intersects[sibling->Id].Count = 0;
         return;
     }
 
     // Compute intersects in this orbit
-    float theta0 = LV::Wrap(alpha + acosf(cCosAlpha / a), -LV::PIf, LV::PIf);
-    float theta1 = LV::Wrap(alpha - acosf(cCosAlpha / a), -LV::PIf, LV::PIf);
+    float theta0 = LV::Wrapf(alpha + acosf(cCosAlpha / a), -LV::PIf, LV::PIf);
+    float theta1 = LV::Wrapf(alpha - acosf(cCosAlpha / a), -LV::PIf, LV::PIf);
 
     // Compute intersects in sibling orbit
     float siblingTheta0 = op.RightAscensionPeriapsis - sp.RightAscensionPeriapsis + (op.CcwF > 0 ? theta0 : -theta0);
@@ -945,39 +985,96 @@ void OrbitSystem2D::OrbitTreeNode::FindIntersects(NodeRef& sibling)
         siblingTheta0 = -siblingTheta0;
         siblingTheta1 = -siblingTheta1;
     }
-    siblingTheta0 = LV::Wrap(siblingTheta0, -LV::PIf, LV::PIf);
-    siblingTheta1 = LV::Wrap(siblingTheta1, -LV::PIf, LV::PIf);
+    siblingTheta0 = LV::Wrapf(siblingTheta0, -LV::PIf, LV::PIf);
+    siblingTheta1 = LV::Wrapf(siblingTheta1, -LV::PIf, LV::PIf);
 
     // For each intersect:
     // Add to both orbits if it is within both escape/entry points
     auto& intersect = op.Intersects[sibling->Id];
-    intersect.first = 0;
+    intersect.OtherOrbiterId = sibling->Id;
+    intersect.Count = 0;
     auto& siblingIntersect = sp.Intersects[this->Id];
-    siblingIntersect.first = 0;
+    siblingIntersect.OtherOrbiterId = this->Id;
+    siblingIntersect.Count = 0;
 
     int numIntersects = 0;
     if (abs(theta0) < op.TrueAnomalyEscape && abs(siblingTheta0) < sp.TrueAnomalyEscape)
     {
-        intersect.second[numIntersects] = this->ComputePositionAtTrueAnomaly(theta0);
-        siblingIntersect.second[numIntersects] = sibling->ComputePositionAtTrueAnomaly(siblingTheta0);
+        intersect.TrueAnomalies[numIntersects] = theta0;
+        intersect.Positions[numIntersects] = this->ComputePositionAtTrueAnomaly(theta0);
+        intersect.NeedComputeOtherOrbiterPositions[numIntersects] = true;
+
+        siblingIntersect.TrueAnomalies[numIntersects] = siblingTheta0;
+        siblingIntersect.Positions[numIntersects] = sibling->ComputePositionAtTrueAnomaly(siblingTheta0);
+        siblingIntersect.NeedComputeOtherOrbiterPositions[numIntersects] = true;
 
         numIntersects++;
     }
     if (abs(theta1) < op.TrueAnomalyEscape && abs(siblingTheta1) < sp.TrueAnomalyEscape)
     {
-        intersect.second[numIntersects] = this->ComputePositionAtTrueAnomaly(theta1);
-        siblingIntersect.second[numIntersects] = sibling->ComputePositionAtTrueAnomaly(siblingTheta1);
+        intersect.TrueAnomalies[numIntersects] = theta1;
+        intersect.Positions[numIntersects] = this->ComputePositionAtTrueAnomaly(theta1);
+        intersect.NeedComputeOtherOrbiterPositions[numIntersects] = true;
+
+        siblingIntersect.TrueAnomalies[numIntersects] = siblingTheta1;
+        siblingIntersect.Positions[numIntersects] = sibling->ComputePositionAtTrueAnomaly(siblingTheta1);
+        siblingIntersect.NeedComputeOtherOrbiterPositions[numIntersects] = true;
 
         numIntersects++;
     }
-    intersect.first = numIntersects;
-    siblingIntersect.first = numIntersects;
+    intersect.Count = numIntersects;
+    siblingIntersect.Count = numIntersects;
+}
+
+
+LV::BigFloat OrbitSystem2D::OrbitTreeNode::FindTimeOfTrueAnomaly(const float trueAnomaly)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(Parameters.Type == OrbitType::Circle || Parameters.Type == OrbitType::Ellipse, "FindTimeOfTrueAnomaly() currently only supports orbits with eccentricity < 1!");
+
+    float eccentricAnomaly = 2.f * atanf(sqrt((1.f - Parameters.Eccentricity) / (1.f + Parameters.Eccentricity)) * tanf(0.5f * trueAnomaly));
+    float meanAnomaly = eccentricAnomaly - Parameters.Eccentricity * sinf(eccentricAnomaly);
+    return meanAnomaly / LV::PI2f * Parameters.Period;
+}
+
+
+float OrbitSystem2D::OrbitTreeNode::FindFutureTrueAnomaly(const LV::BigFloat& deltaTime)
+{
+    LV_PROFILE_FUNCTION();
+
+    LV_CORE_ASSERT(Parameters.Type == OrbitType::Circle || Parameters.Type == OrbitType::Ellipse, "FindFutureTrueAnomaly() currently only supports orbits with eccentricity < 1!");
+
+    LV::BigFloat timeAtTrueAnomaly = LV::WrapBf(FindTimeOfTrueAnomaly(Parameters.TrueAnomaly) + deltaTime, LV::BigFloat::Zero, Parameters.Period);
+    float meanAnomaly = LV::PI2f * (timeAtTrueAnomaly / Parameters.Period).Float();
+
+    // Infinite series solution
+    float eccentricAnomaly = meanAnomaly;
+    for (uint32_t n = 1; n < 10; n++)
+    {
+        float J = 0.f, x = (float)n * Parameters.Eccentricity;
+        for (uint32_t k = 0; k < 10; k++)
+        {
+            J += powf(-1.f, k) * powf(0.5f * x, n + k) / (float)(LV::Factorial(k) * LV::Factorial(n + k));
+        }
+        eccentricAnomaly += 2.f * J * sinf((float)n * meanAnomaly) / (float)n;
+    }
+    float trueAnomaly = 2.f * atanf(tanf(0.5f * eccentricAnomaly) / sqrt((1.f - Parameters.Eccentricity) / (1.f + Parameters.Eccentricity)));
+
+#ifdef LV_DEBUG
+    auto timeOfPredictedTrueAnomaly = FindTimeOfTrueAnomaly(trueAnomaly);
+    auto predictionError = (timeOfPredictedTrueAnomaly - timeAtTrueAnomaly).Float();
+    LV_CORE_ASSERT(abs(predictionError) < kEpsilonEccentricity, "FindFutureTrueAnomaly() could not calculate true anomaly to less than kEpsilonEccentricity!");
+#endif
+
+    return trueAnomaly;
 }
 
 
 void OrbitSystem2D::InfluencingNode::ComputeInfluence()
 {
     LV_PROFILE_FUNCTION();
+
     auto& parentInfl = this->Parent->Influence;
     auto& op = this->Parameters;
     auto& infl = this->Influence;

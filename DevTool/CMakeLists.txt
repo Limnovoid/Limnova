@@ -8,7 +8,7 @@ add_executable(${PROJECT_NAME}
 
     "Entities/Entity.cpp"
     "Entities/Orbiter.cpp"
-)
+ "TestLayer.h" "TestLayer.cpp")
 
 
 set_property(TARGET ${PROJECT_NAME}

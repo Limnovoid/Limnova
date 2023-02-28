@@ -8,12 +8,33 @@ class OrbitSystem2D
 private:
     static OrbitSystem2D s_OrbitSystem2D;
 public:
+    class OrbitTreeNode;
+    class InfluencingNode;
+    using NodeRef = std::shared_ptr<OrbitTreeNode>;
+    using InflRef = std::shared_ptr<InfluencingNode>;
+
+
     enum class OrbitType
     {
         Circle      = 0,
         Ellipse     = 1,
         Hyperbola   = 2
     };
+
+
+    struct Intersect
+    {
+        uint32_t OtherOrbiterId;
+        uint32_t Count = 0;
+        float TrueAnomalies[2];
+        Limnova::Vector2 Positions[2];
+
+        friend class OrbitSystem2D;
+    private:
+        bool NeedComputeOtherOrbiterPositions[2];
+        Limnova::Vector2 OtherOrbiterPositions[2]; // The positions of the other orbiter at the next times that this orbiter crosses the intersect
+    };
+
 
     struct OrbitParameters
     {
@@ -59,14 +80,8 @@ public:
         bool NewtonianMotion = false;
 
         // For each other orbit which intersects this orbit, this member maps the ID of the other orbiter to the relevant intersect data: data is stored as a pair in which 'first' stores the number of intersects (0, 1, or 2), and 'second' stores their position vectors as an array of size 2.
-        std::unordered_map<uint32_t, std::pair<uint32_t, Limnova::Vector2[2]>> Intersects;
+        std::unordered_map<uint32_t, Intersect> Intersects;
     };
-
-
-    class OrbitTreeNode;
-    class InfluencingNode;
-    using NodeRef = std::shared_ptr<OrbitTreeNode>;
-    using InflRef = std::shared_ptr<InfluencingNode>;
 
 
     class OrbitTreeNode
@@ -82,6 +97,8 @@ public:
         uint32_t GetHost() const { return Parent->Id; }
 
         Limnova::Vector2 ComputePositionAtTrueAnomaly(const float trueAnomaly);
+
+        Limnova::Vector2 GetOtherOrbiterPositionAtIntersect(const uint32_t otherOrbiterId, const uint32_t intersect);
     protected:
         uint32_t Id;
         InflRef Parent = nullptr;
@@ -96,6 +113,8 @@ public:
         void ComputeGravityAccelerationFromState();
 
         void FindIntersects(NodeRef& sibling);
+        Limnova::BigFloat FindTimeOfTrueAnomaly(const float trueAnomaly);
+        float FindFutureTrueAnomaly(const Limnova::BigFloat& deltaTime);
     protected:
         NodeRef m_UpdateNext = nullptr;
     };

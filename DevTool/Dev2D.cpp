@@ -61,7 +61,7 @@ void Dev2DLayer::OnUpdate(Limnova::Timestep dT)
 
         m_CameraController->OnUpdate(dT);
 
-        s_AnimatedRotation = Limnova::Wrap(s_AnimatedRotation + dT * rotationSpeed, 0.f, 360.f);
+        s_AnimatedRotation = Limnova::Wrapf(s_AnimatedRotation + dT * rotationSpeed, 0.f, 360.f);
     }
 
     // Render

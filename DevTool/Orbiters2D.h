@@ -41,6 +41,12 @@ private:
     bool m_ZoomingIntoSystem = false;
     bool m_ZoomingOutOfSystem = false;
 
+    struct IntersectUI
+    {
+        LV::Vector2 ScenePosition;
+        bool IsHovered;
+    };
+
     struct InputInfo
     {
         LV::Vector2 MouseScenePosition;
@@ -52,6 +58,9 @@ private:
         bool WeaponSelected = false;
         LV::BigFloat MuzzleVelocity{ 5.f, 0 };
         OrbitSystem2D::OrbitParameters TargetingOrbit;
+
+        bool IntersectSelected = false;
+        uint32_t SelectedIntersectOtherOrbiterId, SelectedIntersectIndex;
     } m_Input;
 
     struct OrbiterUI
