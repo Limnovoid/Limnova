@@ -38,6 +38,9 @@ namespace Limnova
         Vector2& operator*=(const float scalar);
         Vector2 operator/(const float scalar) const;
         Vector2& operator/=(const float scalar);
+
+        friend bool operator==(const Vector2& lhs, const Vector2& rhs);
+        friend bool operator!=(const Vector2& lhs, const Vector2& rhs);
     public:
         operator glm::vec2() const { return glm::vec2(x, y); }
     public:
@@ -46,6 +49,9 @@ namespace Limnova
 
     Vector2 operator-(const Vector2& vector);
     Vector2 operator*(const float scalar, const Vector2 vector);
+
+    bool operator==(const Vector2& lhs, const Vector2& rhs);
+    bool operator!=(const Vector2& lhs, const Vector2& rhs);
 
     std::ostream& operator<<(std::ostream& ostream, const Vector2& v);
 

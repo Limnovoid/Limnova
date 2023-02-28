@@ -22,10 +22,12 @@ namespace Limnova
         ~PlanarCameraController();
 
         void OnUpdate(Timestep dT);
-
+        void OnEvent(Event& e);
 
         virtual Camera& GetCamera() = 0;                // override per camera type
         virtual const Camera& GetCamera() const = 0;    // override per camera type
+
+        void SetAspect(const float aspect) { m_AspectRatio = aspect; m_NeedSetProjection = true; }
 
         void SetControlled(const bool isControlled) { m_BeingControlled = isControlled; }
 
@@ -39,8 +41,6 @@ namespace Limnova
         inline bool IsBeingControlled() { return m_BeingControlled; }
         Vector2 GetXY() const { return { m_Position.x, m_Position.y }; }
         float GetZoom() const { return m_ZoomLevel; }
-
-        void OnEvent(Event& e);
     private:
         bool OnMouseButtonPressed(MouseButtonPressedEvent& e);
         bool OnMouseScrolled(MouseScrolledEvent& e);

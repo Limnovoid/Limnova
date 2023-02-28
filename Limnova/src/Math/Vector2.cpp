@@ -99,6 +99,18 @@ namespace Limnova
     }
 
 
+    bool operator==(const Vector2& lhs, const Vector2& rhs)
+    {
+        return lhs.x == rhs.x && lhs.y == rhs.y;
+    }
+
+
+    bool operator!=(const Vector2& lhs, const Vector2& rhs)
+    {
+        return lhs.x != rhs.x || lhs.y != rhs.y;
+    }
+
+
     std::ostream& operator<<(std::ostream& ostream, const Vector2& v)
     {
         ostream << "(" << v.x << " " << v.y << ")";

@@ -12,7 +12,7 @@ namespace Limnova
     Application& Application::Get() { return *s_Instance; }
 
 
-    Application::Application()
+    Application::Application(const std::string& name)
     {
         LV_PROFILE_FUNCTION();
 
@@ -20,7 +20,7 @@ namespace Limnova
         s_Instance = this;
 
         //m_Window = std::unique_ptr<Window>(Window::Create());
-        m_Window.reset(Window::Create());
+        m_Window = Window::Create(WindowProps(name));
         m_Window->SetEventCallback(LV_BIND_EVENT_FN(Application::OnEvent));
         m_Window->SetVSync(false);
 

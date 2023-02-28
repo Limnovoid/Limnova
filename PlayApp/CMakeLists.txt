@@ -1,14 +1,15 @@
-project(DevTool)
+project(PlayApp)
 
 add_executable(${PROJECT_NAME}
-    "DevTool.cpp"
-    "Dev2D.cpp"
+    "PlayApp.cpp"
+    "Play2DLayer.cpp"
     "Orbiters2D.cpp"
     "OrbitSystem2D.cpp"
+    "TestLayer.cpp"
 
     "Entities/Entity.cpp"
     "Entities/Orbiter.cpp"
- "TestLayer.h" "TestLayer.cpp")
+ )
 
 
 set_property(TARGET ${PROJECT_NAME}

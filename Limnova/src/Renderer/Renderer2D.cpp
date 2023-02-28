@@ -3,7 +3,7 @@
 #include "VertexArray.h"
 #include "Shader.h"
 
-#define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\assets"
+#define ASSET_DIR "C:\\Programming\\source\\Limnova\\LimnovaEditor\\assets"
 
 
 namespace Limnova

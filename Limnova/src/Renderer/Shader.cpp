@@ -12,7 +12,7 @@ namespace Limnova
         switch (Renderer::GetAPI())
         {
             case RendererAPI::API::None: LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
-            case RendererAPI::API::OpenGL: return std::make_shared<OpenGLShader>(filepath);
+            case RendererAPI::API::OpenGL: return CreateRef<OpenGLShader>(filepath);
         }
         LV_CORE_ASSERT(false, "Renderer::GetAPI() returned unknown RendererAPI!");
         return nullptr;
@@ -24,7 +24,7 @@ namespace Limnova
         switch (Renderer::GetAPI())
         {
             case RendererAPI::API::None: LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
-            case RendererAPI::API::OpenGL: return std::make_shared<OpenGLShader>(name, filepath);
+            case RendererAPI::API::OpenGL: return CreateRef<OpenGLShader>(name, filepath);
         }
         LV_CORE_ASSERT(false, "Renderer::GetAPI() returned unknown RendererAPI!");
         return nullptr;
@@ -36,7 +36,7 @@ namespace Limnova
         switch (Renderer::GetAPI())
         {
             case RendererAPI::API::None: LV_CORE_ASSERT(false, "RendererAPI::None is not supported!"); return nullptr;
-            case RendererAPI::API::OpenGL: return std::make_shared<OpenGLShader>(name, vertexSrc, fragmentSrc);
+            case RendererAPI::API::OpenGL: return CreateRef<OpenGLShader>(name, vertexSrc, fragmentSrc);
         }
         LV_CORE_ASSERT(false, "Renderer::GetAPI() returned unknown RendererAPI!");
         return nullptr;

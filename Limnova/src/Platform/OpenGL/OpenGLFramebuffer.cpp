@@ -16,12 +16,24 @@ namespace Limnova
     OpenGLFramebuffer::~OpenGLFramebuffer()
     {
         glDeleteFramebuffers(1, &m_RendererId);
+        glDeleteTextures(1, &m_ColorAttachment);
+        glDeleteTextures(1, &m_DepthAttachment);
+    }
+
+
+    void OpenGLFramebuffer::Resize(const uint32_t width, const uint32_t height)
+    {
+        m_Specification.Width = width;
+        m_Specification.Height = height;
+
+        Reset();
     }
 
 
     void OpenGLFramebuffer::Bind()
     {
         glBindFramebuffer(GL_FRAMEBUFFER, m_RendererId);
+        glViewport(0, 0, m_Specification.Width, m_Specification.Height);
     }
 
 
@@ -33,6 +45,14 @@ namespace Limnova
 
     void OpenGLFramebuffer::Reset()
     {
+        if (m_RendererId != 0)
+        {
+            // Delete if already created
+            glDeleteFramebuffers(1, &m_RendererId);
+            glDeleteTextures(1, &m_ColorAttachment);
+            glDeleteTextures(1, &m_DepthAttachment);
+        }
+
         glCreateFramebuffers(1, &m_RendererId);
         glBindFramebuffer(GL_FRAMEBUFFER, m_RendererId);
 

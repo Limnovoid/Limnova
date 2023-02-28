@@ -6,7 +6,8 @@ Profiling/
 !src/Profiling/
 
 ## Ignore large assets
-DevTool/Assets/textures
+LimnovaEditor/Assets/textures
+PlayApp/Assets/textures
 
 ### Below is from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 

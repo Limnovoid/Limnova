@@ -13,4 +13,5 @@ add_compile_definitions(
 
 # Projects.
 add_subdirectory(Limnova)
-add_subdirectory(DevTool)
+add_subdirectory(LimnovaEditor)
+add_subdirectory(PlayApp)

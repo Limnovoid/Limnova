@@ -4,11 +4,11 @@
 #include <Core/Layer.h>
 
 
-class LIMNOVA_API Dev2DLayer : public Limnova::Layer
+class LIMNOVA_API Play2DLayer : public Limnova::Layer
 {
 public:
-    Dev2DLayer();
-    virtual ~Dev2DLayer() = default;
+    Play2DLayer();
+    virtual ~Play2DLayer() = default;
 
     void OnAttach() override;
     void OnDetach() override;
@@ -31,6 +31,4 @@ private:
     Limnova::Vector4 m_TextureTint = { 0.2f, 0.2f, 0.2f, 1.f };
     Limnova::Vector2 m_TextureScale = { 3.f, 3.f };
     float m_BackgroundRotation = 0.f;
-
-    Limnova::Ref<Limnova::Framebuffer> m_Framebuffer;
 };

@@ -172,6 +172,7 @@ namespace Limnova
     Vector3 PerspectivePlanarCameraController::GetWorldPos(const Vector2& screenPos, const float viewDepth)
     {
         /* !!! UNTESTED !!! */
+        LV_CORE_ASSERT(false, "Called untested function: PerspectivePlanarCameraController::GetWorldPos()!");
 
         float screenW = Application::Get().GetWindow().GetWidth();
         float screenH = Application::Get().GetWindow().GetHeight();

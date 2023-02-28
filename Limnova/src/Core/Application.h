@@ -18,7 +18,7 @@ namespace Limnova
     class Application
     {
     public:
-        Application();
+        Application(const std::string& name = "Limnova App");
         virtual ~Application();
 
         static Application& Get();

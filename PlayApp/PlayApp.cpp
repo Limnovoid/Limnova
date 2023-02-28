@@ -1,7 +1,7 @@
 #include <Limnova.h>
 #include <Core/EntryPoint.h>
 
-#include "Dev2D.h"
+#include "Play2DLayer.h"
 #include "Orbiters2D.h"
 #include "TestLayer.h"
 
@@ -189,19 +189,19 @@ public:
 
 namespace LV = Limnova;
 
-class LIMNOVA_API DevApp : public Limnova::Application
+class LIMNOVA_API PlayApp : public Limnova::Application
 {
 public:
-    DevApp()
+    PlayApp()
     {
         //PushLayer(new TestLayer());
         // 
         //PushLayer(new DevLayer());
-        //PushLayer(new Dev2DLayer());
-        PushLayer(new Orbiters2D());
+        PushLayer(new Play2DLayer());
+        //PushLayer(new Orbiters2D());
     }
 
-    ~DevApp()
+    ~PlayApp()
     {
     }
 };
@@ -209,5 +209,5 @@ public:
 
 Limnova::Application* Limnova::CreateApplication()
 {
-    return new DevApp();
+    return new PlayApp();
 }
