@@ -36,6 +36,8 @@ namespace Limnova
     {
         friend class EventDispatcher;
     public:
+        virtual ~Event() {}
+
         bool Handled = false;
 
         virtual EventType GetEventType() const = 0;

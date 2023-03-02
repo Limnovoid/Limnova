@@ -24,6 +24,7 @@ namespace Limnova
         static Application& Get();
 
         inline Window& GetWindow() { return *m_Window; }
+        inline ImGuiLayer* GetImGuiLayer() { return m_ImGuiLayer; }
 
         void PushLayer(Layer* layer);
         void PushOverlay(Layer* overlay);

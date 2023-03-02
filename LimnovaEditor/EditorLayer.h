@@ -22,6 +22,7 @@ namespace Limnova
         Ref<PerspectivePlanarCameraController> m_CameraController;
         Ref<Framebuffer> m_Framebuffer;
         Vector2 m_ViewportSize;
+        bool m_ViewportFocused = false, m_ViewportHovered = false;
 
         Ref<Limnova::Texture2D> m_CheckerboardTexture;
         Ref<Limnova::Texture2D> m_SpriteSheet;

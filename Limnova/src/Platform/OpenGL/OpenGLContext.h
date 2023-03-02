@@ -12,6 +12,7 @@ namespace Limnova
     {
     public:
         OpenGLContext(GLFWwindow* windowHandle);
+        ~OpenGLContext();
 
         void Init() override;
         void Shutdown() override;

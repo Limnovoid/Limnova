@@ -20,6 +20,8 @@ namespace Limnova
         using LStack = std::vector<Layer*>;
         LStack::iterator begin() { return m_Layers.begin(); }
         LStack::iterator end() { return m_Layers.end(); }
+        LStack::reverse_iterator rbegin() { return m_Layers.rbegin(); }
+        LStack::reverse_iterator rend() { return m_Layers.rend(); }
     private:
         LStack m_Layers;
         int m_LayerInsertOff;

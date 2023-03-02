@@ -14,6 +14,11 @@ namespace Limnova
     }
 
 
+    OpenGLContext::~OpenGLContext()
+    {
+    }
+
+
     void OpenGLContext::Init()
     {
         LV_PROFILE_FUNCTION();

@@ -19,10 +19,14 @@ namespace Limnova
         void OnAttach() override;
         void OnDetach() override;
         void OnImGuiRender() override;
+        void OnEvent(Event& e) override;
 
         void Begin();
         void End();
+
+        void SetBlockEvents(bool block) { m_BlockEvents = block; }
     private:
+        bool m_BlockEvents = true;
         float m_Time = 0.f;
     };
 

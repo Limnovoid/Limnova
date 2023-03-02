@@ -13,7 +13,7 @@ namespace Limnova
     {
     public:
         WindowsWindow(const WindowProps& props);
-        virtual ~WindowsWindow();
+        ~WindowsWindow();
 
         void OnUpdate() override;
 

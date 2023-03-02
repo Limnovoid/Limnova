@@ -124,13 +124,13 @@ namespace Limnova
         dispatcher.Dispatch<WindowCloseEvent>(LV_BIND_EVENT_FN(Application::OnWindowClose));
         dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(Application::OnWindowResize));
 
-        for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); )
+        for (auto it = m_LayerStack.rbegin(); it != m_LayerStack.rend(); it++)
         {
             if (e.Handled)
             {
                 break;
             }
-            (*--it)->OnEvent(e);
+            (*it)->OnEvent(e);
         }
     }
 

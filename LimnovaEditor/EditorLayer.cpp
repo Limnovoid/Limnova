@@ -16,6 +16,11 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
+        /* No event filtering in ImGuiLayer : we filter input in the EditorLayer itself using
+         * the camera controller
+         */
+        Application::Get().GetImGuiLayer()->SetBlockEvents(false);
+
         // Camera
         Application& app = Application::Get();
         m_CameraController = CreateRef<PerspectivePlanarCameraController>(
@@ -190,14 +195,21 @@ namespace Limnova
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.f, 0.f });
         ImGui::Begin("Viewport");
+
+        // Only control the camera if the viewport is focused and hovered
+        m_ViewportFocused = ImGui::IsWindowFocused();
+        m_ViewportHovered = ImGui::IsWindowHovered();
+        //Application::Get().GetImGuiLayer()->SetBlockEvents(!m_ViewportFocused || !m_ViewportHovered);
+        m_CameraController->SetControlled(m_ViewportFocused && m_ViewportHovered);
+
         ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
         Vector2 viewportSize{ viewportPanelSize.x, viewportPanelSize.y };
-        if (viewportSize != m_ViewportSize)
+        if (viewportSize != m_ViewportSize && viewportSize.x > 0 && viewportSize.y > 0)
         {
-            m_Framebuffer->Resize((uint32_t)viewportSize.x, (uint32_t)viewportSize.y);
-            m_CameraController->SetAspect(viewportSize.x / viewportSize.y);
-
             m_ViewportSize = viewportSize;
+
+            m_Framebuffer->Resize(viewportPanelSize.x, viewportPanelSize.y);
+            m_CameraController->SetAspect(m_ViewportSize.x / m_ViewportSize.y);
         }
         uint32_t viewportRendererId = m_Framebuffer->GetColorAttachmentRendererId();
         ImGui::Image((void*)viewportRendererId, viewportPanelSize, { 0, 1 }, { 1, 0 });
@@ -210,7 +222,14 @@ namespace Limnova
 
     void EditorLayer::OnEvent(Event& e)
     {
-        m_CameraController->OnEvent(e);
+        /* The editor needs to capture WindowResize events before they reach the camera controller, as
+         * the camera's aspect ratio should be determined by the ImGui panel which displays the viewport
+         * and not by the application window (which displays the entire editor).
+         */
+        if (e.GetEventType() != EventType::WindowResize)
+        {
+            m_CameraController->OnEvent(e);
+        }
     }
 
 }
