@@ -1,4 +1,4 @@
-#include "Orbiters2D.h"
+#include "Orbital2D.h"
 
 #define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\Assets"
 
@@ -9,18 +9,18 @@ static constexpr float kZoomDef = 1.f;
 static constexpr float kZoomSen = 0.01f;
 
 
-Orbiters2D::Orbiters2D()
-    : Layer("Orbiters2D")
+Orbital2D::Orbital2D()
+    : Layer("Orbital2DLayer")
 {
 }
 
 
-Orbiters2D::~Orbiters2D()
+Orbital2D::~Orbital2D()
 {
 }
 
 
-void Orbiters2D::OnAttach()
+void Orbital2D::OnAttach()
 {
     LV::Application& app = LV::Application::Get();
     m_CameraController = std::make_shared<LV::OrthographicPlanarCameraController>(
@@ -32,8 +32,8 @@ void Orbiters2D::OnAttach()
     m_CameraController->SetZoomSensitivity(kZoomSen);
 
     // OrbitSystem
-    OrbitSystem2D::Init();
-    OrbitSystem2D& orbs = OrbitSystem2D::Get();
+    OrbitalPhysics2D::Init();
+    OrbitalPhysics2D& orbs = OrbitalPhysics2D::Get();
     m_Timescale = 0.01;
     orbs.SetTimeScale(m_Timescale);
 
@@ -159,17 +159,17 @@ void Orbiters2D::OnAttach()
 }
 
 
-void Orbiters2D::OnDetach()
+void Orbital2D::OnDetach()
 {
-    OrbitSystem2D::Get().Shutdown();
+    OrbitalPhysics2D::Get().Shutdown();
 }
 
 
-void Orbiters2D::OnUpdate(LV::Timestep dT)
+void Orbital2D::OnUpdate(LV::Timestep dT)
 {
     LV_PROFILE_FUNCTION();
 
-    OrbitSystem2D& orbs = OrbitSystem2D::Get();
+    OrbitalPhysics2D& orbs = OrbitalPhysics2D::Get();
 
     float zoom;
     float orbiterCircleRadius;
@@ -323,7 +323,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
         m_CameraController->OnUpdate(dT);
 
         // Check if camera is zooming in or out of the current scene sytem
-        if (m_ZoomingIntoSystem && (m_CameraRelativeLevel > 1 || (m_CameraRelativeLevel > 0 && OrbitSystem2D::Get().IsInfluencing(m_CameraTrackingId))))
+        if (m_ZoomingIntoSystem && (m_CameraRelativeLevel > 1 || (m_CameraRelativeLevel > 0 && OrbitalPhysics2D::Get().IsInfluencing(m_CameraTrackingId))))
         {
             m_CameraRelativeLevel--;
             m_CameraController->SetXY({ 0.f, 0.f });
@@ -341,14 +341,14 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
 
     // Render
     {
-        LV_PROFILE_SCOPE("Render Prep - Orbiters2D::OnUpdate");
+        LV_PROFILE_SCOPE("Render Prep - Orbital2D::OnUpdate");
 
         LV::RenderCommand::SetClearColor({ 0.f, 0.f, 0.f, 1.f });
         LV::RenderCommand::Clear();
     }
 
     {
-        LV_PROFILE_SCOPE("Render Draw - Orbiters2D::OnUpdate");
+        LV_PROFILE_SCOPE("Render Draw - Orbital2D::OnUpdate");
 
         LV::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
@@ -486,7 +486,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             auto& orbRef = m_Orbiters[id];
             auto& op = orbRef->GetParameters();
 
-            if (op.Type == OrbitSystem2D::OrbitType::Circle || op.Type == OrbitSystem2D::OrbitType::Ellipse)
+            if (op.Type == OrbitalPhysics2D::OrbitType::Circle || op.Type == OrbitalPhysics2D::OrbitType::Ellipse)
             {
                 LV::Vector2 centrePos = hostRef->GetPosition().XY() + op.Centre;
                 LV::Vector2 escapePointFromCentre{ 0.f, 0.f };
@@ -507,7 +507,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             {
                 auto& subOrbRef = m_Orbiters[sid];
                 auto& sop = subOrbRef->GetParameters();
-                if (sop.Type == OrbitSystem2D::OrbitType::Circle || sop.Type == OrbitSystem2D::OrbitType::Ellipse)
+                if (sop.Type == OrbitalPhysics2D::OrbitType::Circle || sop.Type == OrbitalPhysics2D::OrbitType::Ellipse)
                 {
                     LV::Vector2 centrePos = orbRef->GetPosition().XY() + roi * sop.Centre;
                     LV::Vector2 escapePointFromCentre{ 0.f, 0.f };
@@ -524,7 +524,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             }
         }
         // Elliptical targeting orbit
-        if ((m_Input.TargetingOrbit.Type == OrbitSystem2D::OrbitType::Circle || m_Input.TargetingOrbit.Type == OrbitSystem2D::OrbitType::Ellipse)
+        if ((m_Input.TargetingOrbit.Type == OrbitalPhysics2D::OrbitType::Circle || m_Input.TargetingOrbit.Type == OrbitalPhysics2D::OrbitType::Ellipse)
             && m_CameraRelativeLevel > 0 && m_Input.ShipIsBeingControlled && m_Input.WeaponSelected)
         {
             float scale = m_CameraRelativeLevel == 1 ? 1.f : orbs.GetScaling(m_PlayerShip->GetHostOrbitSystemId());
@@ -549,7 +549,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             auto& orbRef = m_Orbiters[id];
             auto& op = orbRef->GetParameters();
 
-            if (op.Type == OrbitSystem2D::OrbitType::Hyperbola)
+            if (op.Type == OrbitalPhysics2D::OrbitType::Hyperbola)
             {
                 LV::Vector2 centrePos = orbRef->GetPosition().XY() + op.Centre;
 
@@ -568,7 +568,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             {
                 auto& subOrbRef = m_Orbiters[sid];
                 auto& sop = subOrbRef->GetParameters();
-                if (sop.Type == OrbitSystem2D::OrbitType::Hyperbola)
+                if (sop.Type == OrbitalPhysics2D::OrbitType::Hyperbola)
                 {
                     LV::Vector2 centrePos = orbRef->GetPosition().XY() + roi * sop.Centre;
 
@@ -583,7 +583,7 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
             }
         }
         // Hyperbolic targeting orbit
-        if (m_Input.TargetingOrbit.Type == OrbitSystem2D::OrbitType::Hyperbola
+        if (m_Input.TargetingOrbit.Type == OrbitalPhysics2D::OrbitType::Hyperbola
             && m_CameraRelativeLevel > 0 && m_Input.ShipIsBeingControlled && m_Input.WeaponSelected)
         {
             float scale = m_CameraRelativeLevel == 1 ? 1.f : orbs.GetScaling(m_PlayerShip->GetHostOrbitSystemId());
@@ -600,11 +600,11 @@ void Orbiters2D::OnUpdate(LV::Timestep dT)
 }
 
 
-void Orbiters2D::OnImGuiRender()
+void Orbital2D::OnImGuiRender()
 {
-    ImGui::Begin("Orbiters2D");
+    ImGui::Begin("Orbital2D");
 
-    OrbitSystem2D& orbs = OrbitSystem2D::Get();
+    OrbitalPhysics2D& orbs = OrbitalPhysics2D::Get();
 
     if (ImGui::SliderFloat("Timescale", &m_Timescale, 0.f, 1.f))
     {
@@ -703,20 +703,20 @@ void Orbiters2D::OnImGuiRender()
 }
 
 
-void Orbiters2D::OnEvent(LV::Event& e)
+void Orbital2D::OnEvent(LV::Event& e)
 {
     LV::EventDispatcher dispatcher(e);
-    dispatcher.Dispatch<LV::MouseScrolledEvent>(LV_BIND_EVENT_FN(Orbiters2D::OnMouseScrolled));
-    dispatcher.Dispatch<LV::MouseButtonPressedEvent>(LV_BIND_EVENT_FN(Orbiters2D::OnMouseButtonPressed));
-    dispatcher.Dispatch<LV::KeyPressedEvent>(LV_BIND_EVENT_FN(Orbiters2D::OnKeyPressed));
+    dispatcher.Dispatch<LV::MouseScrolledEvent>(LV_BIND_EVENT_FN(Orbital2D::OnMouseScrolled));
+    dispatcher.Dispatch<LV::MouseButtonPressedEvent>(LV_BIND_EVENT_FN(Orbital2D::OnMouseButtonPressed));
+    dispatcher.Dispatch<LV::KeyPressedEvent>(LV_BIND_EVENT_FN(Orbital2D::OnKeyPressed));
 
     m_CameraController->OnEvent(e);
 }
 
 
-void Orbiters2D::GetCameraTrackingIds(uint32_t* sceneHostId, uint32_t* sceneTrackingId)
+void Orbital2D::GetCameraTrackingIds(uint32_t* sceneHostId, uint32_t* sceneTrackingId)
 {
-    auto& orbs = OrbitSystem2D::Get();
+    auto& orbs = OrbitalPhysics2D::Get();
     *sceneHostId = m_CameraTrackingId;
     *sceneTrackingId = m_CameraTrackingId;
     for (uint32_t l = 0; l < m_CameraRelativeLevel; l++)
@@ -727,14 +727,14 @@ void Orbiters2D::GetCameraTrackingIds(uint32_t* sceneHostId, uint32_t* sceneTrac
 }
 
 
-bool Orbiters2D::PlayerShipIsVisible(const uint32_t sceneHostId, const uint32_t sceneTrackingId)
+bool Orbital2D::PlayerShipIsVisible(const uint32_t sceneHostId, const uint32_t sceneTrackingId)
 {
     return (m_CameraTrackingId == m_PlayerShip->GetOrbitSystemId() && m_CameraRelativeLevel < 2)
         || sceneTrackingId == m_PlayerShip->GetHostOrbitSystemId();
 }
 
 
-bool Orbiters2D::OnMouseButtonPressed(LV::MouseButtonPressedEvent& e)
+bool Orbital2D::OnMouseButtonPressed(LV::MouseButtonPressedEvent& e)
 {
     switch (e.GetMouseButton())
     {
@@ -753,7 +753,7 @@ bool Orbiters2D::OnMouseButtonPressed(LV::MouseButtonPressedEvent& e)
 }
 
 
-bool Orbiters2D::OnMouseScrolled(LV::MouseScrolledEvent& e)
+bool Orbital2D::OnMouseScrolled(LV::MouseScrolledEvent& e)
 {
     m_ZoomingOutOfSystem = e.GetYOffset() < 0 && m_CameraController->GetZoom() == kZoomMax;
     m_ZoomingIntoSystem = e.GetYOffset() > 0 && m_CameraController->GetZoom() == kZoomMin;
@@ -762,7 +762,7 @@ bool Orbiters2D::OnMouseScrolled(LV::MouseScrolledEvent& e)
 }
 
 
-bool Orbiters2D::OnKeyPressed(LV::KeyPressedEvent& e)
+bool Orbital2D::OnKeyPressed(LV::KeyPressedEvent& e)
 {
     switch (e.GetKeyCode())
     {
@@ -776,10 +776,10 @@ bool Orbiters2D::OnKeyPressed(LV::KeyPressedEvent& e)
 
 // Projectile ////
 
-const LV::Vector4 Orbiters2D::Projectile::s_Color = { 1.f, 1.f, 0.5f, 1.f };
-const LV::BigFloat Orbiters2D::Projectile::s_Mass = { 1.f, -4 };
+const LV::Vector4 Orbital2D::Projectile::s_Color = { 1.f, 1.f, 0.5f, 1.f };
+const LV::BigFloat Orbital2D::Projectile::s_Mass = { 1.f, -4 };
 
-Orbiters2D::Projectile::Projectile(const OrbRef& launcher, const InflOrbRef& launcherHost, const LV::BigVector2& scaledLaunchVelocity)
+Orbital2D::Projectile::Projectile(const OrbRef& launcher, const InflOrbRef& launcherHost, const LV::BigVector2& scaledLaunchVelocity)
 {
     m_SpacecraftRef = Spacecraft::Create("Projectile", s_Radius, s_Color, s_Mass, launcherHost, launcher->GetParameters().Position, launcher->GetParameters().Velocity + scaledLaunchVelocity);
 }

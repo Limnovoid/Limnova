@@ -3,7 +3,7 @@
 #include <Limnova.h>
 
 #include "Entity.h"
-#include "OrbitSystem2D.h"
+#include "OrbitalPhysics2D.h"
 
 namespace LV = Limnova;
 
@@ -17,7 +17,7 @@ using InflOrbRef = std::shared_ptr<InfluencingOrbiter>;
 class Orbiter : public Entity
 {
 protected:
-    Orbiter(const std::string& name, const float radius, const LV::Vector4& color, const OrbitSystem2D::NodeRef& nodeRef);
+    Orbiter(const std::string& name, const float radius, const LV::Vector4& color, const OrbitalPhysics2D::NodeRef& nodeRef);
 public:
     virtual ~Orbiter() {}
 
@@ -38,7 +38,7 @@ public:
 
     uint32_t GetOrbitSystemId() { return m_Node->GetId(); }
     uint32_t GetHostOrbitSystemId() { return m_Node->GetHost(); }
-    const OrbitSystem2D::OrbitParameters& GetParameters() { return m_Node->GetParameters(); }
+    const OrbitalPhysics2D::OrbitParameters& GetParameters() { return m_Node->GetParameters(); }
 
     void SetRadius(const float radius) { m_Radius = radius; }
     void SetColor(const LV::Vector4& color) { m_Color = color; }
@@ -50,16 +50,16 @@ public:
 protected:
     float m_Radius;
     LV::Vector4 m_Color;
-    OrbitSystem2D::NodeRef m_Node;
+    OrbitalPhysics2D::NodeRef m_Node;
 protected:
-    const OrbitSystem2D::NodeRef& GetNode() { return m_Node; }
+    const OrbitalPhysics2D::NodeRef& GetNode() { return m_Node; }
 };
 
 
 class InfluencingOrbiter : public Orbiter
 {
 protected:
-    InfluencingOrbiter(const std::string& name, const float radius, const LV::Vector4& color, const OrbitSystem2D::InflRef& inflNodeRef);
+    InfluencingOrbiter(const std::string& name, const float radius, const LV::Vector4& color, const OrbitalPhysics2D::InflRef& inflNodeRef);
 public:
     ~InfluencingOrbiter();
 
@@ -71,7 +71,7 @@ public:
     static InflOrbRef Create(const std::string& name, const float radius, const LV::Vector4& color,
         const LV::BigFloat& mass, const InflOrbRef& initialHost, const LV::Vector2& scaledPosition, const bool clockwise);
 protected:
-    OrbitSystem2D::InflRef m_InflNode;
+    OrbitalPhysics2D::InflRef m_InflNode;
 };
 
 
@@ -81,7 +81,7 @@ using SystemRef = std::shared_ptr<SystemHost>;
 class SystemHost : public InfluencingOrbiter
 {
 private:
-    SystemHost(const std::string& name, const float radius, const LV::Vector4& color, const OrbitSystem2D::InflRef& inflNodeRef);
+    SystemHost(const std::string& name, const float radius, const LV::Vector4& color, const OrbitalPhysics2D::InflRef& inflNodeRef);
 public:
     ~SystemHost();
 
@@ -97,7 +97,7 @@ using SpacecraftRef = std::shared_ptr<Spacecraft>;
 class Spacecraft : public Orbiter
 {
 protected:
-    Spacecraft(const std::string& name, const float radius, const LV::Vector4& color, const OrbitSystem2D::NodeRef& nodeRef);
+    Spacecraft(const std::string& name, const float radius, const LV::Vector4& color, const OrbitalPhysics2D::NodeRef& nodeRef);
 public:
     ~Spacecraft();
 

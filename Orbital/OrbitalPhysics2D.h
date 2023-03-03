@@ -3,10 +3,10 @@
 #include <Limnova.h>
 
 
-class OrbitSystem2D
+class OrbitalPhysics2D
 {
 private:
-    static OrbitSystem2D s_OrbitSystem2D;
+    static OrbitalPhysics2D s_OrbitSystem2D;
 public:
     class OrbitTreeNode;
     class InfluencingNode;
@@ -29,7 +29,7 @@ public:
         float TrueAnomalies[2];
         Limnova::Vector2 Positions[2];
 
-        friend class OrbitSystem2D;
+        friend class OrbitalPhysics2D;
     private:
         bool NeedComputeOtherOrbiterPositions[2];
         Limnova::Vector2 OtherOrbiterPositions[2]; // The positions of the other orbiter at the next times that this orbiter crosses the intersect
@@ -86,7 +86,7 @@ public:
 
     class OrbitTreeNode
     {
-        friend class OrbitSystem2D;
+        friend class OrbitalPhysics2D;
     public:
         OrbitTreeNode(const uint32_t id) : Id(id) {}
         virtual ~OrbitTreeNode() {}
@@ -129,7 +129,7 @@ public:
 
     class InfluencingNode : public OrbitTreeNode
     {
-        friend class OrbitSystem2D;
+        friend class OrbitalPhysics2D;
     public:
         InfluencingNode(const uint32_t id) : OrbitTreeNode(id) { Influencing = true; }
         ~InfluencingNode() {}
@@ -155,11 +155,11 @@ public:
         void ComputeInfluence();
     };
 public:
-    OrbitSystem2D();
-    ~OrbitSystem2D();
+    OrbitalPhysics2D();
+    ~OrbitalPhysics2D();
 
     static void Init();
-    static OrbitSystem2D& Get();
+    static OrbitalPhysics2D& Get();
     static void Shutdown();
 
     // Callback parameters:

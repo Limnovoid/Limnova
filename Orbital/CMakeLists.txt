@@ -1,9 +1,12 @@
-project(PlayApp)
+project(Orbital)
 
 add_executable(${PROJECT_NAME}
-    "PlayApp.cpp"
-    "Play2DLayer.cpp"
-    "TestLayer.cpp"
+    "OrbitalApp.cpp"
+    "Orbital2D.cpp"
+    "OrbitalPhysics2D.cpp"
+
+    "Entities/Entity.cpp"
+    "Entities/Orbiter.cpp"
  )
 
 

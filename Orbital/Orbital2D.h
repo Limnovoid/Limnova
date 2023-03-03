@@ -3,17 +3,17 @@
 #include <Limnova.h>
 #include <Core/Layer.h>
 
-#include "OrbitSystem2D.h"
+#include "OrbitalPhysics2D.h"
 #include "Entities/Orbiter.h"
 
 namespace LV = Limnova;
 
 
-class LIMNOVA_API Orbiters2D : public LV::Layer
+class LIMNOVA_API Orbital2D : public LV::Layer
 {
 public:
-    Orbiters2D();
-    ~Orbiters2D();
+    Orbital2D();
+    ~Orbital2D();
 
     void OnAttach() override;
     void OnDetach() override;
@@ -57,7 +57,7 @@ private:
 
         bool WeaponSelected = false;
         LV::BigFloat MuzzleVelocity{ 5.f, 0 };
-        OrbitSystem2D::OrbitParameters TargetingOrbit;
+        OrbitalPhysics2D::OrbitParameters TargetingOrbit;
 
         bool IntersectSelected = false;
         uint32_t SelectedIntersectOtherOrbiterId, SelectedIntersectIndex;

@@ -1,4 +1,4 @@
-#include "OrbitSystem2D.h"
+#include "OrbitalPhysics2D.h"
 
 #include <chrono>
 
@@ -16,20 +16,20 @@ static constexpr float kEpsilonE2term = 1e-4f;
 static constexpr float kEpsilonEccentricity = 1e-2f;
 
 
-OrbitSystem2D::OrbitSystem2D()
+OrbitalPhysics2D::OrbitalPhysics2D()
 {
     m_MinimumDeltaT = m_Timescale * kMinimumDeltaT;
 }
 
 
-OrbitSystem2D::~OrbitSystem2D()
+OrbitalPhysics2D::~OrbitalPhysics2D()
 {
 }
 
 
-OrbitSystem2D OrbitSystem2D::s_OrbitSystem2D;
+OrbitalPhysics2D OrbitalPhysics2D::s_OrbitSystem2D;
 
-void OrbitSystem2D::Init()
+void OrbitalPhysics2D::Init()
 {
     LV_PROFILE_FUNCTION();
 
@@ -48,13 +48,13 @@ void OrbitSystem2D::Init()
 }
 
 
-OrbitSystem2D& OrbitSystem2D::Get()
+OrbitalPhysics2D& OrbitalPhysics2D::Get()
 {
     return s_OrbitSystem2D;
 }
 
 
-void OrbitSystem2D::Shutdown()
+void OrbitalPhysics2D::Shutdown()
 {
     LV_PROFILE_FUNCTION();
 
@@ -65,7 +65,7 @@ void OrbitSystem2D::Shutdown()
 }
 
 
-void OrbitSystem2D::Update(Limnova::Timestep dT)
+void OrbitalPhysics2D::Update(Limnova::Timestep dT)
 {
     LV_PROFILE_FUNCTION();
 
@@ -215,7 +215,7 @@ void OrbitSystem2D::Update(Limnova::Timestep dT)
 }
 
 
-void OrbitSystem2D::SortUpdateFirst()
+void OrbitalPhysics2D::SortUpdateFirst()
 {
     LV_PROFILE_FUNCTION();
 
@@ -245,7 +245,7 @@ void OrbitSystem2D::SortUpdateFirst()
 }
 
 
-void OrbitSystem2D::HandleOrbiterEscapingHost(NodeRef& node)
+void OrbitalPhysics2D::HandleOrbiterEscapingHost(NodeRef& node)
 {
     LV_PROFILE_FUNCTION();
 
@@ -291,7 +291,7 @@ void OrbitSystem2D::HandleOrbiterEscapingHost(NodeRef& node)
 }
 
 
-void OrbitSystem2D::HandleOrbiterOverlappingInfluence(NodeRef& node)
+void OrbitalPhysics2D::HandleOrbiterOverlappingInfluence(NodeRef& node)
 {
     LV_PROFILE_FUNCTION();
 
@@ -338,7 +338,7 @@ void OrbitSystem2D::HandleOrbiterOverlappingInfluence(NodeRef& node)
 }
 
 
-void OrbitSystem2D::RemoveOrbiterIntersectsFromSiblings(NodeRef& node, InflRef& parent)
+void OrbitalPhysics2D::RemoveOrbiterIntersectsFromSiblings(NodeRef& node, InflRef& parent)
 {
     LV_PROFILE_FUNCTION();
 
@@ -355,7 +355,7 @@ void OrbitSystem2D::RemoveOrbiterIntersectsFromSiblings(NodeRef& node, InflRef& 
 }
 
 
-void OrbitSystem2D::ChangeNodeParent(NodeRef& node, InflRef& oldParent, InflRef& newParent)
+void OrbitalPhysics2D::ChangeNodeParent(NodeRef& node, InflRef& oldParent, InflRef& newParent)
 {
     node->Parent = newParent;
 
@@ -384,7 +384,7 @@ void OrbitSystem2D::ChangeNodeParent(NodeRef& node, InflRef& oldParent, InflRef&
 }
 
 
-void OrbitSystem2D::RemoveNodeFromUpdateQueue(NodeRef& node)
+void OrbitalPhysics2D::RemoveNodeFromUpdateQueue(NodeRef& node)
 {
     LV_PROFILE_FUNCTION();
 
@@ -412,7 +412,7 @@ void OrbitSystem2D::RemoveNodeFromUpdateQueue(NodeRef& node)
 }
 
 
-uint32_t OrbitSystem2D::LoadLevel(const LV::BigFloat& hostMass, const LV::BigFloat& baseScaling)
+uint32_t OrbitalPhysics2D::LoadLevel(const LV::BigFloat& hostMass, const LV::BigFloat& baseScaling)
 {
     LV_PROFILE_FUNCTION();
 
@@ -441,7 +441,7 @@ uint32_t OrbitSystem2D::LoadLevel(const LV::BigFloat& hostMass, const LV::BigFlo
 }
 
 
-void OrbitSystem2D::SetTimeScale(const float timescale)
+void OrbitalPhysics2D::SetTimeScale(const float timescale)
 {
     LV_PROFILE_FUNCTION();
 
@@ -450,7 +450,7 @@ void OrbitSystem2D::SetTimeScale(const float timescale)
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiterES(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const uint32_t initialHostId, LV::Vector2 scaledPosition, LV::BigVector2 scaledVelocity)
+uint32_t OrbitalPhysics2D::CreateOrbiterES(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const uint32_t initialHostId, LV::Vector2 scaledPosition, LV::BigVector2 scaledVelocity)
 {
     LV_PROFILE_FUNCTION();
 
@@ -462,7 +462,7 @@ uint32_t OrbitSystem2D::CreateOrbiterES(const bool influencing, const bool dynam
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiterCS(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const uint32_t initialHostId, LV::Vector2 scaledPosition, const bool clockwise)
+uint32_t OrbitalPhysics2D::CreateOrbiterCS(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const uint32_t initialHostId, LV::Vector2 scaledPosition, const bool clockwise)
 {
     LV_PROFILE_FUNCTION();
 
@@ -484,7 +484,7 @@ uint32_t OrbitSystem2D::CreateOrbiterCS(const bool influencing, const bool dynam
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiterEU(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const LV::BigVector2& position, const LV::BigVector2& velocity)
+uint32_t OrbitalPhysics2D::CreateOrbiterEU(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const LV::BigVector2& position, const LV::BigVector2& velocity)
 {
     LV_PROFILE_FUNCTION();
 
@@ -498,7 +498,7 @@ uint32_t OrbitSystem2D::CreateOrbiterEU(const bool influencing, const bool dynam
 }
 
 
-uint32_t OrbitSystem2D::CreateOrbiterCU(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const LV::BigVector2& position, const bool clockwise)
+uint32_t OrbitalPhysics2D::CreateOrbiterCU(const bool influencing, const bool dynamic, const LV::BigFloat& mass, const LV::BigVector2& position, const bool clockwise)
 {
     LV_PROFILE_FUNCTION();
 
@@ -510,7 +510,7 @@ uint32_t OrbitSystem2D::CreateOrbiterCU(const bool influencing, const bool dynam
 }
 
 
-OrbitSystem2D::NodeRef OrbitSystem2D::GetFreeNode()
+OrbitalPhysics2D::NodeRef OrbitalPhysics2D::GetFreeNode()
 {
     LV_PROFILE_FUNCTION();
 
@@ -526,7 +526,7 @@ OrbitSystem2D::NodeRef OrbitSystem2D::GetFreeNode()
 }
 
 
-OrbitSystem2D::InflRef OrbitSystem2D::GetFreeInflNode()
+OrbitalPhysics2D::InflRef OrbitalPhysics2D::GetFreeInflNode()
 {
     LV_PROFILE_FUNCTION();
 
@@ -542,7 +542,7 @@ OrbitSystem2D::InflRef OrbitSystem2D::GetFreeInflNode()
 }
 
 
-void OrbitSystem2D::SetNodeFree(NodeRef& node)
+void OrbitalPhysics2D::SetNodeFree(NodeRef& node)
 {
     LV_PROFILE_FUNCTION();
 
@@ -552,7 +552,7 @@ void OrbitSystem2D::SetNodeFree(NodeRef& node)
 }
 
 
-void OrbitSystem2D::SetInflNodeFree(InflRef& inflNode)
+void OrbitalPhysics2D::SetInflNodeFree(InflRef& inflNode)
 {
     LV_PROFILE_FUNCTION();
 
@@ -562,7 +562,7 @@ void OrbitSystem2D::SetInflNodeFree(InflRef& inflNode)
 }
 
 
-uint32_t OrbitSystem2D::CreateInfluencingOrbiter(const bool dynamic, const InflRef& parent, const LV::BigFloat& mass, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
+uint32_t OrbitalPhysics2D::CreateInfluencingOrbiter(const bool dynamic, const InflRef& parent, const LV::BigFloat& mass, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
 {
     LV_PROFILE_FUNCTION();
 
@@ -613,7 +613,7 @@ uint32_t OrbitSystem2D::CreateInfluencingOrbiter(const bool dynamic, const InflR
 }
 
 
-uint32_t OrbitSystem2D::CreateNoninflOrbiter(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity)
+uint32_t OrbitalPhysics2D::CreateNoninflOrbiter(const bool dynamic, const InflRef& parent, const Limnova::BigFloat& mass, const Limnova::Vector2& scaledPosition, const Limnova::BigVector2& scaledVelocity)
 {
     LV_PROFILE_FUNCTION();
 
@@ -647,7 +647,7 @@ uint32_t OrbitSystem2D::CreateNoninflOrbiter(const bool dynamic, const InflRef& 
 }
 
 
-Limnova::Vector2 OrbitSystem2D::OrbitTreeNode::ComputePositionAtTrueAnomaly(const float trueAnomaly)
+Limnova::Vector2 OrbitalPhysics2D::OrbitTreeNode::ComputePositionAtTrueAnomaly(const float trueAnomaly)
 {
     LV_PROFILE_FUNCTION();
 
@@ -659,7 +659,7 @@ Limnova::Vector2 OrbitSystem2D::OrbitTreeNode::ComputePositionAtTrueAnomaly(cons
 }
 
 
-Limnova::Vector2 OrbitSystem2D::OrbitTreeNode::GetOtherOrbiterPositionAtIntersect(const uint32_t otherOrbiterId, const uint32_t intersect)
+Limnova::Vector2 OrbitalPhysics2D::OrbitTreeNode::GetOtherOrbiterPositionAtIntersect(const uint32_t otherOrbiterId, const uint32_t intersect)
 {
     LV_PROFILE_FUNCTION();
 
@@ -685,7 +685,7 @@ Limnova::Vector2 OrbitSystem2D::OrbitTreeNode::GetOtherOrbiterPositionAtIntersec
 }
 
 
-void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
+void OrbitalPhysics2D::OrbitTreeNode::ComputeElementsFromState()
 {
     LV_PROFILE_FUNCTION();
 
@@ -912,7 +912,7 @@ void OrbitSystem2D::OrbitTreeNode::ComputeElementsFromState()
 }
 
 
-void OrbitSystem2D::OrbitTreeNode::ComputeStateVector()
+void OrbitalPhysics2D::OrbitTreeNode::ComputeStateVector()
 {
     LV_PROFILE_FUNCTION();
 
@@ -928,7 +928,7 @@ void OrbitSystem2D::OrbitTreeNode::ComputeStateVector()
 }
 
 
-void OrbitSystem2D::OrbitTreeNode::ComputeGravityAccelerationFromState()
+void OrbitalPhysics2D::OrbitTreeNode::ComputeGravityAccelerationFromState()
 {
     LV_PROFILE_FUNCTION();
 
@@ -939,7 +939,7 @@ void OrbitSystem2D::OrbitTreeNode::ComputeGravityAccelerationFromState()
 }
 
 
-void OrbitSystem2D::OrbitTreeNode::FindIntersects(NodeRef& sibling)
+void OrbitalPhysics2D::OrbitTreeNode::FindIntersects(NodeRef& sibling)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1027,7 +1027,7 @@ void OrbitSystem2D::OrbitTreeNode::FindIntersects(NodeRef& sibling)
 }
 
 
-LV::BigFloat OrbitSystem2D::OrbitTreeNode::FindTimeOfTrueAnomaly(const float trueAnomaly)
+LV::BigFloat OrbitalPhysics2D::OrbitTreeNode::FindTimeOfTrueAnomaly(const float trueAnomaly)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1039,7 +1039,7 @@ LV::BigFloat OrbitSystem2D::OrbitTreeNode::FindTimeOfTrueAnomaly(const float tru
 }
 
 
-float OrbitSystem2D::OrbitTreeNode::FindFutureTrueAnomaly(const LV::BigFloat& deltaTime)
+float OrbitalPhysics2D::OrbitTreeNode::FindFutureTrueAnomaly(const LV::BigFloat& deltaTime)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1071,7 +1071,7 @@ float OrbitSystem2D::OrbitTreeNode::FindFutureTrueAnomaly(const LV::BigFloat& de
 }
 
 
-void OrbitSystem2D::InfluencingNode::ComputeInfluence()
+void OrbitalPhysics2D::InfluencingNode::ComputeInfluence()
 {
     LV_PROFILE_FUNCTION();
 
@@ -1095,7 +1095,7 @@ void OrbitSystem2D::InfluencingNode::ComputeInfluence()
 }
 
 
-OrbitSystem2D::InflRef& OrbitSystem2D::FindLowestOverlappingInfluence(LV::Vector2& scaledPosition, Limnova::BigVector2& scaledVelocity, const uint32_t initialHostId)
+OrbitalPhysics2D::InflRef& OrbitalPhysics2D::FindLowestOverlappingInfluence(LV::Vector2& scaledPosition, Limnova::BigVector2& scaledVelocity, const uint32_t initialHostId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1118,7 +1118,7 @@ OrbitSystem2D::InflRef& OrbitSystem2D::FindLowestOverlappingInfluence(LV::Vector
 }
 
 
-OrbitSystem2D::InflRef& OrbitSystem2D::FindOverlappingChildInfluence(InflRef& parent, const LV::Vector2& scaledPosition)
+OrbitalPhysics2D::InflRef& OrbitalPhysics2D::FindOverlappingChildInfluence(InflRef& parent, const LV::Vector2& scaledPosition)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1134,7 +1134,7 @@ OrbitSystem2D::InflRef& OrbitSystem2D::FindOverlappingChildInfluence(InflRef& pa
 }
 
 
-void OrbitSystem2D::DestroyOrbiter(const uint32_t orbiterId)
+void OrbitalPhysics2D::DestroyOrbiter(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1179,7 +1179,7 @@ void OrbitSystem2D::DestroyOrbiter(const uint32_t orbiterId)
 }
 
 
-const OrbitSystem2D::OrbitTreeNode& OrbitSystem2D::GetOrbiter(const uint32_t orbiterId)
+const OrbitalPhysics2D::OrbitTreeNode& OrbitalPhysics2D::GetOrbiter(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1190,7 +1190,7 @@ const OrbitSystem2D::OrbitTreeNode& OrbitSystem2D::GetOrbiter(const uint32_t orb
 }
 
 
-const OrbitSystem2D::InfluencingNode& OrbitSystem2D::GetHost(const uint32_t hostId)
+const OrbitalPhysics2D::InfluencingNode& OrbitalPhysics2D::GetHost(const uint32_t hostId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1201,7 +1201,7 @@ const OrbitSystem2D::InfluencingNode& OrbitSystem2D::GetHost(const uint32_t host
 }
 
 
-const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_t orbiterId)
+const OrbitalPhysics2D::OrbitParameters& OrbitalPhysics2D::GetParameters(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1212,7 +1212,7 @@ const OrbitSystem2D::OrbitParameters& OrbitSystem2D::GetParameters(const uint32_
 }
 
 
-uint32_t OrbitSystem2D::GetHostId(const uint32_t orbiterId)
+uint32_t OrbitalPhysics2D::GetHostId(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1222,7 +1222,7 @@ uint32_t OrbitSystem2D::GetHostId(const uint32_t orbiterId)
 }
 
 
-float OrbitSystem2D::GetRadiusOfInfluence(const uint32_t orbiterId)
+float OrbitalPhysics2D::GetRadiusOfInfluence(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1232,7 +1232,7 @@ float OrbitSystem2D::GetRadiusOfInfluence(const uint32_t orbiterId)
 }
 
 
-float OrbitSystem2D::GetScaling(const uint32_t hostId)
+float OrbitalPhysics2D::GetScaling(const uint32_t hostId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1242,7 +1242,7 @@ float OrbitSystem2D::GetScaling(const uint32_t hostId)
 }
 
 
-float OrbitSystem2D::GetHostScaling(const uint32_t orbiterId)
+float OrbitalPhysics2D::GetHostScaling(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1252,7 +1252,7 @@ float OrbitSystem2D::GetHostScaling(const uint32_t orbiterId)
 }
 
 
-uint32_t OrbitSystem2D::GetOrbiterHost(const uint32_t orbiterId)
+uint32_t OrbitalPhysics2D::GetOrbiterHost(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1262,7 +1262,7 @@ uint32_t OrbitSystem2D::GetOrbiterHost(const uint32_t orbiterId)
 }
 
 
-bool OrbitSystem2D::IsInfluencing(const uint32_t orbiterId)
+bool OrbitalPhysics2D::IsInfluencing(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1272,11 +1272,11 @@ bool OrbitSystem2D::IsInfluencing(const uint32_t orbiterId)
 }
 
 
-void OrbitSystem2D::GetOrbiters(const uint32_t hostId, std::vector<uint32_t>& childIds)
+void OrbitalPhysics2D::GetOrbiters(const uint32_t hostId, std::vector<uint32_t>& childIds)
 {
     LV_PROFILE_FUNCTION();
 
-    LV_CORE_ASSERT(m_InfluencingNodes.find(hostId) != m_InfluencingNodes.end(), "OrbitSystem2D::GetOrbiters() was passed an invalid host orbiter ID ({0})!");
+    LV_CORE_ASSERT(m_InfluencingNodes.find(hostId) != m_InfluencingNodes.end(), "OrbitalPhysics2D::GetOrbiters() was passed an invalid host orbiter ID ({0})!");
 
     for (auto& child : m_InfluencingNodes[hostId]->InfluencingChildren)
     {
@@ -1289,7 +1289,7 @@ void OrbitSystem2D::GetOrbiters(const uint32_t hostId, std::vector<uint32_t>& ch
 }
 
 
-void OrbitSystem2D::SetOrbiterRightAscension(const uint32_t orbiterId, const float rightAscension)
+void OrbitalPhysics2D::SetOrbiterRightAscension(const uint32_t orbiterId, const float rightAscension)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1307,7 +1307,7 @@ void OrbitSystem2D::SetOrbiterRightAscension(const uint32_t orbiterId, const flo
 }
 
 
-void OrbitSystem2D::GetAllHosts(std::vector<uint32_t>& ids)
+void OrbitalPhysics2D::GetAllHosts(std::vector<uint32_t>& ids)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1318,7 +1318,7 @@ void OrbitSystem2D::GetAllHosts(std::vector<uint32_t>& ids)
 }
 
 
-void OrbitSystem2D::AccelerateOrbiter(const uint32_t orbiterId, const Limnova::BigVector2& accelaration)
+void OrbitalPhysics2D::AccelerateOrbiter(const uint32_t orbiterId, const Limnova::BigVector2& accelaration)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1329,7 +1329,7 @@ void OrbitSystem2D::AccelerateOrbiter(const uint32_t orbiterId, const Limnova::B
 }
 
 
-OrbitSystem2D::NodeRef& OrbitSystem2D::GetNodeRef(const uint32_t orbiterId)
+OrbitalPhysics2D::NodeRef& OrbitalPhysics2D::GetNodeRef(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1339,7 +1339,7 @@ OrbitSystem2D::NodeRef& OrbitSystem2D::GetNodeRef(const uint32_t orbiterId)
 }
 
 
-OrbitSystem2D::InflRef& OrbitSystem2D::GetInflRef(const uint32_t orbiterId)
+OrbitalPhysics2D::InflRef& OrbitalPhysics2D::GetInflRef(const uint32_t orbiterId)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1349,7 +1349,7 @@ OrbitSystem2D::InflRef& OrbitSystem2D::GetInflRef(const uint32_t orbiterId)
 }
 
 
-OrbitSystem2D::OrbitParameters OrbitSystem2D::ComputeOrbit(const uint32_t hostId, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
+OrbitalPhysics2D::OrbitParameters OrbitalPhysics2D::ComputeOrbit(const uint32_t hostId, const LV::Vector2& scaledPosition, const LV::BigVector2& scaledVelocity)
 {
     LV_PROFILE_FUNCTION();
 
@@ -1366,7 +1366,7 @@ OrbitSystem2D::OrbitParameters OrbitSystem2D::ComputeOrbit(const uint32_t hostId
 }
 
 
-void OrbitSystem2D::RecordData()
+void OrbitalPhysics2D::RecordData()
 {
     for (uint32_t n = 1; n < m_AllNodes.size(); n++)
     {

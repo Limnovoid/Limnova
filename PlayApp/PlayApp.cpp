@@ -2,12 +2,11 @@
 #include <Core/EntryPoint.h>
 
 #include "Play2DLayer.h"
-#include "Orbiters2D.h"
 #include "TestLayer.h"
 
 #include <chrono> // TEMPORARY delta time
 
-#define ASSET_DIR "C:\\Programming\\source\\Limnova\\DevTool\\assets"
+#define ASSET_DIR "C:\\Programming\\source\\Limnova\\PlayApp\\assets"
 
 
 class LIMNOVA_API DevLayer : public Limnova::Layer
@@ -198,7 +197,6 @@ public:
         // 
         //PushLayer(new DevLayer());
         PushLayer(new Play2DLayer());
-        //PushLayer(new Orbiters2D());
     }
 
     ~PlayApp()
