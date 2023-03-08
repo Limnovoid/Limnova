@@ -59,6 +59,10 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/Texture.cpp"
     "src/Renderer/VertexArray.cpp"
 
+    "src/Scene/Components.h"
+    "src/Scene/Entity.cpp"
+    "src/Scene/Scene.cpp"
+
     "src/Structures/Queue.h"
 
     "thirdparty/stb_image/stb_image.cpp"
@@ -116,6 +120,7 @@ configure_file("${PROJECT_SOURCE_DIR}/src/Core/Core.h.in" "${PROJECT_SOURCE_DIR}
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         "${PROJECT_SOURCE_DIR}/thirdparty"
+        "${PROJECT_SOURCE_DIR}/thirdparty/entt/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/glad/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/imgui"

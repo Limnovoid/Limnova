@@ -18,6 +18,7 @@ target_include_directories(${PROJECT_NAME}
         "${CMAKE_SOURCE_DIR}/Limnova"
         "${CMAKE_SOURCE_DIR}/Limnova/src"
         "${CMAKE_SOURCE_DIR}/Limnova/thirdparty"
+        "${CMAKE_SOURCE_DIR}/Limnova/thirdparty/entt/include"
         "${CMAKE_SOURCE_DIR}/Limnova/thirdparty/glm"
         "${CMAKE_SOURCE_DIR}/Limnova/thirdparty/spdlog/include"
 )

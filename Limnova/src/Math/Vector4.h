@@ -19,6 +19,7 @@ namespace Limnova
         Vector4(glm::vec4& glmv) : x(glmv.x), y(glmv.y), z(glmv.z), w(glmv.w) {}
 
         Vector3 XYZ() const { return { x, y, z }; }
+        float* Ptr() { return &x; }
 
         inline float SqrMagnitude() const { return x * x + y * y + z * z + w * w; }
 

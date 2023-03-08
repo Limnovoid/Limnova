@@ -16,6 +16,8 @@ namespace Limnova
         Vector2(float x, float y) : x(x), y(y) {}
         Vector2(glm::vec2& glmv) : x(glmv.x), y(glmv.y) {}
 
+        float* Ptr() { return &x; }
+
         inline float SqrMagnitude() const { return x * x + y * y; }
 
         // Returns a normalized copy of a vector.

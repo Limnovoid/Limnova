@@ -20,6 +20,10 @@ namespace Limnova
         static void EndScene();
         static void Flush();
 
+        static void DrawQuad(const glm::mat4& transform, const Vector4& color);
+        static void DrawQuad(const glm::mat4& transform, const Ref<Texture2D>& texture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
+        static void DrawQuad(const glm::mat4& transform, const Ref<SubTexture2D>& subTexture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
+
         static void DrawQuad(const Vector3& positionCentre, const Vector2& size, const Vector4& color);
         static void DrawQuad(const Vector2& positionCentre, const Vector2& size, const Vector4& color);
         static void DrawQuad(const Vector3& positionCentre, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });

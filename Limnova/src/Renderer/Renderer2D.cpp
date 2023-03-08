@@ -241,7 +241,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Vector4& color)
+    void Renderer2D::DrawQuad(const glm::mat4& transform, const Vector4& color)
     {
         LV_PROFILE_FUNCTION();
 
@@ -250,9 +250,6 @@ namespace Limnova
             Flush();
             ResetBatch();
         }
-
-        glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
-        transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
 
         const Vector2 textureCoords[4]{ { 0.f, 0.f }, { 1.f, 0.f }, { 1.f, 1.f }, { 0.f, 1.f } };
         const Vector2 textureScale{ 1.f, 1.f };
@@ -275,24 +272,13 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawQuad(const Vector2& position, const Vector2& size, const Vector4& color)
+    void Renderer2D::DrawQuad(const glm::mat4& transform, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
     {
-        DrawQuad({ position.x, position.y, 0.f }, size, color);
-    }
-
-
-    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
-    {
-        LV_PROFILE_FUNCTION();
-
         if (s_Data.QuadIndexCount >= s_Data.MaxIndices)
         {
             Flush();
             ResetBatch();
         }
-
-        glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
-        transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
 
         const Vector2 textureCoords[4]{ { 0.f, 0.f }, { 1.f, 0.f }, { 1.f, 1.f }, { 0.f, 1.f } };
         float textureIndex = 0.f;
@@ -327,16 +313,8 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawQuad(const Vector2& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
+    void Renderer2D::DrawQuad(const glm::mat4& transform, const Ref<SubTexture2D>& subTexture, const Vector4& tint, const Vector2& textureScale)
     {
-        DrawQuad({ position.x, position.y, 0.f }, size, texture, tint, textureScale);
-    }
-
-
-    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Ref<SubTexture2D>& subTexture, const Vector4& tint, const Vector2& textureScale)
-    {
-        LV_PROFILE_FUNCTION();
-
         if (s_Data.QuadIndexCount >= s_Data.MaxIndices)
         {
             Flush();
@@ -344,10 +322,6 @@ namespace Limnova
         }
 
         const Ref<Texture2D>& texture = subTexture->GetTexture();
-
-        glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
-        transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
-
         const Vector2* textureCoords = subTexture->GetTexCoords();
         float textureIndex = 0.f;
         for (uint32_t i = 1; i < s_Data.TextureSlotIndex; i++)
@@ -378,6 +352,51 @@ namespace Limnova
 
 
         s_Data.Stats.QuadCount++;
+    }
+
+
+    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Vector4& color)
+    {
+        LV_PROFILE_FUNCTION();
+
+        glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
+        transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
+
+        DrawQuad(transform, color);
+    }
+
+
+    void Renderer2D::DrawQuad(const Vector2& position, const Vector2& size, const Vector4& color)
+    {
+        DrawQuad({ position.x, position.y, 0.f }, size, color);
+    }
+
+
+    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
+    {
+        LV_PROFILE_FUNCTION();
+
+        glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
+        transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
+
+        DrawQuad(transform, texture, tint, textureScale);
+    }
+
+
+    void Renderer2D::DrawQuad(const Vector2& position, const Vector2& size, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
+    {
+        DrawQuad({ position.x, position.y, 0.f }, size, texture, tint, textureScale);
+    }
+
+
+    void Renderer2D::DrawQuad(const Vector3& position, const Vector2& size, const Ref<SubTexture2D>& subTexture, const Vector4& tint, const Vector2& textureScale)
+    {
+        LV_PROFILE_FUNCTION();
+
+        glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)position);
+        transform = glm::scale(transform, glm::vec3((glm::vec2)size, 1.f));
+
+        DrawQuad(transform, subTexture, tint, textureScale);
     }
 
 
