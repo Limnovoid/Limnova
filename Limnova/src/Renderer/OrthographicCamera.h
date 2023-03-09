@@ -14,7 +14,7 @@ namespace Limnova
     public:
         OrthographicCamera(const float aspectRatio, const float nearDistance, const float farDistance,
             const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection);
-        ~OrthographicCamera();
+        ~OrthographicCamera() = default;
 
         Data const* GetData() override;
         void RecomputeData() override;

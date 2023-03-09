@@ -11,10 +11,10 @@ namespace Limnova
     public:
         float x, y;
     public:
-        Vector2() : x(0), y(0) {}
-        Vector2(float v) : x(v), y(v) {}
-        Vector2(float x, float y) : x(x), y(y) {}
-        Vector2(glm::vec2& glmv) : x(glmv.x), y(glmv.y) {}
+        constexpr Vector2() : x(0), y(0) {}
+        constexpr Vector2(float v) : x(v), y(v) {}
+        constexpr Vector2(float x, float y) : x(x), y(y) {}
+        constexpr Vector2(glm::vec2& glmv) : x(glmv.x), y(glmv.y) {}
 
         float* Ptr() { return &x; }
 

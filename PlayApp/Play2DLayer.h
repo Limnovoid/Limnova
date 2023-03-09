@@ -26,6 +26,8 @@ namespace Limnova
         Ref<Framebuffer> m_Framebuffer;
         Ref<PerspectivePlanarCameraController> m_CameraController;
         //Ref<OrthographicPlanarCameraController> m_CameraController;
+        Entity m_Camera0, m_Camera1;
+        Entity m_ActiveCamera;
 
         ShaderLibrary m_ShaderLibrary;
         Ref<Texture2D> m_TurretTexture;
@@ -38,6 +40,8 @@ namespace Limnova
         Vector4 m_TextureTint = { 0.2f, 0.2f, 0.2f, 1.f };
         Vector2 m_TextureScale = { 3.f, 3.f };
         float m_BackgroundRotation = 0.f;
+    private:
+        bool OnWindowResize(WindowResizeEvent& e);
     };
 
 }

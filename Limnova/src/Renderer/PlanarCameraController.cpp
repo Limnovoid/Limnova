@@ -18,11 +18,6 @@ namespace Limnova
     }
 
 
-    PlanarCameraController::~PlanarCameraController()
-    {
-    }
-
-
     void PlanarCameraController::OnUpdate(Timestep dT)
     {
         LV_PROFILE_FUNCTION();
@@ -152,11 +147,6 @@ namespace Limnova
     }
 
 
-    PerspectivePlanarCameraController::~PerspectivePlanarCameraController()
-    {
-    }
-
-
     void PerspectivePlanarCameraController::SetView()
     {
         m_Camera.SetView(m_Position, m_AimDirection, { 0.f, 1.f, 0.f });
@@ -197,11 +187,6 @@ namespace Limnova
         m_MinZoom = 0.1f;
         m_MaxZoom = 4.f;
         m_ZoomSensitivity = 0.1f;
-    }
-
-
-    OrthographicPlanarCameraController::~OrthographicPlanarCameraController()
-    {
     }
 
 

@@ -9,6 +9,9 @@
 namespace Limnova
 {
 
+    static constexpr Vector3 kDefaultAim{ 0.f, 0.f, -1.f };
+
+
     Scene::Scene()
     {
 #ifdef ENTT_DEMO
@@ -36,6 +39,10 @@ namespace Limnova
             auto [transf, mesh] = viewObj.get<Transform, Mesh>(entity);
         }
 #endif
+
+        // Signals
+        m_Registry.on_construct<PerspectiveCameraComponent>().connect<&Scene::OnCameraComponentConstruction>(this);
+        m_Registry.on_destroy<PerspectiveCameraComponent>().connect<&Scene::OnCameraComponentDestruction>(this);
     }
 
 
@@ -55,14 +62,75 @@ namespace Limnova
     }
 
 
+    void Scene::SetActiveCamera(Entity cameraEntity)
+    {
+        if (cameraEntity.HasComponent<PerspectiveCameraComponent>())
+        {
+            m_ActiveCamera = cameraEntity.m_EnttId;
+            return;
+        }
+        LV_CORE_WARN("Attempted to set active camera to a non-camera entity!");
+    }
+
+
     void Scene::OnUpdate(Timestep dT)
     {
-        auto view = m_Registry.view<TransformComponent, SpriteRendererComponent>();
+        if (!m_Registry.valid(m_ActiveCamera))
+        {
+            // No active camera - no rendering!
+            return;
+        }
+
+        auto [camera, camTransform] = m_Registry.get<PerspectiveCameraComponent, TransformComponent>(m_ActiveCamera);
+
+        camera.Camera.SetView(glm::inverse(camTransform.Transform));
+        Renderer2D::BeginScene(camera.Camera);
+
+        // Sprites
+        {
+            auto view = m_Registry.view<TransformComponent, SpriteRendererComponent>();
+            for (auto entity : view)
+            {
+                auto [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(entity);
+
+                Renderer2D::DrawQuad(transform, sprite.Color);
+            }
+        }
+
+        Renderer2D::EndScene();
+    }
+
+
+    void Scene::OnWindowResize(uint32_t width, uint32_t height)
+    {
+        auto view = m_Registry.view<PerspectiveCameraComponent>();
         for (auto entity : view)
         {
-            auto [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(entity);
+            auto& camera = view.get<PerspectiveCameraComponent>(entity);
+            if (camera.TieAspectToView)
+            {
+                camera.SetAspect((float)width / (float)height);
+            }
+        }
+    }
 
-            Renderer2D::DrawQuad(transform, sprite.Color);
+
+    void Scene::OnCameraComponentConstruction(entt::registry&, entt::entity entity)
+    {
+        if (!m_Registry.valid(m_ActiveCamera))
+        {
+            m_ActiveCamera = entity;
+        }
+    }
+
+
+    void Scene::OnCameraComponentDestruction(entt::registry&, entt::entity entity)
+    {
+        if (entity == m_ActiveCamera)
+        {
+            // Active camera becomes the first other camera component in the scene,
+            // or the null entity if none exists.
+            m_ActiveCamera = m_Registry.view<PerspectiveCameraComponent>().front();
         }
     }
 

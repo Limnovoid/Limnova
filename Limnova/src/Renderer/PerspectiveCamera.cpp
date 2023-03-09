@@ -16,11 +16,6 @@ namespace Limnova
     }
 
 
-    PerspectiveCamera::~PerspectiveCamera()
-    {
-    }
-
-
     Camera::Data const* PerspectiveCamera::GetData()
     {
         if (m_NeedRecompute)
@@ -62,4 +57,12 @@ namespace Limnova
         m_NeedRecompute = true;
     }
 
+
+    void PerspectiveCamera::SetView(const glm::mat4& viewMatrix)
+    {
+        LV_PROFILE_FUNCTION();
+        
+        m_View = viewMatrix;
+        m_NeedRecompute = true;
+    }
 }

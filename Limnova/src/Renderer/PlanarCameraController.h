@@ -19,7 +19,7 @@ namespace Limnova
         PlanarCameraController(const Vector3& position, const Vector3& aimDirection, const float aspectRatio,
             const float nearDistance, const float farDistance);
     public:
-        ~PlanarCameraController();
+        ~PlanarCameraController() = default;
 
         void OnUpdate(Timestep dT);
         void OnEvent(Event& e);
@@ -72,7 +72,7 @@ namespace Limnova
         PerspectivePlanarCameraController(const Vector3& position, const Vector3& aimDirection,
             const float aspectRatio, const float nearDistance = 0.1f, const float farDistance = 100.f,
             const float fov = glm::radians(60.f));
-        ~PerspectivePlanarCameraController();
+        ~PerspectivePlanarCameraController() = default;
 
         Camera& GetCamera() override { return m_Camera; }
         const Camera& GetCamera() const override { return m_Camera; }
@@ -93,7 +93,7 @@ namespace Limnova
     public:
         OrthographicPlanarCameraController(const Vector3& position, const Vector3& aimDirection,
             const float aspectRatio, const float nearDistance = 0.1f, const float farDistance = 100.f);
-        ~OrthographicPlanarCameraController();
+        ~OrthographicPlanarCameraController() = default;
 
         Camera& GetCamera() override { return m_Camera; }
         const Camera& GetCamera() const override { return m_Camera; }

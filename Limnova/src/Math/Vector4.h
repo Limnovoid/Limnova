@@ -12,11 +12,11 @@ namespace Limnova
     public:
         float x, y, z, w;
     public:
-        Vector4() : x(0), y(0), z(0), w(0) {}
-        Vector4(float v) : x(v), y(v), z(v), w(v) {}
-        Vector4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
-        Vector4(Vector3& vec3, float w) : x(vec3.x), y(vec3.y), z(vec3.z), w(w) {}
-        Vector4(glm::vec4& glmv) : x(glmv.x), y(glmv.y), z(glmv.z), w(glmv.w) {}
+        constexpr Vector4() : x(0), y(0), z(0), w(0) {}
+        constexpr Vector4(float v) : x(v), y(v), z(v), w(v) {}
+        constexpr Vector4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
+        constexpr Vector4(Vector3& vec3, float w) : x(vec3.x), y(vec3.y), z(vec3.z), w(w) {}
+        constexpr Vector4(glm::vec4& glmv) : x(glmv.x), y(glmv.y), z(glmv.z), w(glmv.w) {}
 
         Vector3 XYZ() const { return { x, y, z }; }
         float* Ptr() { return &x; }

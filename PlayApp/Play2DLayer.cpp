@@ -26,7 +26,7 @@ namespace Limnova
 
         // Camera
         Application& app = Application::Get();
-        m_CameraController = std::make_shared<PerspectivePlanarCameraController>(
+        m_CameraController = CreateRef<PerspectivePlanarCameraController>(
             Vector3(0.f, 0.f, 2.f), Vector3(0.f, 0.f, -1.f),
             (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight(),
             0.1f, 100.f, glm::radians(60.f)
@@ -49,6 +49,22 @@ namespace Limnova
         Entity square = m_Scene->CreateEntity("Default Square");
         square.AddComponent<SpriteRendererComponent>(Vector4{ 0.2f, 1.f, 0.3f, 1.f });
         m_SquareEntity = square;
+
+        m_Camera0 = m_Scene->CreateEntity("Camera 0");
+        m_Camera0.AddComponent<PerspectiveCameraComponent>();
+        {
+            auto& transform = m_Camera0.GetComponent<TransformComponent>();
+            transform.Transform = glm::translate(transform.Transform, { 0.f, 0.f, 2.f });
+        }
+
+        m_Camera1 = m_Scene->CreateEntity("Camera 1");
+        m_Camera1.AddComponent<PerspectiveCameraComponent>();
+        {
+            auto& transform = m_Camera1.GetComponent<TransformComponent>();
+            transform.Transform = glm::translate(transform.Transform, { 0.f, 0.f, 3.f });
+        }
+
+        m_ActiveCamera = m_Camera0;
     }
 
 
@@ -101,9 +117,7 @@ namespace Limnova
         Renderer2D::EndScene();*/
 
         // Scene 4 - entities
-        Renderer2D::BeginScene(m_CameraController->GetCamera());
         m_Scene->OnUpdate(dT);
-        Renderer2D::EndScene();
 
         //m_Framebuffer->Unbind();
     }
@@ -122,6 +136,23 @@ namespace Limnova
             ImGui::ColorEdit4("Square Color", color.Ptr());
             ImGui::Separator();
         }
+
+        if (ImGui::BeginCombo("Camera", m_ActiveCamera.GetComponent<TagComponent>().Tag.c_str()))
+        {
+            std::vector<Entity> cameraEntities;
+            m_Scene->GetEntitiesByComponents<PerspectiveCameraComponent>(cameraEntities);
+            for (auto& entity : cameraEntities)
+            {
+                if (ImGui::Selectable(entity.GetComponent<TagComponent>().Tag.c_str(), m_ActiveCamera == entity))
+                {
+                    m_ActiveCamera = entity;
+                    m_Scene->SetActiveCamera(entity);
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+
         ImGui::ColorEdit4("Texture Tint", glm::value_ptr(*(glm::vec4*)&m_TextureTint));
         ImGui::SliderFloat2("Texture Scale", glm::value_ptr(*(glm::vec2*)&m_TextureScale), 0.1f, 10.f);
         ImGui::SliderFloat("BackgroundRotation", &m_BackgroundRotation, 0.f, 360.f);
@@ -139,7 +170,15 @@ namespace Limnova
 
     void Play2DLayer::OnEvent(Event& e)
     {
-        m_CameraController->OnEvent(e);
+        EventDispatcher dispatcher{ e };
+        dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(Play2DLayer::OnWindowResize));
+    }
+
+
+    bool Play2DLayer::OnWindowResize(WindowResizeEvent& e)
+    {
+        m_Scene->OnWindowResize(e.GetWidth(), e.GetHeight());
+        return false;
     }
 
 }

@@ -19,14 +19,16 @@ namespace Limnova
         /*--pad 1byte-------------------------*/private: float pad1; public:
 
             Data(glm::mat4 viewProj, glm::vec3 position, glm::vec3 aimDirection)
-                : ViewProj(viewProj), Position(position), AimDirection(aimDirection)
-            {
-            }
+                : ViewProj(viewProj), Position(position), AimDirection(aimDirection) {}
         };
 
-        virtual ~Camera() {}
+        virtual ~Camera() = default;
 
+    protected:
         virtual void RecomputeData() = 0;
+    private:
+        friend class Renderer;
+        friend class Renderer2D;
         virtual Data const* GetData() = 0;
     };
 

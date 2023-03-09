@@ -46,6 +46,8 @@ namespace Limnova
     private:
         entt::entity m_EnttId{ entt::null };
         Scene* m_Scene;
+
+        friend class Scene;
     };
 
 }
