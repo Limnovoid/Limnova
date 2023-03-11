@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Limnova.h>
-#include <Core/Layer.h>
 
 
 namespace Limnova
@@ -11,7 +10,7 @@ namespace Limnova
     {
     public:
         Play2DLayer();
-        virtual ~Play2DLayer() = default;
+        ~Play2DLayer() = default;
 
         void OnAttach() override;
         void OnDetach() override;

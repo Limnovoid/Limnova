@@ -16,7 +16,7 @@ namespace Limnova
     {
     public:
         Scene();
-        ~Scene();
+        ~Scene() = default;
 
         Entity CreateEntity(const std::string& name = std::string());
 
@@ -35,7 +35,7 @@ namespace Limnova
         void OnUpdate(Timestep dT);
 
         void OnWindowResize(uint32_t width, uint32_t height);
-    private:
+    protected:
         entt::registry m_Registry;
         entt::entity m_ActiveCamera = entt::null;
 

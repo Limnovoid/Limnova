@@ -2,29 +2,34 @@
 #include <Core/EntryPoint.h>
 
 #include "Orbital2D.h"
+#include "OrbitalLayer.h"
 
 #include <chrono> // TEMPORARY delta time
 
 #define ASSET_DIR "C:\\Programming\\source\\Limnova\\Orbital\\assets"
 
 
-namespace LV = Limnova;
-
-class LIMNOVA_API OrbitalApp : public Limnova::Application
+namespace Limnova
 {
-public:
-    OrbitalApp()
+
+    class LIMNOVA_API OrbitalApp : public Application
     {
-        PushLayer(new Orbital2D());
+    public:
+        OrbitalApp()
+        {
+            //PushLayer(new Orbital2D());
+            PushLayer(new OrbitalLayer());
+        }
+
+        ~OrbitalApp()
+        {
+        }
+    };
+
+
+    LV::Application* CreateApplication()
+    {
+        return new OrbitalApp();
     }
 
-    ~OrbitalApp()
-    {
-    }
-};
-
-
-Limnova::Application* Limnova::CreateApplication()
-{
-    return new OrbitalApp();
 }
