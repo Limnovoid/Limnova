@@ -23,6 +23,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Math/Math.cpp"
     "src/Math/BigFloat.cpp"
     "src/Math/BigVector2.cpp"
+    "src/Math/Matrix4.cpp"
     "src/Math/Vector2.cpp"
     "src/Math/Vector3.cpp"
     "src/Math/Vector4.cpp"

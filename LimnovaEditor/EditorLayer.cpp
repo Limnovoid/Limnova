@@ -87,12 +87,12 @@ namespace Limnova
 
             // Scene 2 - procedural grid
             Renderer2D::BeginScene(m_CameraController->GetCamera());
-            for (float y = -1.5f + 0.125f; y < 1.5f; y += 0.125f)
+            for (float y = -1.5f + 0.25f; y < 1.5f; y += 0.25f)
             {
-                for (float x = -1.5f + 0.125f; x < 1.5f; x += 0.125f)
+                for (float x = -1.5f + 0.25f; x < 1.5f; x += 0.25f)
                 {
                     Vector4 color{ (x + 1.5f) / 3.f, 0.5f, (y + 1.5f) / 3.f, 0.7f };
-                    Renderer2D::DrawQuad({ x, y, 0.f }, { 0.11f, 0.11f }, color);
+                    Renderer2D::DrawQuad({ x, y, 0.f }, { 0.23f, 0.23f }, color);
                 }
             }
             Renderer2D::EndScene();

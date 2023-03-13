@@ -6,17 +6,6 @@
 namespace Limnova
 {
 
-    Quaternion::Quaternion()
-        : v(0, 0, 0), w(1)
-    {
-    }
-
-    Quaternion::Quaternion(Vector3 rotationAxis, float angleRadians)
-    {
-        this->v = sinf(0.5f * angleRadians) * rotationAxis;
-        this->w = cosf(0.5f * angleRadians);
-    }
-
     Quaternion::Quaternion(Vector3 vec)
         : v(vec), w(0)
     {

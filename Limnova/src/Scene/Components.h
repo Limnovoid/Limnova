@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Entity.h"
+
 #include <Math/Math.h>
 #include <Renderer/PerspectiveCamera.h>
 #include <Renderer/OrthographicCamera.h>
@@ -20,18 +22,47 @@ namespace Limnova
 
     struct TransformComponent
     {
-        glm::mat4 Transform{ 1.f };
+    private:
+        glm::mat4 Transform = glm::identity<glm::mat4>();
+        bool NeedCompute = true;
 
-        Vector3 Position;
-        Quaternion Orientation;
-
+        Vector3 Scale = { 1.f };
+        Vector3 Position = { 0.f };
+        //Quaternion Orientation = Quaternion::Unit();
+    public:
         TransformComponent() = default;
         TransformComponent(const TransformComponent&) = default;
-        TransformComponent(const glm::mat4& transform)
-            : Transform(transform) {}
+        TransformComponent(const Vector3& scale, const Vector3& position)
+            : Scale(scale), Position(position), NeedCompute(true) {}
 
-        operator glm::mat4& () { return Transform; }
-        operator const glm::mat4& () const { return Transform; }
+        void Set(const Vector3& scale, const Vector3& position) { Scale = scale; Position = position; NeedCompute = true; }
+        void SetScale(const Vector3& scale) { Scale = scale; NeedCompute = true; }
+        void SetPosition(const Vector3& position) { Position = position; NeedCompute = true; }
+
+        const glm::mat4& GetTransform() { if (NeedCompute) Compute(); return Transform; }
+        operator const glm::mat4& () { if (NeedCompute) Compute(); return Transform; }
+    private:
+        void Compute()
+        {
+            Transform = glm::translate(glm::mat4(1.f), (glm::vec3)Position);
+            // TODO : rotate
+            Transform = glm::scale(Transform, (glm::vec3)Scale);
+            NeedCompute = false;
+        }
+    };
+
+
+    struct HierarchyComponent
+    {
+        friend class Scene;
+    private:
+        Entity Parent;
+        Entity NextSibling;
+        Entity PrevSibling;
+        Entity FirstChild;
+    public:
+        HierarchyComponent() = default;
+        HierarchyComponent(const HierarchyComponent&) = default;
     };
 
 
@@ -62,9 +93,7 @@ namespace Limnova
             const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection)
             :
             Camera(fov, aspectRatio, nearClip, farClip, position, aimDirection, upDirection),
-            Fov(fov), AspectRatio(aspectRatio), NearClip(nearClip), FarClip(farClip)
-        {
-        }
+            Fov(fov), AspectRatio(aspectRatio), NearClip(nearClip), FarClip(farClip) {}
 
         void SetFov(float fov) { Fov = fov; UpdateProjection(); }
         void SetAspect(float aspect) { AspectRatio = aspect; UpdateProjection(); }

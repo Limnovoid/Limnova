@@ -17,4 +17,5 @@ public:
     void OnEvent(LV::Event& e);
 public:
     bool Test_BigFloatComparisonOperators();
+    bool Test_BigFloatVsStd();
 };

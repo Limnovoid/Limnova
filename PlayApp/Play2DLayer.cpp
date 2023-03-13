@@ -54,17 +54,17 @@ namespace Limnova
         m_Camera0.AddComponent<PerspectiveCameraComponent>();
         {
             auto& transform = m_Camera0.GetComponent<TransformComponent>();
-            transform.Transform = glm::translate(transform.Transform, { 0.f, 0.f, 2.f });
+            transform.Set({ 1.f }, { 0.f, 0.f, -2.f });
         }
 
         m_Camera1 = m_Scene->CreateEntity("Camera 1");
         m_Camera1.AddComponent<PerspectiveCameraComponent>();
         {
             auto& transform = m_Camera1.GetComponent<TransformComponent>();
-            transform.Transform = glm::translate(transform.Transform, { 0.f, 0.f, 3.f });
+            transform.Set({ 1.f }, { 0.f, 0.f, -3.f });
         }
 
-        m_ActiveCamera = m_Camera0;
+        m_Scene->SetActiveCamera(m_Camera0);
     }
 
 
@@ -137,15 +137,16 @@ namespace Limnova
             ImGui::Separator();
         }
 
-        if (ImGui::BeginCombo("Camera", m_ActiveCamera.GetComponent<TagComponent>().Tag.c_str()))
+        Entity activeCamera = m_Scene->GetActiveCamera();
+        if (ImGui::BeginCombo("Camera", activeCamera.GetComponent<TagComponent>().Tag.c_str()))
         {
             std::vector<Entity> cameraEntities;
             m_Scene->GetEntitiesByComponents<PerspectiveCameraComponent>(cameraEntities);
             for (auto& entity : cameraEntities)
             {
-                if (ImGui::Selectable(entity.GetComponent<TagComponent>().Tag.c_str(), m_ActiveCamera == entity))
+                if (ImGui::Selectable(entity.GetComponent<TagComponent>().Tag.c_str(), activeCamera == entity))
                 {
-                    m_ActiveCamera = entity;
+                    activeCamera = entity;
                     m_Scene->SetActiveCamera(entity);
                 }
             }
@@ -177,7 +178,7 @@ namespace Limnova
 
     bool Play2DLayer::OnWindowResize(WindowResizeEvent& e)
     {
-        m_Scene->OnWindowResize(e.GetWidth(), e.GetHeight());
+        m_Scene->OnEvent(e);
         return false;
     }
 

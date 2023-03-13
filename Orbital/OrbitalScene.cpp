@@ -11,9 +11,17 @@ namespace Limnova
     }
 
 
+    void OrbitalScene::OnUpdate(Timestep dT)
+    {
+
+    }
+
+
     void OrbitalScene::OnOrbitalComponentConstruct(entt::registry&, entt::entity entity)
     {
-        m_Registry.get<OrbitalComponent>(entity).PhysicsObjectId = m_Physics.Create(entity);
+        auto& orbital = m_Registry.get<OrbitalComponent>(entity);
+        orbital.PhysicsObjectId = m_Physics.Create(entity);
+        orbital.m_Physics = &m_Physics;
     }
 
 

@@ -31,18 +31,21 @@ namespace Limnova
         }
 
         void SetActiveCamera(Entity cameraEntity);
+        Entity GetActiveCamera();
 
-        void OnUpdate(Timestep dT);
-
-        void OnWindowResize(uint32_t width, uint32_t height);
+        virtual void OnUpdate(Timestep dT);
+        virtual void OnEvent(Event& e);
     protected:
         entt::registry m_Registry;
-        entt::entity m_ActiveCamera = entt::null;
+        entt::entity m_ActiveCamera;
 
         friend class Entity;
     private:
+        void OnHierarchyComponentDestruction(entt::registry&, entt::entity);
         void OnCameraComponentConstruction(entt::registry&, entt::entity);
         void OnCameraComponentDestruction(entt::registry&, entt::entity);
+
+        bool OnWindowResize(WindowResizeEvent& e);
     };
 
 }

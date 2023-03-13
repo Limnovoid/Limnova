@@ -18,8 +18,7 @@ namespace Limnova
         PlayApp()
         {
             //PushLayer(new TestLayer());
-            // 
-            //PushLayer(new DevLayer());
+            //
             PushLayer(new Play2DLayer());
         }
 

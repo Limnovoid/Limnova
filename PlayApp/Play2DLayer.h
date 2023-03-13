@@ -26,7 +26,6 @@ namespace Limnova
         Ref<PerspectivePlanarCameraController> m_CameraController;
         //Ref<OrthographicPlanarCameraController> m_CameraController;
         Entity m_Camera0, m_Camera1;
-        Entity m_ActiveCamera;
 
         ShaderLibrary m_ShaderLibrary;
         Ref<Texture2D> m_TurretTexture;

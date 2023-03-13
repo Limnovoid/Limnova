@@ -12,8 +12,9 @@ namespace Limnova
     {
     public:
         Entity() = default;
-        Entity(entt::entity id, Scene* scene);
         Entity(const Entity& other) = default;
+        Entity(entt::entity id, Scene* scene)
+            : m_EnttId(id), m_Scene(scene) {}
 
         template<typename T>
         bool HasComponent()
@@ -41,11 +42,16 @@ namespace Limnova
             LV_CORE_ASSERT(m_Scene->m_Registry.all_of<T>(m_EnttId), "Entity does not have component!");
             m_Scene->m_Registry.erase<T>(m_EnttId);
         }
+
+        void Destroy();
     public:
         operator bool() const { return m_Scene->m_Registry.valid(m_EnttId); }
+
+        bool operator==(const Entity& rhs) { return m_EnttId == rhs.m_EnttId; }
+        bool operator!=(const Entity& rhs) { return m_EnttId != rhs.m_EnttId; }
     private:
-        entt::entity m_EnttId{ entt::null };
-        Scene* m_Scene;
+        entt::entity m_EnttId = entt::null;
+        Scene* m_Scene = nullptr;
 
         friend class Scene;
     };

@@ -72,3 +72,13 @@ bool TestLayer::Test_BigFloatComparisonOperators()
 
     return true;
 }
+
+
+bool TestLayer::Test_BigFloatVsStd()
+{
+    LV::BigFloat Bf = LV::BigFloat{ 1.f, 30 } / LV::BigFloat{ 6.6743f, -11 };
+    constexpr double d = 1e30 / 6.6743e-11;
+    //constexpr float f = 1e30f / 6.6743e-11f;
+
+    return true;
+}

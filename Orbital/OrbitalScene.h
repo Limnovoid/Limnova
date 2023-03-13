@@ -11,11 +11,12 @@ namespace Limnova
     using Physics = OrbitalPhysics<entt::entity>;
 
 
-    class OrbitalComponent
+    struct OrbitalComponent
     {
         friend class OrbitalScene;
     private:
         Physics::TObjectId PhysicsObjectId = Physics::Null;
+        Physics* m_Physics = nullptr;
     public:
         OrbitalComponent() = default;
         //OrbitalComponent(const OrbitalComponent&) = default;
@@ -30,9 +31,13 @@ namespace Limnova
         OrbitalScene();
         ~OrbitalScene() = default;
 
+        void OnUpdate(Timestep dT) override;
     private:
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
+
+        bool OnMouseButtonPressed(MouseButtonPressedEvent& e);
+        bool OnMouseButtonReleased(MouseButtonReleasedEvent& e);
     private:
         Physics m_Physics;
     };

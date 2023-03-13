@@ -41,6 +41,8 @@ namespace Limnova
 #endif
 
         // Signals
+        m_Registry.on_destroy<HierarchyComponent>().connect<&Scene::OnHierarchyComponentDestruction>(this);
+
         m_Registry.on_construct<PerspectiveCameraComponent>().connect<&Scene::OnCameraComponentConstruction>(this);
         m_Registry.on_destroy<PerspectiveCameraComponent>().connect<&Scene::OnCameraComponentDestruction>(this);
     }
@@ -49,9 +51,10 @@ namespace Limnova
     Entity Scene::CreateEntity(const std::string& name)
     {
         Entity entity{ m_Registry.create(), this };
-        entity.AddComponent<TransformComponent>();
         auto& tag = entity.AddComponent<TagComponent>();
         tag.Tag = name.empty() ? "UnnamedEntity" : name;
+        entity.AddComponent<TransformComponent>();
+        entity.AddComponent<HierarchyComponent>();
         return entity;
     }
 
@@ -67,9 +70,15 @@ namespace Limnova
     }
 
 
+    Entity Scene::GetActiveCamera()
+    {
+        return { m_ActiveCamera, this };
+    }
+
+
     void Scene::OnUpdate(Timestep dT)
     {
-        if (!m_Registry.valid(m_ActiveCamera))
+        if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<PerspectiveCameraComponent>(m_ActiveCamera))
         {
             // No active camera - no rendering!
             return;
@@ -77,7 +86,7 @@ namespace Limnova
 
         auto [camera, camTransform] = m_Registry.get<PerspectiveCameraComponent, TransformComponent>(m_ActiveCamera);
 
-        camera.Camera.SetView(glm::inverse(camTransform.Transform));
+        camera.Camera.SetView(camTransform.GetTransform());
         Renderer2D::BeginScene(camera.Camera);
 
         // Sprites
@@ -87,7 +96,7 @@ namespace Limnova
             {
                 auto [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(entity);
 
-                Renderer2D::DrawQuad(transform, sprite.Color);
+                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color);
             }
         }
 
@@ -95,7 +104,14 @@ namespace Limnova
     }
 
 
-    void Scene::OnWindowResize(uint32_t width, uint32_t height)
+    void Scene::OnEvent(Event& e)
+    {
+        EventDispatcher dispatcher(e);
+        dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(Scene::OnWindowResize));
+    }
+
+
+    bool Scene::OnWindowResize(WindowResizeEvent& e)
     {
         auto view = m_Registry.view<PerspectiveCameraComponent>();
         for (auto entity : view)
@@ -103,9 +119,24 @@ namespace Limnova
             auto& camera = view.get<PerspectiveCameraComponent>(entity);
             if (camera.TieAspectToView)
             {
-                camera.SetAspect((float)width / (float)height);
+                camera.SetAspect((float)e.GetWidth() / (float)e.GetHeight());
             }
         }
+    }
+
+
+    void Scene::OnHierarchyComponentDestruction(entt::registry&, entt::entity entity)
+    {
+        auto& hierarchy = m_Registry.get<HierarchyComponent>(entity);
+
+        // Destroy children (this will destroy their hierarchy components and thus their children, and so on)
+        auto first = hierarchy.FirstChild;
+        auto child = first;
+        do {
+            auto next = child.GetComponent<HierarchyComponent>().NextSibling;
+            child.Destroy();
+            child = next;
+        } while (child != first);
     }
 
 
