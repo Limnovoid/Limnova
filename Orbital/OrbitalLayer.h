@@ -22,6 +22,8 @@ namespace Limnova
         void OnEvent(Event& e) override;
     private:
         OrbitalScene m_Scene;
+        Entity m_Camera;
+        Vector3 m_CameraPos = { 0.f, 0.f, 0.f };
     };
 
 }

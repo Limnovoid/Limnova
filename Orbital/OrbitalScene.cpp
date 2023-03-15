@@ -13,7 +13,7 @@ namespace Limnova
 
     void OrbitalScene::OnUpdate(Timestep dT)
     {
-
+        Scene::OnUpdate(dT);
     }
 
 

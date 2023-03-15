@@ -36,6 +36,14 @@ namespace Limnova
             return m_Scene->m_Registry.get<T>(m_EnttId);
         }
 
+        template<typename First, typename... Rest>
+        std::tuple<First&, Rest&...> GetComponents()
+        {
+            LV_CORE_ASSERT(m_Scene->m_Registry.all_of<First>(m_EnttId), "Entity does not have component!");
+            LV_CORE_ASSERT(m_Scene->m_Registry.all_of<Rest...>(m_EnttId), "Entity does not have component(s)!");
+            return m_Scene->m_Registry.get<First, Rest...>(m_EnttId);
+        }
+
         template<typename T>
         void RemoveComponent()
         {

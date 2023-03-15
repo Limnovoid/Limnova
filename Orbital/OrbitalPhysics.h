@@ -56,7 +56,7 @@ namespace Limnova
 
             Attr& Get(TObjectId object)
             {
-                LV_CORE_ASSERT(m_ObjectToAttr.find(object) != m_ObjectToAttr.end());
+                LV_CORE_ASSERT(m_ObjectToAttr.find(object) != m_ObjectToAttr.end(), "Object is missing requested attribute!");
                 return m_Attributes[m_ObjectToAttr[object]];
             }
 
@@ -141,7 +141,7 @@ namespace Limnova
 
         struct Children
         {
-            std::vector<TObjectId> Children = {};
+            std::vector<TObjectId> Children;
         };
 
         struct Influence
