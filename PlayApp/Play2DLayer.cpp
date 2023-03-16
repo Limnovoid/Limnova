@@ -140,8 +140,7 @@ namespace Limnova
         Entity activeCamera = m_Scene->GetActiveCamera();
         if (ImGui::BeginCombo("Camera", activeCamera.GetComponent<TagComponent>().Tag.c_str()))
         {
-            std::vector<Entity> cameraEntities;
-            m_Scene->GetEntitiesByComponents<PerspectiveCameraComponent>(cameraEntities);
+            auto cameraEntities = m_Scene->GetEntitiesByComponents<PerspectiveCameraComponent>();
             for (auto& entity : cameraEntities)
             {
                 if (ImGui::Selectable(entity.GetComponent<TagComponent>().Tag.c_str(), activeCamera == entity))

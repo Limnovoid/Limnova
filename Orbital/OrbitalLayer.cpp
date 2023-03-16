@@ -46,8 +46,7 @@ namespace Limnova
 
     void OrbitalLayer::OnUpdate(Timestep dT)
     {
-        std::vector<Entity> orbitalEntities;
-        m_Scene.GetEntitiesByComponents<OrbitalComponent>(orbitalEntities);
+        auto orbitalEntities = m_Scene.GetEntitiesByComponents<OrbitalComponent>();
         for (auto entity : orbitalEntities)
         {
             auto& orbital = entity.GetComponent<OrbitalComponent>();
@@ -63,7 +62,6 @@ namespace Limnova
     void OrbitalLayer::OnImGuiRender()
     {
         ImGui::Begin("Scene Properties");
-
         {
             auto [tag, transform] = m_Camera.GetComponents<TagComponent, TransformComponent>();
             if (ImGui::DragFloat3(tag.Tag.c_str(), (float*)&m_CameraPos, 0.01f))
@@ -71,25 +69,46 @@ namespace Limnova
                 transform.SetPosition(m_CameraPos);
             }
         }
-
         ImGui::Separator();
-
-        std::vector<Entity> orbitalEntities;
-        m_Scene.GetEntitiesByComponents<OrbitalComponent>(orbitalEntities);
+        std::vector<Entity> orbitalEntities = m_Scene.GetEntitiesByComponents<OrbitalComponent>();
         for (auto entity : orbitalEntities)
         {
             auto [orbital, sprite, tag] = entity.GetComponents<OrbitalComponent, SpriteRendererComponent, TagComponent>();
             /* orbital debug info */
             ImGui::ColorEdit4(tag.Tag.c_str(), glm::value_ptr(*(glm::vec4*)&sprite.Color));
         }
-
         ImGui::End(); // Scene Properties
+
+        ImGui::Begin("Hierarchy");
+        {
+            HierarchyNode(m_Scene.GetRoot());
+        }
+        ImGui::End(); // Hierarchy
+
+        //bool showdemo = true;
+        //ImGui::ShowDemoWindow(&showdemo);
     }
 
 
     void OrbitalLayer::OnEvent(Event& e)
     {
         m_Scene.OnEvent(e);
+    }
+
+
+    void OrbitalLayer::HierarchyNode(Entity entity)
+    {
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+        auto children = m_Scene.GetChildren(entity);
+        if (children.empty()) flags |= ImGuiTreeNodeFlags_Leaf;
+        if (ImGui::TreeNodeEx(entity.GetComponent<TagComponent>().Tag.c_str(), flags))
+        {
+            for (auto child : children)
+            {
+                HierarchyNode(child);
+            }
+            ImGui::TreePop();
+        }
     }
 
 }

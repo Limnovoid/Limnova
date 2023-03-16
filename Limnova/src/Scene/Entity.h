@@ -53,7 +53,7 @@ namespace Limnova
 
         void Destroy();
     public:
-        operator bool() const { return m_Scene->m_Registry.valid(m_EnttId); }
+        operator bool() const { return m_Scene == nullptr ? false : m_Scene->m_Registry.valid(m_EnttId); }
 
         bool operator==(const Entity& rhs) { return m_EnttId == rhs.m_EnttId; }
         bool operator!=(const Entity& rhs) { return m_EnttId != rhs.m_EnttId; }

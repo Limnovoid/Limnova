@@ -49,7 +49,7 @@ namespace Limnova
         m_Data.Height = props.Height;
 
         LV_CORE_INFO("Creating window \"{0}\" (W {1}, H {2})",
-            props.Title, props.Width, props.Height);        
+            props.Title, props.Width, props.Height);
 
         if (!s_GLFWInitialized)
         {

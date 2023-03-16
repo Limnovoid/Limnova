@@ -199,7 +199,7 @@ namespace Limnova
         bool ValidMass(TObjectId object)
         {
             static constexpr double kMaxCOG = 1e-6; /* Maximum offset for shared centre of gravity */
-            return kMaxCOG > m_Objects[object].State.Mass / (m_Objects[object].State.Mass + m_Objects[object].Parent.State.Mass);
+            return kMaxCOG > m_Objects[object].State.Mass / (m_Objects[object].State.Mass + m_Objects[m_Objects[object].Parent].State.Mass);
         }
 
         bool ValidParent(TObjectId object)

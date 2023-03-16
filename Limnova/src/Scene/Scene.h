@@ -21,19 +21,23 @@ namespace Limnova
         Entity CreateEntity(const std::string& name = std::string());
 
         template<typename First, typename... Rest>
-        void GetEntitiesByComponents(std::vector<Entity>& entities)
+        std::vector<Entity> GetEntitiesByComponents()
         {
+            std::vector<Entity> entities;
             auto view = m_Registry.view<First, Rest...>();
             for (auto entity : view)
             {
                 entities.emplace_back(entity, this);
             }
+            return entities;
         }
 
         void SetActiveCamera(Entity cameraEntity);
         Entity GetActiveCamera();
 
-        void Reparent(Entity entity, Entity newParent);
+        Entity GetRoot();
+        void SetParent(Entity entity, Entity newParent);
+        std::vector<Entity> GetChildren(Entity entity);
 
         virtual void OnUpdate(Timestep dT);
         virtual void OnEvent(Event& e);

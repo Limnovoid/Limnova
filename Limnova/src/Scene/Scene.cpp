@@ -69,10 +69,31 @@ namespace Limnova
     }
 
 
-    void Scene::Reparent(Entity entity, Entity newParent)
+    Entity Scene::GetRoot()
+    {
+        return { m_Root, this };
+    }
+
+
+    void Scene::SetParent(Entity entity, Entity newParent)
     {
         HierarchyDisconnect(entity);
         HierarchyConnect(entity, newParent);
+    }
+
+
+    std::vector<Entity> Scene::GetChildren(Entity entity)
+    {
+        std::vector<Entity> children;
+        auto& hierarchy = m_Registry.get<HierarchyComponent>(entity.m_EnttId);
+        auto first = hierarchy.FirstChild;
+        auto child = first;
+        do {
+            if (!child) break;
+            children.push_back(child);
+            child = m_Registry.get<HierarchyComponent>(child.m_EnttId).NextSibling;
+        } while (child != first);
+        return children;
     }
 
 
@@ -158,6 +179,7 @@ namespace Limnova
         auto first = hierarchy.FirstChild;
         auto child = first;
         do {
+            if (!child) break;
             auto next = m_Registry.get<HierarchyComponent>(child.m_EnttId).NextSibling;
             child.Destroy();
             child = next;
@@ -236,7 +258,7 @@ namespace Limnova
             /* No need to check if this entity has siblings - NextSibling is the null entity in this case */
             parentHierarchy.FirstChild = hierarchy.NextSibling;
         }
-        hierarchy.Parent = Entity{};
+        hierarchy.Parent = Entity();
 
         // Disconnect from siblings
         if (hierarchy.NextSibling)
@@ -245,7 +267,7 @@ namespace Limnova
             if (hierarchy.NextSibling == hierarchy.PrevSibling)
             {
                 // Only one sibling
-                nextHierarchy.NextSibling = nextHierarchy.PrevSibling = Entity{};
+                nextHierarchy.NextSibling = nextHierarchy.PrevSibling = Entity();
             }
             else
             {
@@ -256,7 +278,7 @@ namespace Limnova
                 prevHierarchy.NextSibling = hierarchy.NextSibling;
             }
 
-            hierarchy.NextSibling = hierarchy.PrevSibling = Entity{};
+            hierarchy.NextSibling = hierarchy.PrevSibling = Entity();
         }
     }
 }
