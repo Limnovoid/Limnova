@@ -19,6 +19,12 @@ namespace Limnova
             transform.Set({ 1.f }, m_CameraPos);
         }
 
+        auto root = m_Scene.GetRoot();
+        {
+            root.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 1.f, 0.9f, 1.f });
+            root.GetComponent<TransformComponent>().SetScale({ 0.05f, 0.05f, 0.f });
+        }
+
         auto orbital0 = m_Scene.CreateEntity("Orbital 0");
         {
             orbital0.AddComponent<OrbitalComponent>();

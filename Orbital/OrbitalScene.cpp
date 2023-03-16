@@ -5,7 +5,15 @@ namespace Limnova
 {
 
     OrbitalScene::OrbitalScene()
+        : Scene()
     {
+        // Orbital setup
+        /* NOTE : root MUST be assigned before signal setup - the root's OrbitalComponent should NOT create
+         * a new object in OrbitalPhysics */
+        auto& rootOrbital = m_Registry.emplace<OrbitalComponent>(m_Root);
+        rootOrbital.PhysicsObjectId = m_Physics.AssignRoot(m_Root);
+
+        // Signals
         m_Registry.on_construct<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentConstruct>(this);
         m_Registry.on_destroy<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentDestruct>(this);
     }

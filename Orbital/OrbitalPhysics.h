@@ -21,7 +21,9 @@ namespace Limnova
     class OrbitalPhysics
     {
     public:
-        OrbitalPhysics() = default;
+        OrbitalPhysics()
+        {
+        }
         ~OrbitalPhysics()
         {
             // Estimating maximum object allocation for optimising vectors -> arrays
@@ -147,17 +149,20 @@ namespace Limnova
         struct Influence
         {
             float Radius = 0.f;
+            float MetersPerRadius = 0.f;
         };
     private:
         /*** Simulation resources ***/
 
-        Object m_RootObject;
-        double m_RootMass;
-        float m_RootScalingRadius; // orbital radii per metre in root scaling space
-        Children m_RootChildren;
-
-        std::vector<Object> m_Objects;
+        TObjectId m_RootObject = 0;
+        std::vector<Object> m_Objects = { Object() }; /* Initialised with the root object */
         std::unordered_set<TObjectId> m_EmptyObjects;
+
+        Children m_RootChildren;
+        /* m_RootScalingUnit : orbital radii per metre in root scaling space
+         * The root object has infinite influence, so the scaling of the root space is arbitrary and must be set by the user.
+         */
+        float m_RootScalingUnit;
 
         AttributeStorage<Elements> m_Elements;
         AttributeStorage<Children> m_Children;
@@ -240,6 +245,19 @@ namespace Limnova
     public:
         /*** Usage ***/
 
+        /// <summary>
+        /// Assign the orbital physics root object a user object and return the physics object's ID.
+        /// Usage example: assign the physics root to an entity in the user's game scene (potentially the root
+        /// entity of the scene itself) and use that entity to represent the orbital system's primary object,
+        /// e.g, using light and mesh components to display the entity as a star.
+        /// </summary>
+        /// <typeparam name="TUserId">ID of the user-object to be associated with the root physics object</typeparam>
+        TObjectId AssignRoot(TUserId userRootId)
+        {
+            m_Objects[m_RootObject].UserId = userRootId;
+            return m_RootObject;
+        }
+
         bool Has(TObjectId object)
         {
             return object < m_Objects.size() && m_EmptyObjects.find(object) == m_EmptyObjects.end();
@@ -254,6 +272,7 @@ namespace Limnova
         {
             TObjectId newObject = GetEmptyObject();
             m_Objects[newObject].UserId = userId;
+            m_Objects[newObject].Parent = m_RootObject;
             return newObject;
         }
 
