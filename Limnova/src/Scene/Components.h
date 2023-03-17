@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Entity.h"
+#include "Script.h"
 
 #include <Math/Math.h>
 #include <Renderer/PerspectiveCamera.h>
@@ -28,7 +29,7 @@ namespace Limnova
 
         Vector3 Scale = { 1.f };
         Vector3 Position = { 0.f };
-        //Quaternion Orientation = Quaternion::Unit();
+        Quaternion Orientation = Quaternion::Unit();
     public:
         TransformComponent() = default;
         TransformComponent(const TransformComponent&) = default;
@@ -38,6 +39,11 @@ namespace Limnova
         void Set(const Vector3& scale, const Vector3& position) { Scale = scale; Position = position; NeedCompute = true; }
         void SetScale(const Vector3& scale) { Scale = scale; NeedCompute = true; }
         void SetPosition(const Vector3& position) { Position = position; NeedCompute = true; }
+        void SetOrientation(const Quaternion& orientation) { Orientation = orientation; NeedCompute = true; }
+
+        const Vector3& GetScale() { return Scale; }
+        const Vector3& GetPosition() { return Position; }
+        const Quaternion& GetOrientation() { return Orientation; }
 
         const glm::mat4& GetTransform() { if (NeedCompute) Compute(); return Transform; }
         operator const glm::mat4& () { if (NeedCompute) Compute(); return Transform; }
@@ -45,7 +51,7 @@ namespace Limnova
         void Compute()
         {
             Transform = glm::translate(glm::mat4(1.f), (glm::vec3)Position);
-            // TODO : rotate
+            Transform = Transform * Matrix4(Orientation).mat;
             Transform = glm::scale(Transform, (glm::vec3)Scale);
             NeedCompute = false;
         }
@@ -55,6 +61,7 @@ namespace Limnova
     struct HierarchyComponent
     {
         friend class Scene;
+        friend class OrbitalScene;
     private:
         Entity Parent;
         Entity NextSibling;
@@ -106,6 +113,26 @@ namespace Limnova
         void UpdateProjection()
         {
             Camera.SetProjection(Fov, AspectRatio, NearClip, FarClip);
+        }
+    };
+
+
+    struct NativeScriptComponent
+    {
+        friend class Scene;
+    private:
+        NativeScript* Instance = nullptr;
+
+        void (*InstantiateScript)(NativeScript**);
+        void (*DeleteScript)(NativeScript**);
+    public:
+        template<typename T>
+        void Bind()
+        {
+            if (Instance) DeleteScript(&Instance); /* Deletes existing script - NOTE: potentially unnecessary as scripts are not meant to be instantiated outside scene playtime */
+
+            InstantiateScript = [](NativeScript** instance) { *instance = static_cast<NativeScript*>(new T()); };
+            DeleteScript = [](NativeScript** instance) { delete *instance; *instance = nullptr; };
         }
     };
 

@@ -11,7 +11,6 @@ namespace Limnova
 
     class Entity;
 
-
     class Scene
     {
     public:
@@ -34,6 +33,7 @@ namespace Limnova
 
         void SetActiveCamera(Entity cameraEntity);
         Entity GetActiveCamera();
+        void OnWindowChangeAspect(float aspect);
 
         Entity GetRoot();
         void SetParent(Entity entity, Entity newParent);
@@ -48,6 +48,7 @@ namespace Limnova
         entt::entity m_Root; // Scene hierarchy
 
         friend class Entity;
+        friend class SceneHierarchyPanel;
     private:
         /* Events and signals */
         void OnHierarchyComponentConstruction(entt::registry&, entt::entity);

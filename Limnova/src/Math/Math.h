@@ -7,6 +7,7 @@
 #include "Vector2.h"
 #include "Vector3.h"
 #include "Vector4.h"
+#include "Matrix4.h"
 #include "Quaternion.h"
 
 
@@ -26,5 +27,4 @@ namespace Limnova
     /// <param name="rAngleRad">Rotation angle in radians</param>
     /// <returns>A copy of the vector, rotated as per the arguments</returns>
     Vector3 Rotate(const Vector3 vector, const Vector3 rAxis, const float rAngleRadians);
-
 }

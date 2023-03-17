@@ -71,7 +71,7 @@ namespace Limnova
 
     Entity Scene::GetRoot()
     {
-        return { m_Root, this };
+        return Entity{ m_Root, this };
     }
 
 
@@ -110,21 +110,58 @@ namespace Limnova
 
     Entity Scene::GetActiveCamera()
     {
-        return { m_ActiveCamera, this };
+        return Entity{ m_ActiveCamera, this };
+    }
+
+
+    void Scene::OnWindowChangeAspect(float aspect)
+    {
+        auto view = m_Registry.view<PerspectiveCameraComponent>();
+        for (auto entity : view)
+        {
+            auto& camera = view.get<PerspectiveCameraComponent>(entity);
+            if (camera.TieAspectToView)
+            {
+                camera.SetAspect(aspect);
+            }
+        }
     }
 
 
     void Scene::OnUpdate(Timestep dT)
     {
+        // Scripts
+        {
+            m_Registry.view<NativeScriptComponent>().each([=](auto entity, auto& script)
+            {
+                // TODO : move to Scene::OnPlay()
+                if (!script.Instance)
+                {
+                    script.InstantiateScript(&script.Instance);
+                    script.Instance->m_Entity = Entity{ entity, this };
+
+                    script.Instance->OnCreate();
+                }
+
+                script.Instance->OnUpdate(dT);
+
+                // TODO : move to Scene::OnStop()
+                /*if (script.Instance)
+                {
+                    script.DeleteScript(&script.Instance);
+                }*/
+            });
+        }
+
+        // Camera
         if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<PerspectiveCameraComponent>(m_ActiveCamera))
         {
             LV_CORE_WARN("Scene has no active camera - no rendering!");
             return;
         }
-
         auto [camera, camTransform] = m_Registry.get<PerspectiveCameraComponent, TransformComponent>(m_ActiveCamera);
-
         camera.Camera.SetView(glm::inverse(camTransform.GetTransform()));
+
         Renderer2D::BeginScene(camera.Camera);
 
         // Sprites
@@ -146,33 +183,31 @@ namespace Limnova
     {
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(Scene::OnWindowResize));
+
+        // Scripts
+        m_Registry.view<NativeScriptComponent>().each([&](auto entity, auto& script)
+        {
+            script.Instance->OnEvent(e);
+        });
     }
 
 
     bool Scene::OnWindowResize(WindowResizeEvent& e)
     {
-        auto view = m_Registry.view<PerspectiveCameraComponent>();
-        for (auto entity : view)
-        {
-            auto& camera = view.get<PerspectiveCameraComponent>(entity);
-            if (camera.TieAspectToView)
-            {
-                camera.SetAspect((float)e.GetWidth() / (float)e.GetHeight());
-            }
-        }
+        OnWindowChangeAspect((float)e.GetWidth() / (float)e.GetHeight());
         return false;
     }
 
 
     void Scene::OnHierarchyComponentConstruction(entt::registry&, entt::entity entity)
     {
-        HierarchyConnect({ entity, this }, { m_Root, this });
+        HierarchyConnect(Entity{ entity, this }, Entity{ m_Root, this });
     }
 
 
     void Scene::OnHierarchyComponentDestruction(entt::registry&, entt::entity entity)
     {
-        HierarchyDisconnect({ entity, this });
+        HierarchyDisconnect(Entity{ entity, this });
 
         // Destroy children (this will destroy their hierarchy components and thus their children, and so on)
         auto& hierarchy = m_Registry.get<HierarchyComponent>(entity);
@@ -229,8 +264,8 @@ namespace Limnova
                 // More than one sibling
                 auto& prevHierarchy = m_Registry.get<HierarchyComponent>(nextHierarchy.PrevSibling.m_EnttId);
 
-                hierarchy.NextSibling = { parentHierarchy.FirstChild.m_EnttId, this };
-                hierarchy.PrevSibling = { nextHierarchy.PrevSibling.m_EnttId, this };
+                hierarchy.NextSibling = Entity{ parentHierarchy.FirstChild.m_EnttId, this };
+                hierarchy.PrevSibling = Entity{ nextHierarchy.PrevSibling.m_EnttId, this };
 
                 nextHierarchy.PrevSibling = entity;
                 prevHierarchy.NextSibling = entity;
@@ -238,7 +273,7 @@ namespace Limnova
             else
             {
                 // Only one sibling
-                hierarchy.PrevSibling = hierarchy.NextSibling = { parentHierarchy.FirstChild.m_EnttId, this };
+                hierarchy.PrevSibling = hierarchy.NextSibling = Entity{ parentHierarchy.FirstChild.m_EnttId, this };
                 nextHierarchy.PrevSibling = nextHierarchy.NextSibling = entity;
             }
         }

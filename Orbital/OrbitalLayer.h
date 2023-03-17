@@ -23,7 +23,6 @@ namespace Limnova
     private:
         OrbitalScene m_Scene;
         Entity m_Camera;
-        Vector3 m_CameraPos = { 0.f, 0.f, 0.f };
     private:
         void HierarchyNode(Entity entity);
     };

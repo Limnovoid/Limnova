@@ -54,14 +54,16 @@ namespace Limnova
         void Destroy();
     public:
         operator bool() const { return m_Scene == nullptr ? false : m_Scene->m_Registry.valid(m_EnttId); }
+        operator uint32_t() const { return (uint32_t)m_EnttId; }
 
-        bool operator==(const Entity& rhs) { return m_EnttId == rhs.m_EnttId; }
-        bool operator!=(const Entity& rhs) { return m_EnttId != rhs.m_EnttId; }
+        bool operator==(const Entity& rhs) { return m_EnttId == rhs.m_EnttId && m_Scene == rhs.m_Scene; }
+        bool operator!=(const Entity& rhs) { return m_EnttId != rhs.m_EnttId || m_Scene != rhs.m_Scene; }
     private:
         entt::entity m_EnttId = entt::null;
         Scene* m_Scene = nullptr;
 
         friend class Scene;
+        friend class NativeScript;
     };
 
 }

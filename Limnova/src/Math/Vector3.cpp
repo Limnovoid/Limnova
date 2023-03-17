@@ -101,12 +101,6 @@ namespace Limnova
     }
 
 
-    Vector3 operator*(const float scalar, const Vector3 vector)
-    {
-        return vector * scalar;
-    }
-
-
     Vector3 Vector3::operator/(const float scalar) const
     {
         return Vector3(this->x / scalar, this->y / scalar, this->z / scalar);

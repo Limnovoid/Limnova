@@ -32,6 +32,10 @@ namespace Limnova
         Vector3 Cross(const Vector3 rhs) const;
     public:
         static Vector3 Cross(const Vector3 lhs, const Vector3 rhs);
+
+        static constexpr Vector3 Forward()  { return { 0.f, 0.f,-1.f }; }
+        static constexpr Vector3 Up()       { return { 0.f, 1.f, 0.f }; }
+        static constexpr Vector3 Left()     { return {-1.f, 0.f, 0.f }; }
     public:
         Vector3& operator=(const glm::vec3& rhs);
         Vector3 operator+(const Vector3& rhs) const;
@@ -42,13 +46,17 @@ namespace Limnova
         Vector3& operator*=(const float scalar);
         Vector3 operator/(const float scalar) const;
         Vector3& operator/=(const float scalar);
+
+        friend Vector3 operator-(const Vector3& value);
     public:
         operator glm::vec3() const { return glm::vec3(x, y, z); }
     public:
         inline glm::vec3 glm_vec3() const { return glm::vec3(x, y, z); }
     };
 
+    inline Vector3 operator*(const float scalar, const Vector3 vector) { return vector * scalar; }
+    inline Vector3 operator-(const Vector3& value) { return { -value.x, -value.y, -value.z }; }
+
     std::ostream& operator<<(std::ostream& ostream, const Vector3& v);
-    Vector3 operator*(const float scalar, const Vector3 vector);
 
 }

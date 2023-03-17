@@ -21,10 +21,11 @@ namespace Limnova
     private:
         Ref<Scene> m_Scene;
 
-        Entity m_SquareEntity;
         Ref<Framebuffer> m_Framebuffer;
         Ref<PerspectivePlanarCameraController> m_CameraController;
         //Ref<OrthographicPlanarCameraController> m_CameraController;
+
+        Entity m_SquareEntity;
         Entity m_Camera0, m_Camera1;
 
         ShaderLibrary m_ShaderLibrary;

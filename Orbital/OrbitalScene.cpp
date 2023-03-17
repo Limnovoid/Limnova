@@ -23,7 +23,7 @@ namespace Limnova
     {
         if (entity.HasComponent<OrbitalComponent>())
         {
-            if (!parent.HasComponent<OrbitalComponent>()) return; /* Cannot set orbital entity to a non-orbital entity */
+            if (!parent.HasComponent<OrbitalComponent>()) return; /* Cannot parent orbital entity to a non-orbital entity */
 
             // Update physics system to reflect new parentage
             auto& orbital = entity.GetComponent<OrbitalComponent>();
@@ -42,8 +42,16 @@ namespace Limnova
 
     void OrbitalScene::OnOrbitalComponentConstruct(entt::registry&, entt::entity entity)
     {
-        auto& orbital = m_Registry.get<OrbitalComponent>(entity);
-        orbital.PhysicsObjectId = m_Physics.Create(entity);
+        auto[orbital, hierarchy] = m_Registry.get<OrbitalComponent, HierarchyComponent>(entity);
+        if (hierarchy.Parent.HasComponent<OrbitalComponent>())
+        {
+            orbital.PhysicsObjectId = m_Physics.Create(entity, hierarchy.Parent.GetComponent<OrbitalComponent>().PhysicsObjectId);
+        }
+        else
+        {
+            SetParent(Entity{ entity, this }, Entity{ m_Root, this });
+            orbital.PhysicsObjectId = m_Physics.Create(entity);
+        }
         orbital.Physics = &m_Physics;
     }
 

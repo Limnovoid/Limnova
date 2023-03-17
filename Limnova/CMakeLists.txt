@@ -63,6 +63,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Scene/Components.h"
     "src/Scene/Entity.cpp"
     "src/Scene/Scene.cpp"
+    "src/Scene/Script.h"
 
     "src/Structures/Queue.h"
 

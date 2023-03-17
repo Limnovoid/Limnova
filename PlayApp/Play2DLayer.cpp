@@ -54,17 +54,59 @@ namespace Limnova
         m_Camera0.AddComponent<PerspectiveCameraComponent>();
         {
             auto& transform = m_Camera0.GetComponent<TransformComponent>();
-            transform.Set({ 1.f }, { 0.f, 0.f, -2.f });
+            transform.Set({ 1.f }, { 0.f, 0.f, 2.f });
         }
 
         m_Camera1 = m_Scene->CreateEntity("Camera 1");
         m_Camera1.AddComponent<PerspectiveCameraComponent>();
         {
             auto& transform = m_Camera1.GetComponent<TransformComponent>();
-            transform.Set({ 1.f }, { 0.f, 0.f, -3.f });
+            transform.Set({ 1.f }, { 0.f, 0.f, 3.f });
         }
 
         m_Scene->SetActiveCamera(m_Camera0);
+
+        class CameraController : public NativeScript
+        {
+        public:
+            void OnCreate()
+            {
+            }
+
+            void OnDestroy()
+            {
+            }
+
+            void OnUpdate(Timestep dT)
+            {
+                if (!IsActiveCamera()) return;
+
+                auto& transform = GetComponent<TransformComponent>();
+                Vector3 moveDir{ 0.f };
+                if (Input::IsKeyPressed(LV_KEY_A))
+                    moveDir.x = -1.f;
+                if (Input::IsKeyPressed(LV_KEY_D))
+                    moveDir.x = 1.f;
+                if (Input::IsKeyPressed(LV_KEY_W))
+                    moveDir.y = 1.f;
+                if (Input::IsKeyPressed(LV_KEY_S))
+                    moveDir.y = -1.f;
+                if (Input::IsKeyPressed(LV_KEY_Q))
+                    moveDir.z = 1.f;
+                if (Input::IsKeyPressed(LV_KEY_E))
+                    moveDir.z = -1.f;
+                static constexpr float moveSpeed = 1.f;
+                transform.SetPosition(transform.GetPosition() + (moveDir.Normalized() * moveSpeed * dT));
+            }
+        };
+        {
+            auto& script = m_Camera0.AddComponent<NativeScriptComponent>();
+            script.Bind<CameraController>();
+        }
+        {
+            auto& script = m_Camera1.AddComponent<NativeScriptComponent>();
+            script.Bind<CameraController>();
+        }
     }
 
 
@@ -134,8 +176,9 @@ namespace Limnova
             ImGui::Text("%s", tag.Tag.c_str());
             auto& color = m_SquareEntity.GetComponent<SpriteRendererComponent>().Color;
             ImGui::ColorEdit4("Square Color", color.Ptr());
-            ImGui::Separator();
         }
+
+        ImGui::Separator();
 
         Entity activeCamera = m_Scene->GetActiveCamera();
         if (ImGui::BeginCombo("Camera", activeCamera.GetComponent<TagComponent>().Tag.c_str()))
@@ -152,11 +195,14 @@ namespace Limnova
             ImGui::EndCombo();
         }
 
+        ImGui::Separator();
 
         ImGui::ColorEdit4("Texture Tint", glm::value_ptr(*(glm::vec4*)&m_TextureTint));
         ImGui::SliderFloat2("Texture Scale", glm::value_ptr(*(glm::vec2*)&m_TextureScale), 0.1f, 10.f);
         ImGui::SliderFloat("BackgroundRotation", &m_BackgroundRotation, 0.f, 360.f);
         ImGui::End(); // Scene Properties
+
+        ImGui::Separator();
 
         ImGui::Begin("Renderer2D Statistics");
         auto& stats = Renderer2D::GetStatistics();

@@ -3,6 +3,8 @@ project(LimnovaEditor)
 add_executable(${PROJECT_NAME}
     "LimnovaEditorApp.cpp"
     "EditorLayer.cpp"
+
+    "Panels/SceneHierarchyPanel.cpp"
 )
 
 

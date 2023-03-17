@@ -126,6 +126,7 @@ namespace Limnova
         {
             TUserId UserId = TUserId();
             TObjectId Parent = Null;
+            TObjectId PrevSibling = Null, NextSibling = Null;
             Validity Validity = Validity::InvalidParent;
             State State;
 
@@ -141,31 +142,26 @@ namespace Limnova
             Vector3 H = { 0.f, 0.f, 0.f };
         };
 
-        struct Children
-        {
-            std::vector<TObjectId> Children;
-        };
-
         struct Influence
         {
-            float Radius = 0.f;
+            float Radius = 0.f; /* Scaled to parent's influence */
             float MetersPerRadius = 0.f;
+            TObjectId FirstChild = Null;
         };
     private:
         /*** Simulation resources ***/
 
         TObjectId m_RootObject = 0;
-        std::vector<Object> m_Objects = { Object() }; /* Initialised with the root object */
+        std::vector<Object> m_Objects = { Object() }; /* Initialised with root object */
         std::unordered_set<TObjectId> m_EmptyObjects;
 
-        Children m_RootChildren;
         /* m_RootScalingUnit : orbital radii per metre in root scaling space
          * The root object has infinite influence, so the scaling of the root space is arbitrary and must be set by the user.
          */
-        float m_RootScalingUnit;
+        float m_RootScalingUnit = 0.f;
+        TObjectId m_RootFirstChild = Null;
 
         AttributeStorage<Elements> m_Elements;
-        AttributeStorage<Children> m_Children;
         AttributeStorage<Influence> m_Influences;
     private:
         /*** Resource helpers ***/
@@ -187,6 +183,7 @@ namespace Limnova
 
         void RecycleObject(TObjectId object)
         {
+            LV_CORE_ASSERT(object != 0, "Cannot recycle the root object!");
             m_Objects[object].Parent = Null;
             m_Objects[object].Validity = Validity::InvalidParent;
             m_EmptyObjects.insert(object);
