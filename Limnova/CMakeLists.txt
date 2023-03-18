@@ -29,6 +29,9 @@ add_library(${PROJECT_NAME} STATIC
     "src/Math/Vector4.cpp"
     "src/Math/Quaternion.cpp"
 
+    "src/Orbital/OrbitalPhysics.h"
+    "src/Orbital/OrbitalScene.cpp"
+
     "src/Platform/OpenGL/OpenGLBuffer.cpp"
     "src/Platform/OpenGL/OpenGLContext.cpp"
     "src/Platform/OpenGL/OpenGLFramebuffer.cpp"

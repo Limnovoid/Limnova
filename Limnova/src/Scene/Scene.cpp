@@ -82,6 +82,12 @@ namespace Limnova
     }
 
 
+    Entity Scene::GetParent(Entity entity)
+    {
+        return m_Registry.get<HierarchyComponent>(entity.m_EnttId).Parent;
+    }
+
+
     std::vector<Entity> Scene::GetChildren(Entity entity)
     {
         std::vector<Entity> children;
@@ -99,12 +105,8 @@ namespace Limnova
 
     void Scene::SetActiveCamera(Entity cameraEntity)
     {
-        if (cameraEntity.HasComponent<PerspectiveCameraComponent>())
-        {
-            m_ActiveCamera = cameraEntity.m_EnttId;
-            return;
-        }
-        LV_CORE_WARN("Attempted to set active camera to a non-camera entity!");
+        LV_CORE_ASSERT(cameraEntity.HasComponent<PerspectiveCameraComponent>(), "Attempted to set active camera to a non-camera entity!");
+        m_ActiveCamera = cameraEntity.m_EnttId;
     }
 
 
@@ -293,7 +295,7 @@ namespace Limnova
             /* No need to check if this entity has siblings - NextSibling is the null entity in this case */
             parentHierarchy.FirstChild = hierarchy.NextSibling;
         }
-        hierarchy.Parent = Entity();
+        hierarchy.Parent = Entity::Null;
 
         // Disconnect from siblings
         if (hierarchy.NextSibling)
@@ -302,7 +304,7 @@ namespace Limnova
             if (hierarchy.NextSibling == hierarchy.PrevSibling)
             {
                 // Only one sibling
-                nextHierarchy.NextSibling = nextHierarchy.PrevSibling = Entity();
+                nextHierarchy.NextSibling = nextHierarchy.PrevSibling = Entity::Null;
             }
             else
             {
@@ -313,7 +315,7 @@ namespace Limnova
                 prevHierarchy.NextSibling = hierarchy.NextSibling;
             }
 
-            hierarchy.NextSibling = hierarchy.PrevSibling = Entity();
+            hierarchy.NextSibling = hierarchy.PrevSibling = Entity::Null;
         }
     }
 }

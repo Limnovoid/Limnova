@@ -52,6 +52,8 @@ namespace Limnova
         }
 
         void Destroy();
+
+        static Entity Null;
     public:
         operator bool() const { return m_Scene == nullptr ? false : m_Scene->m_Registry.valid(m_EnttId); }
         operator uint32_t() const { return (uint32_t)m_EnttId; }

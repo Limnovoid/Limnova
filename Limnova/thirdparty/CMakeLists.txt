@@ -12,7 +12,7 @@ add_library(${PROJECT_NAME} STATIC
     "imgui/imstb_rectpack.h"
     "imgui/imstb_textedit.h"
     "imgui/imstb_truetype.h"
-)
+ "../src/Orbital/OrbitalPhysics.h")
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY
     MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"

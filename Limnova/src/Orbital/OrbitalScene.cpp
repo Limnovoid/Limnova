@@ -1,5 +1,8 @@
 #include "OrbitalScene.h"
 
+#include <Scene/Entity.h>
+#include <Scene/Components.h>
+
 
 namespace Limnova
 {
@@ -12,6 +15,7 @@ namespace Limnova
          * a new object in OrbitalPhysics */
         auto& rootOrbital = m_Registry.emplace<OrbitalComponent>(m_Root);
         rootOrbital.PhysicsObjectId = m_Physics.AssignRoot(m_Root);
+        rootOrbital.Physics = &m_Physics;
 
         // Signals
         m_Registry.on_construct<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentConstruct>(this);

@@ -4,9 +4,7 @@ add_executable(${PROJECT_NAME}
     "OrbitalApp.cpp"
     "Orbital2D.cpp"
     "OrbitalLayer.cpp"
-    "OrbitalPhysics.h"
     "OrbitalPhysics2D.cpp"
-    "OrbitalScene.cpp"
 
     "Entities/Entity.cpp"
     "Entities/Orbiter.cpp"

@@ -15,7 +15,8 @@ namespace Limnova
 
         void OnImGuiRender();
     private:
-        void EntityNode(Entity entity);
+        void EntityNode(Entity entity, bool forceExpanded = false);
+        void Inspector(Entity entity);
     private:
         Scene* m_Scene;
         Entity m_Selected;

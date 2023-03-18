@@ -23,6 +23,7 @@ namespace Limnova
 
     struct TransformComponent
     {
+        friend class SceneHierarchyPanel;
     private:
         glm::mat4 Transform = glm::identity<glm::mat4>();
         bool NeedCompute = true;

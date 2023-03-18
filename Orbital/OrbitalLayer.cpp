@@ -11,9 +11,9 @@ namespace Limnova
 
     void OrbitalLayer::OnAttach()
     {
-        m_Camera = m_Scene.CreateEntity("Camera");
+        auto camera = m_Scene.CreateEntity("Camera");
         {
-            m_Camera.AddComponent<PerspectiveCameraComponent>();
+            camera.AddComponent<PerspectiveCameraComponent>();
 
             class OrbitalCamera : public NativeScript
             {
@@ -103,7 +103,7 @@ namespace Limnova
                     return false;
                 }
             };
-            m_Camera.AddComponent<NativeScriptComponent>().Bind<OrbitalCamera>();
+            camera.AddComponent<NativeScriptComponent>().Bind<OrbitalCamera>();
         }
 
         auto root = m_Scene.GetRoot();
@@ -169,9 +169,6 @@ namespace Limnova
             HierarchyNode(m_Scene.GetRoot());
         }
         ImGui::End(); // Hierarchy
-
-        //bool showdemo = true;
-        //ImGui::ShowDemoWindow(&showdemo);
     }
 
 

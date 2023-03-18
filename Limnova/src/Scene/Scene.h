@@ -37,6 +37,7 @@ namespace Limnova
 
         Entity GetRoot();
         void SetParent(Entity entity, Entity newParent);
+        Entity GetParent(Entity entity);
         std::vector<Entity> GetChildren(Entity entity);
 
         virtual void OnUpdate(Timestep dT);

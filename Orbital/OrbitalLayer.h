@@ -1,7 +1,5 @@
 #pragma once
 
-#include "OrbitalScene.h"
-
 #include <Limnova.h>
 
 
@@ -22,7 +20,6 @@ namespace Limnova
         void OnEvent(Event& e) override;
     private:
         OrbitalScene m_Scene;
-        Entity m_Camera;
     private:
         void HierarchyNode(Entity entity);
     };

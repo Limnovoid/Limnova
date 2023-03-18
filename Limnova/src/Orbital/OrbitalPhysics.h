@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Limnova.h"
+#include <Math/Math.h>
 
 
 namespace Limnova
@@ -117,6 +117,7 @@ namespace Limnova
 
         struct State
         {
+            /* Compulsory attribute - all physics objects are expected to have a physics state */
             double Mass = 0.0;
             Vector3 Position = { 0.f, 0.f, 0.f };
             Vector3 Velocity = { 0.f, 0.f, 0.f };
@@ -201,12 +202,21 @@ namespace Limnova
         bool ValidMass(TObjectId object)
         {
             static constexpr double kMaxCOG = 1e-6; /* Maximum offset for shared centre of gravity */
-            return kMaxCOG > m_Objects[object].State.Mass / (m_Objects[object].State.Mass + m_Objects[m_Objects[object].Parent].State.Mass);
+            bool hasValidMass = m_Objects[object].State.Mass > 0.0;
+            if (object == m_RootObject)
+            {
+                // TODO - minimum mass ? maximum mass ?
+            }
+            else
+            {
+                hasValidMass = hasValidMass && kMaxCOG > m_Objects[object].State.Mass / (m_Objects[object].State.Mass + m_Objects[m_Objects[object].Parent].State.Mass);
+            }
+            return hasValidMass;
         }
 
         bool ValidParent(TObjectId object)
         {
-            return m_Influences.Has(m_Objects[object].Parent);
+            return m_Influences.Has(m_Objects[object].Parent) || object == m_RootObject;
         }
 
         void ComputeValidity(TObjectId object)
@@ -214,16 +224,13 @@ namespace Limnova
             // TODO : #ifdef LV_DEBUG ??? is validity needed in release?
 
             Validity validity = Validity::Valid;
-            if (!ValidParent(object))
-            {
+            if (!ValidParent(object)) {
                 validity = Validity::InvalidParent;
             }
-            else if (!ValidMass(object))
-            {
+            else if (!ValidMass(object)) {
                 validity = Validity::InvalidMass;
             }
-            else if (!ValidPosition(object))
-            {
+            else if (!ValidPosition(object)) {
                 validity = Validity::InvalidPosition;
             }
             m_Objects[object].Validity = validity;
@@ -231,6 +238,8 @@ namespace Limnova
 
         void ComputeElements(TObjectId object)
         {
+            LV_CORE_ASSERT(object != m_RootObject, "Cannot compute elements on root object!")
+
             auto& obj = m_Objects[object];
             auto& state = obj.State;
             auto& elems = m_Elements.Get(object);
@@ -351,9 +360,14 @@ namespace Limnova
             RecycleObject(object);
         }
 
+        Validity GetValidity(TObjectId object)
+        {
+            return m_Objects[object].Validity;
+        }
+
         void SetParent(TObjectId object, TObjectId parent)
         {
-            LV_CORE_ASSERT(object != parent && Has(object) && Has(parent), "Invalid IDs!");
+            LV_CORE_ASSERT(object != parent && Has(parent), "Invalid parent ID!");
             m_Objects[object].Parent = parent;
             ComputeValidity(object);
 
@@ -363,24 +377,34 @@ namespace Limnova
             }
             // TODO : update satellites ?
         }
+        TUserId GetParent(TObjectId object)
+        {
+            return m_Objects[m_Objects[object].Parent].UserId;
+        }
 
         void SetMass(TObjectId object, double mass)
         {
-            LV_CORE_ASSERT(Has(object), "Invalid ID!");
-
             m_Objects[object].State.Mass = mass;
             ComputeValidity(object);
 
-            if (m_Objects[object].Validity == Validity::Valid)
+            if (m_Objects[object].Validity == Validity::Valid && object != m_RootObject)
             {
                 ComputeElements(object);
             }
             // TODO : update satellites ?
         }
+        double GetMass(TObjectId object)
+        {
+            return m_Objects[object].State.Mass;
+        }
 
         void SetPosition(TObjectId object, Vector3 position)
         {
-            LV_CORE_ASSERT(Has(object), "Invalid ID!");
+            if (object == m_RootObject)
+            {
+                LV_ERROR("Cannot set position of OrbitalPhysics root object!");
+                return;
+            }
 
             m_Objects[object].State.Position = position;
             ComputeValidity(object);
@@ -391,10 +415,18 @@ namespace Limnova
             }
             // TODO : update satellites ?
         }
+        Vector3 GetPosition(TObjectId object)
+        {
+            return m_Objects[object].State.Position;
+        }
 
         void SetVelocity(TObjectId object, Vector3 velocity)
         {
-            LV_CORE_ASSERT(Has(object), "Invalid ID!");
+            if (object == m_RootObject)
+            {
+                LV_WARN("Cannot set velocity of OrbitalPhysics root object!");
+                return;
+            }
 
             m_Objects[object].State.Velocity = velocity;
             /* Currently no validity check for velocity */
@@ -404,6 +436,10 @@ namespace Limnova
                 ComputeElements(object);
             }
             // TODO : update satellites ?
+        }
+        Vector3 GetVelocity(TObjectId object)
+        {
+            return m_Objects[object].State.Velocity;
         }
     };
 
