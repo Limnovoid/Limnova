@@ -15,7 +15,7 @@ namespace Limnova
         {
             camera.AddComponent<PerspectiveCameraComponent>();
 
-            class OrbitalCamera : public NativeScript
+            class OrbitalCameraScript : public NativeScript
             {
             public:
                 void OnCreate()
@@ -72,7 +72,7 @@ namespace Limnova
                 void OnEvent(Event& e)
                 {
                     EventDispatcher dispatcher{ e };
-                    dispatcher.Dispatch<MouseScrolledEvent>(LV_BIND_EVENT_FN(OrbitalCamera::OnMouseScrolledEvent));
+                    dispatcher.Dispatch<MouseScrolledEvent>(LV_BIND_EVENT_FN(OrbitalCameraScript::OnMouseScrolledEvent));
                 }
             private:
                 //Entity m_Focused;
@@ -103,7 +103,7 @@ namespace Limnova
                     return false;
                 }
             };
-            camera.AddComponent<NativeScriptComponent>().Bind<OrbitalCamera>();
+            camera.AddComponent<NativeScriptComponent>().Bind<OrbitalCameraScript>();
         }
 
         auto root = m_Scene.GetRoot();

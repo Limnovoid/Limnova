@@ -43,31 +43,31 @@ namespace Limnova
         auto camera = m_Scene->CreateEntity("Camera");
         {
             camera.AddComponent<PerspectiveCameraComponent>();
-            camera.AddComponent<NativeScriptComponent>().Bind<OrbitalCamera>();
+            camera.AddComponent<NativeScriptComponent>().Bind<OrbitalCameraScript>();
         }
 
         auto root = m_Scene->GetRoot();
         {
             root.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 1.f, 0.9f, 1.f });
-            root.GetComponent<TransformComponent>().SetScale({ 0.05f, 0.05f, 0.f });
-    }
+            root.GetComponent<OrbitalComponent>().LocalScale = { 0.05f, 0.05f, 0.f };
+        }
 
         auto orbital0 = m_Scene->CreateEntity("Orbital 0");
         {
-            orbital0.AddComponent<OrbitalComponent>();
             orbital0.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 0.3f, 0.2f, 1.f });
             auto& transform = orbital0.GetComponent<TransformComponent>();
             transform.SetPosition({ 0.9f, 0.f, 0.f });
-            transform.SetScale({ 0.01f, 0.01f, 0.f });
+            transform.SetScale({ 0.1f, 0.1f, 0.f });
+            orbital0.AddComponent<OrbitalComponent>();
         }
 
         auto orbital1 = m_Scene->CreateEntity("Orbital 1");
         {
-            orbital1.AddComponent<OrbitalComponent>();
             orbital1.AddComponent<SpriteRendererComponent>(Vector4{ 0.3f, 0.2f, 1.f, 1.f });
             auto& transform = orbital1.GetComponent<TransformComponent>();
             transform.SetPosition({ 0.f, 0.5f, 0.f });
-            transform.SetScale({ 0.01f, 0.01f, 0.f });
+            transform.SetScale({ 0.1f, 0.1f, 0.f });
+            orbital1.AddComponent<OrbitalComponent>();
         }
 #else
         m_Scene = CreateRef<Scene>();
@@ -192,6 +192,7 @@ namespace Limnova
             LV_PROFILE_SCOPE("Render Draw - EditorLayer::OnUpdate");
 
             m_Scene->OnUpdate(dT);
+            m_Scene->OnRender();
 
             m_Framebuffer->Unbind();
         }
@@ -328,6 +329,8 @@ namespace Limnova
         ImGui::PopStyleVar();
 
         ImGui::End(); // DockSpace
+
+        ImGui::ShowDemoWindow();
     }
 
 

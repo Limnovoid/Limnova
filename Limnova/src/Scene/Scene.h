@@ -41,6 +41,7 @@ namespace Limnova
         std::vector<Entity> GetChildren(Entity entity);
 
         virtual void OnUpdate(Timestep dT);
+        virtual void OnRender();
         virtual void OnEvent(Event& e);
     protected:
         entt::registry m_Registry;

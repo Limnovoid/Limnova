@@ -160,7 +160,6 @@ namespace Limnova
 
         // Scene 4 - entities
         m_Scene->OnUpdate(dT);
-
         //m_Framebuffer->Unbind();
     }
 

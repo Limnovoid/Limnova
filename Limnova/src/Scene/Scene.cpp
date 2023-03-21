@@ -154,7 +154,11 @@ namespace Limnova
                 }*/
             });
         }
+    }
 
+
+    void Scene::OnRender()
+    {
         // Camera
         if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<PerspectiveCameraComponent>(m_ActiveCamera))
         {

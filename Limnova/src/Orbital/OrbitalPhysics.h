@@ -23,6 +23,10 @@ namespace Limnova
     public:
         OrbitalPhysics()
         {
+            m_Objects[m_RootObject].Validity = Validity::InvalidMass; /* Object::Validity is initialised to InvalidParent but that is meaningless for the root object (which cannot be parented) */
+            auto& rootspace = m_LocalSpaces.Add(m_RootObject);
+            rootspace.Radius = 1.f;
+            rootspace.Influencing = true;
         }
         ~OrbitalPhysics()
         {
@@ -32,6 +36,8 @@ namespace Limnova
 
         using TObjectId = uint32_t;
         static constexpr TObjectId Null = std::numeric_limits<TObjectId>::max();
+    private:
+        static constexpr float kDefaultLocalSpaceRadius = 0.1f;
     private:
         using TAttrId = uint32_t;
 
@@ -126,8 +132,10 @@ namespace Limnova
         struct Object
         {
             TUserId UserId = TUserId();
+
             TObjectId Parent = Null;
             TObjectId PrevSibling = Null, NextSibling = Null;
+
             Validity Validity = Validity::InvalidParent;
             State State;
 
@@ -140,13 +148,17 @@ namespace Limnova
 
         struct Elements
         {
+            double Grav = 0.f;
             Vector3 H = { 0.f, 0.f, 0.f };
         };
 
-        struct Influence
+        struct LocalSpace
         {
-            float Radius = 0.f; /* Scaled to parent's influence */
+            float Radius = 0.f; /* Measured in parent's influence */
             float MetersPerRadius = 0.f;
+
+            bool Influencing = false;
+
             TObjectId FirstChild = Null;
         };
     private:
@@ -156,14 +168,8 @@ namespace Limnova
         std::vector<Object> m_Objects = { Object() }; /* Initialised with root object */
         std::unordered_set<TObjectId> m_EmptyObjects;
 
-        /* m_RootScalingUnit : orbital radii per metre in root scaling space
-         * The root object has infinite influence, so the scaling of the root space is arbitrary and must be set by the user.
-         */
-        float m_RootScalingUnit = 0.f;
-        TObjectId m_RootFirstChild = Null;
-
         AttributeStorage<Elements> m_Elements;
-        AttributeStorage<Influence> m_Influences;
+        AttributeStorage<LocalSpace> m_LocalSpaces;
     private:
         /*** Resource helpers ***/
 
@@ -190,22 +196,97 @@ namespace Limnova
             m_EmptyObjects.insert(object);
         }
 
+        // Inserts object into object hierarchy
+        void AttachObject(TObjectId object, TObjectId parent)
+        {
+            auto& obj = m_Objects[object];
+            auto& ls = m_LocalSpaces.Get(parent);
+
+            // Connect to parent
+            obj.Parent = parent;
+            if (ls.FirstChild == Null)
+            {
+                ls.FirstChild = object;
+            }
+            else
+            {
+                // Connect to siblings
+                auto& next = m_Objects[ls.FirstChild];
+                if (next.PrevSibling == Null)
+                {
+                    // Only one sibling
+                    obj.PrevSibling = obj.NextSibling = ls.FirstChild;
+                    next.PrevSibling = next.NextSibling = object;
+                }
+                else
+                {
+                    // More than one sibling
+                    auto& prev = m_Objects[next.PrevSibling];
+
+                    obj.NextSibling = ls.FirstChild;
+                    obj.PrevSibling = next.PrevSibling;
+
+                    next.PrevSibling = object;
+                    prev.NextSibling = object;
+                }
+            }
+        }
+
+        // Removes object from object hierarchy
+        void DetachObject(TObjectId object)
+        {
+            auto& obj = m_Objects[object];
+            auto& ls = m_LocalSpaces.Get(obj.Parent);
+
+            // Disconnect from parent
+            if (ls.FirstChild == object)
+            {
+                /* No need to check if this entity has siblings - NextSibling is the null entity in this case */
+                ls.FirstChild = obj.NextSibling;
+            }
+            obj.Parent = Null;
+
+            // Disconnect from siblings
+            if (obj.NextSibling != Null)
+            {
+                auto& next = m_Objects[obj.NextSibling];
+                if (obj.NextSibling == obj.PrevSibling)
+                {
+                    // Only one sibling
+                    next.NextSibling = next.PrevSibling = Null;
+                }
+                else
+                {
+                    // More than one sibling
+                    auto& prev = m_Objects[obj.PrevSibling];
+
+                    next.PrevSibling = obj.PrevSibling;
+                    prev.NextSibling = obj.NextSibling;
+                }
+
+                obj.NextSibling = obj.PrevSibling = Null;
+            }
+        }
+
 
         /*** Simulation helpers ***/
 
         bool ValidPosition(TObjectId object)
         {
-            return m_Objects[object].State.Position.SqrMagnitude() < 1.f
+            static constexpr float kEscapeDistance = 1.f;
+
+            return m_Objects[object].State.Position.SqrMagnitude() < kEscapeDistance;
                 /* TODO - check for influence overlaps */;
         }
 
         bool ValidMass(TObjectId object)
         {
-            static constexpr double kMaxCOG = 1e-6; /* Maximum offset for shared centre of gravity */
+            static constexpr double kMaxCOG = 1e-4; /* Maximum offset for shared centre of gravity */
+
             bool hasValidMass = m_Objects[object].State.Mass > 0.0;
             if (object == m_RootObject)
             {
-                // TODO - minimum mass ? maximum mass ?
+                // TODO - min/max root mass ?
             }
             else
             {
@@ -216,7 +297,7 @@ namespace Limnova
 
         bool ValidParent(TObjectId object)
         {
-            return m_Influences.Has(m_Objects[object].Parent) || object == m_RootObject;
+            return m_LocalSpaces.Has(m_Objects[object].Parent) || m_Objects[object].Parent == m_RootObject || object == m_RootObject;
         }
 
         void ComputeValidity(TObjectId object)
@@ -243,9 +324,13 @@ namespace Limnova
             auto& obj = m_Objects[object];
             auto& state = obj.State;
             auto& elems = m_Elements.Get(object);
+            auto& par = m_Objects[obj.Parent];
 
             LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Cannot compute elements on an invalid object!");
 
+            static constexpr double kGravitational = 6.6743e-11;
+
+            elems.Grav = kGravitational * par.State.Mass * pow(m_LocalSpaces.Get(obj.Parent).MetersPerRadius, -3.0);
             // TODO
         }
     public:
@@ -264,6 +349,24 @@ namespace Limnova
             return m_RootObject;
         }
 
+        /// <summary>
+        /// Sets scaling of root orbital space.
+        /// Scaling is in meters per simulation length-unit.
+        /// E.g, position vector with magnitude 1 in the root orbital space has a simulated magnitude equal to the root scaling.
+        /// </summary>
+        /// <param name="meters"></param>
+        void SetRootScaling(double meters)
+        {
+            m_LocalSpaces[m_RootObject].MetersPerRadius = meters;
+
+            // TODO - recompute all object elements
+        }
+
+        /// <summary>
+        /// Checks if the given ID identifies an existing physics object.
+        /// </summary>
+        /// <param name="object">ID of physics object in question</param>
+        /// <returns>True if ID is that of a physics object which has been created and not yet destroyed, false otherwise.</returns>
         bool Has(TObjectId object)
         {
             return object < m_Objects.size() && m_EmptyObjects.find(object) == m_EmptyObjects.end();
@@ -278,7 +381,9 @@ namespace Limnova
         {
             TObjectId newObject = GetEmptyObject();
             m_Objects[newObject].UserId = userId;
-            m_Objects[newObject].Parent = m_RootObject;
+            AttachObject(newObject, m_RootObject);
+            m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
+            m_Elements.Add(newObject);
             return newObject;
         }
 
@@ -293,8 +398,10 @@ namespace Limnova
 
             TObjectId newObject = GetEmptyObject();
             m_Objects[newObject].UserId = userId;
-            m_Objects[newObject].Parent = parent;
+            AttachObject(newObject, parent);
             ComputeValidity(newObject);
+            m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
+            m_Elements.Add(newObject);
             return newObject;
         }
 
@@ -304,20 +411,25 @@ namespace Limnova
         /// </summary>
         /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
         /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId, TObjectId parent, Vector3 position)
+        TObjectId Create(TUserId userId, TObjectId parent, bool mass, Vector3 position)
         {
             LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
 
             TObjectId newObject = GetEmptyObject();
             m_Objects[newObject].UserId = userId;
-            m_Objects[newObject].Parent = parent;
+            AttachObject(newObject, parent);
+            m_Objects[newObject].State.Mass = mass;
             m_Objects[newObject].State.Position = position;
             ComputeValidity(newObject);
+
+            m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
+            m_Elements.Add(newObject);
             if (m_Objects[newObject].Validity == Validity::Valid)
             {
                 // TODO - default velocity to circular
                 ComputeElements(newObject);
             }
+
             return newObject;
         }
 
@@ -326,26 +438,31 @@ namespace Limnova
         /// </summary>
         /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
         /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId, TObjectId parent, Vector3 position, Vector3 velocity)
+        TObjectId Create(TUserId userId, TObjectId parent, double mass, Vector3 position, Vector3 velocity)
         {
             LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
 
             TObjectId newObject = GetEmptyObject();
             m_Objects[newObject].UserId = userId;
-            m_Objects[newObject].Parent = parent;
-            auto& state = m_Objects[newObject].State.Add(newObject);
-            state.Position = position;
-            state.Velocity = velocity;
+            AttachObject(newObject, parent);
+            m_Objects[newObject].State.Mass = mass;
+            m_Objects[newObject].State.Position = position;
+            m_Objects[newObject].State.Velocity = velocity;
             ComputeValidity(newObject);
+
+            m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
+            m_Elements.Add(newObject);
             if (m_Objects[newObject].Validity == Validity::Valid)
             {
                 ComputeElements(newObject);
             }
+
             return newObject;
         }
 
         /// <summary>
         /// Destroy an orbital physics object.
+        /// Children are re-parented to the object's parent.
         /// </summary>
         /// <param name="objectId">ID of the physics object to be destroyed</param>
         void Destroy(TObjectId object)
@@ -353,10 +470,26 @@ namespace Limnova
             LV_CORE_ASSERT(Has(object), "Invalid ID!");
 
             // Remove all attributes
-            m_Influences.TryRemove(object);
+            m_LocalSpaces.Remove(object);
+            m_Elements.Remove(object);
 
-            // TODO : destroy satellites ???
+            // Detach from object hierarchy
+            DetachObject(object);
 
+            // Deal with children
+            LV_CORE_ASSERT(false, "Children not handled!");
+            //auto first = m_LocalSpaces.Get(object).FirstChild;
+            //auto child = first;
+            //do {
+            //    if (child == Null) break;
+            //    auto next = m_Objects[child].NextSibling;
+            //
+            //    // TODO : reparent child to object's parent, preserve state
+            //
+            //    child = next;
+            //} while (child != first);
+
+            // Re-use allocated memory
             RecycleObject(object);
         }
 
@@ -377,9 +510,57 @@ namespace Limnova
             }
             // TODO : update satellites ?
         }
+
         TUserId GetParent(TObjectId object)
         {
             return m_Objects[m_Objects[object].Parent].UserId;
+        }
+
+        std::vector<TUserId> GetChildren(TObjectId object)
+        {
+            std::vector<TUserId> children;
+
+            TObjectId first = Null;
+            if (object == m_RootObject) {
+                first = m_LocalSpaces.Get(m_RootObject).FirstChild;
+            }
+            else if (m_LocalSpaces.Has(object))
+            {
+                first = m_LocalSpaces.Get(object).FirstChild;
+            }
+            TObjectId child = first;
+            do {
+                if (child == Null) break;
+                children.push_back(m_Objects[child].UserId);
+                child = m_Objects[child].NextSibling;
+            } while (child != first);
+
+            return children;
+        }
+
+        bool IsInfluencing(TObjectId object)
+        {
+            return m_LocalSpaces.Get(object).Influencing;
+        }
+
+        void SetLocalSpaceRadius(TObjectId object, float radius)
+        {
+            static constexpr float kMaxLocalSpaceRadius = 0.5f;
+            // TODO : minimum radius ?
+
+            if (m_LocalSpaces.Get(object).Influencing && radius < kMaxLocalSpaceRadius && radius > 0.f) {
+                m_LocalSpaces.Get(object).Radius = radius;
+            }
+            else
+            {
+                LV_CORE_ASSERT(!m_LocalSpaces[object].Influencing, "Local-space radius of influencing entities cannot be manually set (must be set equal to radius of influence)!");
+                LV_CORE_WARN("Attempted to set invalid local-space radius ({0}): maximum = {1}", radius, kMaxLocalSpaceRadius);
+            }
+        }
+
+        float GetLocalSpaceRadius(TObjectId object)
+        {
+            return m_LocalSpaces.Get(object).Radius;
         }
 
         void SetMass(TObjectId object, double mass)
@@ -393,6 +574,7 @@ namespace Limnova
             }
             // TODO : update satellites ?
         }
+
         double GetMass(TObjectId object)
         {
             return m_Objects[object].State.Mass;
@@ -415,6 +597,7 @@ namespace Limnova
             }
             // TODO : update satellites ?
         }
+
         Vector3 GetPosition(TObjectId object)
         {
             return m_Objects[object].State.Position;
@@ -437,6 +620,7 @@ namespace Limnova
             }
             // TODO : update satellites ?
         }
+
         Vector3 GetVelocity(TObjectId object)
         {
             return m_Objects[object].State.Velocity;

@@ -65,6 +65,7 @@ namespace Limnova
         Scene* m_Scene = nullptr;
 
         friend class Scene;
+        friend class OrbitalScene;
         friend class NativeScript;
     };
 

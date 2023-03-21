@@ -6,7 +6,7 @@
 namespace Limnova
 {
 
-    class OrbitalCamera : public NativeScript
+    class OrbitalCameraScript : public NativeScript
     {
     public:
         void OnCreate()
@@ -63,7 +63,17 @@ namespace Limnova
         void OnEvent(Event& e)
         {
             EventDispatcher dispatcher{ e };
-            dispatcher.Dispatch<MouseScrolledEvent>(LV_BIND_EVENT_FN(OrbitalCamera::OnMouseScrolledEvent));
+            dispatcher.Dispatch<MouseScrolledEvent>(LV_BIND_EVENT_FN(OrbitalCameraScript::OnMouseScrolledEvent));
+        }
+    private:
+        bool OnMouseScrolledEvent(MouseScrolledEvent& e)
+        {
+            float deltaDist = e.GetYOffset() * m_ScrollSens;
+            m_Distance = std::clamp(m_Distance - deltaDist, m_MinDistance, m_MaxDistance);
+
+            // TODO : update view focus/space if needed, pass updated values to scene
+
+            return false;
         }
     private:
         //Entity m_Focused;
@@ -83,16 +93,6 @@ namespace Limnova
         float m_Azimuth = 0.f, m_Elevation = 0.f;//0.5f * m_MaxElevation;
 
         Vector2 m_MousePos;
-    private:
-        bool OnMouseScrolledEvent(MouseScrolledEvent& e)
-        {
-            float deltaDist = e.GetYOffset() * m_ScrollSens;
-            m_Distance = std::clamp(m_Distance - deltaDist, m_MinDistance, m_MaxDistance);
-
-            // TODO : update view focus/space if needed, pass updated values to scene
-
-            return false;
-        }
     };
 
 }

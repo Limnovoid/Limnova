@@ -17,7 +17,11 @@ namespace Limnova
     private:
         Physics::TObjectId PhysicsObjectId = Physics::Null;
         Physics* Physics = nullptr;
+
     public:
+        Vector3 LocalScale = { 1.f };
+        float Albedo; /* Surface reflectivity of orbital object - determines object's brightness as a star-like object when viewed from far away */
+
         OrbitalComponent() = default;
         //OrbitalComponent(const OrbitalComponent&) = default;
         //OrbitalComponent(const OrbitalPhysics<entt::entity>::TObjectId& physicsObjectId)
@@ -26,8 +30,8 @@ namespace Limnova
         Physics::Validity GetValidity() { return Physics->GetValidity(PhysicsObjectId); }
 
         void SetMass(double mass) { Physics->SetMass(PhysicsObjectId, mass); }
-        void SetPosition(Vector3 position) { Physics->SetPosition(PhysicsObjectId, position); }
-        void SetVelocity(Vector3 velocity) { Physics->SetVelocity(PhysicsObjectId, velocity); }
+        void SetPosition(const Vector3& position) { Physics->SetPosition(PhysicsObjectId, position); }
+        void SetVelocity(const Vector3& velocity) { Physics->SetVelocity(PhysicsObjectId, velocity); }
 
         double GetMass() { return Physics->GetMass(PhysicsObjectId); }
         Vector3 GetPosition() { return Physics->GetPosition(PhysicsObjectId); }
@@ -43,12 +47,19 @@ namespace Limnova
 
         void SetParent(Entity entity, Entity parent);
 
+        void SetViewPrimary(Entity primary);
+        Entity GetViewPrimary();
+        std::vector<Entity> GetSecondaries(Entity entity);
+
         void OnUpdate(Timestep dT) override;
+        void OnRender() override;
     private:
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
     private:
         Physics m_Physics;
+
+        entt::entity m_ViewPrimary;
     };
 
 }
