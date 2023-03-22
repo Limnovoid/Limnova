@@ -241,8 +241,6 @@ namespace Limnova
 
         /*** Scene ***/
 
-        m_SceneHierarchyPanel.OnImGuiRender();
-
         ImGui::Begin("Scene Properties");
 
         Entity activeCamera = m_Scene->GetActiveCamera();
@@ -294,6 +292,10 @@ namespace Limnova
         ImGui::Image((void*)viewportRendererId, viewportPanelSize, { 0, 1 }, { 1, 0 });
         ImGui::End(); // Viewport
         ImGui::PopStyleVar();
+
+
+        m_SceneHierarchyPanel.OnImGuiRender();
+
 
         ImGui::End(); // DockSpace
 

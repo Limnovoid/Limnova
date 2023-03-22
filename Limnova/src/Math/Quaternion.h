@@ -28,6 +28,8 @@ namespace Limnova
         Quaternion Inverse() const;
 
         static constexpr Quaternion Unit() { return Quaternion(); } // Returns the unit quaternion (which applies zero rotation).
+
+        Vector3 ToEulerAngles() const;
     private:
         Quaternion(Vector3 vec);
         void Normalize();

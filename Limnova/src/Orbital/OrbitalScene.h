@@ -29,6 +29,16 @@ namespace Limnova
 
         Physics::Validity GetValidity() { return Physics->GetValidity(PhysicsObjectId); }
 
+        void SetLocalSpaceRadius(float radius)
+        {
+            float oldRadius = Physics->GetLocalSpaceRadius(PhysicsObjectId);
+            if (Physics->SetLocalSpaceRadius(PhysicsObjectId, radius))
+            {
+                LocalScale *= oldRadius / radius;
+            }
+        }
+        float GetLocalSpaceRadius() { return Physics->GetLocalSpaceRadius(PhysicsObjectId); }
+
         void SetMass(double mass) { Physics->SetMass(PhysicsObjectId, mass); }
         void SetPosition(const Vector3& position) { Physics->SetPosition(PhysicsObjectId, position); }
         void SetVelocity(const Vector3& velocity) { Physics->SetVelocity(PhysicsObjectId, velocity); }

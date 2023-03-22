@@ -30,6 +30,7 @@ namespace Limnova
         Vector3 Scale = { 1.f };
         Vector3 Position = { 0.f };
         Quaternion Orientation = Quaternion::Unit();
+        Vector3 EulerAngles = { 0.f };
     public:
         TransformComponent() = default;
         TransformComponent(const TransformComponent&) = default;
@@ -39,11 +40,25 @@ namespace Limnova
         void Set(const Vector3& scale, const Vector3& position) { Scale = scale; Position = position; NeedCompute = true; }
         void SetScale(const Vector3& scale) { Scale = scale; NeedCompute = true; }
         void SetPosition(const Vector3& position) { Position = position; NeedCompute = true; }
-        void SetOrientation(const Quaternion& orientation) { Orientation = orientation; NeedCompute = true; }
+        void SetOrientation(const Quaternion& orientation)
+        {
+            Orientation = orientation;
+            EulerAngles = Orientation.ToEulerAngles();
+            NeedCompute = true;
+        }
+        void SetEulerAngles(const Vector3& eulerAngles)
+        {
+            EulerAngles = eulerAngles;
+            Orientation = Quaternion(Vector3{ 1.f,0.f,0.f }, EulerAngles.x)
+                * Quaternion(Vector3{ 0.f,1.f,0.f }, EulerAngles.y)
+                * Quaternion(Vector3{ 0.f,0.f,1.f }, EulerAngles.z);
+            NeedCompute = true;
+        }
 
         const Vector3& GetScale() { return Scale; }
         const Vector3& GetPosition() { return Position; }
         const Quaternion& GetOrientation() { return Orientation; }
+        const Vector3& GetEulerAngles() { return EulerAngles; }
 
         const glm::mat4& GetTransform() { if (NeedCompute) Compute(); return Transform; }
         operator const glm::mat4& () { if (NeedCompute) Compute(); return Transform; }

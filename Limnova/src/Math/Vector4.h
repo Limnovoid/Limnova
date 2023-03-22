@@ -20,6 +20,7 @@ namespace Limnova
 
         Vector3 XYZ() const { return { x, y, z }; }
         float* Ptr() { return &x; }
+        const float* PtrC() const { return &x; }
 
         inline float SqrMagnitude() const { return x * x + y * y + z * z + w * w; }
 

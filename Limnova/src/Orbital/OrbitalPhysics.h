@@ -37,6 +37,7 @@ namespace Limnova
         using TObjectId = uint32_t;
         static constexpr TObjectId Null = std::numeric_limits<TObjectId>::max();
     private:
+        static constexpr double kGravitational = 6.6743e-11;
         static constexpr float kDefaultLocalSpaceRadius = 0.1f;
     private:
         using TAttrId = uint32_t;
@@ -88,6 +89,12 @@ namespace Limnova
                     Recycle(m_ObjectToAttr[object]);
                     m_ObjectToAttr.erase(object);
                 }
+            }
+        public:
+            const Attr& operator[](TObjectId object)
+            {
+                LV_CORE_ASSERT(m_ObjectToAttr.find(object) != m_ObjectToAttr.end(), "Object is missing requested attribute!");
+                return m_Attributes[m_ObjectToAttr[object]];
             }
         private:
             TAttrId GetEmpty()
@@ -328,10 +335,18 @@ namespace Limnova
 
             LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Cannot compute elements on an invalid object!");
 
-            static constexpr double kGravitational = 6.6743e-11;
-
             elems.Grav = kGravitational * par.State.Mass * pow(m_LocalSpaces.Get(obj.Parent).MetersPerRadius, -3.0);
-            // TODO
+
+            // TODO ...
+        }
+
+        float CircularOrbitSpeed(TObjectId object)
+        {
+            auto& obj = m_Objects[object];
+            auto& par = m_Objects[obj.Parent];
+
+            /* ||V_circular|| = sqrt(||r|| * mu), where mu is the gravitational parameter of the orbit */
+            return sqrtf(obj.State.Position.SqrMagnitude()) * kGravitational * par.State.Mass * pow(m_LocalSpaces.Get(obj.Parent).MetersPerRadius, -3.0);
         }
     public:
         /*** Usage ***/
@@ -426,7 +441,9 @@ namespace Limnova
             m_Elements.Add(newObject);
             if (m_Objects[newObject].Validity == Validity::Valid)
             {
-                // TODO - default velocity to circular
+                // Set velocity for circular orbit
+                m_Objects[newObject].State.Velocity = CircularOrbitSpeed(newObject);
+
                 ComputeElements(newObject);
             }
 
@@ -477,7 +494,7 @@ namespace Limnova
             DetachObject(object);
 
             // Deal with children
-            LV_CORE_ASSERT(false, "Children not handled!");
+            LV_CORE_ASSERT(false, "Children not updated!");
             //auto first = m_LocalSpaces.Get(object).FirstChild;
             //auto child = first;
             //do {
@@ -543,19 +560,26 @@ namespace Limnova
             return m_LocalSpaces.Get(object).Influencing;
         }
 
-        void SetLocalSpaceRadius(TObjectId object, float radius)
+        /// <summary>
+        /// Sets local space radius of object to given radius, if the local space radius can be changed and the given radius is valid.
+        /// </summary>
+        /// <returns>True if successfully changed, false otherwise</returns>
+        bool SetLocalSpaceRadius(TObjectId object, float radius)
         {
             static constexpr float kMaxLocalSpaceRadius = 0.5f;
-            // TODO : minimum radius ?
+            static constexpr float kMinLocalSpaceRadius = 0.f;
 
-            if (m_LocalSpaces.Get(object).Influencing && radius < kMaxLocalSpaceRadius && radius > 0.f) {
-                m_LocalSpaces.Get(object).Radius = radius;
-            }
-            else
+            if (!IsInfluencing(object) && radius < kMaxLocalSpaceRadius && radius > kMinLocalSpaceRadius)
             {
-                LV_CORE_ASSERT(!m_LocalSpaces[object].Influencing, "Local-space radius of influencing entities cannot be manually set (must be set equal to radius of influence)!");
-                LV_CORE_WARN("Attempted to set invalid local-space radius ({0}): maximum = {1}", radius, kMaxLocalSpaceRadius);
+                m_LocalSpaces.Get(object).Radius = radius;
+
+                // TODO : update child positions
+
+                return true;
             }
+            LV_CORE_ASSERT(!m_LocalSpaces[object].Influencing, "Local-space radius of influencing entities cannot be manually set (must be set equal to radius of influence)!");
+            LV_CORE_WARN("Attempted to set invalid local-space radius ({0}): bounds = [{1}, {2}]", radius, kMinLocalSpaceRadius, kMaxLocalSpaceRadius);
+            return false;
         }
 
         float GetLocalSpaceRadius(TObjectId object)

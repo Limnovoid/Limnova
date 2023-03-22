@@ -16,8 +16,11 @@ namespace Limnova
 
     inline double Radians(double degrees) { return degrees * PI / 180.0; }
     inline float Radiansf(float degrees) { return degrees * PIf / 180.f; }
+    inline Vector3 RadiansVec3(const Vector3& degrees) { return degrees * PIf / 180.f; }
+
     inline double Degrees(double radians) { return radians * 180.0 / PI; }
     inline float Degreesf(float radians) { return radians * 180.f / PIf; }
+    inline Vector3 DegreesVec3(Vector3 radians) { return radians * 180.f / PIf; }
 
     BigFloat WrapBf(BigFloat x, const BigFloat& lowerBound, const BigFloat& upperBound);
     double Wrap(double x, double lowerBound, double upperBound);
