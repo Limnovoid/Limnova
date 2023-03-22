@@ -101,12 +101,12 @@ namespace Limnova
         // perspective without having to place the entities at accurate distances relative to the viewed orbital space.
 
         // Camera
-        if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<PerspectiveCameraComponent>(m_ActiveCamera))
+        if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<CameraComponent>(m_ActiveCamera))
         {
             LV_CORE_WARN("Scene has no active camera - no rendering!");
             return;
         }
-        auto [camera, camTransform] = m_Registry.get<PerspectiveCameraComponent, TransformComponent>(m_ActiveCamera);
+        auto [camera, camTransform] = m_Registry.get<CameraComponent, TransformComponent>(m_ActiveCamera);
         camera.Camera.SetView(glm::inverse(camTransform.GetTransform()));
 
         Renderer2D::BeginScene(camera.Camera);

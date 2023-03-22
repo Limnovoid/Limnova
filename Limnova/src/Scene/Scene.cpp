@@ -48,8 +48,8 @@ namespace Limnova
         m_Registry.on_construct<HierarchyComponent>().connect<&Scene::OnHierarchyComponentConstruction>(this);
         m_Registry.on_destroy<HierarchyComponent>().connect<&Scene::OnHierarchyComponentDestruction>(this);
 
-        m_Registry.on_construct<PerspectiveCameraComponent>().connect<&Scene::OnCameraComponentConstruction>(this);
-        m_Registry.on_destroy<PerspectiveCameraComponent>().connect<&Scene::OnCameraComponentDestruction>(this);
+        m_Registry.on_construct<CameraComponent>().connect<&Scene::OnCameraComponentConstruction>(this);
+        m_Registry.on_destroy<CameraComponent>().connect<&Scene::OnCameraComponentDestruction>(this);
     }
 
 
@@ -105,7 +105,7 @@ namespace Limnova
 
     void Scene::SetActiveCamera(Entity cameraEntity)
     {
-        LV_CORE_ASSERT(cameraEntity.HasComponent<PerspectiveCameraComponent>(), "Attempted to set active camera to a non-camera entity!");
+        LV_CORE_ASSERT(cameraEntity.HasComponent<CameraComponent>(), "Attempted to set active camera to a non-camera entity!");
         m_ActiveCamera = cameraEntity.m_EnttId;
     }
 
@@ -118,13 +118,13 @@ namespace Limnova
 
     void Scene::OnWindowChangeAspect(float aspect)
     {
-        auto view = m_Registry.view<PerspectiveCameraComponent>();
+        auto view = m_Registry.view<CameraComponent>();
         for (auto entity : view)
         {
-            auto& camera = view.get<PerspectiveCameraComponent>(entity);
+            auto& camera = view.get<CameraComponent>(entity);
             if (camera.TieAspectToView)
             {
-                camera.SetAspect(aspect);
+                camera.SetAspectRatio(aspect);
             }
         }
     }
@@ -160,12 +160,12 @@ namespace Limnova
     void Scene::OnRender()
     {
         // Camera
-        if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<PerspectiveCameraComponent>(m_ActiveCamera))
+        if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<CameraComponent>(m_ActiveCamera))
         {
             LV_CORE_WARN("Scene has no active camera - no rendering!");
             return;
         }
-        auto [camera, camTransform] = m_Registry.get<PerspectiveCameraComponent, TransformComponent>(m_ActiveCamera);
+        auto [camera, camTransform] = m_Registry.get<CameraComponent, TransformComponent>(m_ActiveCamera);
         camera.Camera.SetView(glm::inverse(camTransform.GetTransform()));
 
         Renderer2D::BeginScene(camera.Camera);
@@ -243,7 +243,7 @@ namespace Limnova
         {
             // Active camera becomes the first other camera component in the scene,
             // or the null entity if none exists.
-            m_ActiveCamera = m_Registry.view<PerspectiveCameraComponent>().front();
+            m_ActiveCamera = m_Registry.view<CameraComponent>().front();
         }
     }
 

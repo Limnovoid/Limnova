@@ -4,8 +4,7 @@
 #include "Script.h"
 
 #include <Math/Math.h>
-#include <Renderer/PerspectiveCamera.h>
-#include <Renderer/OrthographicCamera.h>
+#include <Renderer/Camera.h>
 
 namespace Limnova
 {
@@ -85,35 +84,75 @@ namespace Limnova
     };
 
 
-    struct PerspectiveCameraComponent
+    struct CameraComponent
     {
     private:
-        float Fov{ glm::radians(60.f) };
-        float AspectRatio{ 16.f / 9.f };
-        float NearClip{ 0.1f }, FarClip{ 100.f };
+        float VerticalFov = { Radiansf(60.f) };
+        float OrthographicHeight = 1.f;
+        float AspectRatio = { 16.f / 9.f };
+        float OrthoNearClip = { -5.f }, OrthoFarClip{ 5.f };
+        float PerspNearClip = { 0.01f }, PerspFarClip{ 1000.f };
     public:
-        PerspectiveCamera Camera{ Fov, AspectRatio, NearClip, FarClip, {0.f}, {0.f,0.f,-1.f}, {0.f,1.f,0.f} };
+        Camera Camera = { {0.f}, Vector3::Forward(), Vector3::Up()};
         bool TieAspectToView = true;
+        bool IsOrthographic = false;
 
-        PerspectiveCameraComponent() = default;
-        PerspectiveCameraComponent(const PerspectiveCameraComponent&) = default;
-        PerspectiveCameraComponent(float fov, float aspectRatio, float nearClip, float farClip,
-            const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection)
-            :
-            Camera(fov, aspectRatio, nearClip, farClip, position, aimDirection, upDirection),
-            Fov(fov), AspectRatio(aspectRatio), NearClip(nearClip), FarClip(farClip) {}
+        CameraComponent() = default;
+        CameraComponent(const CameraComponent&) = default;
+        CameraComponent(const Vector3& position, const Vector3& aimDirection, const Vector3& upDirection)
+            : Camera(position, aimDirection, upDirection)
+        {
+            UpdateProjection();
+        }
 
-        void SetFov(float fov) { Fov = fov; UpdateProjection(); }
-        void SetAspect(float aspect) { AspectRatio = aspect; UpdateProjection(); }
-        void SetClip(float nearClip, float farClip) { NearClip = nearClip; FarClip = farClip; UpdateProjection(); }
+        void SetOrthographicProjection(const float aspectRatio, const float height, const float nearClip, const float farClip)
+        {
+            OrthographicHeight = height;
+            AspectRatio = aspectRatio;
+            OrthoNearClip = nearClip;
+            OrthoFarClip = farClip;
 
-        float GetFov() { return Fov; }
-        float GetAspect() { return AspectRatio; }
-        std::pair<float, float> GetClip() { return { NearClip, FarClip }; }
+            IsOrthographic = true;
+            UpdateProjection();
+        }
+
+        void SetPerspectiveProjection(const float verticalFov, const float aspectRatio, const float nearClip, const float farClip)
+        {
+            VerticalFov = verticalFov;
+            AspectRatio = aspectRatio;
+            PerspNearClip = nearClip;
+            PerspFarClip = farClip;
+
+            IsOrthographic = false;
+            UpdateProjection();
+        }
+
+        void SetOrthographic(bool isOrthographic) { IsOrthographic = isOrthographic; UpdateProjection(); }
+        bool GetOrthographic() { return IsOrthographic; }
+
+        void SetOrthographicHeight(float orthographicHeight) { OrthographicHeight = orthographicHeight; UpdateProjection(); }
+        float GetOrthographicHeight() { return OrthographicHeight; }
+
+        void SetPerspectiveFov(float verticalFov) { VerticalFov = verticalFov; UpdateProjection(); }
+        float GetPerspectiveFov() { return VerticalFov; }
+
+        void SetOrthographicClip(float nearClip, float farClip) { OrthoNearClip = nearClip; OrthoFarClip = farClip; UpdateProjection(); }
+        std::pair<float, float> GetOrthographicClip() { return { OrthoNearClip, OrthoFarClip }; }
+
+        void SetPerspectiveClip(float nearClip, float farClip) { PerspNearClip = nearClip; PerspFarClip = farClip; UpdateProjection(); }
+        std::pair<float, float> GetPerspectiveClip() { return { PerspNearClip, PerspFarClip }; }
+
+        void SetAspectRatio(float aspectRatio) { AspectRatio = aspectRatio; UpdateProjection(); }
+        float GetAspectRatio() { return AspectRatio; }
     private:
         void UpdateProjection()
         {
-            Camera.SetProjection(Fov, AspectRatio, NearClip, FarClip);
+            if (IsOrthographic) {
+                Camera.SetOrthographicProjection(AspectRatio, OrthographicHeight, OrthoNearClip, OrthoFarClip);
+            }
+            else {
+                Camera.SetPerspectiveProjection(VerticalFov, AspectRatio, PerspNearClip, PerspFarClip);
+            }
         }
     };
 

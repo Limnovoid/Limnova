@@ -47,10 +47,9 @@ add_library(${PROJECT_NAME} STATIC
     "src/Platform/Windows/WindowsInput.cpp"
 
     "src/Renderer/Buffer.cpp"
-    "src/Renderer/Camera.h"
-    "src/Renderer/Framebuffer.cpp"
-    "src/Renderer/OrthographicCamera.cpp"
-    "src/Renderer/PerspectiveCamera.cpp"
+    "src/Renderer/Camera.cpp"
+    "src/Renderer/Framebuffer.cpp"    
+    
     "src/Renderer/PlanarCameraController.cpp"
     "src/Renderer/PointCameraController.cpp"
     "src/Renderer/RenderCommand.cpp"

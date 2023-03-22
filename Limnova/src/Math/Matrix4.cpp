@@ -4,6 +4,9 @@
 namespace Limnova
 {
 
-
+    Matrix4 Matrix4::operator*(const Matrix4& rhs) const
+    {
+        return { this->mat * rhs.mat };
+    }
 
 }

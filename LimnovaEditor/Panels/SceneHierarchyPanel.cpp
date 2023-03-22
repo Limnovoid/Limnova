@@ -135,6 +135,55 @@ namespace Limnova
             ImGui::Separator();
         }
 
+        if (entity.HasComponent<CameraComponent>())
+        {
+            if (ImGui::TreeNodeEx((void*)typeid(CameraComponent).hash_code(), ImGuiTreeNodeFlags_DefaultOpen, "Camera"))
+            {
+                auto& camera = entity.GetComponent<CameraComponent>();
+
+                bool isOrthographic = camera.GetOrthographic();
+                if (ImGui::Checkbox("Orthographic", &isOrthographic)) {
+                    camera.SetOrthographic(isOrthographic);
+                }
+
+                if (isOrthographic)
+                {
+                    // Orthographic options
+                    float height = camera.GetOrthographicHeight();
+                    if (ImGui::DragFloat("Height", &height, 0.01f, 0.001f)) {
+                        camera.SetOrthographicHeight(height);
+                    }
+
+                    auto [orthoNear, orthoFar] = camera.GetOrthographicClip();
+                    if (ImGui::DragFloat("Near", &orthoNear, 0.01f, 0.f, orthoFar)) {
+                        camera.SetOrthographicClip(orthoNear, orthoFar);
+                    }
+                    if (ImGui::DragFloat("Far", &orthoFar, 0.01f, orthoNear)) {
+                        camera.SetOrthographicClip(orthoNear, orthoFar);
+                    }
+                }
+                else
+                {
+                    // Perspective options
+                    float fov = Degreesf(camera.GetPerspectiveFov());
+                    if (ImGui::DragFloat("FOV", &fov, 1.f, 1.f, 179.f, "%.1f")) {
+                        camera.SetPerspectiveFov(Radiansf(fov));
+                    }
+
+                    auto [perspNear, perspFar] = camera.GetPerspectiveClip();
+                    if (ImGui::DragFloat("Near", &perspNear, 0.01f, 0.001f, perspFar)) {
+                        camera.SetPerspectiveClip(perspNear, perspFar);
+                    }
+                    if (ImGui::DragFloat("Far", &perspFar, 1.f, perspNear)) {
+                        camera.SetPerspectiveClip(perspNear, perspFar);
+                    }
+                }
+
+                ImGui::TreePop();
+            }
+            ImGui::Separator();
+        }
+
         // Orbital
         if (entity.HasComponent<OrbitalComponent>())
         {

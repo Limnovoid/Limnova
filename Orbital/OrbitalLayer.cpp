@@ -13,7 +13,7 @@ namespace Limnova
     {
         auto camera = m_Scene.CreateEntity("Camera");
         {
-            camera.AddComponent<PerspectiveCameraComponent>();
+            camera.AddComponent<CameraComponent>();
 
             class OrbitalCameraScript : public NativeScript
             {

@@ -42,7 +42,7 @@ namespace Limnova
         m_Scene = CreateRef<OrbitalScene>();
         auto camera = m_Scene->CreateEntity("Camera");
         {
-            camera.AddComponent<PerspectiveCameraComponent>();
+            camera.AddComponent<CameraComponent>();
             camera.AddComponent<NativeScriptComponent>().Bind<OrbitalCameraScript>();
         }
 
@@ -109,46 +109,13 @@ namespace Limnova
 
         m_Scene->SetActiveCamera(camera0);
 
-        class CameraController : public NativeScript
-        {
-        public:
-            void OnCreate()
-            {
-            }
-
-            void OnDestroy()
-            {
-            }
-
-            void OnUpdate(Timestep dT)
-            {
-                if (!IsActiveCamera()) return;
-
-                auto& transform = GetComponent<TransformComponent>();
-                Vector3 moveDir{ 0.f };
-                if (Input::IsKeyPressed(LV_KEY_A))
-                    moveDir.x = -1.f;
-                if (Input::IsKeyPressed(LV_KEY_D))
-                    moveDir.x = 1.f;
-                if (Input::IsKeyPressed(LV_KEY_W))
-                    moveDir.y = 1.f;
-                if (Input::IsKeyPressed(LV_KEY_S))
-                    moveDir.y = -1.f;
-                if (Input::IsKeyPressed(LV_KEY_Q))
-                    moveDir.z = 1.f;
-                if (Input::IsKeyPressed(LV_KEY_E))
-                    moveDir.z = -1.f;
-                static constexpr float moveSpeed = 1.f;
-                transform.SetPosition(transform.GetPosition() + (moveDir.Normalized() * moveSpeed * dT));
-            }
-        };
         {
             auto& script = camera0.AddComponent<NativeScriptComponent>();
-            script.Bind<CameraController>();
+            script.Bind<PlanarCameraScript>();
         }
         {
             auto& script = camera1.AddComponent<NativeScriptComponent>();
-            script.Bind<CameraController>();
+            script.Bind<PlanarCameraScript>();
         }
 #endif
 
@@ -281,7 +248,7 @@ namespace Limnova
         Entity activeCamera = m_Scene->GetActiveCamera();
         if (ImGui::BeginCombo("Camera", activeCamera.GetComponent<TagComponent>().Tag.c_str()))
         {
-            auto cameraEntities = m_Scene->GetEntitiesByComponents<PerspectiveCameraComponent>();
+            auto cameraEntities = m_Scene->GetEntitiesByComponents<CameraComponent>();
             for (auto& entity : cameraEntities)
             {
                 if (ImGui::Selectable(entity.GetComponent<TagComponent>().Tag.c_str(), activeCamera == entity))

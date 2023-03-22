@@ -1,7 +1,6 @@
 #pragma once
 
-#include "Renderer/PerspectiveCamera.h"
-#include "Renderer/OrthographicCamera.h"
+#include "Renderer/Camera.h"
 
 #include "Core/Timestep.h"
 #include "Events/ApplicationEvent.h"
@@ -40,6 +39,8 @@ namespace Limnova
         virtual void SetView() = 0;         // override per camera type
         virtual void SetProjection() = 0;   // override per camera type
     protected:
+        Camera m_Camera;
+
         Vector3 m_Position;
         Vector3 m_AimDirection;
         float m_AspectRatio;
@@ -75,7 +76,6 @@ namespace Limnova
         void SetProjection() override;
     private:
         float m_BaseFov;
-        PerspectiveCamera m_Camera;
     };
 
 
@@ -91,8 +91,6 @@ namespace Limnova
     private:
         void SetView() override;
         void SetProjection() override;
-    private:
-        OrthographicCamera m_Camera;
     };
 
 }

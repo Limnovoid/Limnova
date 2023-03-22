@@ -36,8 +36,6 @@
 #include <src/Renderer/Buffer.h>
 #include <src/Renderer/Camera.h>
 #include <src/Renderer/Framebuffer.h>
-#include <src/Renderer/OrthographicCamera.h>
-#include <src/Renderer/PerspectiveCamera.h>
 #include <src/Renderer/PlanarCameraController.h>
 #include <src/Renderer/PointCameraController.h>
 #include <src/Renderer/Shader.h>

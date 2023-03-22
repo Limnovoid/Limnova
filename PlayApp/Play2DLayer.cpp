@@ -51,14 +51,14 @@ namespace Limnova
         m_SquareEntity = square;
 
         m_Camera0 = m_Scene->CreateEntity("Camera 0");
-        m_Camera0.AddComponent<PerspectiveCameraComponent>();
+        m_Camera0.AddComponent<CameraComponent>();
         {
             auto& transform = m_Camera0.GetComponent<TransformComponent>();
             transform.Set({ 1.f }, { 0.f, 0.f, 2.f });
         }
 
         m_Camera1 = m_Scene->CreateEntity("Camera 1");
-        m_Camera1.AddComponent<PerspectiveCameraComponent>();
+        m_Camera1.AddComponent<CameraComponent>();
         {
             auto& transform = m_Camera1.GetComponent<TransformComponent>();
             transform.Set({ 1.f }, { 0.f, 0.f, 3.f });
@@ -182,7 +182,7 @@ namespace Limnova
         Entity activeCamera = m_Scene->GetActiveCamera();
         if (ImGui::BeginCombo("Camera", activeCamera.GetComponent<TagComponent>().Tag.c_str()))
         {
-            auto cameraEntities = m_Scene->GetEntitiesByComponents<PerspectiveCameraComponent>();
+            auto cameraEntities = m_Scene->GetEntitiesByComponents<CameraComponent>();
             for (auto& entity : cameraEntities)
             {
                 if (ImGui::Selectable(entity.GetComponent<TagComponent>().Tag.c_str(), activeCamera == entity))

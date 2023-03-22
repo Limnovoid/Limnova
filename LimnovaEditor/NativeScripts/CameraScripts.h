@@ -6,6 +6,41 @@
 namespace Limnova
 {
 
+    class PlanarCameraScript : public NativeScript
+    {
+    public:
+        void OnCreate()
+        {
+        }
+
+        void OnDestroy()
+        {
+        }
+
+        void OnUpdate(Timestep dT)
+        {
+            if (!IsActiveCamera()) return;
+
+            auto& transform = GetComponent<TransformComponent>();
+            Vector3 moveDir{ 0.f };
+            if (Input::IsKeyPressed(LV_KEY_A))
+                moveDir.x = -1.f;
+            if (Input::IsKeyPressed(LV_KEY_D))
+                moveDir.x = 1.f;
+            if (Input::IsKeyPressed(LV_KEY_W))
+                moveDir.y = 1.f;
+            if (Input::IsKeyPressed(LV_KEY_S))
+                moveDir.y = -1.f;
+            if (Input::IsKeyPressed(LV_KEY_Q))
+                moveDir.z = 1.f;
+            if (Input::IsKeyPressed(LV_KEY_E))
+                moveDir.z = -1.f;
+            static constexpr float moveSpeed = 1.f;
+            transform.SetPosition(transform.GetPosition() + (moveDir.Normalized() * moveSpeed * dT));
+        }
+    };
+
+
     class OrbitalCameraScript : public NativeScript
     {
     public:

@@ -12,7 +12,8 @@ namespace Limnova
 
     PointCameraController::PointCameraController(const Vector3& position, const Vector3& aimDirection, const float aspectRatio,
         const float nearDistance, const float farDistance)
-        : m_Position(position), m_AimDirection(aimDirection), m_AspectRatio(aspectRatio), m_Near(nearDistance), m_Far(farDistance)
+        : m_Camera(position, aimDirection, Vector3::Up()), m_Position(position), m_AimDirection(aimDirection),
+        m_AspectRatio(aspectRatio), m_Near(nearDistance), m_Far(farDistance)
     {
         std::tie(m_MouseX, m_MouseY) = Input::GetMousePosition();
 
@@ -170,10 +171,11 @@ namespace Limnova
 
     PerspectivePointCameraController::PerspectivePointCameraController(const Vector3& position, const Vector3& aimDirection,
         const float aspectRatio, const float nearDistance, const float farDistance, const float fov)
-        : PointCameraController(position, aimDirection, aspectRatio, nearDistance, farDistance), m_BaseFov(fov),
-        m_Camera(m_BaseFov, m_AspectRatio, m_Near, m_Far, m_Position, m_AimDirection, { 0.f, 1.f, 0.f })
+        : PointCameraController(position, aimDirection, aspectRatio, nearDistance, farDistance), m_BaseFov(fov)
     {
         LV_PROFILE_FUNCTION();
+
+        m_Camera.SetPerspectiveProjection(m_BaseFov, m_AspectRatio, m_Near, m_Far);
 
         m_MinZoom = 0.25;   // 60 * 0.25 = 15 degrees FoV
         m_MaxZoom = 1.5f;   // 60 * 1.5 = 90 degrees FoV
@@ -194,7 +196,7 @@ namespace Limnova
 
     void PerspectivePointCameraController::SetProjection()
     {
-        m_Camera.SetProjection(m_BaseFov * m_ZoomLevel, m_AspectRatio, m_Near, m_Far);
+        m_Camera.SetPerspectiveProjection(m_BaseFov * m_ZoomLevel, m_AspectRatio, m_Near, m_Far);
     }
 
 
@@ -202,10 +204,11 @@ namespace Limnova
 
     OrthographicPointCameraController::OrthographicPointCameraController(const Vector3& position, const Vector3& aimDirection,
         const float aspectRatio, const float nearDistance, const float farDistance)
-        : PointCameraController(position, aimDirection, aspectRatio, nearDistance, farDistance),
-        m_Camera(m_AspectRatio, m_Near, m_Far, m_Position, m_AimDirection, { 0.f, 1.f, 0.f })
+        : PointCameraController(position, aimDirection, aspectRatio, nearDistance, farDistance)
     {
         LV_PROFILE_FUNCTION();
+
+        m_Camera.SetOrthographicProjection(m_AspectRatio, m_ZoomLevel, m_Near, m_Far);
 
         m_MinZoom = 0.1f;
         m_MaxZoom = 4.f;
@@ -226,7 +229,7 @@ namespace Limnova
 
     void OrthographicPointCameraController::SetProjection()
     {
-        m_Camera.SetProjection(m_AspectRatio, m_ZoomLevel, m_Near, m_Far);
+        m_Camera.SetOrthographicProjection(m_AspectRatio, m_ZoomLevel, m_Near, m_Far);
     }
 
 }
