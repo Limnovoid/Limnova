@@ -17,21 +17,6 @@ namespace Limnova
     private:
         void EntityNode(Entity entity, bool forceExpanded = false);
         void Inspector(Entity entity);
-
-        template<typename TComponent>
-        void ComponentInspector(Entity entity, const std::string& name, std::function<void()> control)
-        {
-            if (entity.HasComponent<TComponent>())
-            {
-                if (ImGui::TreeNodeEx((void*)typeid(TComponent).hash_code(), ImGuiTreeNodeFlags_DefaultOpen, name.c_str()))
-                {
-                    control();
-
-                    ImGui::TreePop();
-                }
-                ImGui::Separator();
-            }
-        }
     private:
         Scene* m_Scene;
         Entity m_Selected;
@@ -40,7 +25,22 @@ namespace Limnova
     namespace LimnGui
     {
 
-        bool DragVec3(const std::string& label, Vector3& values, float speed, float resetValue = 0.f, float columnWidth = 100.f);
+        template<typename T>
+        struct InputConfig
+        {
+            T ResetValue = 0;
+            T Speed = 0;
+            T FastSpeed = 1;
+            T Min = 0;
+            T Max = 0;
+            uint32_t Precision = 3;
+        };
+
+        bool Checkbox(const std::string& label, bool& value, float columnWidth = 100.f);
+        bool InputScientific(const std::string& label, double& value, float columnWidth = 100.f);
+        bool DragFloat(const std::string& label, float& value, const InputConfig<float>& config, float columnWidth = 100.f);
+        bool DragVec3(const std::string& label, Vector3& values, const InputConfig<float>& config, float columnWidth = 100.f);
+        bool ColorEdit(const std::string& label, Vector4& values, float columnWidth = 100.f);
 
     }
 

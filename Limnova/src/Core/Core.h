@@ -46,6 +46,7 @@
 #define LV_BIND_EVENT_FN(fn) [this](auto&&... args) -> decltype(auto) { return this->fn(std::forward<decltype(args)>(args)...); }
 
 #define LV_DIR "C:/Programming/source/Limnova"
+#define LV_ASSET_DIR "C:/Programming/source/Limnova/Limnova/assets"
 
 namespace Limnova
 {

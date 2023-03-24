@@ -18,6 +18,7 @@ namespace Limnova
         ~Scene() = default;
 
         Entity CreateEntity(const std::string& name = std::string());
+        void DestroyEntity(Entity entity);
 
         template<typename First, typename... Rest>
         std::vector<Entity> GetEntitiesByComponents()
@@ -45,9 +46,11 @@ namespace Limnova
         virtual void OnEvent(Event& e);
     protected:
         entt::registry m_Registry;
-        entt::entity m_ActiveCamera;
 
         entt::entity m_Root; // Scene hierarchy
+
+        entt::entity m_ActiveCamera;
+        float m_ViewportAspectRatio = 16.f / 9.f;
 
         friend class Entity;
         friend class SceneHierarchyPanel;

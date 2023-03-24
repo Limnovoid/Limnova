@@ -69,6 +69,12 @@ namespace Limnova
     }
 
 
+    void Scene::DestroyEntity(Entity entity)
+    {
+        m_Registry.destroy(entity.m_EnttId);
+    }
+
+
     Entity Scene::GetRoot()
     {
         return Entity{ m_Root, this };
@@ -118,13 +124,15 @@ namespace Limnova
 
     void Scene::OnWindowChangeAspect(float aspect)
     {
+        m_ViewportAspectRatio = aspect;
+
         auto view = m_Registry.view<CameraComponent>();
         for (auto entity : view)
         {
             auto& camera = view.get<CameraComponent>(entity);
             if (camera.TieAspectToView)
             {
-                camera.SetAspectRatio(aspect);
+                camera.SetAspectRatio(m_ViewportAspectRatio);
             }
         }
     }
@@ -234,6 +242,12 @@ namespace Limnova
         {
             m_ActiveCamera = entity;
         }
+
+        auto& camera = m_Registry.get<CameraComponent>(entity);
+        if (camera.TieAspectToView)
+        {
+            camera.SetAspectRatio(m_ViewportAspectRatio);
+        }
     }
 
 
@@ -241,9 +255,20 @@ namespace Limnova
     {
         if (entity == m_ActiveCamera)
         {
-            // Active camera becomes the first other camera component in the scene,
-            // or the null entity if none exists.
-            m_ActiveCamera = m_Registry.view<CameraComponent>().front();
+            m_ActiveCamera = entt::null;
+
+            // Find a replacement camera entity
+            auto view = m_Registry.view<CameraComponent>();
+            for (auto cameraEntity : view)
+            {
+                /* on_destroy signal is emitted before the component in question is deleted, so
+                 * this entity will appear in view and we have to perform this check. */
+                if (cameraEntity != entity)
+                {
+                    m_ActiveCamera = cameraEntity;
+                    break;
+                }
+            }
         }
     }
 

@@ -122,10 +122,10 @@ namespace Limnova
         const float m_ScrollSens = 0.1f;
         float m_Distance = 1.f;
 
-        const float m_MaxElevation = PIover2f * 0.9f;
-        const float m_MinElevation = -m_MaxElevation;
+        const float m_MaxElevation = Radiansf(179.f);
+        const float m_MinElevation = Radiansf(-179.f);
         const float m_MouseSens = 0.01f;
-        float m_Azimuth = 0.f, m_Elevation = 0.f;//0.5f * m_MaxElevation;
+        float m_Azimuth = 0.f, m_Elevation = 0.f;
 
         Vector2 m_MousePos;
     };

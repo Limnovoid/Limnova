@@ -34,11 +34,12 @@ namespace Limnova
 
     float Wrapf(float x, float lowerBound, float upperBound)
     {
-        if (x < lowerBound)
+        float eps = std::numeric_limits<float>::epsilon() * x;
+        if (x < lowerBound + eps)
         {
             x += upperBound - lowerBound;
         }
-        else if (x >= upperBound)
+        else if (x > upperBound - eps)
         {
             x -= upperBound - lowerBound;
         }

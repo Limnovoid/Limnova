@@ -24,8 +24,8 @@ namespace Limnova
         Application::Get().GetImGuiLayer()->SetBlockEvents(false);
 
         FramebufferSpecification fbspec;
-        fbspec.Width = 1280;
-        fbspec.Height = 720;
+        fbspec.Width = 1600;
+        fbspec.Height = 900;
         m_Framebuffer = Framebuffer::Create(fbspec);
 
         // Camera controller
@@ -172,7 +172,6 @@ namespace Limnova
 
         static bool dockspaceOpen = true;
         static bool opt_fullscreen = true;
-        static bool opt_padding = false;
         static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
 
         // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
@@ -204,22 +203,24 @@ namespace Limnova
         // all active windows docked into it will lose their parent and become undocked.
         // We cannot preserve the docking relationship between an active window and an inactive docking, otherwise
         // any change of dockspace/settings would lead to windows being stuck in limbo and never being visible.
-        if (!opt_padding)
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         ImGui::Begin("DockSpace", &dockspaceOpen, window_flags);
-        if (!opt_padding)
-            ImGui::PopStyleVar();
+        ImGui::PopStyleVar();
 
         if (opt_fullscreen)
             ImGui::PopStyleVar(2);
 
         // Submit the DockSpace
         ImGuiIO& io = ImGui::GetIO();
+        ImGuiStyle& style = ImGui::GetStyle();
+        float winMinSize = style.WindowMinSize.x;
+        style.WindowMinSize.x = 370.f;
         if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
         {
             ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
             ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
         }
+        style.WindowMinSize.x = winMinSize;
 
 
         /*** Menu bar ***/

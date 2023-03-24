@@ -1,5 +1,6 @@
 #include "Quaternion.h"
 
+#include "Math.h"
 #include "MathConstants.h"
 
 
@@ -53,19 +54,34 @@ namespace Limnova
 
     Vector3 Quaternion::ToEulerAngles() const
     {
-        float sinx_cosy = 2.f * (v.x * w + v.y * v.z);
-        float cosx_cosy = 1.f - 2.f * (v.x * v.x + v.y * v.y);
-        float rotationX = atan2f(sinx_cosy, cosx_cosy);
+        // TODO - fix gimbal lock!
 
-        float siny = sqrtf(1.f + 2.f * (v.y * w - v.x * v.z));
-        float cosy = sqrtf(1.f - 2.f * (v.y * w - v.x * v.z));
-        float rotationY = 2.f * atan2f(siny, cosy) - PIf / 2.f;
+        // Formula from:
+        // http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToEuler/
+        static constexpr float kEulerEpsilon = std::numeric_limits<float>::epsilon() * 0.5f;
 
-        float sinz_cosy = 2.f * (v.z * w + v.x * v.y);
-        float cosz_cosy = 1.f - 2.f * (v.y * v.y + v.z * v.z);
-        float rotationZ = atan2f(sinz_cosy, cosz_cosy);
+        float rotX, rotY, rotZ;
 
-        return { rotationX, rotationY, rotationZ };
+        float test = v.x * v.y + v.z * w;
+        if (test > 0.5f - kEulerEpsilon) { // singularity at north pole
+            rotX = 0.f;
+            rotY = 2.f * atan2f(v.x, w);
+            rotZ = PIf / 2.f;
+            return { rotX, rotY, rotZ };
+        }
+        if (test < kEulerEpsilon - 0.5f) { // singularity at south pole
+            rotX = 0.f;
+            rotY = Wrapf(-2.f * atan2f(v.x, w), 0.f, PI2f);
+            rotZ = PIf * 3.f / 2.f;
+            return { rotX, rotY, rotZ };
+        }
+        double sqx = v.x * v.x;
+        double sqy = v.y * v.y;
+        double sqz = v.z * v.z;
+        rotX = atan2f(2.f * v.x * w - 2.f * v.y * v.z, 1.f - 2.f * sqx - 2.f * sqz);
+        rotY = atan2f(2.f * v.y * w - 2.f * v.x * v.z, 1.f - 2.f * sqy - 2.f * sqz);
+        rotZ = asinf(2.f * test);
+        return { rotX, rotY, rotZ };
     }
 
 

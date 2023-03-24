@@ -502,6 +502,7 @@ namespace Limnova
             //    auto next = m_Objects[child].NextSibling;
             //
             //    // TODO : reparent child to object's parent, preserve state
+            //    // OR : deactivate child
             //
             //    child = next;
             //} while (child != first);
