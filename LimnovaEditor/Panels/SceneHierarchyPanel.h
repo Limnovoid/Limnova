@@ -29,8 +29,8 @@ namespace Limnova
         struct InputConfig
         {
             T ResetValue = 0;
-            T Speed = 0;
-            T FastSpeed = 1;
+            T Speed = 1;
+            T FastSpeed = 10;
             T Min = 0;
             T Max = 0;
             uint32_t Precision = 3;

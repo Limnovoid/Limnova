@@ -3,8 +3,6 @@
 #include "VertexArray.h"
 #include "Shader.h"
 
-#define ASSET_DIR "C:\\Programming\\source\\Limnova\\LimnovaEditor\\assets"
-
 
 namespace Limnova
 {
@@ -22,16 +20,26 @@ namespace Limnova
     };
 
 
+    struct CircleVertex
+    {
+        Vector3 WorldPosition;
+        Vector2 LocalPosition;
+        Vector4 Color;
+        float Thickness;
+        float Fade;
+    };
+
+
     struct Renderer2DData
     {
         const uint32_t MaxQuads = 10000;
-        const uint32_t MaxVertices = MaxQuads * 4;
-        const uint32_t MaxIndices = MaxQuads * 6;
+        const uint32_t MaxQuadVertices = MaxQuads * 4;
+        const uint32_t MaxQuadIndices = MaxQuads * 6;
         static const uint32_t MaxTextureSlots = 32; // TODO : set with render capabilities
 
         Ref<VertexArray> QuadVertexArray;
         Ref<VertexBuffer> QuadVertexBuffer;
-        Ref<Shader> TextureShader;
+        Ref<Shader> QuadShader;
         Ref<Texture2D> WhiteTexture;
 
         uint32_t QuadIndexCount = 0;
@@ -44,6 +52,19 @@ namespace Limnova
         Vector4 QuadVertexPositions[4];
 
         Renderer2D::Statistics Stats;
+
+        // Circles
+        const uint32_t MaxCircles = 10000;
+        const uint32_t MaxCircleVertices = MaxCircles * 4;
+        const uint32_t MaxCircleIndices = MaxCircles * 6;
+
+        Ref<VertexArray> CircleVertexArray;
+        Ref<VertexBuffer> CircleVertexBuffer;
+        Ref<Shader> CircleShader;
+
+        uint32_t CircleIndexCount = 0;
+        CircleVertex* CircleVertexBufferBase = nullptr;
+        CircleVertex* CircleVertexBufferPtr = nullptr;
 
         // Orbit resources
         Ref<VertexArray> HyperbolaVertexArray;
@@ -79,24 +100,24 @@ namespace Limnova
 
         s_SceneUniformBuffer = sceneUniformBuffer;
 
-        // Color and texture quad
+        // Quads
         s_Data.QuadVertexArray = VertexArray::Create();
 
-        s_Data.QuadVertexBuffer = VertexBuffer::Create(s_Data.MaxVertices * sizeof(QuadVertex));
+        s_Data.QuadVertexBuffer = VertexBuffer::Create(s_Data.MaxQuadVertices * sizeof(QuadVertex));
         s_Data.QuadVertexBuffer->SetLayout({
-            { ShaderDataType::Float3, "a_Position" },
-            { ShaderDataType::Float4, "a_Color" },
-            { ShaderDataType::Float2, "a_TexCoord" },
-            { ShaderDataType::Float2, "a_TexScale" },
-            { ShaderDataType::Float, "a_TexIndex" }
+            { ShaderDataType::Float3,   "a_Position" },
+            { ShaderDataType::Float4,   "a_Color"    },
+            { ShaderDataType::Float2,   "a_TexCoord" },
+            { ShaderDataType::Float2,   "a_TexScale" },
+            { ShaderDataType::Float,    "a_TexIndex" }
         });
         s_Data.QuadVertexArray->AddVertexBuffer(s_Data.QuadVertexBuffer);
 
-        s_Data.QuadVertexBufferBase = new QuadVertex[s_Data.MaxVertices];
+        s_Data.QuadVertexBufferBase = new QuadVertex[s_Data.MaxQuadVertices];
 
-        uint32_t* quadIndices = new uint32_t[s_Data.MaxIndices];
+        uint32_t* quadIndices = new uint32_t[s_Data.MaxQuadIndices];
         uint32_t offset = 0;
-        for (uint32_t i = 0; i < s_Data.MaxIndices; i += 6)
+        for (uint32_t i = 0; i < s_Data.MaxQuadIndices; i += 6)
         {
             quadIndices[i + 0] = offset + 0;
             quadIndices[i + 1] = offset + 1;
@@ -108,7 +129,7 @@ namespace Limnova
 
             offset += 4;
         }
-        Ref<IndexBuffer> quadIB = IndexBuffer::Create(quadIndices, s_Data.MaxIndices);
+        Ref<IndexBuffer> quadIB = IndexBuffer::Create(quadIndices, s_Data.MaxQuadIndices);
         s_Data.QuadVertexArray->SetIndexBuffer(quadIB);
         delete[] quadIndices;
 
@@ -122,10 +143,10 @@ namespace Limnova
             samplers[i] = i;
         }
 
-        s_Data.TextureShader = Shader::Create(ASSET_DIR"\\shaders\\Texture.lvglsl");
-        s_Data.TextureShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
-        s_Data.TextureShader->Bind();
-        s_Data.TextureShader->SetIntArray("u_Textures", samplers, s_Data.MaxTextureSlots);
+        s_Data.QuadShader = Shader::Create(LV_ASSET_DIR"/shaders/Renderer2D_Quad.lvglsl");
+        s_Data.QuadShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
+        s_Data.QuadShader->Bind();
+        s_Data.QuadShader->SetIntArray("u_Textures", samplers, s_Data.MaxTextureSlots);
 
         s_Data.TextureSlots[0] = s_Data.WhiteTexture;
 
@@ -133,6 +154,24 @@ namespace Limnova
         s_Data.QuadVertexPositions[1] = {  0.5f, -0.5f, 0.f, 1.f };
         s_Data.QuadVertexPositions[2] = {  0.5f,  0.5f, 0.f, 1.f };
         s_Data.QuadVertexPositions[3] = { -0.5f,  0.5f, 0.f, 1.f };
+
+        // Circles
+        s_Data.CircleVertexArray = VertexArray::Create();
+
+        s_Data.CircleVertexBuffer = VertexBuffer::Create(s_Data.MaxCircleVertices * sizeof(CircleVertex));
+        s_Data.CircleVertexBuffer->SetLayout({
+            { ShaderDataType::Float3,   "a_WorldPosition" },
+            { ShaderDataType::Float2,   "a_LocalPosition" },
+            { ShaderDataType::Float4,   "a_Color"         },
+            { ShaderDataType::Float,    "a_Thickness"     },
+            { ShaderDataType::Float,    "a_Fade"          }
+        });
+        s_Data.CircleVertexArray->AddVertexBuffer(s_Data.CircleVertexBuffer);
+        s_Data.CircleVertexArray->SetIndexBuffer(quadIB); /* Reuse quad indexes (same geometry) */
+        s_Data.CircleVertexBufferBase = new CircleVertex[s_Data.MaxCircleVertices];
+
+        s_Data.CircleShader = Shader::Create(LV_ASSET_DIR"/shaders/Renderer2D_Circle.lvglsl");
+        s_Data.CircleShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
 
         // Color hyperbola
         s_Data.HyperbolaVertexArray = VertexArray::Create();
@@ -152,7 +191,7 @@ namespace Limnova
         Ref<IndexBuffer> hyperbolaIB = IndexBuffer::Create(hyperbolaIndices, std::size(hyperbolaIndices));
         s_Data.HyperbolaVertexArray->SetIndexBuffer(hyperbolaIB);
 
-        s_Data.HyperbolaShader = Shader::Create(ASSET_DIR"\\shaders\\Hyperbola.lvglsl");
+        s_Data.HyperbolaShader = Shader::Create(LV_ASSET_DIR"/shaders/Hyperbola.lvglsl");
         s_Data.HyperbolaShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
 
         s_OrbitData = new OrbitData();
@@ -178,7 +217,7 @@ namespace Limnova
         Ref<IndexBuffer> ellipseIB = IndexBuffer::Create(ellipseIndices, std::size(ellipseIndices));
         s_Data.EllipseVertexArray->SetIndexBuffer(ellipseIB);
 
-        s_Data.EllipseShader = Shader::Create(ASSET_DIR"\\shaders\\Ellipse.lvglsl");
+        s_Data.EllipseShader = Shader::Create(LV_ASSET_DIR"/shaders/Ellipse.lvglsl");
         s_Data.EllipseShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
         s_Data.EllipseShader->BindUniformBuffer(s_Data.OrbitUniformBuffer->GetRendererId(), "OrbitUniform");
     }
@@ -196,7 +235,8 @@ namespace Limnova
 
         s_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(Renderer::SceneData, Renderer::SceneData::CameraData), sizeof(Camera::Data));
 
-        ResetBatch();
+        ResetQuadBatch();
+        ResetCircleBatch();
     }
 
 
@@ -204,15 +244,20 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
-        Flush();
+        FlushQuads();
+        FlushCircles();
     }
 
 
-    void Renderer2D::Flush()
+    void Renderer2D::FlushQuads()
     {
         LV_PROFILE_FUNCTION();
 
-        s_Data.TextureShader->Bind();
+        if (s_Data.QuadIndexCount == 0) {
+            return;
+        }
+
+        s_Data.QuadShader->Bind();
 
         for (uint32_t i = 0; i < s_Data.TextureSlotIndex; i++)
         {
@@ -230,7 +275,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::ResetBatch()
+    void Renderer2D::ResetQuadBatch()
     {
         LV_PROFILE_FUNCTION();
 
@@ -245,10 +290,10 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
-        if (s_Data.QuadIndexCount >= s_Data.MaxIndices)
+        if (s_Data.QuadIndexCount >= s_Data.MaxQuadIndices)
         {
-            Flush();
-            ResetBatch();
+            FlushQuads();
+            ResetQuadBatch();
         }
 
         for (uint32_t i = 0; i < 4; i++)
@@ -464,6 +509,72 @@ namespace Limnova
     void Renderer2D::DrawRotatedQuad(const Vector2& position, const Vector2& size, const float rotation, const Ref<SubTexture2D>& subTexture, const Vector4& tint, const Vector2& textureScale)
     {
         DrawRotatedQuad({ position.x, position.y, 0.f }, size, rotation, subTexture, tint, textureScale);
+    }
+
+
+    void Renderer2D::FlushCircles()
+    {
+        LV_PROFILE_FUNCTION();
+
+        if (s_Data.CircleIndexCount == 0) {
+            return;
+        }
+
+        s_Data.CircleShader->Bind();
+
+        uint32_t dataSize = (uint8_t*)s_Data.CircleVertexBufferPtr - (uint8_t*)s_Data.CircleVertexBufferBase;
+        s_Data.CircleVertexBuffer->SetData(s_Data.CircleVertexBufferBase, dataSize);
+
+        s_Data.CircleVertexArray->Bind(); // TEMPORARY - necessary because DrawEllipse and DrawHyperbola bind their different vertex buffers
+        RenderCommand::DrawIndexed(s_Data.CircleVertexArray, s_Data.CircleIndexCount);
+
+
+        s_Data.Stats.DrawCalls++;
+    }
+
+
+    void Renderer2D::ResetCircleBatch()
+    {
+        LV_PROFILE_FUNCTION();
+
+        s_Data.CircleIndexCount = 0;
+        s_Data.CircleVertexBufferPtr = s_Data.CircleVertexBufferBase;
+    }
+
+
+    void Renderer2D::DrawCircle(const Matrix4& transform, const Vector4& color, float thickness, float fade)
+    {
+        LV_PROFILE_FUNCTION();
+
+        if (s_Data.CircleIndexCount >= s_Data.MaxCircleIndices)
+        {
+            FlushCircles();
+            ResetCircleBatch();
+        }
+
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            s_Data.CircleVertexBufferPtr->WorldPosition = (transform * s_Data.QuadVertexPositions[i]).XYZ();
+            s_Data.CircleVertexBufferPtr->LocalPosition.x = 2.f * s_Data.QuadVertexPositions[i].x;
+            s_Data.CircleVertexBufferPtr->LocalPosition.y = 2.f * s_Data.QuadVertexPositions[i].y;
+            s_Data.CircleVertexBufferPtr->Color = color;
+            s_Data.CircleVertexBufferPtr->Thickness = thickness;
+            s_Data.CircleVertexBufferPtr->Fade = fade;
+            s_Data.CircleVertexBufferPtr++;
+        }
+        s_Data.CircleIndexCount += 6;
+
+
+        s_Data.Stats.QuadCount++;
+    }
+
+
+    void Renderer2D::DrawCircle(const Vector3& origin, float radius, const Vector4& color, float thickness, float fade)
+    {
+        glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)origin);
+        transform = glm::scale(transform, glm::vec3(glm::vec2{2.f * radius}, 1.f));
+
+        DrawCircle(transform, color, thickness, fade);
     }
 
 

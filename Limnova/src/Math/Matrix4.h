@@ -2,6 +2,7 @@
 
 #include "glm.h"
 #include "Quaternion.h"
+#include "Vector4.h"
 
 
 namespace Limnova
@@ -17,6 +18,7 @@ namespace Limnova
         constexpr Matrix4(const glm::mat4& M) : mat(M) {}
         Matrix4(const Quaternion& q) : mat(glm::toMat4(glm::quat(q.w, q.v.x, q.v.y, q.v.z))) {}
     public:
+        Vector4 operator*(const Vector4& rhs) const;
         Matrix4 operator*(const Matrix4& rhs) const;
     public:
         operator glm::mat4() const { return mat; }

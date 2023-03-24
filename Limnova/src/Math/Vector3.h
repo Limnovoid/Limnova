@@ -36,6 +36,9 @@ namespace Limnova
         static constexpr Vector3 Forward()  { return { 0.f, 0.f,-1.f }; }
         static constexpr Vector3 Up()       { return { 0.f, 1.f, 0.f }; }
         static constexpr Vector3 Left()     { return {-1.f, 0.f, 0.f }; }
+        static constexpr Vector3 Backward() { return { 0.f, 0.f, 1.f }; }
+        static constexpr Vector3 Down()     { return { 0.f,-1.f, 0.f }; }
+        static constexpr Vector3 Right()    { return { 1.f, 0.f, 0.f }; }
     public:
         Vector3& operator=(const glm::vec3& rhs);
         Vector3 operator+(const Vector3& rhs) const;
@@ -48,6 +51,8 @@ namespace Limnova
         Vector3& operator/=(const float scalar);
 
         friend Vector3 operator-(const Vector3& value);
+
+        bool operator==(const Vector3& rhs) const;
     public:
         operator glm::vec3() const { return glm::vec3(x, y, z); }
     public:

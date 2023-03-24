@@ -66,9 +66,12 @@ namespace Limnova
     private:
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
+    public:
+        Vector4 m_InfluenceColor = { 1.f, 1.f, 1.f, 0.3f };
+        float m_InfluenceThickness = 0.002f;
+        float m_InfluenceFade = 0.006f;
     private:
         Physics m_Physics;
-
         entt::entity m_ViewPrimary;
     };
 

@@ -191,6 +191,11 @@ namespace Limnova
                 m_Selected.AddComponent<SpriteRendererComponent>();
                 ImGui::CloseCurrentPopup();
             }
+            if (ImGui::MenuItem("Circle Renderer"))
+            {
+                m_Selected.AddComponent<CircleRendererComponent>();
+                ImGui::CloseCurrentPopup();
+            }
             ImGui::EndPopup();
         }
         ImGui::PopItemWidth();
@@ -418,8 +423,30 @@ namespace Limnova
         });
 
         ComponentInspector<SpriteRendererComponent>(entity, "Sprite Renderer", true, [&]() {
-            auto& spriterenderer = entity.GetComponent<SpriteRendererComponent>();
-            LimnGui::ColorEdit("Color", spriterenderer.Color);
+            auto& spriteRenderer = entity.GetComponent<SpriteRendererComponent>();
+            LimnGui::ColorEdit("Color", spriteRenderer.Color);
+        });
+
+        ComponentInspector<CircleRendererComponent>(entity, "Circle Renderer", true, [&]() {
+            auto& circleRenderer = entity.GetComponent<CircleRendererComponent>();
+
+            LimnGui::ColorEdit("Color", circleRenderer.Color);
+
+            {
+                LimnGui::InputConfig<float> config;
+                config.Min = 0.f;
+                config.Max = 1.f;
+                config.Speed = 0.001f;
+                LimnGui::DragFloat("Thickness", circleRenderer.Thickness, config);
+            }
+
+            {
+                LimnGui::InputConfig<float> config;
+                config.Min = 0.f;
+                config.Max = 1.f;
+                config.Speed = 0.001f;
+                LimnGui::DragFloat("Fade", circleRenderer.Fade, config);
+            }
         });
     }
 

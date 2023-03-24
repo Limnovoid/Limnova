@@ -18,7 +18,6 @@ namespace Limnova
 
         static void BeginScene(Camera& camera);
         static void EndScene();
-        static void Flush();
     private:
         static void DrawBatchedQuad(const glm::mat4& transform, const Vector4& color, const Vector2* textureCoords, const Vector2& textureScale, const float textureIndex);
     public:
@@ -40,6 +39,9 @@ namespace Limnova
         static void DrawRotatedQuad(const Vector3& positionCentre, const Vector2& size, const float rotation, const Ref<SubTexture2D>& subTexture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
         static void DrawRotatedQuad(const Vector2& positionCentre, const Vector2& size, const float rotation, const Ref<SubTexture2D>& subTexture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
 
+        static void DrawCircle(const Matrix4& transform, const Vector4& color, float thickness = 1.f, float fade = 0.005f);
+        static void DrawCircle(const Vector3& origin, float radius, const Vector4& color, float thickness = 1.f, float fade = 0.005f);
+
         static void DrawLine(const Vector2& start, const Vector2& end, const float thickness, const Vector4& color, int layer = 0);
 
         static void DrawEllipse(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer = 0);
@@ -51,7 +53,11 @@ namespace Limnova
         static Ref<UniformBuffer> s_SceneUniformBuffer;
         static Ref<UniformBuffer> s_HyperbolaUniformBuffer;
     private:
-        static void ResetBatch();
+        static void FlushQuads();
+        static void ResetQuadBatch();
+
+        static void FlushCircles();
+        static void ResetCircleBatch();
 
         // stats
     public:

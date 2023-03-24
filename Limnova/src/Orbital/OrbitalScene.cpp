@@ -112,19 +112,33 @@ namespace Limnova
         Renderer2D::BeginScene(camera.Camera);
 
         // Render view primary, its secondaries, and its non-orbital children
+        Entity primary = { m_ViewPrimary, this };
         {
             auto [transform, sprite] = m_Registry.get<TransformComponent, SpriteRendererComponent>(m_ViewPrimary);
             Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color);
         }
-        Entity primary = { m_ViewPrimary, this };
         for (auto child : GetChildren(primary))
         {
+            // Sprite stuff
             if (!m_Registry.all_of<SpriteRendererComponent>(child.m_EnttId)) continue;
-            
+
             auto [transform, sprite] = m_Registry.get<TransformComponent, SpriteRendererComponent>(child.m_EnttId);
             Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color);
 
+            // TODO : recursively render all non-orbital children (down to the leaves):
+            //      : a non-orbital entity cannot have orbital children so it is
+            //      : guaranteed to be purely for extending a parent entity in the 
+            //      : scene without affecting orbital behaviour.
+
+            // Orbital stuff
+            if (!m_Registry.all_of<OrbitalComponent>(child.m_EnttId)) continue;
+
+            auto& orbital = m_Registry.get<OrbitalComponent>(child.m_EnttId);
+
             // TODO - point light/brightness from OrbitalComponent::Albedo
+
+            float influenceThickness = m_InfluenceThickness / orbital.GetLocalSpaceRadius();
+            Renderer2D::DrawCircle(transform.GetPosition(), orbital.GetLocalSpaceRadius(), m_InfluenceColor, influenceThickness, m_InfluenceFade);
         }
 
         // TODO : draw tertiaries as point lights orbiting secondaries

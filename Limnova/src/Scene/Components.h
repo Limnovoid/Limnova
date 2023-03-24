@@ -88,17 +88,6 @@ namespace Limnova
     };
 
 
-    struct SpriteRendererComponent
-    {
-        Vector4 Color{ 1.f, 0.f, 1.f, 1.f };
-
-        SpriteRendererComponent() = default;
-        SpriteRendererComponent(const SpriteRendererComponent&) = default;
-        SpriteRendererComponent(const Vector4& color)
-            : Color(color) {}
-    };
-
-
     struct CameraComponent
     {
     private:
@@ -191,5 +180,26 @@ namespace Limnova
         }
     };
 
-}
 
+    struct SpriteRendererComponent
+    {
+        Vector4 Color{ 1.f, 0.f, 1.f, 1.f };
+
+        SpriteRendererComponent() = default;
+        SpriteRendererComponent(const SpriteRendererComponent&) = default;
+        SpriteRendererComponent(const Vector4& color)
+            : Color(color) {}
+    };
+
+
+    struct CircleRendererComponent
+    {
+        Vector4 Color = { 1.f, 0.f, 1.f, 1.f };
+        float Thickness = 0.5f;
+        float Fade = 0.005f;
+
+        CircleRendererComponent() = default;
+        CircleRendererComponent(const CircleRendererComponent&) = default;
+    };
+
+}

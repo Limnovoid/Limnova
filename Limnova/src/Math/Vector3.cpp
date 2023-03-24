@@ -116,6 +116,12 @@ namespace Limnova
     }
 
 
+    bool Vector3::operator==(const Vector3& rhs) const
+    {
+        return this->x == rhs.x && this->y == rhs.y && this->z == rhs.z;
+    }
+
+
     std::ostream& operator<<(std::ostream& ostream, const Vector3& v)
     {
         ostream << "(" << v.x << " " << v.y << " " << v.z << ")";

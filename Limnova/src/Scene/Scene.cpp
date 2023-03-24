@@ -189,6 +189,17 @@ namespace Limnova
             }
         }
 
+        // Circles
+        {
+            auto view = m_Registry.view<TransformComponent, CircleRendererComponent>();
+            for (auto entity : view)
+            {
+                auto [transform, circle] = view.get<TransformComponent, CircleRendererComponent>(entity);
+
+                Renderer2D::DrawCircle(transform.GetTransform(), circle.Color, circle.Thickness, circle.Fade);
+            }
+        }
+
         Renderer2D::EndScene();
     }
 

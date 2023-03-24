@@ -93,16 +93,23 @@ namespace Limnova
             m_Scene->SetParent(subSquare, square);
         }
 
+        Entity circle = m_Scene->CreateEntity("Circle");
+        {
+            auto& crc = circle.AddComponent<CircleRendererComponent>();
+            auto& transform = circle.GetComponent<TransformComponent>();
+            transform.Set({ 0.4f }, {-0.5f,-0.5f, 0.2f });
+        }
+
         Entity camera0 = m_Scene->CreateEntity("Camera 0");
         {
-            camera0.AddComponent<PerspectiveCameraComponent>();
+            camera0.AddComponent<CameraComponent>();
             auto& transform = camera0.GetComponent<TransformComponent>();
             transform.Set({ 1.f }, { 0.f, 0.f, 2.f });
         }
 
         Entity camera1 = m_Scene->CreateEntity("Camera 1");
         {
-            camera1.AddComponent<PerspectiveCameraComponent>();
+            camera1.AddComponent<CameraComponent>();
             auto& transform = camera1.GetComponent<TransformComponent>();
             transform.Set({ 1.f }, { 0.f, 0.f, 3.f });
         }
@@ -258,6 +265,18 @@ namespace Limnova
             }
             ImGui::EndCombo();
         }
+
+#ifdef LV_EDITOR_USE_ORBITAL
+        if (ImGui::TreeNodeEx("Influence Visuals", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::ColorEdit4("Color", m_Scene->m_InfluenceColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
+            ImGui::DragFloat("Thickness", &m_Scene->m_InfluenceThickness, 0.001f, 0.001f, 1.f, "%.3f");
+            ImGui::DragFloat("Fade", &m_Scene->m_InfluenceFade, 0.001f, 0.001f, 1.f, "%.3f");
+
+            ImGui::TreePop();
+        }
+#endif
+
         ImGui::End(); // Scene Properties
 
 

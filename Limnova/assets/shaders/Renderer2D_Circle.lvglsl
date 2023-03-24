@@ -1,0 +1,59 @@
+// Limnova
+// Renderer2D Circle Shader
+
+#type vertex
+#version 450
+
+layout (std140) uniform CameraUniform {
+    mat4 ViewProj;
+    vec3 Position;
+    vec3 AimDirection;
+} u_Camera;
+
+out VertexData {
+    vec2 LocalPosition;
+    vec4 Color;
+    float Thickness;
+    float Fade;
+} outData;
+
+layout(location = 0) in vec3 a_WorldPosition;
+layout(location = 1) in vec2 a_LocalPosition;
+layout(location = 2) in vec4 a_Color;
+layout(location = 3) in float a_Thickness;
+layout(location = 4) in float a_Fade;
+
+void main()
+{
+    outData.LocalPosition   = a_LocalPosition;
+    outData.Color           = a_Color;
+    outData.Thickness       = a_Thickness;
+    outData.Fade            = a_Fade;
+
+    gl_Position = u_Camera.ViewProj * vec4(a_WorldPosition, 1.0);
+}
+
+
+#type fragment
+#version 450
+
+in VertexData {
+    vec2 LocalPosition;
+    vec4 Color;
+    float Thickness;
+    float Fade;
+} inData;
+
+layout(location = 0) out vec4 o_Color;
+
+void main()
+{
+    float distance = 1.0 - length(inData.LocalPosition);
+    float fade = smoothstep(0.0, inData.Fade, distance);
+    fade *= smoothstep(inData.Thickness + inData.Fade, inData.Thickness, distance);
+
+    vec4 color = inData.Color;
+    color.a *= fade;
+    color.rgb *= color.a; // Premultiplied alpha
+    o_Color = color;
+}
