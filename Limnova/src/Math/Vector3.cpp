@@ -4,7 +4,7 @@
 namespace Limnova
 {
 
-
+#ifdef EXPLICIT_DECL
     Vector3 Vector3::Normalized() const
     {
         float sqrmag = this->SqrMagnitude();
@@ -116,7 +116,7 @@ namespace Limnova
     }
 
 
-    bool Vector3::operator==(const Vector3& rhs) const
+    bool Vector3::operator==(const TVector3& rhs) const
     {
         return this->x == rhs.x && this->y == rhs.y && this->z == rhs.z;
     }
@@ -127,5 +127,6 @@ namespace Limnova
         ostream << "(" << v.x << " " << v.y << " " << v.z << ")";
         return ostream;
     }
+#endif
 
 }

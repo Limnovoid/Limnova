@@ -4,7 +4,7 @@
 namespace Limnova
 {
 
-
+#ifdef EXPLICIT_DECL
     Vector2 Vector2::Normalized() const
     {
         float sqrmag = this->SqrMagnitude();
@@ -116,5 +116,6 @@ namespace Limnova
         ostream << "(" << v.x << " " << v.y << ")";
         return ostream;
     }
+#endif
 
 }

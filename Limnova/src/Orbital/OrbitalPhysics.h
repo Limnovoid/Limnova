@@ -37,6 +37,10 @@ namespace Limnova
         using TObjectId = uint32_t;
         static constexpr TObjectId Null = std::numeric_limits<TObjectId>::max();
     private:
+        static constexpr Vector3 kReferenceX = { 1.f, 0.f, 0.f };
+        static constexpr Vector3 kReferenceY = { 0.f, 1.f, 0.f };
+        static constexpr Vector3 kReferenceNormal = { 0.f, 0.f, 1.f };
+
         static constexpr double kGravitational = 6.6743e-11;
         static constexpr float kDefaultLocalSpaceRadius = 0.1f;
     private:
@@ -91,7 +95,7 @@ namespace Limnova
                 }
             }
         public:
-            const Attr& operator[](TObjectId object)
+            Attr& operator[](TObjectId object)
             {
                 LV_CORE_ASSERT(m_ObjectToAttr.find(object) != m_ObjectToAttr.end(), "Object is missing requested attribute!");
                 return m_Attributes[m_ObjectToAttr[object]];
@@ -133,7 +137,7 @@ namespace Limnova
             /* Compulsory attribute - all physics objects are expected to have a physics state */
             double Mass = 0.0;
             Vector3 Position = { 0.f, 0.f, 0.f };
-            Vector3 Velocity = { 0.f, 0.f, 0.f };
+            Vector3d Velocity = { 0.0, 0.0, 0.0 };
         };
 
         struct Object
@@ -155,8 +159,22 @@ namespace Limnova
 
         struct Elements
         {
-            double Grav = 0.f;
-            Vector3 H = { 0.f, 0.f, 0.f };
+            double Grav = 0.f;          /* Gravitational parameter (mu) */
+            double H = 0.0;             /* Orbital specific angular momentum */
+            double E = { 0.f };         /* Eccentricity */
+
+            float I = 0.f;              /* Inclination */
+            Vector3 N = { 0.f };        /* Direction of ascending node */
+            float Omega = 0.f;          /* Right ascension of ascending node */
+            float ArgPeriapsis = 0.f;   /* Argument of periapsis */
+
+            /* Basis of the perifocal frame */
+            Vector3 PerifocalX = { 0.f }, PerifocalY = { 0.f }, PerifocalNormal = { 0.f };
+
+            float TrueAnomaly = 0.f;
+
+            float SemiMajor = 0.f, SemiMinor = 0.f;
+            double Period = 0.0;
         };
 
         struct LocalSpace
@@ -280,9 +298,9 @@ namespace Limnova
 
         bool ValidPosition(TObjectId object)
         {
-            static constexpr float kEscapeDistance = 1.f;
+            static constexpr float kEscapeDistanceSqr = 1.01f * 1.01f;
 
-            return m_Objects[object].State.Position.SqrMagnitude() < kEscapeDistance;
+            return m_Objects[object].State.Position.SqrMagnitude() < kEscapeDistanceSqr;
                 /* TODO - check for influence overlaps */;
         }
 
@@ -307,7 +325,11 @@ namespace Limnova
             return m_LocalSpaces.Has(m_Objects[object].Parent) || m_Objects[object].Parent == m_RootObject || object == m_RootObject;
         }
 
-        void ComputeValidity(TObjectId object)
+        /// <summary>
+        /// Currently ignores velocity - no invalid velocities.
+        /// </summary>
+        /// <returns>True if object state is valid, false otherwise</returns>
+        bool ComputeStateValidity(TObjectId object)
         {
             // TODO : #ifdef LV_DEBUG ??? is validity needed in release?
 
@@ -322,6 +344,28 @@ namespace Limnova
                 validity = Validity::InvalidPosition;
             }
             m_Objects[object].Validity = validity;
+            return validity == Validity::Valid;
+        }
+
+        void ComputeInfluence(TObjectId object)
+        {
+            /* Radius of influence = a(m / M)^0.4
+             * Semi-major axis must be in the order of 1,
+             * so the order of ROI is determined by (m / M)^0.4 */
+            static constexpr double kMinimumMassFactor = 1e-4;
+            double massFactor = pow(m_Objects[object].State.Mass / m_Objects[m_Objects[object].Parent].State.Mass, 0.4);
+            if (massFactor > kMinimumMassFactor)
+            {
+                m_LocalSpaces[object].Influencing = true;
+                m_LocalSpaces[object].Radius = m_Elements[object].SemiMajor * massFactor;
+            }
+            /* If already non-influencing, local-space radius may have been explicitly set by user:
+             * only reset it to default radius if this is not the case */
+            else if (m_LocalSpaces[object].Influencing)
+            {
+                m_LocalSpaces[object].Influencing = false;
+                m_LocalSpaces[object].Radius = kDefaultLocalSpaceRadius;
+            }
         }
 
         void ComputeElements(TObjectId object)
@@ -331,22 +375,90 @@ namespace Limnova
             auto& obj = m_Objects[object];
             auto& state = obj.State;
             auto& elems = m_Elements.Get(object);
-            auto& par = m_Objects[obj.Parent];
 
             LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Cannot compute elements on an invalid object!");
 
-            elems.Grav = kGravitational * par.State.Mass * pow(m_LocalSpaces.Get(obj.Parent).MetersPerRadius, -3.0);
+            elems.Grav = kGravitational * m_Objects[obj.Parent].State.Mass * pow(m_LocalSpaces.Get(obj.Parent).MetersPerRadius, -3.0);
 
-            // TODO ...
+            Vector3d Hvec = Vector3d(state.Position).Cross(state.Velocity);
+            elems.H = sqrt(Hvec.SqrMagnitude());
+            elems.PerifocalNormal = Hvec / elems.H;
+
+            /* Loss of precision due to casting is acceptable: result of vector division (V x H / Grav) is on the order of 1 */
+            Vector3 posDir = state.Position.Normalized();
+            Vector3 Evec = (Vector3)(state.Velocity.Cross(Hvec) / elems.Grav) - posDir;
+            elems.E = sqrtf(Evec.SqrMagnitude());
+            elems.PerifocalX = Evec / elems.E;
+            elems.PerifocalY = elems.PerifocalNormal.Cross(elems.PerifocalX);
+
+            elems.I = acosf(elems.PerifocalNormal.Dot(kReferenceNormal));
+            elems.N = kReferenceNormal.Cross(elems.PerifocalNormal).Normalized();
+            elems.Omega = acosf(elems.N.Dot(kReferenceNormal));
+            elems.ArgPeriapsis = acosf(elems.N.Dot(elems.PerifocalX));
+            // Disambiguate based on whether the ascending node is in the positive or negative Y-axis of the reference frame
+            if (elems.N.Dot(elems.PerifocalY) < 0.f)
+            {
+                // Ascending node is in the negative Y-axis of the reference frame
+                elems.Omega = PI2f - elems.Omega;
+                elems.ArgPeriapsis = PI2f - elems.ArgPeriapsis;
+            }
+
+            elems.TrueAnomaly = acosf(elems.PerifocalX.Dot(posDir));
+            // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
+            if (posDir.Dot(elems.PerifocalY) < 0.f)
+            {
+                // Velocity is in the negative X-axis of the perifocal frame
+                elems.TrueAnomaly = PI2f - elems.TrueAnomaly;
+            }
+
+            // Dimensions
+            float e2 = powf(elems.E, 2.f);
+            /* Loss of precision due to casting is acceptable: semi-major axis is on the order of 1 in all common cases, due to distance parameterisation */
+            elems.SemiMajor = (float)(pow(elems.H, 2.0) / (elems.Grav * (double)(1.f - e2)));
+            elems.SemiMinor = elems.SemiMajor * sqrtf(1.f - e2);
+
+            elems.Period = (double)powf(elems.SemiMajor, 1.5f) * PI2 / sqrt(elems.H);
         }
 
-        float CircularOrbitSpeed(TObjectId object)
+        /// <summary>
+        /// Returns speed for a circular orbit around the given primary at the given distance.
+        /// Assumes orbiter has insignificant mass compared to primary.
+        /// </summary>
+        /// <param name="object">Physics object ID</param>
+        double CircularOrbitSpeed(TObjectId primary, float radius)
         {
-            auto& obj = m_Objects[object];
-            auto& par = m_Objects[obj.Parent];
+            LV_CORE_ASSERT(m_LocalSpaces[primary].Influencing, "Cannot request circular orbit speed around an object which cannot be orbited!");
 
-            /* ||V_circular|| = sqrt(||r|| * mu), where mu is the gravitational parameter of the orbit */
-            return sqrtf(obj.State.Position.SqrMagnitude()) * kGravitational * par.State.Mass * pow(m_LocalSpaces.Get(obj.Parent).MetersPerRadius, -3.0);
+            /* ||V_circular|| = sqrt(mu / ||r||), where mu is the gravitational parameter of the orbit */
+            return sqrt(kGravitational * m_Objects[primary].State.Mass * pow(m_LocalSpaces[primary].MetersPerRadius, -3.0) / (double)radius);
+        }
+
+        /// <summary>
+        /// Returns velocity for a circular counter-clockwise orbit around the given primary at the given position.
+        /// Assumes orbiter has insignificant mass compared to primary.
+        /// </summary>
+        /// <param name="object">Physics object ID</param>
+        Vector3d CircularOrbitVelocity(TObjectId primary, const Vector3& position)
+        {
+            /* Keep the orbital plane as flat (close to the reference plane) as possible:
+             * derive velocity direction as the cross product of reference normal and normalized position */
+            Vector3d vDir;
+            float rMag = sqrtf(position.SqrMagnitude());
+            Vector3 rDir = position / rMag;
+
+            static constexpr float kParallelDotProductLimit = 1.f - 1e-4f;
+            float rDotNormal = rDir.Dot(kReferenceNormal);
+            if (abs(rDotNormal) > kParallelDotProductLimit)
+            {
+                /* Handle cases where the normal and position are parallel:
+                 * counter-clockwise around the reference Y-axis, whether above or below the plane */
+                vDir = rDotNormal > 0.f ? (Vector3d)(-kReferenceX) : (Vector3d)kReferenceX;
+            }
+            else
+            {
+                vDir = (Vector3d)(kReferenceNormal.Cross(rDir).Normalized());
+            }
+            return vDir * CircularOrbitSpeed(primary, rMag);
         }
     public:
         /*** Usage ***/
@@ -388,69 +500,6 @@ namespace Limnova
         }
 
         /// <summary>
-        /// Create an uninitialised orbital physics object in the root orbital space.
-        /// </summary>
-        /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
-        /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId)
-        {
-            TObjectId newObject = GetEmptyObject();
-            m_Objects[newObject].UserId = userId;
-            AttachObject(newObject, m_RootObject);
-            m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
-            m_Elements.Add(newObject);
-            return newObject;
-        }
-
-        /// <summary>
-        /// Create an uninitialised orbital physics object in the specified orbital space.
-        /// </summary>
-        /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
-        /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId, TObjectId parent)
-        {
-            LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
-
-            TObjectId newObject = GetEmptyObject();
-            m_Objects[newObject].UserId = userId;
-            AttachObject(newObject, parent);
-            ComputeValidity(newObject);
-            m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
-            m_Elements.Add(newObject);
-            return newObject;
-        }
-
-        /// <summary>
-        /// Create an orbital physics object in the specified orbital space.
-        /// New object's velocity defaults to that of a circular orbit.
-        /// </summary>
-        /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
-        /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId, TObjectId parent, bool mass, Vector3 position)
-        {
-            LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
-
-            TObjectId newObject = GetEmptyObject();
-            m_Objects[newObject].UserId = userId;
-            AttachObject(newObject, parent);
-            m_Objects[newObject].State.Mass = mass;
-            m_Objects[newObject].State.Position = position;
-            ComputeValidity(newObject);
-
-            m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
-            m_Elements.Add(newObject);
-            if (m_Objects[newObject].Validity == Validity::Valid)
-            {
-                // Set velocity for circular orbit
-                m_Objects[newObject].State.Velocity = CircularOrbitSpeed(newObject);
-
-                ComputeElements(newObject);
-            }
-
-            return newObject;
-        }
-
-        /// <summary>
         /// Create an orbital physics object in the specified orbital space.
         /// </summary>
         /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
@@ -465,16 +514,84 @@ namespace Limnova
             m_Objects[newObject].State.Mass = mass;
             m_Objects[newObject].State.Position = position;
             m_Objects[newObject].State.Velocity = velocity;
-            ComputeValidity(newObject);
 
             m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
             m_Elements.Add(newObject);
-            if (m_Objects[newObject].Validity == Validity::Valid)
+
+            if (ComputeStateValidity(newObject))
             {
                 ComputeElements(newObject);
+                ComputeInfluence(newObject);
             }
-
             return newObject;
+        }
+
+        /// <summary>
+        /// Create an orbital physics object in the specified orbital space.
+        /// New object's velocity defaults to that of a circular orbit.
+        /// </summary>
+        /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
+        /// <returns>ID of the created physics object</returns>
+        TObjectId Create(TUserId userId, TObjectId parent, bool mass, Vector3 position)
+        {
+            LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
+
+            //TObjectId newObject = GetEmptyObject();
+            //m_Objects[newObject].UserId = userId;
+            //AttachObject(newObject, parent);
+            //m_Objects[newObject].State.Mass = mass;
+            //m_Objects[newObject].State.Position = position;
+            //
+            //m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
+            //m_Elements.Add(newObject);
+            //if (ComputeStateValidity(newObject))
+            //{
+            //    m_Objects[newObject].State.Velocity = GetDefaultOrbitVelocity(newObject);
+            //
+            //    ComputeElements(newObject);
+            //    ComputeInfluence(newObject);
+            //}
+
+            return Create(userId, parent, mass, position, CircularOrbitVelocity(parent, position));
+        }
+
+        /// <summary>
+        /// Create an uninitialised orbital physics object in the specified orbital space.
+        /// </summary>
+        /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
+        /// <returns>ID of the created physics object</returns>
+        TObjectId Create(TUserId userId, TObjectId parent)
+        {
+            LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
+
+            //TObjectId newObject = GetEmptyObject();
+            //m_Objects[newObject].UserId = userId;
+            //AttachObject(newObject, parent);
+            //
+            //ComputeStateValidity(newObject);
+            //
+            //m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
+            //m_Elements.Add(newObject);
+            //return newObject;
+
+            return Create(userId, parent, 0.0, { 0.f }, { 0.0 });
+        }
+
+        /// <summary>
+        /// Create an uninitialised orbital physics object in the root orbital space.
+        /// </summary>
+        /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
+        /// <returns>ID of the created physics object</returns>
+        TObjectId Create(TUserId userId)
+        {
+            //TObjectId newObject = GetEmptyObject();
+            //m_Objects[newObject].UserId = userId;
+            //AttachObject(newObject, m_RootObject);
+            //m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
+            //m_Elements.Add(newObject);
+            //return newObject;
+
+            return Create(userId, m_RootObject, 0.0, { 0.f }, { 0.0 });
         }
 
         /// <summary>
@@ -520,11 +637,12 @@ namespace Limnova
         {
             LV_CORE_ASSERT(object != parent && Has(parent), "Invalid parent ID!");
             m_Objects[object].Parent = parent;
-            ComputeValidity(object);
+            ComputeStateValidity(object);
 
             if (m_Objects[object].Validity == Validity::Valid)
             {
                 ComputeElements(object);
+                ComputeInfluence(object);
             }
             // TODO : update satellites ?
         }
@@ -567,7 +685,7 @@ namespace Limnova
         /// <returns>True if successfully changed, false otherwise</returns>
         bool SetLocalSpaceRadius(TObjectId object, float radius)
         {
-            static constexpr float kMaxLocalSpaceRadius = 0.5f;
+            static constexpr float kMaxLocalSpaceRadius = 0.25f;
             static constexpr float kMinLocalSpaceRadius = 0.f;
 
             if (!IsInfluencing(object) && radius < kMaxLocalSpaceRadius && radius > kMinLocalSpaceRadius)
@@ -591,11 +709,12 @@ namespace Limnova
         void SetMass(TObjectId object, double mass)
         {
             m_Objects[object].State.Mass = mass;
-            ComputeValidity(object);
+            ComputeStateValidity(object);
 
             if (m_Objects[object].Validity == Validity::Valid && object != m_RootObject)
             {
                 ComputeElements(object);
+                ComputeInfluence(object);
             }
             // TODO : update satellites ?
         }
@@ -614,11 +733,12 @@ namespace Limnova
             }
 
             m_Objects[object].State.Position = position;
-            ComputeValidity(object);
+            ComputeStateValidity(object);
 
             if (m_Objects[object].Validity == Validity::Valid)
             {
                 ComputeElements(object);
+                ComputeInfluence(object);
             }
             // TODO : update satellites ?
         }
@@ -642,13 +762,40 @@ namespace Limnova
             if (m_Objects[object].Validity == Validity::Valid)
             {
                 ComputeElements(object);
+                ComputeInfluence(object);
             }
             // TODO : update satellites ?
         }
 
-        Vector3 GetVelocity(TObjectId object)
+        Vector3d GetVelocity(TObjectId object)
         {
             return m_Objects[object].State.Velocity;
+        }
+
+        /// <summary>
+        /// Returns velocity for a circular counter-clockwise orbit around the object's current primary, given its current mass and position.
+        /// </summary>
+        /// <param name="object">Physics object ID</param>
+        Vector3d GetDefaultOrbitVelocity(TObjectId object)
+        {
+            /* Keep the orbital plane as flat (close to the reference plane) as possible:
+             * derive velocity direction as the cross product of reference normal and normalized position */
+            Vector3d vDir;
+            Vector3 rDir = m_Objects[object].State.Position.Normalized();
+
+            static constexpr float kParallelDotProductLimit = 1.f - 1e-4f;
+            float rDotNormal = rDir.Dot(kReferenceNormal);
+            if (abs(rDotNormal) > kParallelDotProductLimit)
+            {
+                /* Handle cases where the normal and position are parallel:
+                 * counter-clockwise around the reference Y-axis, whether above or below the plane */
+                vDir = rDotNormal > 0.f ? -kReferenceX : kReferenceX;
+            }
+            else
+            {
+                vDir = (Vector3d)kReferenceNormal.Cross(rDir).Normalized();
+            }
+            return vDir * CircularOrbitSpeed(object);
         }
     };
 

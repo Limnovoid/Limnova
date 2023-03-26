@@ -45,7 +45,7 @@ namespace Limnova
 
         double GetMass() { return Physics->GetMass(PhysicsObjectId); }
         Vector3 GetPosition() { return Physics->GetPosition(PhysicsObjectId); }
-        Vector3 GetVelocity() { return Physics->GetVelocity(PhysicsObjectId); }
+        Vector3d GetVelocity() { return Physics->GetVelocity(PhysicsObjectId); }
     };
 
 
