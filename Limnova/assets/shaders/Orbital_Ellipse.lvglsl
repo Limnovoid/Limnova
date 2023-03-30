@@ -1,0 +1,97 @@
+// Limnova
+// Renderer2D Ellipse Shader
+
+#type vertex
+#version 450
+
+layout (std140) uniform CameraUniform {
+    mat4 ViewProj;
+    vec3 Position;
+    vec3 AimDirection;
+} u_Camera;
+
+layout(location = 0) in vec3  a_WorldPosition;
+layout(location = 1) in vec2  a_LocalPosition;
+layout(location = 2) in vec4  a_Color;
+layout(location = 3) in float a_MajorMinorRatio;
+layout(location = 4) in float a_Thickness;
+layout(location = 5) in float a_Fade;
+
+out VertexData {
+    vec2  LocalPosition;
+    vec4  Color;
+    float MajorMinorRatio;
+    float Thickness;
+    float Fade;
+} outData;
+
+void main()
+{
+    outData.LocalPosition   = a_LocalPosition;
+    outData.Color           = a_Color;
+    outData.MajorMinorRatio = a_MajorMinorRatio;
+    outData.Thickness       = a_Thickness;
+    outData.Fade            = a_Fade;
+
+    gl_Position = u_Camera.ViewProj * vec4(a_WorldPosition, 1.0);
+}
+
+
+#type fragment
+#version 450
+
+in VertexData {
+    vec2  LocalPosition;
+    vec4  Color;
+    float MajorMinorRatio;
+    float Thickness;
+    float Fade;
+} inData;
+
+layout(location = 0) out vec4 o_Color;
+
+void main()
+{
+    if (length(inData.LocalPosition) > inData.MajorMinorRatio + inData.Thickness ||
+        length(inData.LocalPosition) < 1.0 - inData.Thickness)
+        discard;
+
+    float a2 = pow(inData.MajorMinorRatio, 2.0);
+
+    float k_x = abs(inData.LocalPosition.x);
+    float k_y = abs(inData.LocalPosition.y);
+    vec2 k = vec2(k_x, k_y);
+
+    // NOTE : if k is outside the ellipse, sqrt() will be given a negative argument in one of the following lines
+    float j_x = sqrt(a2 * (1.0 - k_y * k_y));
+    float i_y = sqrt(1.0 - k_x * k_x / a2);
+
+    float distance;
+    if (k_x > inData.MajorMinorRatio)
+    {
+        vec2 i = vec2(inData.MajorMinorRatio, 0.0);
+        vec2 chordNormal = normalize(vec2(k_y, inData.MajorMinorRatio - j_x));
+        distance = dot(k - i, chordNormal);
+    }
+    else if (k_y > 1.0)
+    {
+        vec2 j = vec2(0.0, 1.0);
+        vec2 chordNormal = normalize(vec2(1.0 - i_y, k_x));
+        distance = dot(k - j, chordNormal);
+    }
+    else
+    {
+        float A = j_x - k_x;
+        float B = i_y - k_y;
+        float C = sqrt(A * A + B * B);
+        distance = A * B / C;
+    }
+
+
+    float fade = 1.0 - smoothstep(inData.Thickness - inData.Fade, inData.Thickness, distance);
+
+    vec4 color = inData.Color;
+    color.a *= fade;
+    color.rgb *= color.a; // Premultiplied alpha
+    o_Color = color;
+}

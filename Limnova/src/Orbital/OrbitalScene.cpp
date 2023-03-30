@@ -41,6 +41,18 @@ namespace Limnova
     }
 
 
+    void OrbitalScene::SetRootScaling(double meters)
+    {
+        m_Physics.SetRootScaling(meters);
+    }
+
+
+    double OrbitalScene::GetRootScaling()
+    {
+        return m_Physics.GetRootScaling();
+    }
+
+
     void OrbitalScene::SetViewPrimary(Entity primary)
     {
         if (primary.m_EnttId == m_ViewPrimary) return;
@@ -113,8 +125,10 @@ namespace Limnova
 
         // Render view primary, its secondaries, and its non-orbital children
         Entity primary = { m_ViewPrimary, this };
+        Vector3 primaryPosition;
         {
             auto [transform, sprite] = m_Registry.get<TransformComponent, SpriteRendererComponent>(m_ViewPrimary);
+            primaryPosition = transform.GetPosition();
             Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color);
         }
         for (auto child : GetChildren(primary))
@@ -134,18 +148,36 @@ namespace Limnova
             if (!m_Registry.all_of<OrbitalComponent>(child.m_EnttId)) continue;
 
             auto& orbital = m_Registry.get<OrbitalComponent>(child.m_EnttId);
+            if (orbital.GetValidity() != Physics::Validity::Valid) continue;
 
             // TODO - point light/brightness from OrbitalComponent::Albedo
 
             float influenceThickness = m_InfluenceThickness / orbital.GetLocalSpaceRadius();
             Renderer2D::DrawCircle(transform.GetPosition(), orbital.GetLocalSpaceRadius(), m_InfluenceColor, influenceThickness, m_InfluenceFade);
+
+            auto& elems = orbital.GetElements();
+
+            // Orbit
+            // TODO - orbits as child entities:
+            // - use transform component to eliminate the manual transform computation below (constant orbits have constant transforms, below is unnecessary recomputation!)
+            // - allows UI integration (clickable orbits) !!!
+            Vector3 orbitCenter = primaryPosition + (elems.PerifocalX * elems.C);
+            Vector4 orbitColor = { sprite.Color.XYZ(), m_OrbitAlpha };
+            // TODO - constant absolute thickness
+            float orbitThickness = m_OrbitThickness * elems.SemiMinor / powf(elems.SemiMajor, m_OrbitThicknessFactor);
+
+            glm::mat4 orbitTransform = glm::translate(glm::mat4(1.f), (glm::vec3)orbitCenter);
+            orbitTransform = orbitTransform * Matrix4(elems.PerifocalOrientation).mat;
+            orbitTransform = glm::scale(orbitTransform, glm::vec3(glm::vec2{ 2.f * elems.SemiMajor, 2.f * elems.SemiMinor }, 0.f));
+            Renderer2D::DrawEllipse(orbitTransform, elems.SemiMajor / elems.SemiMinor, orbitColor, orbitThickness, 0.f);
+
+            // Centre
+            Renderer2D::DrawCircle(orbitCenter, 0.01f, orbitColor, 1.f, 0.f);
         }
 
         // TODO : draw tertiaries as point lights orbiting secondaries
 
         Renderer2D::EndScene();
-
-        // TODO : draw orbits
     }
 
 

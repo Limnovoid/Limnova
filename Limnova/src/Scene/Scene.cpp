@@ -200,6 +200,19 @@ namespace Limnova
             }
         }
 
+        // Ellipses
+        {
+            auto view = m_Registry.view<TransformComponent, EllipseRendererComponent>();
+            for (auto entity : view)
+            {
+                auto [transform, ellipse] = view.get<TransformComponent, EllipseRendererComponent>(entity);
+                float sx = abs(transform.GetScale().x);
+                float sy = abs(transform.GetScale().y);
+                float axisRatio = sx > sy ? sx / sy : sy / sx;
+                Renderer2D::DrawEllipse(transform.GetTransform(), axisRatio, ellipse.Color, ellipse.Thickness, ellipse.Fade);
+            }
+        }
+
         Renderer2D::EndScene();
     }
 

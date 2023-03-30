@@ -372,6 +372,16 @@ namespace Limnova
             ImGui::Separator();
 
             // Local space radius
+            if (orbital.IsInfluencing())
+            {
+                ImGui::Columns(2);
+                ImGui::SetColumnWidth(0, 125.f);
+                ImGui::Text("Influence Radius");
+                ImGui::NextColumn();
+                ImGui::Text("%.4f", orbital.GetLocalSpaceRadius());
+                ImGui::Columns(1);
+            }
+            else
             {
                 float localSpaceRadius = orbital.GetLocalSpaceRadius();
                 LimnGui::InputConfig<float> config;
@@ -407,6 +417,7 @@ namespace Limnova
             }
 
             // Velocity
+            if (entity != m_Scene->GetRoot())
             {
                 Vector3 velocity = orbital.GetVelocity();
                 LimnGui::InputConfig<float> config;
@@ -417,9 +428,152 @@ namespace Limnova
                 {
                     orbital.SetVelocity(velocity);
                 }
+
+                if (ImGui::Button("Circularise Velocity"))
+                {
+                    orbital.SetCircular();
+                }
             }
 
             ImGui::EndDisabled(); // (isOrbital && !isOrbitalViewSecondary)
+
+            // Elements
+            if (entity != m_Scene->GetRoot())
+            {
+                const auto& elems = orbital.GetElements();
+                if (ImGui::BeginTable("Elements", 2))
+                {
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Grav");
+                    LimnGui::HelpMarker("Gravity parameter");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3e", elems.Grav);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("H");
+                    LimnGui::HelpMarker("Orbital specific angular momentum");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3e", elems.H);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("E");
+                    LimnGui::HelpMarker("Eccentricity");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f", elems.E);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("T");
+                    LimnGui::HelpMarker("Orbital period");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.5e", elems.T);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("True anomaly");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f", elems.TrueAnomaly);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("a");
+                    LimnGui::HelpMarker("Semi-major axis");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f", elems.SemiMajor);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("b");
+                    LimnGui::HelpMarker("Semi-minor axis");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f", elems.SemiMinor);
+
+                    // TEMP - orientation
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("X");
+                    LimnGui::HelpMarker("Perifocal X-axis");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f, %.3f, %.3f", elems.PerifocalX.x, elems.PerifocalX.y, elems.PerifocalX.z);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Y");
+                    LimnGui::HelpMarker("Perifocal Y-axis");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f, %.3f, %.3f", elems.PerifocalY.x, elems.PerifocalY.y, elems.PerifocalY.z);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Z");
+                    LimnGui::HelpMarker("Perifocal Z-axis");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f, %.3f, %.3f", elems.PerifocalNormal.x, elems.PerifocalNormal.y, elems.PerifocalNormal.z);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("C");
+                    LimnGui::HelpMarker("Distance from primary to orbit centre");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f", elems.C);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("I");
+                    LimnGui::HelpMarker("Inclination");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f", elems.I);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("N");
+                    LimnGui::HelpMarker("Direction of ascending node");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f, %.3f, %.3f", elems.N.x, elems.N.y, elems.N.z);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Omega");
+                    LimnGui::HelpMarker("Right ascension of ascending node");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f", elems.Omega);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("ArgPer");
+                    LimnGui::HelpMarker("Argument of periapsis");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f", elems.ArgPeriapsis);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Ort");
+                    LimnGui::HelpMarker("Orientation of perifocal frame");
+                    ImGui::TableSetColumnIndex(1);
+                    auto ort = elems.PerifocalOrientation.ToEulerAngles();
+                    ImGui::Text("%.3f, %.3f, %.3f", ort.x, ort.y, ort.z);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Ort Q");
+                    LimnGui::HelpMarker("Quaternion form of orientation");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f, %.3f, %.3f, %.3f", elems.PerifocalOrientation.GetX(), elems.PerifocalOrientation.GetY(),
+                        elems.PerifocalOrientation.GetZ(), elems.PerifocalOrientation.GetW());
+
+                    ImGui::EndTable();
+                }
+            }
         });
 
         ComponentInspector<SpriteRendererComponent>(entity, "Sprite Renderer", true, [&]() {
@@ -448,10 +602,46 @@ namespace Limnova
                 LimnGui::DragFloat("Fade", circleRenderer.Fade, config);
             }
         });
+
+        ComponentInspector<EllipseRendererComponent>(entity, "Ellipse Renderer", true, [&]() {
+            auto& circleRenderer = entity.GetComponent<EllipseRendererComponent>();
+
+            LimnGui::ColorEdit("Color", circleRenderer.Color);
+
+            {
+                LimnGui::InputConfig<float> config;
+                config.Min = 0.f;
+                config.Max = 1.f;
+                config.Speed = 0.001f;
+                LimnGui::DragFloat("Thickness", circleRenderer.Thickness, config);
+            }
+
+            {
+                LimnGui::InputConfig<float> config;
+                config.Min = 0.f;
+                config.Max = 1.f;
+                config.Speed = 0.001f;
+                LimnGui::DragFloat("Fade", circleRenderer.Fade, config);
+            }
+        });
     }
 
 
     // LimnGui /////////////////////////////////
+
+    void LimnGui::HelpMarker(const std::string& description)
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        {
+            ImGui::BeginTooltip();
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+            ImGui::TextUnformatted(description.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::EndTooltip();
+        }
+    }
 
     bool LimnGui::Checkbox(const std::string& label, bool& value, float columnWidth)
     {

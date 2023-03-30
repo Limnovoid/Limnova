@@ -30,8 +30,23 @@ namespace Limnova
     };
 
 
+    struct EllipseVertex
+    {
+        Vector3 WorldPosition;
+        Vector2 LocalPosition;
+        Vector4 Color;
+        float MajorMinorRatio;
+        float Thickness;
+        float Fade;
+    };
+
+
     struct Renderer2DData
     {
+        // Camera
+        const Camera::Data* CameraData;
+
+        // Quads
         const uint32_t MaxQuads = 10000;
         const uint32_t MaxQuadVertices = MaxQuads * 4;
         const uint32_t MaxQuadIndices = MaxQuads * 6;
@@ -66,12 +81,25 @@ namespace Limnova
         CircleVertex* CircleVertexBufferBase = nullptr;
         CircleVertex* CircleVertexBufferPtr = nullptr;
 
-        // Orbit resources
-        Ref<VertexArray> HyperbolaVertexArray;
-        Ref<Shader> HyperbolaShader;
+        // Ellipses
+        const uint32_t MaxEllipses = 10000;
+        const uint32_t MaxEllipseVertices = MaxEllipses * 4;
+        const uint32_t MaxEllipseIndices = MaxEllipses * 6;
+
         Ref<VertexArray> EllipseVertexArray;
+        Ref<VertexBuffer> EllipseVertexBuffer;
         Ref<Shader> EllipseShader;
-        Ref<UniformBuffer> OrbitUniformBuffer;
+
+        uint32_t EllipseIndexCount = 0;
+        EllipseVertex* EllipseVertexBufferBase = nullptr;
+        EllipseVertex* EllipseVertexBufferPtr = nullptr;
+
+        // Orbit resources
+        Ref<VertexArray> HyperbolaVertexArray2;
+        Ref<Shader> HyperbolaShader2;
+        Ref<VertexArray> EllipseVertexArray2;
+        Ref<Shader> EllipseShader2;
+        Ref<UniformBuffer> OrbitUniformBuffer2;
     };
 
     static Renderer2DData s_Data;
@@ -173,8 +201,28 @@ namespace Limnova
         s_Data.CircleShader = Shader::Create(LV_ASSET_DIR"/shaders/Renderer2D_Circle.lvglsl");
         s_Data.CircleShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
 
+        // Ellipses
+        s_Data.EllipseVertexArray = VertexArray::Create();
+
+        s_Data.EllipseVertexBuffer = VertexBuffer::Create(s_Data.MaxEllipseVertices * sizeof(EllipseVertex));
+        s_Data.EllipseVertexBuffer->SetLayout({
+            { ShaderDataType::Float3,   "a_WorldPosition"   },
+            { ShaderDataType::Float2,   "a_LocalPosition"   },
+            { ShaderDataType::Float4,   "a_Color"           },
+            { ShaderDataType::Float,    "a_MajorMinorRatio" },
+            { ShaderDataType::Float,    "a_Thickness"       },
+            { ShaderDataType::Float,    "a_Fade"            }
+        });
+        s_Data.EllipseVertexArray->AddVertexBuffer(s_Data.EllipseVertexBuffer);
+        s_Data.EllipseVertexArray->SetIndexBuffer(quadIB); /* Reuse quad indexes (same geometry) */
+        s_Data.EllipseVertexBufferBase = new EllipseVertex[s_Data.MaxEllipseVertices];
+
+        //s_Data.EllipseShader = Shader::Create(LV_ASSET_DIR"/shaders/Renderer2D_Ellipse.lvglsl");
+        s_Data.EllipseShader = Shader::Create(LV_ASSET_DIR"/shaders/Orbital_Ellipse.lvglsl");
+        s_Data.EllipseShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
+
         // Color hyperbola
-        s_Data.HyperbolaVertexArray = VertexArray::Create();
+        s_Data.HyperbolaVertexArray2 = VertexArray::Create();
 
         float hyperbolaVertices[3 * 3] = {
             0.f,  0.f,  0.f,
@@ -185,21 +233,21 @@ namespace Limnova
         hyperbolaVB->SetLayout({
             { ShaderDataType::Float3, "a_Position" }
             });
-        s_Data.HyperbolaVertexArray->AddVertexBuffer(hyperbolaVB);
+        s_Data.HyperbolaVertexArray2->AddVertexBuffer(hyperbolaVB);
 
         uint32_t hyperbolaIndices[3] = { 0, 1, 2 };
         Ref<IndexBuffer> hyperbolaIB = IndexBuffer::Create(hyperbolaIndices, std::size(hyperbolaIndices));
-        s_Data.HyperbolaVertexArray->SetIndexBuffer(hyperbolaIB);
+        s_Data.HyperbolaVertexArray2->SetIndexBuffer(hyperbolaIB);
 
-        s_Data.HyperbolaShader = Shader::Create(LV_ASSET_DIR"/shaders/Hyperbola.lvglsl");
-        s_Data.HyperbolaShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
+        s_Data.HyperbolaShader2 = Shader::Create(LV_ASSET_DIR"/shaders/Hyperbola.lvglsl");
+        s_Data.HyperbolaShader2->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
 
         s_OrbitData = new OrbitData();
-        s_Data.OrbitUniformBuffer = UniformBuffer::Create((void*)&s_OrbitData, sizeof(OrbitData));
-        s_Data.HyperbolaShader->BindUniformBuffer(s_Data.OrbitUniformBuffer->GetRendererId(), "OrbitUniform");
+        s_Data.OrbitUniformBuffer2 = UniformBuffer::Create((void*)&s_OrbitData, sizeof(OrbitData));
+        s_Data.HyperbolaShader2->BindUniformBuffer(s_Data.OrbitUniformBuffer2->GetRendererId(), "OrbitUniform");
 
         // Color ellipse
-        s_Data.EllipseVertexArray = VertexArray::Create();
+        s_Data.EllipseVertexArray2 = VertexArray::Create();
 
         float ellipseVertices[3 * 4] = {
            -0.5f, -0.5f,  0.f,
@@ -211,15 +259,15 @@ namespace Limnova
         ellipseVB->SetLayout({
             { ShaderDataType::Float3, "a_Position" }
             });
-        s_Data.EllipseVertexArray->AddVertexBuffer(ellipseVB);
+        s_Data.EllipseVertexArray2->AddVertexBuffer(ellipseVB);
 
         uint32_t ellipseIndices[6] = { 0, 1, 2, 0, 2, 3 };
         Ref<IndexBuffer> ellipseIB = IndexBuffer::Create(ellipseIndices, std::size(ellipseIndices));
-        s_Data.EllipseVertexArray->SetIndexBuffer(ellipseIB);
+        s_Data.EllipseVertexArray2->SetIndexBuffer(ellipseIB);
 
-        s_Data.EllipseShader = Shader::Create(LV_ASSET_DIR"/shaders/Ellipse.lvglsl");
-        s_Data.EllipseShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
-        s_Data.EllipseShader->BindUniformBuffer(s_Data.OrbitUniformBuffer->GetRendererId(), "OrbitUniform");
+        s_Data.EllipseShader2 = Shader::Create(LV_ASSET_DIR"/shaders/Ellipse.lvglsl");
+        s_Data.EllipseShader2->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
+        s_Data.EllipseShader2->BindUniformBuffer(s_Data.OrbitUniformBuffer2->GetRendererId(), "OrbitUniform");
     }
 
 
@@ -234,9 +282,11 @@ namespace Limnova
         LV_PROFILE_FUNCTION();
 
         s_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(Renderer::SceneData, Renderer::SceneData::CameraData), sizeof(Camera::Data));
+        s_Data.CameraData = camera.GetData();
 
         ResetQuadBatch();
         ResetCircleBatch();
+        ResetEllipseBatch();
     }
 
 
@@ -246,6 +296,7 @@ namespace Limnova
 
         FlushQuads();
         FlushCircles();
+        FlushEllipses();
     }
 
 
@@ -578,13 +629,89 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawLine(const Vector2& start, const Vector2& end, const float thickness, const Vector4& color, int layer)
+    void Renderer2D::FlushEllipses()
+    {
+        LV_PROFILE_FUNCTION();
+
+        if (s_Data.EllipseIndexCount == 0) {
+            return;
+        }
+
+        s_Data.EllipseShader->Bind();
+
+        uint32_t dataSize = (uint8_t*)s_Data.EllipseVertexBufferPtr - (uint8_t*)s_Data.EllipseVertexBufferBase;
+        s_Data.EllipseVertexBuffer->SetData(s_Data.EllipseVertexBufferBase, dataSize);
+
+        s_Data.EllipseVertexArray->Bind(); // TEMPORARY - necessary because DrawEllipse and DrawHyperbola bind their different vertex buffers
+        RenderCommand::DrawIndexed(s_Data.EllipseVertexArray, s_Data.EllipseIndexCount);
+
+
+        s_Data.Stats.DrawCalls++;
+    }
+
+
+    void Renderer2D::ResetEllipseBatch()
+    {
+        LV_PROFILE_FUNCTION();
+
+        s_Data.EllipseIndexCount = 0;
+        s_Data.EllipseVertexBufferPtr = s_Data.EllipseVertexBufferBase;
+    }
+
+
+    void Renderer2D::DrawEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness, float fade)
+    {
+        LV_PROFILE_FUNCTION();
+
+        if (s_Data.CircleIndexCount >= s_Data.MaxCircleIndices)
+        {
+            FlushEllipses();
+            ResetEllipseBatch();
+        }
+
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            /* for Orbital_Ellipse.lvglsl */
+            float vertexPadding = thickness / 2.f;
+            Vector4 vertexPositionPadding = {
+                (i == 0 || i == 3) ? -vertexPadding : vertexPadding,
+                (i == 0 || i == 1) ? -vertexPadding : vertexPadding,
+                0.f, 0.f
+            };
+            s_Data.EllipseVertexBufferPtr->WorldPosition = (transform * (s_Data.QuadVertexPositions[i] + vertexPositionPadding)).XYZ();
+            s_Data.EllipseVertexBufferPtr->LocalPosition.x = 2.f * (s_Data.QuadVertexPositions[i].x + vertexPositionPadding.x) * majorMinorAxisRatio;
+            s_Data.EllipseVertexBufferPtr->LocalPosition.y = 2.f * (s_Data.QuadVertexPositions[i].y + vertexPositionPadding.y);
+            s_Data.EllipseVertexBufferPtr->Color = color;
+            s_Data.EllipseVertexBufferPtr->MajorMinorRatio = majorMinorAxisRatio;
+            s_Data.EllipseVertexBufferPtr->Thickness = thickness;
+            s_Data.EllipseVertexBufferPtr->Fade = fade;
+            s_Data.EllipseVertexBufferPtr++;
+        }
+        s_Data.EllipseIndexCount += 6;
+
+
+        s_Data.Stats.QuadCount++;
+    }
+
+
+    void Renderer2D::DrawEllipse(const Vector3& centre, const Quaternion& orientation, float semiMajorAxis, float semiMinorAxis, const Vector4& color, float thickness, float fade)
+    {
+        glm::mat4 transform = glm::mat4(1.f);
+        transform = glm::translate(transform, (glm::vec3)centre);
+        transform = Matrix4(orientation).glm_mat4() * transform;
+        transform = glm::scale(transform, glm::vec3(glm::vec2{ 2.f * semiMajorAxis, 2.f * semiMinorAxis }, 0.f));
+
+        DrawEllipse(transform, semiMajorAxis / semiMinorAxis, color, thickness, fade);
+    }
+
+
+    void Renderer2D::DrawLine(const Vector2& start, const Vector2& end, const float width, const Vector4& color, int layer)
     {
         LV_PROFILE_FUNCTION();
 
         auto line = end - start;
         auto midpoint = start + (0.5f * line);
-        Vector2 dimensions = { sqrt(line.SqrMagnitude()) + thickness, thickness };
+        Vector2 dimensions = { sqrt(line.SqrMagnitude()) + width, width };
         float rotation = atanf(line.y / line.x);
 
         DrawRotatedQuad({ midpoint, (float)layer }, dimensions, rotation, color);
@@ -594,20 +721,20 @@ namespace Limnova
     void Renderer2D::DrawEllipse(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer)
     {
         LV_PROFILE_FUNCTION();
-
+    
         bool escapes = !(escapePointFromCentre.y == 0);
         s_OrbitData->XOffset = escapes ? 0.5f * (semiMajorAxis + escapePointFromCentre.x) : 0.f;
         s_OrbitData->XEscapeTangent = -abs(escapePointFromCentre.y * semiMajorAxis * semiMajorAxis / (semiMinorAxis * semiMinorAxis * escapePointFromCentre.x));
         float drawRadius = thickness / 2.f;
         float xLimit = escapes ? semiMajorAxis - escapePointFromCentre.x + thickness : 2.f * semiMajorAxis + thickness;
         float yLimit = escapes && escapePointFromCentre.x > 0 ? 2.f * escapePointFromCentre.y + thickness : 2.f * semiMinorAxis + thickness;
-
+    
         glm::mat4 triangleTransform = glm::translate(glm::mat4(1.f), { (glm::vec2)centre, (float)layer });
         triangleTransform = glm::rotate(triangleTransform, rotation, { 0.f, 0.f, 1.f });
         triangleTransform = glm::translate(triangleTransform, { s_OrbitData->XOffset, 0.f, 0.f });
         triangleTransform = glm::scale(triangleTransform, glm::vec3(xLimit, yLimit, 1.f));
-        s_Data.EllipseShader->SetMat4("u_Transform", triangleTransform);
-
+        s_Data.EllipseShader2->SetMat4("u_Transform", triangleTransform);
+    
         s_OrbitData->XLimit = xLimit;
         s_OrbitData->YLimit = yLimit;
         s_OrbitData->XEscape = escapePointFromCentre.x;
@@ -615,12 +742,12 @@ namespace Limnova
         s_OrbitData->SemiMajorAxis = semiMajorAxis;
         s_OrbitData->SemiMinorAxis = semiMinorAxis;
         s_OrbitData->DrawRadius = drawRadius;
-        s_Data.OrbitUniformBuffer->UpdateData(s_OrbitData, 0, sizeof(OrbitData));
-
-        s_Data.EllipseShader->SetVec4("u_Color", color);
-
-        s_Data.EllipseVertexArray->Bind();
-        RenderCommand::DrawIndexed(s_Data.EllipseVertexArray);
+        s_Data.OrbitUniformBuffer2->UpdateData(s_OrbitData, 0, sizeof(OrbitData));
+    
+        s_Data.EllipseShader2->SetVec4("u_Color", color);
+    
+        s_Data.EllipseVertexArray2->Bind();
+        RenderCommand::DrawIndexed(s_Data.EllipseVertexArray2);
     }
 
 
@@ -628,21 +755,21 @@ namespace Limnova
         const float thickness, const Vector4& color, int layer)
     {
         LV_PROFILE_FUNCTION();
-
+    
         s_OrbitData->XOffset = 0;
-
+    
         // Determine the coordinates of the top-left corner of the triangle, measured in the hyperbola's coordinate system.
         s_OrbitData->XEscapeTangent = escapePointFromCentre.y * semiMajorAxis * semiMajorAxis / (semiMinorAxis * semiMinorAxis * escapePointFromCentre.x);
         float xEscapeTanNormalised = s_OrbitData->XEscapeTangent / sqrt(s_OrbitData->XEscapeTangent * s_OrbitData->XEscapeTangent + 1.f);
         float drawRadius = thickness / 2.f;
         float xLimit = escapePointFromCentre.x + drawRadius;
         float yLimit = (escapePointFromCentre.y + drawRadius / xEscapeTanNormalised) * xLimit / escapePointFromCentre.x;
-
+    
         glm::mat4 triangleTransform = glm::translate(glm::mat4(1.f), { (glm::vec2)centre, (float)layer });
         triangleTransform = glm::rotate(triangleTransform, rotation, { 0.f, 0.f, 1.f });
         triangleTransform = glm::scale(triangleTransform, glm::vec3(xLimit, yLimit, 1.f));
-        s_Data.HyperbolaShader->SetMat4("u_Transform", triangleTransform);
-
+        s_Data.HyperbolaShader2->SetMat4("u_Transform", triangleTransform);
+    
         s_OrbitData->XLimit = xLimit;
         s_OrbitData->YLimit = yLimit;
         s_OrbitData->XEscape = escapePointFromCentre.x;
@@ -650,24 +777,24 @@ namespace Limnova
         s_OrbitData->SemiMajorAxis = semiMajorAxis;
         s_OrbitData->SemiMinorAxis = semiMinorAxis;
         s_OrbitData->DrawRadius = drawRadius;
-        s_Data.OrbitUniformBuffer->UpdateData(s_OrbitData, 0, sizeof(OrbitData));
-
-        s_Data.HyperbolaShader->SetVec4("u_Color", color);
-
-        s_Data.HyperbolaVertexArray->Bind();
-        RenderCommand::DrawIndexed(s_Data.HyperbolaVertexArray);
+        s_Data.OrbitUniformBuffer2->UpdateData(s_OrbitData, 0, sizeof(OrbitData));
+    
+        s_Data.HyperbolaShader2->SetVec4("u_Color", color);
+    
+        s_Data.HyperbolaVertexArray2->Bind();
+        RenderCommand::DrawIndexed(s_Data.HyperbolaVertexArray2);
     }
 
 
     void Renderer2D::TEMP_BeginEllipses()
     {
-        s_Data.EllipseShader->Bind();
+        s_Data.EllipseShader2->Bind();
     }
 
 
     void Renderer2D::TEMP_BeginHyperbolae()
     {
-        s_Data.HyperbolaShader->Bind();
+        s_Data.HyperbolaShader2->Bind();
     }
 
 

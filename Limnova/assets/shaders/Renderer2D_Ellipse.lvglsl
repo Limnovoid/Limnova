@@ -1,0 +1,80 @@
+// Limnova
+// Renderer2D Ellipse Shader
+
+#type vertex
+#version 450
+
+layout (std140) uniform CameraUniform {
+    mat4 ViewProj;
+    vec3 Position;
+    vec3 AimDirection;
+} u_Camera;
+
+out VertexData {
+    vec2  LocalPosition;
+    vec4  Color;
+    float MajorMinorRatio;
+    float Thickness;
+    float Fade;
+} outData;
+
+layout(location = 0) in vec3  a_WorldPosition;
+layout(location = 1) in vec2  a_LocalPosition;
+layout(location = 2) in vec4  a_Color;
+layout(location = 3) in float a_MajorMinorRatio;
+layout(location = 4) in float a_Thickness;
+layout(location = 5) in float a_Fade;
+
+
+void main()
+{
+    outData.LocalPosition   = a_LocalPosition;
+    outData.Color           = a_Color;
+    outData.MajorMinorRatio = a_MajorMinorRatio;
+    outData.Thickness       = a_Thickness;
+    outData.Fade            = a_Fade;
+
+    gl_Position = u_Camera.ViewProj * vec4(a_WorldPosition, 1.0);
+}
+
+
+#type fragment
+#version 450
+
+in VertexData {
+    vec2  LocalPosition;
+    vec4  Color;
+    float MajorMinorRatio;
+    float Thickness;
+    float Fade;
+} inData;
+
+layout(location = 0) out vec4 o_Color;
+
+void main()
+{
+    if (length(inData.LocalPosition) > 1.0) discard;
+
+    float a2 = pow(inData.MajorMinorRatio, 2.0);
+
+    float k_x = abs(inData.LocalPosition.x) * inData.MajorMinorRatio;
+    float k_y = abs(inData.LocalPosition.y);
+
+    float j_x = sqrt(a2 * (1.0 - k_y * k_y));
+    float i_y = sqrt(1.0 - k_x * k_x / a2);
+
+    float A = j_x - k_x;
+    float B = i_y - k_y;
+    float C = sqrt(A * A + B * B);
+
+    float distance = A * B / C;
+
+    /*** From circle shader: ***/
+    float fade = smoothstep(0.0, inData.Fade, distance);
+    fade *= smoothstep(inData.Thickness + inData.Fade, inData.Thickness, distance);
+
+    vec4 color = inData.Color;
+    color.a *= fade;
+    color.rgb *= color.a; // Premultiplied alpha
+    o_Color = color;
+}

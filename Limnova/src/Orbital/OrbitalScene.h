@@ -29,6 +29,7 @@ namespace Limnova
 
         Physics::Validity GetValidity() { return Physics->GetValidity(PhysicsObjectId); }
 
+        bool IsInfluencing() { return Physics->IsInfluencing(PhysicsObjectId); }
         void SetLocalSpaceRadius(float radius)
         {
             float oldRadius = Physics->GetLocalSpaceRadius(PhysicsObjectId);
@@ -43,9 +44,18 @@ namespace Limnova
         void SetPosition(const Vector3& position) { Physics->SetPosition(PhysicsObjectId, position); }
         void SetVelocity(const Vector3& velocity) { Physics->SetVelocity(PhysicsObjectId, velocity); }
 
+        void SetCircular(bool reverse = false)
+        {
+            auto v = Physics->GetDefaultOrbitVelocity(PhysicsObjectId);
+            if (reverse) v = -v;
+            Physics->SetVelocity(PhysicsObjectId, v);
+        }
+
         double GetMass() { return Physics->GetMass(PhysicsObjectId); }
         Vector3 GetPosition() { return Physics->GetPosition(PhysicsObjectId); }
         Vector3d GetVelocity() { return Physics->GetVelocity(PhysicsObjectId); }
+
+        const Physics::Elements& GetElements() { return Physics->GetElements(PhysicsObjectId); }
     };
 
 
@@ -56,6 +66,9 @@ namespace Limnova
         ~OrbitalScene() = default;
 
         void SetParent(Entity entity, Entity parent);
+
+        void SetRootScaling(double meters);
+        double GetRootScaling();
 
         void SetViewPrimary(Entity primary);
         Entity GetViewPrimary();
@@ -70,6 +83,9 @@ namespace Limnova
         Vector4 m_InfluenceColor = { 1.f, 1.f, 1.f, 0.3f };
         float m_InfluenceThickness = 0.002f;
         float m_InfluenceFade = 0.006f;
+        float m_OrbitThickness = 0.004f;
+        float m_OrbitThicknessFactor = 2.f;
+        float m_OrbitAlpha = 0.4f;
     private:
         Physics m_Physics;
         entt::entity m_ViewPrimary;

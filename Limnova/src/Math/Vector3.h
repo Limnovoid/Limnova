@@ -73,7 +73,7 @@ namespace Limnova
             return (*this) /= sqrt(sqrMag);
         }
 
-        float Dot(const TVector3 rhs) const {
+        T Dot(const TVector3 rhs) const {
             return this->x * rhs.x + this->y * rhs.y + this->z * rhs.z;
         }
         TVector3 Cross(const TVector3 rhs) const {

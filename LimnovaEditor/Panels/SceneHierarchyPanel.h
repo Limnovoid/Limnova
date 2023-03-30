@@ -24,6 +24,7 @@ namespace Limnova
 
     namespace LimnGui
     {
+        void HelpMarker(const std::string& description);
 
         template<typename T>
         struct InputConfig

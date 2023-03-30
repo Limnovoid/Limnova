@@ -46,10 +46,13 @@ namespace Limnova
             camera.AddComponent<NativeScriptComponent>().Bind<OrbitalCameraScript>();
         }
 
+        m_Scene->SetRootScaling(10.0);
         auto root = m_Scene->GetRoot();
         {
             root.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 1.f, 0.9f, 1.f });
-            root.GetComponent<OrbitalComponent>().LocalScale = { 0.05f, 0.05f, 0.f };
+            auto& orbital = root.GetComponent<OrbitalComponent>();
+            orbital.LocalScale = { 0.05f, 0.05f, 0.f };
+            orbital.SetMass(1.0 / 6.6743e-11);
         }
 
         auto orbital0 = m_Scene->CreateEntity("Orbital 0");
@@ -58,7 +61,7 @@ namespace Limnova
             auto& transform = orbital0.GetComponent<TransformComponent>();
             transform.SetPosition({ 0.9f, 0.f, 0.f });
             transform.SetScale({ 0.1f, 0.1f, 0.f });
-            orbital0.AddComponent<OrbitalComponent>();
+            orbital0.AddComponent<OrbitalComponent>().SetMass(1.0);
         }
 
         auto orbital1 = m_Scene->CreateEntity("Orbital 1");
@@ -67,38 +70,10 @@ namespace Limnova
             auto& transform = orbital1.GetComponent<TransformComponent>();
             transform.SetPosition({ 0.f, 0.5f, 0.f });
             transform.SetScale({ 0.1f, 0.1f, 0.f });
-            orbital1.AddComponent<OrbitalComponent>();
+            orbital1.AddComponent<OrbitalComponent>().SetMass(1.0);
         }
 #else
         m_Scene = CreateRef<Scene>();
-
-        // Textures
-        //m_CheckerboardTexture = Texture2D::Create(ASSET_DIR"\\textures\\testtex.png", Texture::WrapMode::MirroredTile);
-        //m_SpriteSheet = Texture2D::Create(ASSET_DIR"\\textures\\kenney-sheet\\Spritesheet\\RPGpack_sheet_2X.png", Texture::WrapMode::Clamp);
-        //m_SpriteStairs = SubTexture2D::CreateFromCoords(m_SpriteSheet, { 7, 6 }, { 128, 128 });
-        //m_SpriteTree = SubTexture2D::CreateFromCoords(m_SpriteSheet, { 2, 1 }, { 128, 128 }, { 1, 2 });
-
-
-        /*** From Play2DLayer ***/
-        Entity square = m_Scene->CreateEntity("Default Square");
-        {
-            square.AddComponent<SpriteRendererComponent>(Vector4{ 0.2f, 1.f, 0.3f, 1.f });
-        }
-
-        Entity subSquare = m_Scene->CreateEntity("Sub-Square");
-        {
-            subSquare.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 0.8f, 0.3f, 1.f });
-            auto& transform = subSquare.GetComponent<TransformComponent>();
-            transform.Set({ 0.2f }, { 0.5f, 0.5f, 0.2f });
-            m_Scene->SetParent(subSquare, square);
-        }
-
-        Entity circle = m_Scene->CreateEntity("Circle");
-        {
-            auto& crc = circle.AddComponent<CircleRendererComponent>();
-            auto& transform = circle.GetComponent<TransformComponent>();
-            transform.Set({ 0.4f }, {-0.5f,-0.5f, 0.2f });
-        }
 
         Entity camera0 = m_Scene->CreateEntity("Camera 0");
         {
@@ -123,6 +98,35 @@ namespace Limnova
         {
             auto& script = camera1.AddComponent<NativeScriptComponent>();
             script.Bind<PlanarCameraScript>();
+        }
+
+        // Renderables
+        Entity square = m_Scene->CreateEntity("Default Square");
+        {
+            square.AddComponent<SpriteRendererComponent>(Vector4{ 0.2f, 1.f, 0.3f, 1.f });
+        }
+
+        Entity subSquare = m_Scene->CreateEntity("Sub-Square");
+        {
+            subSquare.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 0.8f, 0.3f, 1.f });
+            auto& transform = subSquare.GetComponent<TransformComponent>();
+            transform.Set({ 0.2f }, { 0.5f, 0.5f, 0.2f });
+            m_Scene->SetParent(subSquare, square);
+        }
+
+        Entity circle = m_Scene->CreateEntity("Circle");
+        {
+            auto& crc = circle.AddComponent<CircleRendererComponent>();
+            auto& transform = circle.GetComponent<TransformComponent>();
+            transform.Set({ 0.4f }, {-0.5f,-0.5f, 0.2f });
+        }
+
+        Entity ellipse = m_Scene->CreateEntity("Ellipse");
+        {
+            auto& erc = ellipse.AddComponent<EllipseRendererComponent>();
+            erc.Fade = 0.f;
+            auto& transform = ellipse.GetComponent<TransformComponent>();
+            //transform.Set({ 0.0f, 0.3f, 0.f }, {-0.5f, 0.5f, 0.2f });
         }
 #endif
 
@@ -267,11 +271,26 @@ namespace Limnova
         }
 
 #ifdef LV_EDITOR_USE_ORBITAL
+        {
+            double rootScaling = m_Scene->GetRootScaling();
+            if (LimnGui::InputScientific("RootScaling", rootScaling)) {
+                m_Scene->SetRootScaling(rootScaling);
+            }
+        }
+
         if (ImGui::TreeNodeEx("Influence Visuals", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::ColorEdit4("Color", m_Scene->m_InfluenceColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
             ImGui::DragFloat("Thickness", &m_Scene->m_InfluenceThickness, 0.001f, 0.001f, 1.f, "%.3f");
             ImGui::DragFloat("Fade", &m_Scene->m_InfluenceFade, 0.001f, 0.001f, 1.f, "%.3f");
+
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNodeEx("Orbit Visuals", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::DragFloat("Thickness", &m_Scene->m_OrbitThickness, 0.001f, 0.001f, 1.f, "%.3f");
+            ImGui::DragFloat("Thickness Factor", &m_Scene->m_OrbitThicknessFactor, 0.001f, 0.001f, 1.f, "%.3f");
 
             ImGui::TreePop();
         }

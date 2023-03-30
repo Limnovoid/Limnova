@@ -42,7 +42,10 @@ namespace Limnova
         static void DrawCircle(const Matrix4& transform, const Vector4& color, float thickness = 1.f, float fade = 0.005f);
         static void DrawCircle(const Vector3& origin, float radius, const Vector4& color, float thickness = 1.f, float fade = 0.005f);
 
-        static void DrawLine(const Vector2& start, const Vector2& end, const float thickness, const Vector4& color, int layer = 0);
+        static void DrawEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness = 1.f, float fade = 0.005f);
+        static void DrawEllipse(const Vector3& centre, const Quaternion& orientation, float semiMajorAxis, float semiMinorAxis, const Vector4& color, float thickness = 1.f, float fade = 0.005f);
+
+        static void DrawLine(const Vector2& start, const Vector2& end, const float width, const Vector4& color, int layer = 0);
 
         static void DrawEllipse(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer = 0);
         static void DrawHyperbola(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer = 0);
@@ -58,6 +61,9 @@ namespace Limnova
 
         static void FlushCircles();
         static void ResetCircleBatch();
+
+        static void FlushEllipses();
+        static void ResetEllipseBatch();
 
         // stats
     public:

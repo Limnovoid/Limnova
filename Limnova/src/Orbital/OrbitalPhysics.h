@@ -43,6 +43,7 @@ namespace Limnova
 
         static constexpr double kGravitational = 6.6743e-11;
         static constexpr float kDefaultLocalSpaceRadius = 0.1f;
+        static constexpr float kParallelDotProductLimit = 1.f - 1e-4f;
     private:
         using TAttrId = uint32_t;
 
@@ -156,7 +157,7 @@ namespace Limnova
 
 
         /*** Attributes ***/
-
+    public:
         struct Elements
         {
             double Grav = 0.f;          /* Gravitational parameter (mu) */
@@ -170,13 +171,15 @@ namespace Limnova
 
             /* Basis of the perifocal frame */
             Vector3 PerifocalX = { 0.f }, PerifocalY = { 0.f }, PerifocalNormal = { 0.f };
+            Quaternion PerifocalOrientation;
 
             float TrueAnomaly = 0.f;
 
             float SemiMajor = 0.f, SemiMinor = 0.f;
-            double Period = 0.0;
+            float C = 0.f; /* Signed distance from occupied focus to centre, measured in perifocal frame's x-axis */
+            double T = 0.0;
         };
-
+    private:
         struct LocalSpace
         {
             float Radius = 0.f; /* Measured in parent's influence */
@@ -322,7 +325,11 @@ namespace Limnova
 
         bool ValidParent(TObjectId object)
         {
-            return m_LocalSpaces.Has(m_Objects[object].Parent) || m_Objects[object].Parent == m_RootObject || object == m_RootObject;
+            if (m_LocalSpaces[m_RootObject].MetersPerRadius > 0.0) {
+                return m_LocalSpaces.Has(m_Objects[object].Parent) || m_Objects[object].Parent == m_RootObject || object == m_RootObject;
+            }
+            LV_WARN("OrbitalPhysics root scaling has not been set!");
+            return false;
         }
 
         /// <summary>
@@ -381,27 +388,47 @@ namespace Limnova
             elems.Grav = kGravitational * m_Objects[obj.Parent].State.Mass * pow(m_LocalSpaces.Get(obj.Parent).MetersPerRadius, -3.0);
 
             Vector3d Hvec = Vector3d(state.Position).Cross(state.Velocity);
-            elems.H = sqrt(Hvec.SqrMagnitude());
+            double H2 = Hvec.SqrMagnitude();
+            elems.H = sqrt(H2);
             elems.PerifocalNormal = Hvec / elems.H;
 
             /* Loss of precision due to casting is acceptable: result of vector division (V x H / Grav) is on the order of 1 */
             Vector3 posDir = state.Position.Normalized();
             Vector3 Evec = (Vector3)(state.Velocity.Cross(Hvec) / elems.Grav) - posDir;
             elems.E = sqrtf(Evec.SqrMagnitude());
-            elems.PerifocalX = Evec / elems.E;
-            elems.PerifocalY = elems.PerifocalNormal.Cross(elems.PerifocalX);
+            static constexpr float kEccentricityEpsilon = 1e-4f;
+            if (elems.E < kEccentricityEpsilon)
+            {
+                // Circular
+                elems.E = 0.f;
+                elems.PerifocalX = abs(elems.PerifocalNormal.Dot(kReferenceY)) > kParallelDotProductLimit
+                    ? kReferenceX : kReferenceY.Cross(elems.PerifocalNormal);
+                elems.PerifocalY = elems.PerifocalNormal.Cross(elems.PerifocalX);
+            }
+            else
+            {
+                // Elliptical
+                elems.PerifocalX = Evec / elems.E;
+                elems.PerifocalY = elems.PerifocalNormal.Cross(elems.PerifocalX);
+            }
 
             elems.I = acosf(elems.PerifocalNormal.Dot(kReferenceNormal));
-            elems.N = kReferenceNormal.Cross(elems.PerifocalNormal).Normalized();
-            elems.Omega = acosf(elems.N.Dot(kReferenceNormal));
-            elems.ArgPeriapsis = acosf(elems.N.Dot(elems.PerifocalX));
-            // Disambiguate based on whether the ascending node is in the positive or negative Y-axis of the reference frame
-            if (elems.N.Dot(elems.PerifocalY) < 0.f)
-            {
-                // Ascending node is in the negative Y-axis of the reference frame
+            elems.N = abs(elems.PerifocalNormal.Dot(kReferenceNormal)) > kParallelDotProductLimit
+                ? kReferenceX : kReferenceNormal.Cross(elems.PerifocalNormal).Normalized();
+            elems.Omega = acosf(elems.N.Dot(kReferenceX));
+            if (elems.N.Dot(kReferenceY) < 0.f) {
                 elems.Omega = PI2f - elems.Omega;
+            }
+            elems.ArgPeriapsis = acosf(elems.N.Dot(elems.PerifocalX));
+            if (elems.N.Dot(elems.PerifocalY) > 0.f) {
                 elems.ArgPeriapsis = PI2f - elems.ArgPeriapsis;
             }
+            //elems.PerifocalOrientation =
+            //    Quaternion(kReferenceNormal, elems.Omega)
+            //    * Quaternion(elems.PerifocalX, elems.I)
+            //    * Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis);
+            elems.PerifocalOrientation =
+                Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis);
 
             elems.TrueAnomaly = acosf(elems.PerifocalX.Dot(posDir));
             // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
@@ -414,10 +441,12 @@ namespace Limnova
             // Dimensions
             float e2 = powf(elems.E, 2.f);
             /* Loss of precision due to casting is acceptable: semi-major axis is on the order of 1 in all common cases, due to distance parameterisation */
-            elems.SemiMajor = (float)(pow(elems.H, 2.0) / (elems.Grav * (double)(1.f - e2)));
+            float H2_Grav = (float)(H2 / elems.Grav);
+            elems.SemiMajor = H2_Grav / (1.f - e2);
             elems.SemiMinor = elems.SemiMajor * sqrtf(1.f - e2);
 
-            elems.Period = (double)powf(elems.SemiMajor, 1.5f) * PI2 / sqrt(elems.H);
+            elems.T = pow((double)elems.SemiMajor, 1.5) * PI2 / sqrt(elems.H);
+            elems.C = H2_Grav / (1.f + elems.E) - elems.SemiMajor;
         }
 
         /// <summary>
@@ -487,6 +516,11 @@ namespace Limnova
             m_LocalSpaces[m_RootObject].MetersPerRadius = meters;
 
             // TODO - recompute all object elements
+        }
+
+        double GetRootScaling()
+        {
+            return m_LocalSpaces[m_RootObject].MetersPerRadius;
         }
 
         /// <summary>
@@ -781,9 +815,9 @@ namespace Limnova
             /* Keep the orbital plane as flat (close to the reference plane) as possible:
              * derive velocity direction as the cross product of reference normal and normalized position */
             Vector3d vDir;
-            Vector3 rDir = m_Objects[object].State.Position.Normalized();
+            float rMag = sqrtf(m_Objects[object].State.Position.SqrMagnitude());
+            Vector3 rDir = m_Objects[object].State.Position / rMag;
 
-            static constexpr float kParallelDotProductLimit = 1.f - 1e-4f;
             float rDotNormal = rDir.Dot(kReferenceNormal);
             if (abs(rDotNormal) > kParallelDotProductLimit)
             {
@@ -795,7 +829,12 @@ namespace Limnova
             {
                 vDir = (Vector3d)kReferenceNormal.Cross(rDir).Normalized();
             }
-            return vDir * CircularOrbitSpeed(object);
+            return vDir * CircularOrbitSpeed(m_Objects[object].Parent, rMag);
+        }
+
+        const Elements& GetElements(TObjectId object)
+        {
+            return m_Elements[object];
         }
     };
 

@@ -32,8 +32,6 @@ namespace Limnova
         void SetOrthographicProjection(const float aspectRatio, const float height, const float nearClip, const float farClip);
         void SetPerspectiveProjection(const float verticalFov, const float aspectRatio, const float nearClip, const float farClip);
     private:
-        friend class Renderer;
-        friend class Renderer2D;
         virtual Data const* GetData();
         void RecomputeData();
     private:
@@ -41,6 +39,9 @@ namespace Limnova
         Matrix4 m_View;
         Data m_Data;
         bool m_NeedRecompute = false;
+
+        friend class Renderer;
+        friend class Renderer2D;
     };
 
 }

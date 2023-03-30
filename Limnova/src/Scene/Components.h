@@ -202,4 +202,15 @@ namespace Limnova
         CircleRendererComponent(const CircleRendererComponent&) = default;
     };
 
+
+    struct EllipseRendererComponent
+    {
+        Vector4 Color = { 1.f, 0.f, 1.f, 1.f };
+        float Thickness = 0.5f;
+        float Fade = 0.005f;
+
+        EllipseRendererComponent() = default;
+        EllipseRendererComponent(const EllipseRendererComponent&) = default;
+    };
+
 }
