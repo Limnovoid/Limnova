@@ -147,13 +147,20 @@ namespace Limnova
                 // TODO : move to Scene::OnPlay()
                 if (!script.Instance)
                 {
-                    script.InstantiateScript(&script.Instance);
-                    script.Instance->m_Entity = Entity{ entity, this };
+                    if (script.InstantiateScript)
+                    {
+                        script.InstantiateScript(&script.Instance);
+                        script.Instance->m_Entity = Entity{ entity, this };
 
-                    script.Instance->OnCreate();
+                        script.Instance->OnCreate();
+                    }
+                    else {
+                        LV_CORE_WARN("Entity {0} has unbound script component!", (uint32_t)entity);
+                    }
                 }
-
-                script.Instance->OnUpdate(dT);
+                else {
+                    script.Instance->OnUpdate(dT);
+                }
 
                 // TODO : move to Scene::OnStop()
                 /*if (script.Instance)
@@ -181,10 +188,11 @@ namespace Limnova
         // Sprites
         {
             auto view = m_Registry.view<TransformComponent, SpriteRendererComponent>();
+
             for (auto entity : view)
             {
                 auto [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(entity);
-
+            
                 Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color);
             }
         }
@@ -225,7 +233,9 @@ namespace Limnova
         // Scripts
         m_Registry.view<NativeScriptComponent>().each([&](auto entity, auto& script)
         {
-            script.Instance->OnEvent(e);
+            if (script.Instance) {
+                script.Instance->OnEvent(e);
+            }
         });
     }
 

@@ -21,6 +21,12 @@ namespace Limnova
         void OnImGuiRender() override;
         void OnEvent(Event& e) override;
     private:
+        bool OnKeyPressed(KeyPressedEvent& e);
+
+        void NewScene();
+        void OpenScene();
+        void SaveSceneAs();
+    private:
 #ifdef LV_EDITOR_USE_ORBITAL
         Ref<OrbitalScene> m_Scene;
 #else

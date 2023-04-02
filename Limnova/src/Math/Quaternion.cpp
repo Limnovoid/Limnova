@@ -13,6 +13,13 @@ namespace Limnova
     }
 
 
+    Quaternion::Quaternion(float x, float y, float z, float w)
+        : v(x, y, z), w(w)
+    {
+        this->Normalize();
+    }
+
+
     Vector3 Quaternion::RotateVector(const Vector3 vec) const
     {
         Quaternion vq(vec);

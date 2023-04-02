@@ -53,6 +53,8 @@ namespace Limnova
 
         void Destroy();
 
+        void Parent(Entity parent) { m_Scene->SetParent(*this, parent); }
+
         static Entity Null;
     public:
         operator bool() const { return m_Scene == nullptr ? false : m_Scene->m_Registry.valid(m_EnttId); }

@@ -117,7 +117,7 @@ namespace Limnova
         Vector3 m_FocusOffset = { 0.f };
         const float m_OffsetSpeed = 0.1f;
 
-        const float m_MaxDistance = 1.1f; // TODO : set to influence escape distance
+        const float m_MaxDistance = 1.5f; // TODO : set to influence escape distance
         const float m_MinDistance = 0.1f; // TODO : get from focused entity influence/scaling space radius
         const float m_ScrollSens = 0.1f;
         float m_Distance = 1.f;

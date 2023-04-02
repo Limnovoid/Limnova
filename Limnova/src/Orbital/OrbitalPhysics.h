@@ -782,7 +782,7 @@ namespace Limnova
             return m_Objects[object].State.Position;
         }
 
-        void SetVelocity(TObjectId object, Vector3 velocity)
+        void SetVelocity(TObjectId object, Vector3d velocity)
         {
             if (object == m_RootObject)
             {

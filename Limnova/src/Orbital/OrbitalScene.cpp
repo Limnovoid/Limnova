@@ -161,6 +161,7 @@ namespace Limnova
             // TODO - orbits as child entities:
             // - use transform component to eliminate the manual transform computation below (constant orbits have constant transforms, below is unnecessary recomputation!)
             // - allows UI integration (clickable orbits) !!!
+            // ALTERNATIVELY - pass the orbital entity ID into the draw call for the orbit, so clicking the orbit will select the entity which owns the orbital component
             Vector3 orbitCenter = primaryPosition + (elems.PerifocalX * elems.C);
             Vector4 orbitColor = { sprite.Color.XYZ(), m_OrbitAlpha };
             // TODO - constant absolute thickness

@@ -18,6 +18,7 @@ namespace Limnova
         constexpr Quaternion(const Quaternion&) = default;
         Quaternion(Vector3 rotationAxis, float angleRadians)
             : v(sinf(0.5f * angleRadians) * rotationAxis), w(cosf(0.5f * angleRadians)) {}
+        Quaternion(float x, float y, float z, float w);
 
         Vector3 RotateVector(const Vector3 vec) const;
 

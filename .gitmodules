@@ -16,3 +16,6 @@
 [submodule "Limnova/thirdparty/glfw"]
 	path = Limnova/thirdparty/glfw
 	url = https://github.com/Limnovoid/limnova-glfw
+[submodule "Limnova/thirdparty/yaml-cpp"]
+	path = Limnova/thirdparty/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git

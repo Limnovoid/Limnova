@@ -11,54 +11,6 @@ namespace Limnova
     using Physics = OrbitalPhysics<entt::entity>;
 
 
-    struct OrbitalComponent
-    {
-        friend class OrbitalScene;
-    private:
-        Physics::TObjectId PhysicsObjectId = Physics::Null;
-        Physics* Physics = nullptr;
-
-    public:
-        Vector3 LocalScale = { 1.f };
-        float Albedo; /* Surface reflectivity of orbital object - determines object's brightness as a star-like object when viewed from far away */
-
-        OrbitalComponent() = default;
-        //OrbitalComponent(const OrbitalComponent&) = default;
-        //OrbitalComponent(const OrbitalPhysics<entt::entity>::TObjectId& physicsObjectId)
-        //    : PhysicsObjectId(physicsObjectId) {}
-
-        Physics::Validity GetValidity() { return Physics->GetValidity(PhysicsObjectId); }
-
-        bool IsInfluencing() { return Physics->IsInfluencing(PhysicsObjectId); }
-        void SetLocalSpaceRadius(float radius)
-        {
-            float oldRadius = Physics->GetLocalSpaceRadius(PhysicsObjectId);
-            if (Physics->SetLocalSpaceRadius(PhysicsObjectId, radius))
-            {
-                LocalScale *= oldRadius / radius;
-            }
-        }
-        float GetLocalSpaceRadius() { return Physics->GetLocalSpaceRadius(PhysicsObjectId); }
-
-        void SetMass(double mass) { Physics->SetMass(PhysicsObjectId, mass); }
-        void SetPosition(const Vector3& position) { Physics->SetPosition(PhysicsObjectId, position); }
-        void SetVelocity(const Vector3& velocity) { Physics->SetVelocity(PhysicsObjectId, velocity); }
-
-        void SetCircular(bool reverse = false)
-        {
-            auto v = Physics->GetDefaultOrbitVelocity(PhysicsObjectId);
-            if (reverse) v = -v;
-            Physics->SetVelocity(PhysicsObjectId, v);
-        }
-
-        double GetMass() { return Physics->GetMass(PhysicsObjectId); }
-        Vector3 GetPosition() { return Physics->GetPosition(PhysicsObjectId); }
-        Vector3d GetVelocity() { return Physics->GetVelocity(PhysicsObjectId); }
-
-        const Physics::Elements& GetElements() { return Physics->GetElements(PhysicsObjectId); }
-    };
-
-
     class OrbitalScene : public Scene
     {
     public:
@@ -89,6 +41,8 @@ namespace Limnova
     private:
         Physics m_Physics;
         entt::entity m_ViewPrimary;
+
+        friend class OrbitalSceneSerializer;
     };
 
 }

@@ -2,6 +2,9 @@
 
 #include "NativeScripts/CameraScripts.h"
 
+#include <Scene/SceneSerializer.h>
+#include <Utils/PlatformUtils.h>
+
 #define ASSET_DIR "C:\\Programming\\source\\Limnova\\LimnovaEditor\\Assets"
 
 
@@ -42,7 +45,8 @@ namespace Limnova
         m_Scene = CreateRef<OrbitalScene>();
         auto camera = m_Scene->CreateEntity("Camera");
         {
-            camera.AddComponent<CameraComponent>();
+            auto& cc = camera.AddComponent<CameraComponent>();
+            cc.SetPerspectiveFov(Radiansf(80.f));
             camera.AddComponent<NativeScriptComponent>().Bind<OrbitalCameraScript>();
         }
 
@@ -75,6 +79,7 @@ namespace Limnova
 #else
         m_Scene = CreateRef<Scene>();
 
+    #ifdef EXCLUDE_SETUP
         Entity camera0 = m_Scene->CreateEntity("Camera 0");
         {
             camera0.AddComponent<CameraComponent>();
@@ -103,12 +108,13 @@ namespace Limnova
         // Renderables
         Entity square = m_Scene->CreateEntity("Default Square");
         {
-            square.AddComponent<SpriteRendererComponent>(Vector4{ 0.2f, 1.f, 0.3f, 1.f });
+            auto& src = square.AddComponent<SpriteRendererComponent>(Vector4{ 0.2f, 1.f, 0.3f, 1.f });
+            src.Color.w = 0.6f;
         }
 
         Entity subSquare = m_Scene->CreateEntity("Sub-Square");
         {
-            subSquare.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 0.8f, 0.3f, 1.f });
+            auto& src = subSquare.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 0.8f, 0.3f, 1.f });
             auto& transform = subSquare.GetComponent<TransformComponent>();
             transform.Set({ 0.2f }, { 0.5f, 0.5f, 0.2f });
             m_Scene->SetParent(subSquare, square);
@@ -117,6 +123,7 @@ namespace Limnova
         Entity circle = m_Scene->CreateEntity("Circle");
         {
             auto& crc = circle.AddComponent<CircleRendererComponent>();
+            crc.Fade = 0.12f;
             auto& transform = circle.GetComponent<TransformComponent>();
             transform.Set({ 0.4f }, {-0.5f,-0.5f, 0.2f });
         }
@@ -124,10 +131,10 @@ namespace Limnova
         Entity ellipse = m_Scene->CreateEntity("Ellipse");
         {
             auto& erc = ellipse.AddComponent<EllipseRendererComponent>();
-            erc.Fade = 0.f;
             auto& transform = ellipse.GetComponent<TransformComponent>();
-            //transform.Set({ 0.0f, 0.3f, 0.f }, {-0.5f, 0.5f, 0.2f });
+            transform.Set({ 0.6f, 0.3f, 0.f }, {-0.5f, 0.5f, 0.2f });
         }
+    #endif
 #endif
 
         m_SceneHierarchyPanel.SetContext(m_Scene.get());
@@ -240,10 +247,25 @@ namespace Limnova
         {
             if (ImGui::BeginMenu("File"))
             {
+                if (ImGui::MenuItem("New", "Ctrl+N")) {
+                    NewScene();
+                }
+
+                if (ImGui::MenuItem("Open...", "Ctrl+O")) {
+                    OpenScene();
+                }
+
+                if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {
+                    SaveSceneAs();
+                }
+
+                ImGui::Separator();
+
                 if (ImGui::MenuItem("Exit", NULL, false))
                 {
                     Application::Get().Close();
                 }
+
                 ImGui::EndMenu();
             }
 
@@ -255,19 +277,21 @@ namespace Limnova
 
         ImGui::Begin("Scene Properties");
 
-        Entity activeCamera = m_Scene->GetActiveCamera();
-        if (ImGui::BeginCombo("Camera", activeCamera.GetComponent<TagComponent>().Tag.c_str()))
+        if (Entity activeCamera = m_Scene->GetActiveCamera())
         {
-            auto cameraEntities = m_Scene->GetEntitiesByComponents<CameraComponent>();
-            for (auto& entity : cameraEntities)
+            if (ImGui::BeginCombo("Camera", activeCamera.GetComponent<TagComponent>().Tag.c_str()))
             {
-                if (ImGui::Selectable(entity.GetComponent<TagComponent>().Tag.c_str(), activeCamera == entity))
+                auto cameraEntities = m_Scene->GetEntitiesByComponents<CameraComponent>();
+                for (auto& entity : cameraEntities)
                 {
-                    activeCamera = entity;
-                    m_Scene->SetActiveCamera(entity);
+                    if (ImGui::Selectable(entity.GetComponent<TagComponent>().Tag.c_str(), activeCamera == entity))
+                    {
+                        activeCamera = entity;
+                        m_Scene->SetActiveCamera(entity);
+                    }
                 }
+                ImGui::EndCombo();
             }
-            ImGui::EndCombo();
         }
 
 #ifdef LV_EDITOR_USE_ORBITAL
@@ -354,6 +378,74 @@ namespace Limnova
         //}
 
         m_Scene->OnEvent(e);
+
+        EventDispatcher dispatcher(e);
+        dispatcher.Dispatch<KeyPressedEvent>(LV_BIND_EVENT_FN(EditorLayer::OnKeyPressed));
+    }
+
+
+    bool EditorLayer::OnKeyPressed(KeyPressedEvent& e)
+    {
+        bool ctrl = Input::IsKeyPressed(LV_KEY_LEFT_CONTROL) || Input::IsKeyPressed(LV_KEY_RIGHT_CONTROL);
+        bool shift = Input::IsKeyPressed(LV_KEY_LEFT_SHIFT) || Input::IsKeyPressed(LV_KEY_RIGHT_SHIFT);
+
+        switch (e.GetKeyCode())
+        {
+        case LV_KEY_N:
+            if (ctrl) {
+                NewScene();
+            }
+            break;
+        case LV_KEY_O:
+            if (ctrl) {
+                OpenScene();
+            }
+            break;
+        case LV_KEY_S:
+            if (ctrl && shift) {
+                SaveSceneAs();
+            }
+            break;
+        }
+        return false;
+    }
+
+
+    void EditorLayer::NewScene()
+    {
+#ifdef LV_EDITOR_USE_ORBITAL
+        m_Scene = CreateRef<OrbitalScene>();
+#else
+        m_Scene = CreateRef<Scene>();
+#endif
+        m_Scene->OnWindowChangeAspect(m_ViewportSize.x / m_ViewportSize.y);
+        m_SceneHierarchyPanel.SetContext(m_Scene.get());
+    }
+
+
+    void EditorLayer::OpenScene()
+    {
+        std::string filepath = FileDialogs::OpenFile("Limnova Scene (*.limn)\0*.limn\0");
+        if (filepath.empty()) {
+            return;
+        }
+
+        NewScene();
+
+        SceneSerializer serializer(m_Scene);
+        serializer.Deserialize(filepath);
+    }
+
+
+    void EditorLayer::SaveSceneAs()
+    {
+        std::string filepath = FileDialogs::SaveFile("Limnova Scene (*.limn)\0*.limn\0");
+        if (filepath.empty()) {
+            return;
+        }
+
+        SceneSerializer serializer(m_Scene);
+        serializer.Serialize(filepath);
     }
 
 }

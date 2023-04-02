@@ -32,6 +32,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Orbital/OrbitalPhysics.h"
     "src/Orbital/OrbitalScene.cpp"
 
+    # TODO - platform specific
     "src/Platform/OpenGL/OpenGLBuffer.cpp"
     "src/Platform/OpenGL/OpenGLContext.cpp"
     "src/Platform/OpenGL/OpenGLFramebuffer.cpp"
@@ -43,8 +44,9 @@ add_library(${PROJECT_NAME} STATIC
     "src/Platform/Vulkan/vktostring.h"
     "src/Platform/Vulkan/vktostring.cpp"
     "src/Platform/Vulkan/vkinit.cpp"
-    "src/Platform/Windows/WindowsWindow.cpp"
     "src/Platform/Windows/WindowsInput.cpp"
+    "src/Platform/Windows/WindowsUtils.cpp"
+    "src/Platform/Windows/WindowsWindow.cpp"
 
     "src/Renderer/Buffer.cpp"
     "src/Renderer/Camera.cpp"
@@ -62,11 +64,12 @@ add_library(${PROJECT_NAME} STATIC
     "src/Renderer/Texture.cpp"
     "src/Renderer/VertexArray.cpp"
 
-    "src/Scene/Components.h"
+    "src/Scene/Components.cpp"
     "src/Scene/Entity.cpp"
+    "src/Scene/Reflection.cpp"
     "src/Scene/Scene.cpp"
     "src/Scene/Script.h"
-
+    "src/Scene/SceneSerializer.cpp"
     "src/Structures/Queue.h"
 
     "thirdparty/stb_image/stb_image.cpp"
@@ -77,17 +80,15 @@ set_property(TARGET ${PROJECT_NAME}
     PROPERTY CXX_STANDARD 20
 )
 
-
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         "${PROJECT_SOURCE_DIR}/src"
 )
 
-
-#add_compile_definitions(
-#    LV_BUILD_DLL
-#)
-
+target_compile_definitions(${PROJECT_NAME}
+    PRIVATE
+        LV_REFL_MAX_NUM_FIELDS=128
+)
 
 target_precompile_headers(${PROJECT_NAME}
     PRIVATE
@@ -132,12 +133,14 @@ target_include_directories(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/thirdparty/stb_image"
         "${PROJECT_SOURCE_DIR}/thirdparty/volk/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/vulkan/include"
+        "${PROJECT_SOURCE_DIR}/thirdparty/yaml-cpp/include"
 )
 
 add_subdirectory(thirdparty)
 add_subdirectory(thirdparty/glad)
 add_subdirectory(thirdparty/glfw)
 add_subdirectory(thirdparty/volk)
+add_subdirectory(thirdparty/yaml-cpp)
 
 set_property(TARGET ${PROJECT_NAME}
     PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
@@ -151,11 +154,26 @@ target_link_libraries(${PROJECT_NAME}
         Volk
     PUBLIC
         ImGui
+        yaml-cpp
 )
 
 add_compile_definitions(
     GLFW_INCLUDE_NONE
     _CRT_SECURE_NO_WARNINGS
+)
+
+# Getting yaml to play nice
+set_property(TARGET yaml-cpp
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+)
+set_property(TARGET yaml-cpp-sandbox
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+)
+set_property(TARGET yaml-cpp-parse
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+)
+set_property(TARGET yaml-cpp-read
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
 )
 
 

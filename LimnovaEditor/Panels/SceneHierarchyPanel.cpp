@@ -15,6 +15,7 @@ namespace Limnova
     void SceneHierarchyPanel::SetContext(Scene* scene)
     {
         m_Scene = scene;
+        m_Selected = Entity::Null;
     }
 
 
@@ -165,7 +166,10 @@ namespace Limnova
             strcpy_s(buffer, sizeof(buffer), tag.Tag.c_str());
             if (ImGui::InputText("##Tag", buffer, sizeof(buffer)))
             {
-                tag = std::string(buffer);
+                std::string strTag{ buffer };
+                if (strTag != "Root") {
+                    tag = strTag;
+                }
             }
         }
 

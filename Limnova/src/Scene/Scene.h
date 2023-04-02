@@ -44,16 +44,6 @@ namespace Limnova
         virtual void OnUpdate(Timestep dT);
         virtual void OnRender();
         virtual void OnEvent(Event& e);
-    protected:
-        entt::registry m_Registry;
-
-        entt::entity m_Root; // Scene hierarchy
-
-        entt::entity m_ActiveCamera;
-        float m_ViewportAspectRatio = 16.f / 9.f;
-
-        friend class Entity;
-        friend class SceneHierarchyPanel;
     private:
         /* Events and signals */
         void OnHierarchyComponentConstruction(entt::registry&, entt::entity);
@@ -66,6 +56,17 @@ namespace Limnova
         /* Helpers */
         void HierarchyConnect(Entity entity, Entity parent);
         void HierarchyDisconnect(Entity entity);
+    protected:
+        entt::registry m_Registry;
+
+        entt::entity m_Root; // Scene hierarchy
+
+        entt::entity m_ActiveCamera;
+        float m_ViewportAspectRatio = 16.f / 9.f;
+
+        friend class Entity;
+        friend class SceneHierarchyPanel;
+        friend class SceneSerializer;
     };
 
 }

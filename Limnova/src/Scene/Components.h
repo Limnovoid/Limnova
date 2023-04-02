@@ -5,12 +5,15 @@
 
 #include <Math/Math.h>
 #include <Renderer/Camera.h>
+#include <Orbital/OrbitalPhysics.h>
 
 namespace Limnova
 {
 
     struct TagComponent
     {
+        //LV_REFLECT(TagComponent)
+
         std::string Tag;
 
         TagComponent() = default;
@@ -22,15 +25,16 @@ namespace Limnova
 
     struct TransformComponent
     {
+        //LV_REFLECT(TransformComponent)
         friend class SceneHierarchyPanel;
     private:
         glm::mat4 Transform = glm::identity<glm::mat4>();
         bool NeedCompute = true;
 
-        Vector3 Scale = { 1.f };
         Vector3 Position = { 0.f };
         Quaternion Orientation = Quaternion::Unit();
         Vector3 EulerAngles = { 0.f };
+        Vector3 Scale = { 1.f };
     public:
         TransformComponent() = default;
         TransformComponent(const TransformComponent&) = default;
@@ -75,9 +79,12 @@ namespace Limnova
 
     struct HierarchyComponent
     {
+        //LV_REFLECT(HierarchyComponent)
         friend class Scene;
         friend class OrbitalScene;
+        friend class SceneSerializer;
     private:
+        /* TODO - use UUIDs */
         Entity Parent;
         Entity NextSibling;
         Entity PrevSibling;
@@ -90,6 +97,8 @@ namespace Limnova
 
     struct CameraComponent
     {
+        //LV_REFLECT(CameraComponent)
+        friend class SceneSerializer;
     private:
         float VerticalFov = { Radiansf(60.f) };
         float OrthographicHeight = 1.f;
@@ -163,6 +172,8 @@ namespace Limnova
 
     struct NativeScriptComponent
     {
+        //LV_REFLECT(NativeScriptComponent)
+
         friend class Scene;
     private:
         NativeScript* Instance = nullptr;
@@ -183,6 +194,8 @@ namespace Limnova
 
     struct SpriteRendererComponent
     {
+        //LV_REFLECT(SpriteRendererComponent);
+
         Vector4 Color{ 1.f, 0.f, 1.f, 1.f };
 
         SpriteRendererComponent() = default;
@@ -194,6 +207,8 @@ namespace Limnova
 
     struct CircleRendererComponent
     {
+        //LV_REFLECT(CircleRendererComponent);
+
         Vector4 Color = { 1.f, 0.f, 1.f, 1.f };
         float Thickness = 0.5f;
         float Fade = 0.005f;
@@ -205,12 +220,65 @@ namespace Limnova
 
     struct EllipseRendererComponent
     {
+        //LV_REFLECT(EllipseRendererComponent);
+
         Vector4 Color = { 1.f, 0.f, 1.f, 1.f };
-        float Thickness = 0.5f;
-        float Fade = 0.005f;
+        float Thickness = 0.04f;
+        float Fade = 0.f;
 
         EllipseRendererComponent() = default;
         EllipseRendererComponent(const EllipseRendererComponent&) = default;
+    };
+
+
+    using Physics = OrbitalPhysics<entt::entity>;
+    struct OrbitalComponent
+    {
+        //LV_REFLECT(OrbitalComponent);
+
+        friend class OrbitalScene;
+    private:
+        Physics::TObjectId PhysicsObjectId = Physics::Null;
+        Physics* Physics = nullptr;
+
+    public:
+        Vector3 LocalScale = { 1.f };
+        float Albedo; /* Surface reflectivity of orbital object - determines object's brightness as a star-like object when viewed from far away */
+
+        OrbitalComponent() = default;
+        //OrbitalComponent(const OrbitalComponent&) = default;
+        //OrbitalComponent(const OrbitalPhysics<entt::entity>::TObjectId& physicsObjectId)
+        //    : PhysicsObjectId(physicsObjectId) {}
+
+        Physics::Validity GetValidity() { return Physics->GetValidity(PhysicsObjectId); }
+
+        bool IsInfluencing() { return Physics->IsInfluencing(PhysicsObjectId); }
+        void SetLocalSpaceRadius(float radius)
+        {
+            float oldRadius = Physics->GetLocalSpaceRadius(PhysicsObjectId);
+            if (Physics->SetLocalSpaceRadius(PhysicsObjectId, radius))
+            {
+                LocalScale *= oldRadius / radius;
+            }
+        }
+        float GetLocalSpaceRadius() { return Physics->GetLocalSpaceRadius(PhysicsObjectId); }
+
+        void SetMass(double mass) { Physics->SetMass(PhysicsObjectId, mass); }
+        void SetPosition(const Vector3& position) { Physics->SetPosition(PhysicsObjectId, position); }
+        void SetVelocity(const Vector3d& velocity) { Physics->SetVelocity(PhysicsObjectId, velocity); }
+
+        void SetCircular(bool reverse = false)
+        {
+            auto v = Physics->GetDefaultOrbitVelocity(PhysicsObjectId);
+            if (reverse) v = -v;
+            Physics->SetVelocity(PhysicsObjectId, v);
+        }
+
+        double GetMass() { return Physics->GetMass(PhysicsObjectId); }
+        Vector3 GetPosition() { return Physics->GetPosition(PhysicsObjectId); }
+        Vector3d GetVelocity() { return Physics->GetVelocity(PhysicsObjectId); }
+
+        const Physics::Elements& GetElements() { return Physics->GetElements(PhysicsObjectId); }
     };
 
 }
