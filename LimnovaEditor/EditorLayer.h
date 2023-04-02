@@ -39,6 +39,9 @@ namespace Limnova
         bool m_ViewportFocused = false, m_ViewportHovered = false;
 
         SceneHierarchyPanel m_SceneHierarchyPanel;
+
+        int m_ActiveGizmo = -1; /* from ImGuizmo::OPERATION */
+        float m_SnapTranslate = 0.5f, m_SnapRotate = 45.f, m_SnapScale = 0.5f;
     };
 
 }

@@ -337,7 +337,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawBatchedQuad(const glm::mat4& transform, const Vector4& color, const Vector2* textureCoords, const Vector2& textureScale, const float textureIndex)
+    void Renderer2D::DrawBatchedQuad(const Matrix4& transform, const Vector4& color, const Vector2* textureCoords, const Vector2& textureScale, const float textureIndex)
     {
         LV_PROFILE_FUNCTION();
 
@@ -349,7 +349,7 @@ namespace Limnova
 
         for (uint32_t i = 0; i < 4; i++)
         {
-            s_Data.QuadVertexBufferPtr->Position = glm::vec3(transform * s_Data.QuadVertexPositions[i].glm_vec4()); // TODO : Limnova::Math matrices
+            s_Data.QuadVertexBufferPtr->Position = (transform * s_Data.QuadVertexPositions[i]).XYZ();
             s_Data.QuadVertexBufferPtr->Color = color;
             s_Data.QuadVertexBufferPtr->TexCoord = textureCoords[i];
             s_Data.QuadVertexBufferPtr->TexScale = textureScale;
@@ -363,7 +363,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawQuad(const glm::mat4& transform, const Vector4& color)
+    void Renderer2D::DrawQuad(const Matrix4& transform, const Vector4& color)
     {
         LV_PROFILE_FUNCTION();
 
@@ -375,7 +375,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawQuad(const glm::mat4& transform, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
+    void Renderer2D::DrawQuad(const Matrix4& transform, const Ref<Texture2D>& texture, const Vector4& tint, const Vector2& textureScale)
     {
         const Vector2 textureCoords[4]{ { 0.f, 0.f }, { 1.f, 0.f }, { 1.f, 1.f }, { 0.f, 1.f } };
         float textureIndex = 0.f;
@@ -397,7 +397,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawQuad(const glm::mat4& transform, const Ref<SubTexture2D>& subTexture, const Vector4& tint, const Vector2& textureScale)
+    void Renderer2D::DrawQuad(const Matrix4& transform, const Ref<SubTexture2D>& subTexture, const Vector4& tint, const Vector2& textureScale)
     {
         const Ref<Texture2D>& texture = subTexture->GetTexture();
         const Vector2* textureCoords = subTexture->GetTexCoords();

@@ -28,6 +28,7 @@ namespace Limnova
 
     uint32_t Factorial(uint32_t x);
 
+
     /// <summary>
     /// Rotate a vector. Implemented with quaternions.
     /// </summary>
@@ -36,6 +37,10 @@ namespace Limnova
     /// <param name="rAngleRad">Rotation angle in radians</param>
     /// <returns>A copy of the vector, rotated as per the arguments</returns>
     Vector3 Rotate(const Vector3 vector, const Vector3 rAxis, const float rAngleRadians);
+
+
+    bool DecomposeTransform(const Matrix4& transform, Vector3& position, Quaternion& orientation, Vector3& scale);
+
 
     template<typename T, typename Coefficient, typename Exponent>
     std::pair<Coefficient, Exponent> ToScientific(T x)
@@ -58,9 +63,11 @@ namespace Limnova
         return { coefficient, exponent };
     }
 
+
     template<typename T, typename Coefficient, typename Exponent>
     T FromScientific(Coefficient c, Exponent e)
     {
         return c * pow(10.0, e);
     }
+
 }

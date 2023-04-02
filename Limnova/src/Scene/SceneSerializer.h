@@ -13,32 +13,20 @@ namespace Limnova
     class SceneSerializer
     {
     public:
-        SceneSerializer(const Ref<Scene>& scene);
+        SceneSerializer() = delete;
 
-        virtual void Serialize(const std::string& filepath);
-        virtual void SerializeRuntime(const std::string& filepath);
+        static void Serialize(Scene* scene, const std::string& filepath);
+        static void SerializeRuntime(Scene* scene, const std::string& filepath);
+        static bool Deserialize(Scene* scene, const std::string& filepath);
+        static bool DeserializeRuntime(Scene* scene, const std::string& filepath);
 
-        virtual bool Deserialize(const std::string& filepath);
-        virtual bool DeserializeRuntime(const std::string& filepath);
-    protected:
-        void SerializeEntity(YAML::Emitter& out, Entity entity);
-        void DeserializeEntity(YAML::Node entityNode);
+        static void Serialize(OrbitalScene* scene, const std::string& filepath);
+        static void SerializeRuntime(OrbitalScene* scene, const std::string& filepath);
+        static bool Deserialize(OrbitalScene* scene, const std::string& filepath);
+        static bool DeserializeRuntime(OrbitalScene* scene, const std::string& filepath);
     private:
-        Ref<Scene> m_Scene;
+        static void SerializeEntity(Scene* scene, YAML::Emitter& out, Entity entity);
+        static void DeserializeEntity(Scene* scene, YAML::Node entityNode);
     };
 
-
-    class OrbitalSceneSerializer : public SceneSerializer
-    {
-    public:
-        OrbitalSceneSerializer(const Ref<OrbitalScene>& scene);
-
-        void Serialize(const std::string& filepath) override;
-        void SerializeRuntime(const std::string& filepath) override;
-
-        bool Deserialize(const std::string& filepath) override;
-        bool DeserializeRuntime(const std::string& filepath) override;
-    private:
-        Ref<OrbitalScene> m_Scene;
-    };
 }

@@ -19,3 +19,6 @@
 [submodule "Limnova/thirdparty/yaml-cpp"]
 	path = Limnova/thirdparty/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp.git
+[submodule "Limnova/thirdparty/imguizmo"]
+	path = Limnova/thirdparty/imguizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo.git

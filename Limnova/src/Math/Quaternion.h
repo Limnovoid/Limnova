@@ -16,9 +16,12 @@ namespace Limnova
     public:
         constexpr Quaternion() = default;
         constexpr Quaternion(const Quaternion&) = default;
-        Quaternion(Vector3 rotationAxis, float angleRadians)
-            : v(sinf(0.5f * angleRadians) * rotationAxis), w(cosf(0.5f * angleRadians)) {}
+        Quaternion(Vector3 rotationAxis, float angleRadians);
         Quaternion(float x, float y, float z, float w);
+        constexpr Quaternion(const glm::quat& glmQ)
+            : v(glmQ.x, glmQ.y, glmQ.z), w(glmQ.w)
+        {
+        }
 
         Vector3 RotateVector(const Vector3 vec) const;
 
@@ -39,6 +42,10 @@ namespace Limnova
     private:
         Quaternion(Vector3 vec);
         void Normalize();
+    public:
+        operator glm::quat() const { return glm::quat(w, v.x, v.y, v.z); }
+    public:
+        inline glm::quat glm_quat() const { return glm::quat(w, v.x, v.y, v.z); }
     public:
         friend std::ostream& operator<<(std::ostream& ostream, const Quaternion& q);
     };

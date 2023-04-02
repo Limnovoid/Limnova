@@ -28,7 +28,7 @@ namespace Limnova
         //LV_REFLECT(TransformComponent)
         friend class SceneHierarchyPanel;
     private:
-        glm::mat4 Transform = glm::identity<glm::mat4>();
+        Matrix4 Transform = Matrix4::Identity();
         bool NeedCompute = true;
 
         Vector3 Position = { 0.f };
@@ -41,7 +41,13 @@ namespace Limnova
         TransformComponent(const Vector3& scale, const Vector3& position)
             : Scale(scale), Position(position), NeedCompute(true) {}
 
-        void Set(const Vector3& scale, const Vector3& position) { Scale = scale; Position = position; NeedCompute = true; }
+        void Set(const Vector3& position, const Quaternion& orientation, const Vector3& scale)
+        {
+            Orientation = orientation;
+            Position = position;
+            Scale = scale;
+            NeedCompute = true;
+        }
         void SetScale(const Vector3& scale) { Scale = scale; NeedCompute = true; }
         void SetPosition(const Vector3& position) { Position = position; NeedCompute = true; }
         void SetOrientation(const Quaternion& orientation)
@@ -64,14 +70,14 @@ namespace Limnova
         const Quaternion& GetOrientation() { return Orientation; }
         const Vector3& GetEulerAngles() { return EulerAngles; }
 
-        const glm::mat4& GetTransform() { if (NeedCompute) Compute(); return Transform; }
-        operator const glm::mat4& () { if (NeedCompute) Compute(); return Transform; }
+        const Matrix4& GetTransform() { if (NeedCompute) Compute(); return Transform; }
+        operator const Matrix4& () { if (NeedCompute) Compute(); return Transform; }
     private:
         void Compute()
         {
             Transform = glm::translate(glm::mat4(1.f), (glm::vec3)Position);
-            Transform = Transform * Matrix4(Orientation).mat;
-            Transform = glm::scale(Transform, (glm::vec3)Scale);
+            Transform = Transform * Matrix4(Orientation);
+            Transform = glm::scale((glm::mat4)Transform, (glm::vec3)Scale);
             NeedCompute = false;
         }
     };
@@ -140,8 +146,8 @@ namespace Limnova
             UpdateProjection();
         }
 
-        void SetOrthographic(bool isOrthographic) { IsOrthographic = isOrthographic; UpdateProjection(); }
-        bool GetOrthographic() { return IsOrthographic; }
+        void SetIsOrthographic(bool isOrthographic) { IsOrthographic = isOrthographic; UpdateProjection(); }
+        bool GetIsOrthographic() { return IsOrthographic; }
 
         void SetOrthographicHeight(float orthographicHeight) { OrthographicHeight = orthographicHeight; UpdateProjection(); }
         float GetOrthographicHeight() { return OrthographicHeight; }

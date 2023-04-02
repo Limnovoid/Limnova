@@ -15,7 +15,7 @@ namespace Limnova
     void SceneHierarchyPanel::SetContext(Scene* scene)
     {
         m_Scene = scene;
-        m_Selected = Entity::Null;
+        m_SelectedEntity = Entity::Null;
     }
 
 
@@ -26,7 +26,7 @@ namespace Limnova
         EntityNode(m_Scene->GetRoot(), true);
 
         if (ImGui::IsMouseClicked(0) && ImGui::IsWindowHovered()) {
-            m_Selected = Entity::Null;
+            m_SelectedEntity = Entity::Null;
         }
 
         if (ImGui::BeginPopupContextWindow(0, ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
@@ -41,8 +41,8 @@ namespace Limnova
 
         ImGui::Begin("Inspector");
 
-        if (m_Selected) {
-            Inspector(m_Selected);
+        if (m_SelectedEntity) {
+            Inspector(m_SelectedEntity);
         }
 
         ImGui::End(); // Inspector
@@ -56,7 +56,7 @@ namespace Limnova
             | ImGuiTreeNodeFlags_SpanAvailWidth;
 
         if (forceExpanded) flags |= ImGuiTreeNodeFlags_DefaultOpen;
-        if (entity == m_Selected) flags |= ImGuiTreeNodeFlags_Selected;
+        if (entity == m_SelectedEntity) flags |= ImGuiTreeNodeFlags_Selected;
 
         auto& tag = entity.GetComponent<TagComponent>();
 
@@ -65,7 +65,7 @@ namespace Limnova
 
         bool expanded = ImGui::TreeNodeEx((void*)(uint64_t)(uint32_t)entity, flags, tag.Tag.c_str());
         if (ImGui::IsItemClicked()) {
-            m_Selected = entity;
+            m_SelectedEntity = entity;
         }
 
         bool deleteEntity = false;
@@ -74,8 +74,8 @@ namespace Limnova
             if (ImGui::MenuItem("Delete Entity")) {
                 deleteEntity = true;
 
-                if (m_Selected == entity) {
-                    m_Selected = Entity::Null;
+                if (m_SelectedEntity == entity) {
+                    m_SelectedEntity = Entity::Null;
                 }
             }
             ImGui::EndPopup();
@@ -182,22 +182,22 @@ namespace Limnova
         {
             if (ImGui::MenuItem("Camera"))
             {
-                m_Selected.AddComponent<CameraComponent>();
+                m_SelectedEntity.AddComponent<CameraComponent>();
                 ImGui::CloseCurrentPopup();
             }
             if (ImGui::MenuItem("Orbital"))
             {
-                m_Selected.AddComponent<OrbitalComponent>();
+                m_SelectedEntity.AddComponent<OrbitalComponent>();
                 ImGui::CloseCurrentPopup();
             }
             if (ImGui::MenuItem("Sprite Renderer"))
             {
-                m_Selected.AddComponent<SpriteRendererComponent>();
+                m_SelectedEntity.AddComponent<SpriteRendererComponent>();
                 ImGui::CloseCurrentPopup();
             }
             if (ImGui::MenuItem("Circle Renderer"))
             {
-                m_Selected.AddComponent<CircleRendererComponent>();
+                m_SelectedEntity.AddComponent<CircleRendererComponent>();
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
@@ -278,9 +278,9 @@ namespace Limnova
             }
             ImGui::EndDisabled();
 
-            bool isOrthographic = camera.GetOrthographic();
+            bool isOrthographic = camera.GetIsOrthographic();
             if (LimnGui::Checkbox("Orthographic", isOrthographic)) {
-                camera.SetOrthographic(isOrthographic);
+                camera.SetIsOrthographic(isOrthographic);
             }
 
             if (isOrthographic)

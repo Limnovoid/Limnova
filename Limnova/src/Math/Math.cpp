@@ -1,5 +1,8 @@
 #include "Math.h"
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/glm/gtx/matrix_decompose.hpp>
+
 
 namespace Limnova
 {
@@ -75,6 +78,26 @@ namespace Limnova
     {
         Quaternion r(rAxis, rAngleRad);
         return r.RotateVector(vec);
+    }
+
+
+    bool DecomposeTransform(const Matrix4& transform, Vector3& position, Quaternion& orientation, Vector3& scale)
+    {
+        glm::vec3 pos = (glm::vec3)position;
+        glm::quat ort = (glm::quat)orientation;
+        glm::vec3 scl = (glm::vec3)scale;
+
+        glm::vec3 skew; glm::vec4 persp; // filler
+        if (!glm::decompose((glm::mat4)transform, scl, ort, pos, skew, persp))
+        {
+            LV_CORE_ERROR("Decompose transform failed!");
+            return false;
+        }
+
+        position = (Vector3)pos;
+        orientation = (Quaternion)ort;
+        scale = (Vector3)scl;
+        return true;
     }
 
 }

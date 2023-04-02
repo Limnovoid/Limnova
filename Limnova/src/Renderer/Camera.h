@@ -31,6 +31,9 @@ namespace Limnova
 
         void SetOrthographicProjection(const float aspectRatio, const float height, const float nearClip, const float farClip);
         void SetPerspectiveProjection(const float verticalFov, const float aspectRatio, const float nearClip, const float farClip);
+
+        const Matrix4& GetProjection() { return m_Projection; }
+        const Matrix4& GetView() { return m_View; }
     private:
         virtual Data const* GetData();
         void RecomputeData();

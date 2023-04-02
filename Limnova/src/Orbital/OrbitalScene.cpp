@@ -119,7 +119,7 @@ namespace Limnova
             return;
         }
         auto [camera, camTransform] = m_Registry.get<CameraComponent, TransformComponent>(m_ActiveCamera);
-        camera.Camera.SetView(glm::inverse(camTransform.GetTransform()));
+        camera.Camera.SetView(camTransform.GetTransform().Inverse());
 
         Renderer2D::BeginScene(camera.Camera);
 

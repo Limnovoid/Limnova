@@ -4,6 +4,7 @@
 
 #include <Scene/SceneSerializer.h>
 #include <Utils/PlatformUtils.h>
+#include <imguizmo/ImGuizmo.h>
 
 #define ASSET_DIR "C:\\Programming\\source\\Limnova\\LimnovaEditor\\Assets"
 
@@ -338,6 +339,7 @@ namespace Limnova
         // Only control the camera if the viewport is focused and hovered
         m_ViewportFocused = ImGui::IsWindowFocused();
         m_ViewportHovered = ImGui::IsWindowHovered();
+        Application::Get().GetImGuiLayer()->SetBlockEvents(!m_ViewportFocused && !m_ViewportHovered);
         //m_CameraController->SetControlled(m_ViewportFocused && m_ViewportHovered);
 
         ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
@@ -353,12 +355,59 @@ namespace Limnova
         }
         uint32_t viewportRendererId = m_Framebuffer->GetColorAttachmentRendererId();
         ImGui::Image((void*)viewportRendererId, viewportPanelSize, { 0, 1 }, { 1, 0 });
+
+        // Gizmos
+        if (m_ActiveGizmo > -1)
+        {
+            Entity selectedEntity = m_SceneHierarchyPanel.GetSelectedEntity();
+            Entity activeCameraEntity = m_Scene->GetActiveCamera();
+            if (selectedEntity && activeCameraEntity)
+            {
+                ImGuizmo::SetOrthographic(false); // TEMPORARY
+                ImGuizmo::SetDrawlist();
+                ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y,
+                    ImGui::GetWindowWidth(), ImGui::GetWindowHeight());
+
+                auto& cc = activeCameraEntity.GetComponent<CameraComponent>();
+                Matrix4 view = cc.Camera.GetView();
+                Matrix4 proj = cc.Camera.GetProjection();
+
+                auto& tc = selectedEntity.GetComponent<TransformComponent>();
+                Matrix4 transform = tc.GetTransform();
+
+                // Snapping
+                bool snap = Input::IsKeyPressed(LV_KEY_LEFT_CONTROL);
+                float snapValue = 0.f;
+                switch (m_ActiveGizmo) {
+                case ImGuizmo::OPERATION::TRANSLATE:    snapValue = m_SnapTranslate; break;
+                case ImGuizmo::OPERATION::ROTATE:       snapValue = m_SnapRotate; break;
+                case ImGuizmo::OPERATION::SCALE:        snapValue = m_SnapScale; break;
+                }
+                float snapValues[3] = { snapValue, snapValue, snapValue };
+
+                // Draw gizmo
+                ImGuizmo::Manipulate(view.Ptr(), proj.Ptr(),
+                    (ImGuizmo::OPERATION)m_ActiveGizmo, ImGuizmo::LOCAL, transform.Ptr(),
+                    nullptr, snap ? snapValues : nullptr);
+
+                if (ImGuizmo::IsUsing())
+                {
+                    Vector3 position, scale;
+                    Quaternion orientation;
+                    DecomposeTransform(transform, position, orientation, scale);
+
+                    tc.SetPosition(position);
+                    tc.SetOrientation(orientation);
+                    tc.SetScale(scale);
+                }
+            }
+        }
+
         ImGui::End(); // Viewport
         ImGui::PopStyleVar();
 
-
+        // Scene hierarchy
         m_SceneHierarchyPanel.OnImGuiRender();
-
 
         ImGui::End(); // DockSpace
 
@@ -389,8 +438,24 @@ namespace Limnova
         bool ctrl = Input::IsKeyPressed(LV_KEY_LEFT_CONTROL) || Input::IsKeyPressed(LV_KEY_RIGHT_CONTROL);
         bool shift = Input::IsKeyPressed(LV_KEY_LEFT_SHIFT) || Input::IsKeyPressed(LV_KEY_RIGHT_SHIFT);
 
+        // Shortcuts
         switch (e.GetKeyCode())
         {
+            // Gizmo
+        case LV_KEY_Q:
+            m_ActiveGizmo = -1;
+            break;
+        case LV_KEY_W:
+            m_ActiveGizmo = ImGuizmo::OPERATION::TRANSLATE;
+            break;
+        case LV_KEY_E:
+            m_ActiveGizmo = ImGuizmo::OPERATION::ROTATE;
+            break;
+        case LV_KEY_R:
+            m_ActiveGizmo = ImGuizmo::OPERATION::SCALE;
+            break;
+
+            // File
         case LV_KEY_N:
             if (ctrl) {
                 NewScene();
@@ -432,8 +497,7 @@ namespace Limnova
 
         NewScene();
 
-        SceneSerializer serializer(m_Scene);
-        serializer.Deserialize(filepath);
+        SceneSerializer::Deserialize(m_Scene.get(), filepath);
     }
 
 
@@ -444,8 +508,7 @@ namespace Limnova
             return;
         }
 
-        SceneSerializer serializer(m_Scene);
-        serializer.Serialize(filepath);
+        SceneSerializer::Serialize(m_Scene.get(), filepath);
     }
 
 }

@@ -155,12 +155,6 @@ namespace Limnova
     }
 
 
-    SceneSerializer::SceneSerializer(const Ref<Scene>& scene)
-        : m_Scene(scene)
-    {
-    }
-
-
 #ifdef LV_USE_REFLECTION
     namespace Refl = Reflection;
 
@@ -212,7 +206,7 @@ namespace Limnova
 #endif
 
 
-    void SceneSerializer::SerializeEntity(YAML::Emitter& out, Entity entity)
+    void SceneSerializer::SerializeEntity(Scene* scene, YAML::Emitter& out, Entity entity)
     {
         out << YAML::BeginMap; // Entity
         out << YAML::Key << "Entity" << YAML::Value << "0"; /* TODO : entity unique ID */
@@ -343,7 +337,7 @@ namespace Limnova
     }
 
 
-    void SceneSerializer::DeserializeEntity(YAML::Node entityNode)
+    void SceneSerializer::DeserializeEntity(Scene* scene, YAML::Node entityNode)
     {
         uint64_t uuid = entityNode["Entity"].as<uint64_t>(); // TODO : universal unique identifier (uuid)
 
@@ -353,8 +347,8 @@ namespace Limnova
         }
         LV_CORE_TRACE("Deserializing entity '{0}'", name);
 
-        Entity entity = (name == "Root") ? m_Scene->GetRoot()
-            : m_Scene->CreateEntity(name); // TODO : deserialize with uuid
+        Entity entity = (name == "Root") ? scene->GetRoot()
+            : scene->CreateEntity(name); // TODO : deserialize with uuid
 
         if (auto tcNode = entityNode["TransformComponent"])
         {
@@ -385,7 +379,7 @@ namespace Limnova
             cc.IsOrthographic       = ccNode["IsOrthographic"].as<bool>();
 
             cc.AspectRatio = cc.TieAspectToView
-                ? m_Scene->m_ViewportAspectRatio
+                ? scene->m_ViewportAspectRatio
                 : ccNode["AspectRatio"].as<float>();
 
             cc.UpdateProjection();
@@ -439,8 +433,8 @@ namespace Limnova
     }
 
 
-    // Scene ///////////////////////////////////////////////////////////////////////
 
+#ifdef EXCLUDE
     void SceneSerializer::Serialize(const std::string& filepath)
     {
         YAML::Emitter out;
@@ -581,6 +575,160 @@ namespace Limnova
 
 
     bool OrbitalSceneSerializer::DeserializeRuntime(const std::string& filepath)
+    {
+        LV_CORE_ASSERT(false, "Not yet implemented!");
+        return false;
+    }
+#endif
+
+
+    // Scene ///////////////////////////////////////////////////////////////////
+
+    void SceneSerializer::Serialize(Scene* scene, const std::string& filepath)
+    {
+        YAML::Emitter out;
+        out << YAML::BeginMap; // Scene
+        out << YAML::Key << "Scene" << YAML::Value << "Untitled";
+        out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
+
+        // TODO - serialise in descending scene hierarchy order,
+        // so each entity is deserialised after its parent and can be immediately parented
+        scene->m_Registry.each([&](auto entityId)
+            {
+                Entity entity = { entityId, scene };
+                if (!entity) {
+                    return;
+                }
+
+                SerializeEntity(scene, out, entity);
+            });
+        out << YAML::EndSeq;
+        out << YAML::EndMap; // Scene
+
+        std::ofstream fout(filepath);
+        fout << out.c_str();
+    }
+
+
+    void SceneSerializer::SerializeRuntime(Scene* scene, const std::string& filepath)
+    {
+        LV_CORE_ASSERT(false, "Not yet implemented!");
+    }
+
+
+    bool SceneSerializer::Deserialize(Scene* scene, const std::string& filepath)
+    {
+        std::ifstream ifile(filepath);
+        std::stringstream sstream;
+        sstream << ifile.rdbuf();
+
+        YAML::Node data = YAML::Load(sstream.str());
+        if (!data["Scene"]) {
+            return false;
+        }
+
+        std::string sceneName = data["Scene"].as<std::string>();
+        LV_CORE_TRACE("Deserializing scene '{0}'", sceneName);
+
+        YAML::Node entitiesNode = data["Entities"];
+        if (entitiesNode)
+        {
+            for (YAML::Node entityNode : entitiesNode)
+            {
+                DeserializeEntity(scene, entityNode);
+            }
+        }
+
+        return true;
+    }
+
+
+    bool SceneSerializer::DeserializeRuntime(Scene* scene, const std::string& filepath)
+    {
+        LV_CORE_ASSERT(false, "Not yet implemented!");
+        return false;
+    }
+
+
+    // OrbitalScene ////////////////////////////////////////////////////////////
+
+    void SceneSerializer::Serialize(OrbitalScene* scene, const std::string& filepath)
+    {
+        YAML::Emitter out;
+        out << YAML::BeginMap; // Scene
+        out << YAML::Key << "OrbitalScene" << YAML::Value << "Untitled";
+
+        out << YAML::Key << "InfluenceColor"        << YAML::Value << scene->m_InfluenceColor;
+        out << YAML::Key << "InfluenceThickness"    << YAML::Value << scene->m_InfluenceThickness;
+        out << YAML::Key << "InfluenceFade"         << YAML::Value << scene->m_InfluenceFade;
+        out << YAML::Key << "OrbitThickness"        << YAML::Value << scene->m_OrbitThickness;
+        out << YAML::Key << "OrbitThicknessFactor"  << YAML::Value << scene->m_OrbitThicknessFactor;
+        out << YAML::Key << "OrbitAlpha"            << YAML::Value << scene->m_OrbitAlpha;
+        //out << YAML::Key << "ViewPrimary" << YAML::Value << (uint32_t)(scene->m_ViewPrimary); // TODO - use uuid
+
+        out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
+
+        // TODO - serialise in descending scene hierarchy order,
+        // so each entity is deserialised after its parent and can be immediately parented
+        scene->m_Registry.each([&](auto entityId)
+        {
+            Entity entity = { entityId, scene };
+            if (!entity) {
+                return;
+            }
+
+            SerializeEntity(scene, out, entity);
+        });
+        out << YAML::EndSeq;
+        out << YAML::EndMap; // Scene
+
+        std::ofstream fout(filepath);
+        fout << out.c_str();
+    }
+
+
+    void SceneSerializer::SerializeRuntime(OrbitalScene* scene, const std::string& filepath)
+    {
+        LV_CORE_ASSERT(false, "Not yet implemented!");
+    }
+
+
+    bool SceneSerializer::Deserialize(OrbitalScene* scene, const std::string& filepath)
+    {
+        std::ifstream ifile(filepath);
+        std::stringstream sstream;
+        sstream << ifile.rdbuf();
+
+        YAML::Node data = YAML::Load(sstream.str());
+        if (!data["OrbitalScene"]) {
+            return false;
+        }
+
+        std::string sceneName = data["OrbitalScene"].as<std::string>();
+        LV_CORE_TRACE("Deserializing orbital scene '{0}'", sceneName);
+
+        scene->m_InfluenceColor = data["InfluenceColor"].as<Vector4>();
+        scene->m_InfluenceThickness = data["InfluenceThickness"].as<float>();
+        scene->m_InfluenceFade = data["InfluenceFade"].as<float>();
+        scene->m_OrbitThickness = data["OrbitThickness"].as<float>();
+        scene->m_OrbitThicknessFactor = data["OrbitThicknessFactor"].as<float>();
+        scene->m_OrbitAlpha = data["OrbitAlpha"].as<float>();
+        //m_Scene->m_ViewPrimary          = data["ViewPrimary"].as<uint32_t>(); // TODO - use uuid
+
+        YAML::Node entitiesNode = data["Entities"];
+        if (entitiesNode)
+        {
+            for (YAML::Node entityNode : entitiesNode)
+            {
+                DeserializeEntity(scene, entityNode);
+            }
+        }
+
+        return true;
+    }
+
+
+    bool SceneSerializer::DeserializeRuntime(OrbitalScene* scene, const std::string& filepath)
     {
         LV_CORE_ASSERT(false, "Not yet implemented!");
         return false;

@@ -21,3 +21,20 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY
 add_compile_definitions(
     IMGUI_IMPL_OPENGL_LOADER_CUSTOM
 )
+
+
+project(ImGuizmo) #-----------------------------------------------------
+
+add_library(${PROJECT_NAME} STATIC
+    "imguizmo/ImGuizmo.h"
+    "imguizmo/ImGuizmo.cpp"
+)
+
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+        "${PROJECT_SOURCE_DIR}/imgui"
+)
+
+set_property(TARGET ${PROJECT_NAME} PROPERTY
+    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+)

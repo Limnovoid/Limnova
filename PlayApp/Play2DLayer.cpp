@@ -54,14 +54,14 @@ namespace Limnova
         m_Camera0.AddComponent<CameraComponent>();
         {
             auto& transform = m_Camera0.GetComponent<TransformComponent>();
-            transform.Set({ 1.f }, { 0.f, 0.f, 2.f });
+            transform.SetPosition({ 0.f, 0.f, 2.f });
         }
 
         m_Camera1 = m_Scene->CreateEntity("Camera 1");
         m_Camera1.AddComponent<CameraComponent>();
         {
             auto& transform = m_Camera1.GetComponent<TransformComponent>();
-            transform.Set({ 1.f }, { 0.f, 0.f, 3.f });
+            transform.SetPosition({ 0.f, 0.f, 3.f });
         }
 
         m_Scene->SetActiveCamera(m_Camera0);

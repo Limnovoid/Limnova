@@ -13,13 +13,15 @@ namespace Limnova
 
         void SetContext(Scene* scene);
 
+        Entity GetSelectedEntity() const { return m_SelectedEntity; }
+
         void OnImGuiRender();
     private:
         void EntityNode(Entity entity, bool forceExpanded = false);
         void Inspector(Entity entity);
     private:
         Scene* m_Scene;
-        Entity m_Selected;
+        Entity m_SelectedEntity;
     };
 
     namespace LimnGui

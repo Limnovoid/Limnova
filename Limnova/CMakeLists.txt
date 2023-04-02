@@ -85,6 +85,7 @@ target_include_directories(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/src"
 )
 
+# TODO - make work
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE
         LV_REFL_MAX_NUM_FIELDS=128
@@ -129,6 +130,7 @@ target_include_directories(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/thirdparty/glad/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/imgui"
+        "${PROJECT_SOURCE_DIR}/thirdparty/imguizmo"
         "${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/stb_image"
         "${PROJECT_SOURCE_DIR}/thirdparty/volk/include"
@@ -154,6 +156,7 @@ target_link_libraries(${PROJECT_NAME}
         Volk
     PUBLIC
         ImGui
+        ImGuizmo
         yaml-cpp
 )
 
