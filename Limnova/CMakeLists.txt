@@ -50,8 +50,8 @@ add_library(${PROJECT_NAME} STATIC
 
     "src/Renderer/Buffer.cpp"
     "src/Renderer/Camera.cpp"
+    "src/Renderer/EditorCamera.cpp"
     "src/Renderer/Framebuffer.cpp"
-
     "src/Renderer/PlanarCameraController.cpp"
     "src/Renderer/PointCameraController.cpp"
     "src/Renderer/RenderCommand.cpp"

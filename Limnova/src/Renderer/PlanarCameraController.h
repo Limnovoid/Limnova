@@ -23,8 +23,8 @@ namespace Limnova
         void OnUpdate(Timestep dT);
         void OnEvent(Event& e);
 
-        virtual Camera& GetCamera() = 0;                // override per camera type
-        virtual const Camera& GetCamera() const = 0;    // override per camera type
+        virtual Camera& GetCamera() { return m_Camera; }
+        virtual const Camera& GetCamera() const { return m_Camera; }
 
         void SetAspect(const float aspect) { m_AspectRatio = aspect; m_NeedSetProjection = true; }
 
@@ -75,9 +75,6 @@ namespace Limnova
             const float fov = glm::radians(60.f));
         ~PerspectivePlanarCameraController() = default;
 
-        Camera& GetCamera() override { return m_Camera; }
-        const Camera& GetCamera() const override { return m_Camera; }
-
         /* !!! UNTESTED !!! */
         Vector3 GetWorldPos(const Vector2& screenPos, const float viewDepth);
     private:
@@ -94,9 +91,6 @@ namespace Limnova
         OrthographicPlanarCameraController(const Vector3& position, const Vector3& aimDirection,
             const float aspectRatio, const float nearDistance = 0.1f, const float farDistance = 100.f);
         ~OrthographicPlanarCameraController() = default;
-
-        Camera& GetCamera() override { return m_Camera; }
-        const Camera& GetCamera() const override { return m_Camera; }
 
         Vector2 GetWorldXY(const Vector2& screenXY);
     private:

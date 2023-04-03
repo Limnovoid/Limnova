@@ -148,7 +148,8 @@ namespace Limnova
 
         RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.f });
         RenderCommand::Clear();
-        m_Scene.OnUpdate(dT);
+        m_Scene.OnUpdateRuntime(dT);
+        m_Scene.OnRenderRuntime();
     }
 
 

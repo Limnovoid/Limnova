@@ -81,9 +81,9 @@ namespace Limnova
     }
 
 
-    void OrbitalScene::OnUpdate(Timestep dT)
+    void OrbitalScene::OnUpdateRuntime(Timestep dT)
     {
-        Scene::OnUpdate(dT);
+        Scene::OnUpdateRuntime(dT);
 
         //m_Physics.OnUpdate(dT);
 
@@ -106,7 +106,7 @@ namespace Limnova
     }
 
 
-    void OrbitalScene::OnRender()
+    void OrbitalScene::OnRenderRuntime()
     {
         // TODO : draw all superior orbital spaces (this primary's primary and siblings, etc) as sprites and point lights
         // : render as separate scenes, in their own scaling spaces, then superimpose - this allows the camera to have accurate

@@ -138,7 +138,7 @@ namespace Limnova
     }
 
 
-    void Scene::OnUpdate(Timestep dT)
+    void Scene::OnUpdateRuntime(Timestep dT)
     {
         // Scripts
         {
@@ -172,7 +172,12 @@ namespace Limnova
     }
 
 
-    void Scene::OnRender()
+    void Scene::OnUpdateEditor(Timestep dT)
+    {
+    }
+
+
+    void Scene::OnRenderRuntime()
     {
         // Camera
         if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<CameraComponent>(m_ActiveCamera))
@@ -183,7 +188,19 @@ namespace Limnova
         auto [camera, camTransform] = m_Registry.get<CameraComponent, TransformComponent>(m_ActiveCamera);
         camera.Camera.SetView(camTransform.GetTransform().Inverse());
 
-        Renderer2D::BeginScene(camera.Camera);
+        RenderScene(camera.Camera);
+    }
+
+
+    void Scene::OnRenderEditor(EditorCamera& camera)
+    {
+        RenderScene(camera.GetCamera());
+    }
+
+
+    void Scene::RenderScene(Camera& camera)
+    {
+        Renderer2D::BeginScene(camera);
 
         // Sprites
         {
@@ -192,7 +209,7 @@ namespace Limnova
             for (auto entity : view)
             {
                 auto [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(entity);
-            
+
                 Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color);
             }
         }

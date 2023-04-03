@@ -32,16 +32,6 @@ namespace Limnova
         fbspec.Height = 900;
         m_Framebuffer = Framebuffer::Create(fbspec);
 
-        // Camera controller
-        //Application& app = Application::Get();
-        //m_CameraController = CreateRef<PerspectivePlanarCameraController>(
-        //    Vector3(0.f, 0.f, 2.f), Vector3(0.f, 0.f, -1.f),
-        //    (float)app.GetWindow().GetWidth() / (float)app.GetWindow().GetHeight(),
-        //    0.1f, 100.f, glm::radians(60.f)
-        //    );
-        //m_CameraController->SetControlled(true);
-
-
 #ifdef LV_EDITOR_USE_ORBITAL
         m_Scene = CreateRef<OrbitalScene>();
         auto camera = m_Scene->CreateEntity("Camera");
@@ -154,14 +144,15 @@ namespace Limnova
 
         // Update
         {
-            LV_PROFILE_SCOPE("m_CameraController->OnUpdate - EditorLayer::OnUpdate");
+            LV_PROFILE_SCOPE("EditorLayer::OnUpdate");
 
 #ifdef LV_EDITOR_USE_ORBITAL
             /* Do orbital stuff */
 #else
             /* Do non-orbital stuff */
 #endif
-            //m_CameraController->OnUpdate(dT);
+
+            m_EditorCamera.OnUpdate(dT);
         }
 
         // Render
@@ -177,8 +168,10 @@ namespace Limnova
         {
             LV_PROFILE_SCOPE("Render Draw - EditorLayer::OnUpdate");
 
-            m_Scene->OnUpdate(dT);
-            m_Scene->OnRender();
+            //m_Scene->OnUpdateRuntime(dT);
+            //m_Scene->OnRenderRuntime();
+            m_Scene->OnUpdateEditor(dT);
+            m_Scene->OnRenderEditor(m_EditorCamera);
 
             m_Framebuffer->Unbind();
         }
@@ -339,8 +332,8 @@ namespace Limnova
         // Only control the camera if the viewport is focused and hovered
         m_ViewportFocused = ImGui::IsWindowFocused();
         m_ViewportHovered = ImGui::IsWindowHovered();
+        m_EditorCamera.SetControl(m_ViewportHovered, m_ViewportFocused);
         Application::Get().GetImGuiLayer()->SetBlockEvents(!m_ViewportFocused && !m_ViewportHovered);
-        //m_CameraController->SetControlled(m_ViewportFocused && m_ViewportHovered);
 
         ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
         Vector2 viewportSize{ ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y };
@@ -350,7 +343,7 @@ namespace Limnova
             float aspect = viewportSize.x / viewportSize.y;
 
             m_Framebuffer->Resize((uint32_t)viewportSize.x, (uint32_t)viewportSize.y);
-            //m_CameraController->SetAspect(aspect);
+            m_EditorCamera.SetAspect(aspect);
             m_Scene->OnWindowChangeAspect(aspect);
         }
         uint32_t viewportRendererId = m_Framebuffer->GetColorAttachmentRendererId();
@@ -363,14 +356,13 @@ namespace Limnova
             Entity activeCameraEntity = m_Scene->GetActiveCamera();
             if (selectedEntity && activeCameraEntity)
             {
-                ImGuizmo::SetOrthographic(false); // TEMPORARY
+                ImGuizmo::SetOrthographic(false); // TODO - check if editor camera is orthographic
                 ImGuizmo::SetDrawlist();
                 ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y,
                     ImGui::GetWindowWidth(), ImGui::GetWindowHeight());
 
-                auto& cc = activeCameraEntity.GetComponent<CameraComponent>();
-                Matrix4 view = cc.Camera.GetView();
-                Matrix4 proj = cc.Camera.GetProjection();
+                Matrix4 view = m_EditorCamera.GetCamera().GetView();
+                Matrix4 proj = m_EditorCamera.GetCamera().GetProjection();
 
                 auto& tc = selectedEntity.GetComponent<TransformComponent>();
                 Matrix4 transform = tc.GetTransform();
@@ -421,10 +413,10 @@ namespace Limnova
          * the camera's aspect ratio should be determined by the ImGui panel which displays the viewport
          * and not by the application window (which displays the entire editor).
          */
-        //if (e.GetEventType() != EventType::WindowResize)
-        //{
-        //    m_CameraController->OnEvent(e);
-        //}
+        if (e.GetEventType() != EventType::WindowResize)
+        {
+            m_EditorCamera.OnEvent(e);
+        }
 
         m_Scene->OnEvent(e);
 

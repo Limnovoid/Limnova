@@ -4,6 +4,7 @@
 #include <Core/Timestep.h>
 #include <Events/Event.h>
 #include <Events/ApplicationEvent.h>
+#include <Renderer/EditorCamera.h>
 
 
 namespace Limnova
@@ -41,8 +42,10 @@ namespace Limnova
         Entity GetParent(Entity entity);
         std::vector<Entity> GetChildren(Entity entity);
 
-        virtual void OnUpdate(Timestep dT);
-        virtual void OnRender();
+        virtual void OnUpdateRuntime(Timestep dT);
+        virtual void OnUpdateEditor(Timestep dT);
+        virtual void OnRenderRuntime();
+        virtual void OnRenderEditor(EditorCamera& camera);
         virtual void OnEvent(Event& e);
     private:
         /* Events and signals */
@@ -52,6 +55,8 @@ namespace Limnova
         void OnCameraComponentDestruction(entt::registry&, entt::entity);
 
         bool OnWindowResize(WindowResizeEvent& e);
+
+        virtual void RenderScene(Camera& camera);
 
         /* Helpers */
         void HierarchyConnect(Entity entity, Entity parent);

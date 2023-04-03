@@ -159,7 +159,8 @@ namespace Limnova
         Renderer2D::EndScene();*/
 
         // Scene 4 - entities
-        m_Scene->OnUpdate(dT);
+        m_Scene->OnUpdateRuntime(dT);
+        m_Scene->OnRenderRuntime();
         //m_Framebuffer->Unbind();
     }
 

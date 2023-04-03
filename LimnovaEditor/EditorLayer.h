@@ -33,7 +33,8 @@ namespace Limnova
         Ref<Scene> m_Scene;
 #endif
 
-        Ref<PerspectivePlanarCameraController> m_CameraController;
+        EditorCamera m_EditorCamera;
+
         Ref<Framebuffer> m_Framebuffer;
         Vector2 m_ViewportSize;
         bool m_ViewportFocused = false, m_ViewportHovered = false;

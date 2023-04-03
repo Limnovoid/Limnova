@@ -26,8 +26,10 @@ namespace Limnova
         Entity GetViewPrimary();
         std::vector<Entity> GetSecondaries(Entity entity);
 
-        void OnUpdate(Timestep dT) override;
-        void OnRender() override;
+        void OnUpdateRuntime(Timestep dT) override;
+        void OnUpdateEditor(Timestep dT) override {}
+        void OnRenderRuntime() override;
+        void OnRenderEditor(EditorCamera& camera) override {}
     private:
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
