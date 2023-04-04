@@ -59,8 +59,8 @@ namespace Limnova
         if (m_Dragging && shift)
         {
             // Drag distance control:
-            m_FocusDistance += deltaY / Application::Get().GetWindow().GetHeight()
-                * m_DragRate;
+            m_FocusDistance += deltaY / Application::Get().GetWindow().GetHeight() * m_DragRate;
+            m_FocusDistance = std::max(m_FocusDistance, 0.f);
         }
         else if (m_Dragging && ctrl)
         {
@@ -124,8 +124,10 @@ namespace Limnova
 
     bool EditorCamera::OnMouseScrolled(MouseScrolledEvent& e)
     {
-        if (m_IsViewportHovered)
+        if (m_IsViewportHovered) {
             m_FocusDistance -= m_ScrollRate * e.GetYOffset();
+            m_FocusDistance = std::max(m_FocusDistance, 0.f);
+        }
         return false;
     }
 

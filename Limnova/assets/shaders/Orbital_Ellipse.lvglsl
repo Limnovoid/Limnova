@@ -53,8 +53,9 @@ layout(location = 0) out vec4 o_Color;
 void main()
 {
     if (length(inData.LocalPosition) > inData.MajorMinorRatio + inData.Thickness ||
-        length(inData.LocalPosition) < 1.0 - inData.Thickness)
+        length(inData.LocalPosition) < 1.0 - inData.Thickness) {
         discard;
+    }
 
     float a2 = pow(inData.MajorMinorRatio, 2.0);
 
@@ -85,6 +86,10 @@ void main()
         float B = i_y - k_y;
         float C = sqrt(A * A + B * B);
         distance = A * B / C;
+    }
+
+    if (distance > inData.Thickness) {
+        discard;
     }
 
 

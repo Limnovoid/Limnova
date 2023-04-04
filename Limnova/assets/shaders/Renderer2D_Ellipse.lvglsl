@@ -69,6 +69,10 @@ void main()
 
     float distance = A * B / C;
 
+    if (distance > inData.Thickness) {
+        discard;
+    }
+
     /*** From circle shader: ***/
     float fade = smoothstep(0.0, inData.Fade, distance);
     fade *= smoothstep(inData.Thickness + inData.Fade, inData.Thickness, distance);

@@ -210,7 +210,7 @@ namespace Limnova
             {
                 auto [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(entity);
 
-                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color);
+                Renderer2D::DrawQuad(transform.GetTransform(), sprite.Color, (int)entity);
             }
         }
 

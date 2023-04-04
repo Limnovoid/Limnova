@@ -49,6 +49,11 @@ layout(location = 0) out vec4 o_Color;
 void main()
 {
     float distance = 1.0 - length(inData.LocalPosition);
+
+    if (distance > inData.Thickness + inData.Fade) {
+        discard;
+    }
+
     float fade = smoothstep(0.0, inData.Fade, distance);
     fade *= smoothstep(inData.Thickness + inData.Fade, inData.Thickness, distance);
 

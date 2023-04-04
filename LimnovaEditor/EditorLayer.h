@@ -37,7 +37,9 @@ namespace Limnova
 
         Ref<Framebuffer> m_Framebuffer;
         Vector2 m_ViewportSize;
+        Vector2 m_ViewportBounds[2];
         bool m_ViewportFocused = false, m_ViewportHovered = false;
+        Entity m_HoveredEntity = Entity::Null;
 
         SceneHierarchyPanel m_SceneHierarchyPanel;
 

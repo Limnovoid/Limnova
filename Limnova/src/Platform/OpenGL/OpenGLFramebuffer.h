@@ -19,13 +19,23 @@ namespace Limnova
         void Bind() override;
         void Unbind() override;
 
-        uint32_t GetColorAttachmentRendererId() const override { return m_ColorAttachment; }
-    private:
-        uint32_t m_RendererId = 0;
-        uint32_t m_ColorAttachment, m_DepthAttachment;
-        FramebufferSpecification m_Specification;
+        uint32_t GetColorAttachmentRendererId(uint32_t index = 0) const override { return m_ColorAttachments[index]; }
+
+
+        void ClearAttachment(uint32_t attachmentIndex, int clearValue) override;
+
+        int ReadPixel(uint32_t x, uint32_t y, uint32_t attachmentIndex = 0) const override;
     private:
         void Reset();
+    private:
+        uint32_t m_RendererId = 0;
+        FramebufferSpecification m_Specification;
+
+        std::vector<FramebufferTextureSpecification> m_ColorAttachmentSpecifications;
+        FramebufferTextureSpecification m_DepthAttachmentSpecification;
+
+        std::vector<uint32_t> m_ColorAttachments;
+        uint32_t m_DepthAttachment = 0;
     };
 
 }

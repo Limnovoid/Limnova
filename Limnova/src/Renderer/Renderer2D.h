@@ -19,9 +19,9 @@ namespace Limnova
         static void BeginScene(Camera& camera);
         static void EndScene();
     private:
-        static void DrawBatchedQuad(const Matrix4& transform, const Vector4& color, const Vector2* textureCoords, const Vector2& textureScale, const float textureIndex);
+        static void DrawBatchedQuad(const Matrix4& transform, const Vector4& color, const Vector2* textureCoords, const Vector2& textureScale, const float textureIndex, int entityId = -1);
     public:
-        static void DrawQuad(const Matrix4& transform, const Vector4& color);
+        static void DrawQuad(const Matrix4& transform, const Vector4& color, int entityId = -1);
         static void DrawQuad(const Matrix4& transform, const Ref<Texture2D>& texture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
         static void DrawQuad(const Matrix4& transform, const Ref<SubTexture2D>& subTexture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
 

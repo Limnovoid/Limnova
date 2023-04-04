@@ -27,10 +27,15 @@ namespace Limnova
          */
         Application::Get().GetImGuiLayer()->SetBlockEvents(false);
 
-        FramebufferSpecification fbspec;
-        fbspec.Width = 1600;
-        fbspec.Height = 900;
-        m_Framebuffer = Framebuffer::Create(fbspec);
+        FramebufferSpecification fbSpec;
+        fbSpec.Width = 1600;
+        fbSpec.Height = 900;
+        fbSpec.Attachments = {
+            FramebufferTextureFormat::RGBA8,
+            FramebufferTextureFormat::RINT,
+            FramebufferTextureFormat::Depth
+        };
+        m_Framebuffer = Framebuffer::Create(fbSpec);
 
 #ifdef LV_EDITOR_USE_ORBITAL
         m_Scene = CreateRef<OrbitalScene>();
@@ -152,6 +157,9 @@ namespace Limnova
             /* Do non-orbital stuff */
 #endif
 
+            // Update scene
+            m_Scene->OnUpdateEditor(dT);
+
             m_EditorCamera.OnUpdate(dT);
         }
 
@@ -161,8 +169,11 @@ namespace Limnova
             LV_PROFILE_SCOPE("Render Prep - EditorLayer::OnUpdate");
 
             m_Framebuffer->Bind();
+
             RenderCommand::SetClearColor({ 0.1f, 0.1f, 0.1f, 1.f });
             RenderCommand::Clear();
+
+            m_Framebuffer->ClearAttachment(1, -1); /* must come after RenderCommand::Clear() */
         }
 
         {
@@ -170,8 +181,24 @@ namespace Limnova
 
             //m_Scene->OnUpdateRuntime(dT);
             //m_Scene->OnRenderRuntime();
-            m_Scene->OnUpdateEditor(dT);
             m_Scene->OnRenderEditor(m_EditorCamera);
+
+
+            // TEMPORARY - mouse pick tests
+            int mouseX = (int)(ImGui::GetMousePos().x - m_ViewportBounds[0].x);
+            int mouseY = (int)(m_ViewportBounds[1].y - ImGui::GetMousePos().y);
+
+            auto viewportSize = m_ViewportBounds[1] - m_ViewportBounds[0];
+            int pixelData = -1;
+            if (mouseX >= 0 && mouseY >= 0 &&
+                mouseX < viewportSize.x && mouseY < viewportSize.y)
+            {
+                pixelData = m_Framebuffer->ReadPixel(mouseX, mouseY, 1);
+            }
+            m_HoveredEntity = (pixelData == -1) ? Entity::Null
+                : Entity{ (entt::entity)pixelData, m_Scene.get() };
+            LV_CORE_INFO("Pixel data = {0}", pixelData);
+
 
             m_Framebuffer->Unbind();
         }
@@ -288,7 +315,17 @@ namespace Limnova
             }
         }
 
+        ImGui::Separator();
+
+        std::string hoveredEntityTag = m_HoveredEntity
+            ? m_HoveredEntity.GetComponent<TagComponent>().Tag
+            : "None";
+        ImGui::Text("Hovered entity: %s", hoveredEntityTag.c_str());
+
 #ifdef LV_EDITOR_USE_ORBITAL
+
+        ImGui::Separator();
+
         {
             double rootScaling = m_Scene->GetRootScaling();
             if (LimnGui::InputScientific("RootScaling", rootScaling)) {
@@ -326,8 +363,12 @@ namespace Limnova
         ImGui::End(); // Renderer2D Statistics
 
 
+        // Viewport //
+
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.f, 0.f });
         ImGui::Begin("Viewport");
+
+        Vector2 viewportOffset = { ImGui::GetCursorPos().x, ImGui::GetCursorPos().y }; /* Includes tab bar */
 
         // Only control the camera if the viewport is focused and hovered
         m_ViewportFocused = ImGui::IsWindowFocused();
@@ -348,6 +389,10 @@ namespace Limnova
         }
         uint32_t viewportRendererId = m_Framebuffer->GetColorAttachmentRendererId();
         ImGui::Image((void*)viewportRendererId, viewportPanelSize, { 0, 1 }, { 1, 0 });
+
+        // Viewport screen bounds
+        m_ViewportBounds[0] = viewportOffset + Vector2{ ImGui::GetWindowPos().x, ImGui::GetWindowPos().y };
+        m_ViewportBounds[1] = m_ViewportBounds[0] + Vector2{ ImGui::GetWindowSize().x, ImGui::GetWindowSize().y } - viewportOffset;
 
         // Gizmos
         if (m_ActiveGizmo > -1)

@@ -17,6 +17,9 @@ namespace Limnova
         Vector2 TexCoord;
         Vector2 TexScale;
         float TexIndex;
+
+        // Editor only
+        int EntityId;
     };
 
 
@@ -137,7 +140,8 @@ namespace Limnova
             { ShaderDataType::Float4,   "a_Color"    },
             { ShaderDataType::Float2,   "a_TexCoord" },
             { ShaderDataType::Float2,   "a_TexScale" },
-            { ShaderDataType::Float,    "a_TexIndex" }
+            { ShaderDataType::Float,    "a_TexIndex" },
+            { ShaderDataType::Int,      "a_EntityId" }
         });
         s_Data.QuadVertexArray->AddVertexBuffer(s_Data.QuadVertexBuffer);
 
@@ -337,7 +341,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawBatchedQuad(const Matrix4& transform, const Vector4& color, const Vector2* textureCoords, const Vector2& textureScale, const float textureIndex)
+    void Renderer2D::DrawBatchedQuad(const Matrix4& transform, const Vector4& color, const Vector2* textureCoords, const Vector2& textureScale, const float textureIndex, int entityId)
     {
         LV_PROFILE_FUNCTION();
 
@@ -354,6 +358,7 @@ namespace Limnova
             s_Data.QuadVertexBufferPtr->TexCoord = textureCoords[i];
             s_Data.QuadVertexBufferPtr->TexScale = textureScale;
             s_Data.QuadVertexBufferPtr->TexIndex = textureIndex;
+            s_Data.QuadVertexBufferPtr->EntityId = entityId;
             s_Data.QuadVertexBufferPtr++;
         }
         s_Data.QuadIndexCount += 6;
@@ -363,7 +368,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawQuad(const Matrix4& transform, const Vector4& color)
+    void Renderer2D::DrawQuad(const Matrix4& transform, const Vector4& color, int entityId)
     {
         LV_PROFILE_FUNCTION();
 
@@ -371,7 +376,7 @@ namespace Limnova
         const Vector2 textureScale{ 1.f, 1.f };
         const float textureIndex = 0.f;
 
-        DrawBatchedQuad(transform, color, textureCoords, textureScale, textureIndex);
+        DrawBatchedQuad(transform, color, textureCoords, textureScale, textureIndex, entityId);
     }
 
 
