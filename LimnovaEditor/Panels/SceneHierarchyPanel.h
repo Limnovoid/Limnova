@@ -13,6 +13,7 @@ namespace Limnova
 
         void SetContext(Scene* scene);
 
+        void SetSelectedEntity(Entity entity);
         Entity GetSelectedEntity() const { return m_SelectedEntity; }
 
         void OnImGuiRender();

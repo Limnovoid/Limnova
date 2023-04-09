@@ -75,6 +75,15 @@ namespace Limnova
 #else
         m_Scene = CreateRef<Scene>();
 
+        auto commandLineArgs = Application::Get().GetCommandLineArgs();
+        if (commandLineArgs.Count > 1)
+        {
+            std::string sceneFilePath = commandLineArgs[1];
+            if (!SceneSerializer::Deserialize(m_Scene.get(), sceneFilePath)) {
+                LV_CORE_ERROR("Could not default load scene!");
+            }
+        }
+
     #ifdef EXCLUDE_SETUP
         Entity camera0 = m_Scene->CreateEntity("Camera 0");
         {
@@ -158,6 +167,7 @@ namespace Limnova
 #endif
 
             // Update scene
+            //m_Scene->OnUpdateRuntime(dT);
             m_Scene->OnUpdateEditor(dT);
 
             m_EditorCamera.OnUpdate(dT);
@@ -179,12 +189,10 @@ namespace Limnova
         {
             LV_PROFILE_SCOPE("Render Draw - EditorLayer::OnUpdate");
 
-            //m_Scene->OnUpdateRuntime(dT);
             //m_Scene->OnRenderRuntime();
             m_Scene->OnRenderEditor(m_EditorCamera);
 
-
-            // TEMPORARY - mouse pick tests
+            // Mouse hovering entities
             int mouseX = (int)(ImGui::GetMousePos().x - m_ViewportBounds[0].x);
             int mouseY = (int)(m_ViewportBounds[1].y - ImGui::GetMousePos().y);
 
@@ -197,8 +205,6 @@ namespace Limnova
             }
             m_HoveredEntity = (pixelData == -1) ? Entity::Null
                 : Entity{ (entt::entity)pixelData, m_Scene.get() };
-            LV_CORE_INFO("Pixel data = {0}", pixelData);
-
 
             m_Framebuffer->Unbind();
         }
@@ -368,12 +374,17 @@ namespace Limnova
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.f, 0.f });
         ImGui::Begin("Viewport");
 
-        Vector2 viewportOffset = { ImGui::GetCursorPos().x, ImGui::GetCursorPos().y }; /* Includes tab bar */
+        // Viewport bounds in screen space
+        auto viewportRegionMin = ImGui::GetWindowContentRegionMin();
+        auto viewportRegionMax = ImGui::GetWindowContentRegionMax();
+        auto viewportOffset = ImGui::GetWindowPos();
+        m_ViewportBounds[0] = { viewportRegionMin.x + viewportOffset.x, viewportRegionMin.y + viewportOffset.y };
+        m_ViewportBounds[1] = { viewportRegionMax.x + viewportOffset.x, viewportRegionMax.y + viewportOffset.y };
 
         // Only control the camera if the viewport is focused and hovered
         m_ViewportFocused = ImGui::IsWindowFocused();
         m_ViewportHovered = ImGui::IsWindowHovered();
-        m_EditorCamera.SetControl(m_ViewportHovered, m_ViewportFocused);
+        m_EditorCamera.SetControl(m_ViewportHovered, m_ViewportFocused, m_SceneHierarchyPanel.GetSelectedEntity());
         Application::Get().GetImGuiLayer()->SetBlockEvents(!m_ViewportFocused && !m_ViewportHovered);
 
         ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
@@ -389,10 +400,6 @@ namespace Limnova
         }
         uint32_t viewportRendererId = m_Framebuffer->GetColorAttachmentRendererId();
         ImGui::Image((void*)viewportRendererId, viewportPanelSize, { 0, 1 }, { 1, 0 });
-
-        // Viewport screen bounds
-        m_ViewportBounds[0] = viewportOffset + Vector2{ ImGui::GetWindowPos().x, ImGui::GetWindowPos().y };
-        m_ViewportBounds[1] = m_ViewportBounds[0] + Vector2{ ImGui::GetWindowSize().x, ImGui::GetWindowSize().y } - viewportOffset;
 
         // Gizmos
         if (m_ActiveGizmo > -1)
@@ -467,6 +474,7 @@ namespace Limnova
 
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<KeyPressedEvent>(LV_BIND_EVENT_FN(EditorLayer::OnKeyPressed));
+        dispatcher.Dispatch<MouseButtonPressedEvent>(LV_BIND_EVENT_FN(EditorLayer::OnMouseButtonPressed));
     }
 
 
@@ -513,6 +521,24 @@ namespace Limnova
     }
 
 
+    bool EditorLayer::OnMouseButtonPressed(MouseButtonPressedEvent& e)
+    {
+        if (e.GetMouseButton() == LV_MOUSE_BUTTON_LEFT)
+        {
+            if (CanMousePick()) {
+                m_SceneHierarchyPanel.SetSelectedEntity(m_HoveredEntity);
+            }
+        }
+        return false;
+    }
+
+
+    bool EditorLayer::CanMousePick()
+    {
+        return m_ViewportHovered && !ImGuizmo::IsOver();
+    }
+
+
     void EditorLayer::NewScene()
     {
 #ifdef LV_EDITOR_USE_ORBITAL
@@ -528,24 +554,23 @@ namespace Limnova
     void EditorLayer::OpenScene()
     {
         std::string filepath = FileDialogs::OpenFile("Limnova Scene (*.limn)\0*.limn\0");
-        if (filepath.empty()) {
-            return;
+
+        if (!filepath.empty())
+        {
+            NewScene();
+            SceneSerializer::Deserialize(m_Scene.get(), filepath);
         }
-
-        NewScene();
-
-        SceneSerializer::Deserialize(m_Scene.get(), filepath);
     }
 
 
     void EditorLayer::SaveSceneAs()
     {
         std::string filepath = FileDialogs::SaveFile("Limnova Scene (*.limn)\0*.limn\0");
-        if (filepath.empty()) {
-            return;
+        
+        if (!filepath.empty())
+        {
+            SceneSerializer::Serialize(m_Scene.get(), filepath);
         }
-
-        SceneSerializer::Serialize(m_Scene.get(), filepath);
     }
 
 }

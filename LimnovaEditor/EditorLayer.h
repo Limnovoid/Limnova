@@ -22,6 +22,9 @@ namespace Limnova
         void OnEvent(Event& e) override;
     private:
         bool OnKeyPressed(KeyPressedEvent& e);
+        bool OnMouseButtonPressed(MouseButtonPressedEvent& e);
+
+        bool CanMousePick();
 
         void NewScene();
         void OpenScene();

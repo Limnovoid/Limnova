@@ -72,7 +72,7 @@ namespace Limnova
             // Drag movement control: forwards and sideways
             moveDir += deltaY * walkForward + deltaX * walkLeft;
         }
-        else if (m_IsViewportFocused)
+        else if (m_IsViewportFocused && !m_IsEntitySelected)
         {
             // Key movement control
             if (Input::IsKeyPressed(LV_KEY_A))
@@ -134,9 +134,11 @@ namespace Limnova
 
     bool EditorCamera::OnWindowResized(WindowResizeEvent& e)
     {
-        m_AspectRatio = (float)e.GetWidth() / (float)e.GetHeight();
-        m_NeedSetProjection = true;
-
+        if (e.GetWidth() > 0 && e.GetHeight() > 0)
+        {
+            m_AspectRatio = (float)e.GetWidth() / (float)e.GetHeight();
+            m_NeedSetProjection = true;
+        }
         return false;
     }
 

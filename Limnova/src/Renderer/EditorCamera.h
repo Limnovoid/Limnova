@@ -21,10 +21,11 @@ namespace Limnova
 
         void SetAspect(const float aspect) { m_AspectRatio = aspect; m_NeedSetProjection = true; }
 
-        void SetControl(bool viewportHovered, bool viewportFocused)
+        void SetControl(bool viewportHovered, bool viewportFocused, bool entitySelected)
         {
             m_IsViewportHovered = viewportHovered;
             m_IsViewportFocused = viewportFocused;
+            m_IsEntitySelected = entitySelected;
         }
 
         Camera& GetCamera() { return m_Camera; }
@@ -45,6 +46,7 @@ namespace Limnova
 
         bool m_Dragging = false;
         bool m_IsViewportHovered = false, m_IsViewportFocused = false;
+        bool m_IsEntitySelected = false;
 
         Vector3 m_FocusPoint = { 0.f };
         float m_FocusDistance = 2.f;

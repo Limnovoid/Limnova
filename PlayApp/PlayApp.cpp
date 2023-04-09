@@ -28,7 +28,7 @@ namespace Limnova
     };
 
 
-    Application* CreateApplication()
+    Application* CreateApplication(ApplicationCommandLineArgs /*args*/)
     {
         return new PlayApp();
     }

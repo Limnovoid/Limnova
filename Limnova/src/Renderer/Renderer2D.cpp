@@ -7,9 +7,6 @@
 namespace Limnova
 {
 
-    Ref<UniformBuffer> Renderer2D::s_SceneUniformBuffer = nullptr;
-
-
     struct QuadVertex
     {
         Vector3 Position;
@@ -47,10 +44,11 @@ namespace Limnova
     struct Renderer2DData
     {
         // Camera
-        const Camera::Data* CameraData;
+        const Camera::Data* CameraData = nullptr;
+        Ref<UniformBuffer> SceneUniformBuffer;
 
         // Quads
-        const uint32_t MaxQuads = 10000;
+        const uint32_t MaxQuads = 4096;
         const uint32_t MaxQuadVertices = MaxQuads * 4;
         const uint32_t MaxQuadIndices = MaxQuads * 6;
         static const uint32_t MaxTextureSlots = 32; // TODO : set with render capabilities
@@ -72,7 +70,7 @@ namespace Limnova
         Renderer2D::Statistics Stats;
 
         // Circles
-        const uint32_t MaxCircles = 10000;
+        const uint32_t MaxCircles = 4096;
         const uint32_t MaxCircleVertices = MaxCircles * 4;
         const uint32_t MaxCircleIndices = MaxCircles * 6;
 
@@ -85,7 +83,7 @@ namespace Limnova
         CircleVertex* CircleVertexBufferPtr = nullptr;
 
         // Ellipses
-        const uint32_t MaxEllipses = 10000;
+        const uint32_t MaxEllipses = 1024;
         const uint32_t MaxEllipseVertices = MaxEllipses * 4;
         const uint32_t MaxEllipseIndices = MaxEllipses * 6;
 
@@ -98,11 +96,11 @@ namespace Limnova
         EllipseVertex* EllipseVertexBufferPtr = nullptr;
 
         // Orbit resources
-        Ref<VertexArray> HyperbolaVertexArray2;
-        Ref<Shader> HyperbolaShader2;
-        Ref<VertexArray> EllipseVertexArray2;
-        Ref<Shader> EllipseShader2;
-        Ref<UniformBuffer> OrbitUniformBuffer2;
+        //Ref<VertexArray> HyperbolaVertexArray2;
+        //Ref<Shader> HyperbolaShader2;
+        //Ref<VertexArray> EllipseVertexArray2;
+        //Ref<Shader> EllipseShader2;
+        //Ref<UniformBuffer> OrbitUniformBuffer2;
     };
 
     static Renderer2DData s_Data;
@@ -125,11 +123,11 @@ namespace Limnova
     static OrbitData* s_OrbitData;
 
 
-    void Renderer2D::Init(const Ref<UniformBuffer>& sceneUniformBuffer)
+    void Renderer2D::Init()
     {
         LV_PROFILE_FUNCTION();
 
-        s_SceneUniformBuffer = sceneUniformBuffer;
+        s_Data.SceneUniformBuffer = UniformBuffer::Create(0, sizeof(Camera::Data));
 
         // Quads
         s_Data.QuadVertexArray = VertexArray::Create();
@@ -176,9 +174,6 @@ namespace Limnova
         }
 
         s_Data.QuadShader = Shader::Create(LV_ASSET_DIR"/shaders/Renderer2D_Quad.lvglsl");
-        s_Data.QuadShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
-        s_Data.QuadShader->Bind();
-        s_Data.QuadShader->SetIntArray("u_Textures", samplers, s_Data.MaxTextureSlots);
 
         s_Data.TextureSlots[0] = s_Data.WhiteTexture;
 
@@ -203,7 +198,6 @@ namespace Limnova
         s_Data.CircleVertexBufferBase = new CircleVertex[s_Data.MaxCircleVertices];
 
         s_Data.CircleShader = Shader::Create(LV_ASSET_DIR"/shaders/Renderer2D_Circle.lvglsl");
-        s_Data.CircleShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
 
         // Ellipses
         s_Data.EllipseVertexArray = VertexArray::Create();
@@ -223,11 +217,12 @@ namespace Limnova
 
         //s_Data.EllipseShader = Shader::Create(LV_ASSET_DIR"/shaders/Renderer2D_Ellipse.lvglsl");
         s_Data.EllipseShader = Shader::Create(LV_ASSET_DIR"/shaders/Orbital_Ellipse.lvglsl");
-        s_Data.EllipseShader->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
 
+
+#ifdef EXCLUDED
         // Color hyperbola
         s_Data.HyperbolaVertexArray2 = VertexArray::Create();
-
+        
         float hyperbolaVertices[3 * 3] = {
             0.f,  0.f,  0.f,
            -1.f,  1.f,  0.f,
@@ -238,21 +233,19 @@ namespace Limnova
             { ShaderDataType::Float3, "a_Position" }
             });
         s_Data.HyperbolaVertexArray2->AddVertexBuffer(hyperbolaVB);
-
+        
         uint32_t hyperbolaIndices[3] = { 0, 1, 2 };
         Ref<IndexBuffer> hyperbolaIB = IndexBuffer::Create(hyperbolaIndices, std::size(hyperbolaIndices));
         s_Data.HyperbolaVertexArray2->SetIndexBuffer(hyperbolaIB);
-
+        
         s_Data.HyperbolaShader2 = Shader::Create(LV_ASSET_DIR"/shaders/Hyperbola.lvglsl");
-        s_Data.HyperbolaShader2->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
-
+        
         s_OrbitData = new OrbitData();
-        s_Data.OrbitUniformBuffer2 = UniformBuffer::Create((void*)&s_OrbitData, sizeof(OrbitData));
-        s_Data.HyperbolaShader2->BindUniformBuffer(s_Data.OrbitUniformBuffer2->GetRendererId(), "OrbitUniform");
-
+        s_Data.OrbitUniformBuffer2 = UniformBuffer::Create(1, sizeof(OrbitData));
+        
         // Color ellipse
         s_Data.EllipseVertexArray2 = VertexArray::Create();
-
+        
         float ellipseVertices[3 * 4] = {
            -0.5f, -0.5f,  0.f,
             0.5f, -0.5f,  0.f,
@@ -264,14 +257,13 @@ namespace Limnova
             { ShaderDataType::Float3, "a_Position" }
             });
         s_Data.EllipseVertexArray2->AddVertexBuffer(ellipseVB);
-
+        
         uint32_t ellipseIndices[6] = { 0, 1, 2, 0, 2, 3 };
         Ref<IndexBuffer> ellipseIB = IndexBuffer::Create(ellipseIndices, std::size(ellipseIndices));
         s_Data.EllipseVertexArray2->SetIndexBuffer(ellipseIB);
-
+        
         s_Data.EllipseShader2 = Shader::Create(LV_ASSET_DIR"/shaders/Ellipse.lvglsl");
-        s_Data.EllipseShader2->BindUniformBuffer(Renderer::GetSceneUniformBufferId(), "CameraUniform");
-        s_Data.EllipseShader2->BindUniformBuffer(s_Data.OrbitUniformBuffer2->GetRendererId(), "OrbitUniform");
+#endif
     }
 
 
@@ -285,7 +277,7 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
-        s_SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(Renderer::SceneData, Renderer::SceneData::CameraData), sizeof(Camera::Data));
+        s_Data.SceneUniformBuffer->UpdateData((void*)camera.GetData(), offsetof(Renderer::SceneData, Renderer::SceneData::CameraData), sizeof(Camera::Data));
         s_Data.CameraData = camera.GetData();
 
         ResetQuadBatch();
@@ -322,9 +314,7 @@ namespace Limnova
         uint32_t dataSize = (uint8_t*)s_Data.QuadVertexBufferPtr - (uint8_t*)s_Data.QuadVertexBufferBase;
         s_Data.QuadVertexBuffer->SetData(s_Data.QuadVertexBufferBase, dataSize);
 
-        s_Data.QuadVertexArray->Bind(); // TEMPORARY - necessary because DrawEllipse and DrawHyperbola bind their different vertex buffers
         RenderCommand::DrawIndexed(s_Data.QuadVertexArray, s_Data.QuadIndexCount);
-
 
         s_Data.Stats.DrawCalls++;
     }
@@ -374,7 +364,7 @@ namespace Limnova
 
         const Vector2 textureCoords[4]{ { 0.f, 0.f }, { 1.f, 0.f }, { 1.f, 1.f }, { 0.f, 1.f } };
         const Vector2 textureScale{ 1.f, 1.f };
-        const float textureIndex = 0.f;
+        const float textureIndex = 0;
 
         DrawBatchedQuad(transform, color, textureCoords, textureScale, textureIndex, entityId);
     }
@@ -486,7 +476,7 @@ namespace Limnova
 
         const Vector2 textureCoords[4]{ { 0.f, 0.f }, { 1.f, 0.f }, { 1.f, 1.f }, { 0.f, 1.f } };
         const Vector2 textureScale{ 1.f, 1.f };
-        const float textureIndex = 0.f;
+        const float textureIndex = 0;
 
         DrawBatchedQuad(transform, color, textureCoords, textureScale, textureIndex);
     }
@@ -581,7 +571,6 @@ namespace Limnova
         uint32_t dataSize = (uint8_t*)s_Data.CircleVertexBufferPtr - (uint8_t*)s_Data.CircleVertexBufferBase;
         s_Data.CircleVertexBuffer->SetData(s_Data.CircleVertexBufferBase, dataSize);
 
-        s_Data.CircleVertexArray->Bind(); // TEMPORARY - necessary because DrawEllipse and DrawHyperbola bind their different vertex buffers
         RenderCommand::DrawIndexed(s_Data.CircleVertexArray, s_Data.CircleIndexCount);
 
 
@@ -647,7 +636,6 @@ namespace Limnova
         uint32_t dataSize = (uint8_t*)s_Data.EllipseVertexBufferPtr - (uint8_t*)s_Data.EllipseVertexBufferBase;
         s_Data.EllipseVertexBuffer->SetData(s_Data.EllipseVertexBufferBase, dataSize);
 
-        s_Data.EllipseVertexArray->Bind(); // TEMPORARY - necessary because DrawEllipse and DrawHyperbola bind their different vertex buffers
         RenderCommand::DrawIndexed(s_Data.EllipseVertexArray, s_Data.EllipseIndexCount);
 
 
@@ -725,8 +713,11 @@ namespace Limnova
 
     void Renderer2D::DrawEllipse(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer)
     {
+        LV_CORE_ASSERT(false, "Do not use!");
+
         LV_PROFILE_FUNCTION();
     
+#ifdef EXCLUDED
         bool escapes = !(escapePointFromCentre.y == 0);
         s_OrbitData->XOffset = escapes ? 0.5f * (semiMajorAxis + escapePointFromCentre.x) : 0.f;
         s_OrbitData->XEscapeTangent = -abs(escapePointFromCentre.y * semiMajorAxis * semiMajorAxis / (semiMinorAxis * semiMinorAxis * escapePointFromCentre.x));
@@ -751,16 +742,19 @@ namespace Limnova
     
         s_Data.EllipseShader2->SetVec4("u_Color", color);
     
-        s_Data.EllipseVertexArray2->Bind();
         RenderCommand::DrawIndexed(s_Data.EllipseVertexArray2);
+#endif
     }
 
 
     void Renderer2D::DrawHyperbola(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre,
         const float thickness, const Vector4& color, int layer)
     {
+        LV_CORE_ASSERT(false, "Do not use!");
+
         LV_PROFILE_FUNCTION();
-    
+
+#ifdef EXCLUDED
         s_OrbitData->XOffset = 0;
     
         // Determine the coordinates of the top-left corner of the triangle, measured in the hyperbola's coordinate system.
@@ -786,20 +780,8 @@ namespace Limnova
     
         s_Data.HyperbolaShader2->SetVec4("u_Color", color);
     
-        s_Data.HyperbolaVertexArray2->Bind();
         RenderCommand::DrawIndexed(s_Data.HyperbolaVertexArray2);
-    }
-
-
-    void Renderer2D::TEMP_BeginEllipses()
-    {
-        s_Data.EllipseShader2->Bind();
-    }
-
-
-    void Renderer2D::TEMP_BeginHyperbolae()
-    {
-        s_Data.HyperbolaShader2->Bind();
+#endif
     }
 
 

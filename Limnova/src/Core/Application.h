@@ -15,13 +15,29 @@
 namespace Limnova
 {
 
+    struct ApplicationCommandLineArgs
+    {
+        int Count = 0;
+        char** Args = nullptr;
+
+        const char* operator[](int index) const
+        {
+            LV_CORE_ASSERT(index < Count, "ApplicationCommandLineArgs index out of bounds!");
+            return Args[index];
+        }
+    };
+
+
     class Application
     {
     public:
-        Application(const std::string& name = "Limnova App");
+        Application(const std::string& name = "Limnova App",
+            ApplicationCommandLineArgs args = {});
         virtual ~Application();
 
         static Application& Get();
+
+        ApplicationCommandLineArgs GetCommandLineArgs() const { return m_CommandLineArgs; }
 
         inline Window& GetWindow() { return *m_Window; }
         inline ImGuiLayer* GetImGuiLayer() { return m_ImGuiLayer; }
@@ -36,6 +52,8 @@ namespace Limnova
     private:
         bool OnWindowClose(WindowCloseEvent& e);
         bool OnWindowResize(WindowResizeEvent& e);
+    private:
+        ApplicationCommandLineArgs m_CommandLineArgs;
 
         std::unique_ptr<Window> m_Window;
         bool m_Running = true;
@@ -50,6 +68,6 @@ namespace Limnova
     };
 
     // To be defined in CLIENT.
-    Application* CreateApplication();
+    Application* CreateApplication(ApplicationCommandLineArgs args);
 
 }

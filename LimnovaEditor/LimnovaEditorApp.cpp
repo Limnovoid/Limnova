@@ -10,8 +10,8 @@ namespace Limnova
     class LimnovaEditorApp : public Application
     {
     public:
-        LimnovaEditorApp()
-            : Application("Limnova Editor")
+        LimnovaEditorApp(ApplicationCommandLineArgs args)
+            : Application("Limnova Editor", args)
         {
             PushLayer(new EditorLayer());
         }
@@ -22,9 +22,9 @@ namespace Limnova
     };
 
 
-    Application* CreateApplication()
+    Application* CreateApplication(ApplicationCommandLineArgs args)
     {
-        return new LimnovaEditorApp();
+        return new LimnovaEditorApp(args);
     }
 
 }

@@ -478,7 +478,6 @@ void Orbital2D::OnUpdate(LV::Timestep dT)
         LV::Renderer2D::BeginScene(m_CameraController->GetCamera());
 
         // Render elliptical orbits/trajectories
-        LV::Renderer2D::TEMP_BeginEllipses(); // TEMPORARY: separate draw calls for different shaders - TODO: use render queue
         for (uint32_t id : sceneOrbiters)
         {
             bool cameraIsTrackingOrbiter = id == sceneTrackingId;
@@ -541,7 +540,6 @@ void Orbital2D::OnUpdate(LV::Timestep dT)
         }
 
         // Render hyperbolic trajectories
-        LV::Renderer2D::TEMP_BeginHyperbolae(); // TEMPORARY: separate draw calls for different shaders - TODO: use render queue
         for (uint32_t id : sceneOrbiters)
         {
             bool cameraIsTrackingOrbiter = id == sceneTrackingId;

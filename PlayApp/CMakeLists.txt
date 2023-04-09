@@ -26,7 +26,7 @@ target_include_directories(${PROJECT_NAME}
 
 
 set_property(TARGET ${PROJECT_NAME}
-    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
 )
 
 target_link_libraries(${PROJECT_NAME}

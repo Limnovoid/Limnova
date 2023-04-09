@@ -99,14 +99,14 @@ namespace Limnova
 
     // UniformBuffer ///////////////////////////////////////////////////////////
 
-    OpenGLUniformBuffer::OpenGLUniformBuffer(void* data, uint32_t size)
+    OpenGLUniformBuffer::OpenGLUniformBuffer(uint32_t binding, uint32_t size)
         : m_Size(size)
     {
         LV_PROFILE_FUNCTION();
 
         glCreateBuffers(1, &m_RendererId);
-        glBindBuffer(GL_UNIFORM_BUFFER, m_RendererId);
-        glBufferData(GL_UNIFORM_BUFFER, size, data, GL_DYNAMIC_DRAW);
+        glNamedBufferData(m_RendererId, size, nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_UNIFORM_BUFFER, binding, m_RendererId);
     }
 
 
@@ -140,8 +140,7 @@ namespace Limnova
 
         LV_CORE_ASSERT(m_Size == size, "UpdateData was passed a data size which does not match the buffer size!");
 
-        glBindBuffer(GL_UNIFORM_BUFFER, m_RendererId);
-        glBufferSubData(GL_UNIFORM_BUFFER, offset, size, data);
+        glNamedBufferSubData(m_RendererId, offset, size, data);
     }
 
 }

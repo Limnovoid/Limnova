@@ -17,11 +17,7 @@ namespace Limnova
 
         RenderCommand::Init();
 
-        SceneData scene = { { glm::mat4(1.f), glm::vec4(0.f), glm::vec4(0.f,0.f,-1.f,0.f) } };
-        s_SceneUniformBuffer = UniformBuffer::Create((void*)&scene, sizeof(Camera::Data)); // TODO - use SceneData ?
-
-        Renderer2D::Init(s_SceneUniformBuffer);
-        LV_CORE_ASSERT(s_SceneUniformBuffer.use_count() == 2, "Incorrect number of references to Renderer::s_SceneUniformBuffer!");
+        s_SceneUniformBuffer = UniformBuffer::Create(0, sizeof(Camera::Data));
     }
 
 

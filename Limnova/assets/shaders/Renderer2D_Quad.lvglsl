@@ -1,21 +1,18 @@
 #type vertex
 #version 450
 
-layout (std140) uniform CameraUniform
-{
+layout (std140, binding = 0) uniform CameraUniform {
     mat4 ViewProj;
     vec3 Position;
     vec3 AimDirection;
 } u_Camera;
 
-out VertexData {
-    flat vec4 Color;
+struct VertexData {
+    vec4 Color;
     vec2 TexCoord;
-    flat vec2 TexScale;
-    flat float TexIndex;
-    flat int EntityId;
-} outData;
-
+    vec2 TexScale;
+    float TexIndex;
+};
 
 layout(location = 0) in vec3 a_Position;
 layout(location = 1) in vec4 a_Color;
@@ -24,13 +21,16 @@ layout(location = 3) in vec2 a_TexScale;
 layout(location = 4) in float a_TexIndex;
 layout(location = 5) in int a_EntityId;
 
+layout (location = 0) out VertexData outData;
+layout (location = 4) flat out int v_EntityId;
+
 void main()
 {
     outData.Color = a_Color;
     outData.TexCoord = a_TexCoord;
     outData.TexScale = a_TexScale;
     outData.TexIndex = a_TexIndex;
-    outData.EntityId = a_EntityId;
+    v_EntityId = a_EntityId;
 
     gl_Position = u_Camera.ViewProj * vec4(a_Position, 1.0);
 }
@@ -39,35 +39,63 @@ void main()
 #type fragment
 #version 450
 
-uniform sampler2D u_Textures[32];
+layout (binding = 0) uniform sampler2D u_Textures[32];
 
-in VertexData {
-    flat vec4 Color;
+struct VertexData {
+    vec4 Color;
     vec2 TexCoord;
-    flat vec2 TexScale;
-    flat float TexIndex;
-    flat int EntityId;
-} inData;
+    vec2 TexScale;
+    float TexIndex;
+};
+
+layout (location = 0) in VertexData inData;
+layout (location = 4) flat in int v_EntityId;
 
 layout(location = 0) out vec4 o_Color;
 layout(location = 1) out int o_EntityId;
 
 void main()
 {
-    vec4 color = texture(u_Textures[int(inData.TexIndex)], inData.TexCoord * inData.TexScale) * inData.Color;
+    vec4 color = inData.Color;
 
-    // NOTE : the u_Textures[] indexing above may not work on AMD cards - see The Cherno's Hazel Engine.
-    // Fix for AMD:
-    // switch(int(v_TexIndex))
-    // {
-    // case 0: color = texture(u_Textures[0], v_TexCoord * v_TexScale) * v_Color; break;
-    // case 1: color = texture(u_Textures[1], v_TexCoord * v_TexScale) * v_Color; break;
-    // ...
-    // case 31: color = texture(u_Textures[31], v_TexCoord * v_TexScale) * v_Color; break;
-    // }
+    switch(int(inData.TexIndex))
+    {
+        case  0: color *= texture(u_Textures[ 0], inData.TexCoord * inData.TexScale); break;
+        case  1: color *= texture(u_Textures[ 1], inData.TexCoord * inData.TexScale); break;
+        case  2: color *= texture(u_Textures[ 2], inData.TexCoord * inData.TexScale); break;
+        case  3: color *= texture(u_Textures[ 3], inData.TexCoord * inData.TexScale); break;
+        case  4: color *= texture(u_Textures[ 4], inData.TexCoord * inData.TexScale); break;
+        case  5: color *= texture(u_Textures[ 5], inData.TexCoord * inData.TexScale); break;
+        case  6: color *= texture(u_Textures[ 6], inData.TexCoord * inData.TexScale); break;
+        case  7: color *= texture(u_Textures[ 7], inData.TexCoord * inData.TexScale); break;
+        case  8: color *= texture(u_Textures[ 8], inData.TexCoord * inData.TexScale); break;
+        case  9: color *= texture(u_Textures[ 9], inData.TexCoord * inData.TexScale); break;
+        case 10: color *= texture(u_Textures[10], inData.TexCoord * inData.TexScale); break;
+        case 11: color *= texture(u_Textures[11], inData.TexCoord * inData.TexScale); break;
+        case 12: color *= texture(u_Textures[12], inData.TexCoord * inData.TexScale); break;
+        case 13: color *= texture(u_Textures[13], inData.TexCoord * inData.TexScale); break;
+        case 14: color *= texture(u_Textures[14], inData.TexCoord * inData.TexScale); break;
+        case 15: color *= texture(u_Textures[15], inData.TexCoord * inData.TexScale); break;
+        case 16: color *= texture(u_Textures[16], inData.TexCoord * inData.TexScale); break;
+        case 17: color *= texture(u_Textures[17], inData.TexCoord * inData.TexScale); break;
+        case 18: color *= texture(u_Textures[18], inData.TexCoord * inData.TexScale); break;
+        case 19: color *= texture(u_Textures[19], inData.TexCoord * inData.TexScale); break;
+        case 20: color *= texture(u_Textures[20], inData.TexCoord * inData.TexScale); break;
+        case 21: color *= texture(u_Textures[21], inData.TexCoord * inData.TexScale); break;
+        case 22: color *= texture(u_Textures[22], inData.TexCoord * inData.TexScale); break;
+        case 23: color *= texture(u_Textures[23], inData.TexCoord * inData.TexScale); break;
+        case 24: color *= texture(u_Textures[24], inData.TexCoord * inData.TexScale); break;
+        case 25: color *= texture(u_Textures[25], inData.TexCoord * inData.TexScale); break;
+        case 26: color *= texture(u_Textures[26], inData.TexCoord * inData.TexScale); break;
+        case 27: color *= texture(u_Textures[27], inData.TexCoord * inData.TexScale); break;
+        case 28: color *= texture(u_Textures[28], inData.TexCoord * inData.TexScale); break;
+        case 29: color *= texture(u_Textures[29], inData.TexCoord * inData.TexScale); break;
+        case 30: color *= texture(u_Textures[30], inData.TexCoord * inData.TexScale); break;
+        case 31: color *= texture(u_Textures[31], inData.TexCoord * inData.TexScale); break;
+    }
 
     color.rgb = color.rgb * color.a; // Premultiplied alpha
     o_Color = color;
 
-    o_EntityId = inData.EntityId;
+    o_EntityId = v_EntityId;
 }

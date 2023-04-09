@@ -27,7 +27,7 @@ namespace Limnova
     };
 
 
-    LV::Application* CreateApplication()
+    LV::Application* CreateApplication(ApplicationCommandLineArgs /*args*/)
     {
         return new OrbitalApp();
     }

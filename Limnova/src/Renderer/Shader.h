@@ -28,8 +28,6 @@ namespace Limnova
         virtual void SetVec4(const std::string& name, const Vector4& value) = 0;
         virtual void SetMat3(const std::string& name, const glm::mat3& value) = 0;
         virtual void SetMat4(const std::string& name, const glm::mat4& value) = 0;
-
-        virtual void BindUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName) = 0;
     };
 
 

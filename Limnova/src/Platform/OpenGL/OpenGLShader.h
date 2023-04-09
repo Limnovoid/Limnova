@@ -30,8 +30,6 @@ namespace Limnova
         void SetMat3(const std::string& name, const glm::mat3& value) override;
         void SetMat4(const std::string& name, const glm::mat4& value) override;
 
-        void BindUniformBuffer(const uint32_t buffer, const std::string& uniformBlockName) override;
-
         // Update the values of uniforms in this shader.
         // This shader is bound separately with Bind() - there must be a call to Bind() from this shader anywhere before calling UploadUniform* and after any calls to Bind() from a different shader.
         void UploadUniformInt(const std::string& uniformName, const int value);
@@ -47,11 +45,18 @@ namespace Limnova
     private:
         std::string ReadFile(const std::string& filepath);
         std::unordered_map<GLenum, std::string> Preprocess(const std::string& source);
-        void Compile(const std::unordered_map<GLenum, std::string>& sources);
+        //void Compile(const std::unordered_map<GLenum, std::string>& sources);
+        void CompileOrGetVulkanBinaries(const std::unordered_map<GLenum, std::string>& shaderSources);
+        void CompileOrGetOpenGLBinaries();
+        void CreateProgram();
+        void Reflect(GLenum stage, const std::vector<uint32_t>& shaderData);
     private:
-        std::string m_Name;
         uint32_t m_RendererId;
-        uint32_t m_NumUniformBlocks;
+        std::string m_Name;
+        std::string m_Filepath;
+        std::unordered_map<GLenum, std::vector<uint32_t>> m_VulkanSPIRV;
+        std::unordered_map<GLenum, std::vector<uint32_t>> m_OpenGLSPIRV;
+        std::unordered_map<GLenum, std::string> m_OpenGLSource;
     };
 
 }

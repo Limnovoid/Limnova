@@ -295,7 +295,7 @@ namespace Limnova
         }
 
         auto& camera = m_Registry.get<CameraComponent>(entity);
-        if (camera.TieAspectToView)
+        if (camera.TieAspectToView && m_ViewportAspectRatio > 0)
         {
             camera.SetAspectRatio(m_ViewportAspectRatio);
         }

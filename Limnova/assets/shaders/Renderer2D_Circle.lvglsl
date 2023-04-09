@@ -4,28 +4,31 @@
 #type vertex
 #version 450
 
-layout (std140) uniform CameraUniform {
+layout (std140, binding = 0) uniform CameraUniform {
     mat4 ViewProj;
     vec3 Position;
     vec3 AimDirection;
 } u_Camera;
 
-out VertexData {
-    vec2 LocalPosition;
+struct VertexData {
+    vec2 PlanarPosition;
     vec4 Color;
     float Thickness;
     float Fade;
-} outData;
+};
 
 layout(location = 0) in vec3 a_WorldPosition;
-layout(location = 1) in vec2 a_LocalPosition;
+layout(location = 1) in vec2 a_PlanarPosition;
 layout(location = 2) in vec4 a_Color;
 layout(location = 3) in float a_Thickness;
 layout(location = 4) in float a_Fade;
 
+layout (location = 0) out VertexData outData;
+layout (location = 4) flat out int v_EntityId;
+
 void main()
 {
-    outData.LocalPosition   = a_LocalPosition;
+    outData.PlanarPosition   = a_PlanarPosition;
     outData.Color           = a_Color;
     outData.Thickness       = a_Thickness;
     outData.Fade            = a_Fade;
@@ -37,18 +40,22 @@ void main()
 #type fragment
 #version 450
 
-in VertexData {
-    vec2 LocalPosition;
+struct VertexData {
+    vec2 PlanarPosition;
     vec4 Color;
     float Thickness;
     float Fade;
-} inData;
+};
 
-layout(location = 0) out vec4 o_Color;
+layout (location = 0) in VertexData inData;
+layout (location = 4) flat in int v_EntityId;
+
+layout (location = 0) out vec4 o_Color;
+layout (location = 1) out int o_EntityId;
 
 void main()
 {
-    float distance = 1.0 - length(inData.LocalPosition);
+    float distance = 1.0 - length(inData.PlanarPosition);
 
     if (distance > inData.Thickness + inData.Fade) {
         discard;
@@ -61,4 +68,6 @@ void main()
     color.a *= fade;
     color.rgb *= color.a; // Premultiplied alpha
     o_Color = color;
+
+    o_EntityId = -1; // TODO
 }

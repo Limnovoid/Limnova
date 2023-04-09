@@ -6,6 +6,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Core/Log.cpp"
     "src/Core/Layer.cpp"
     "src/Core/LayerStack.cpp"
+    "src/Core/Timer.h"
 
     "src/Events/Event.h"
     "src/Events/KeyEvent.h"
@@ -80,15 +81,13 @@ set_property(TARGET ${PROJECT_NAME}
     PROPERTY CXX_STANDARD 20
 )
 
+add_compile_definitions(
+    LV_REFL_MAX_NUM_FIELDS=128 # TODO - make work
+)
+
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         "${PROJECT_SOURCE_DIR}/src"
-)
-
-# TODO - make work
-target_compile_definitions(${PROJECT_NAME}
-    PRIVATE
-        LV_REFL_MAX_NUM_FIELDS=128
 )
 
 target_precompile_headers(${PROJECT_NAME}
@@ -101,6 +100,7 @@ target_precompile_headers(${PROJECT_NAME}
         <optional>
         <limits>
         <cstdarg>
+        <filesystem>
 
         <string>
         <sstream>
@@ -133,19 +133,16 @@ target_include_directories(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/thirdparty/imguizmo"
         "${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/stb_image"
-        "${PROJECT_SOURCE_DIR}/thirdparty/volk/include"
-        "${PROJECT_SOURCE_DIR}/thirdparty/vulkan/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/yaml-cpp/include"
 )
 
 add_subdirectory(thirdparty)
 add_subdirectory(thirdparty/glad)
 add_subdirectory(thirdparty/glfw)
-add_subdirectory(thirdparty/volk)
 add_subdirectory(thirdparty/yaml-cpp)
 
 set_property(TARGET ${PROJECT_NAME}
-    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -153,7 +150,6 @@ target_link_libraries(${PROJECT_NAME}
         opengl32.lib
         Glad
         GLFW
-        Volk
     PUBLIC
         ImGui
         ImGuizmo
@@ -167,18 +163,41 @@ add_compile_definitions(
 
 # Getting yaml to play nice
 set_property(TARGET yaml-cpp
-    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
 )
 set_property(TARGET yaml-cpp-sandbox
-    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
 )
 set_property(TARGET yaml-cpp-parse
-    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
 )
 set_property(TARGET yaml-cpp-read
-    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
 )
 
+# Vulkan
+find_package(Vulkan 1.3 REQUIRED
+    volk
+    shaderc_combined
+    SPIRV-Tools
+    glslc
+)
+
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+        ${Vulkan_INCLUDE_DIR}
+)
+
+get_filename_component(Vulkan_Lib ${Vulkan_LIBRARY} DIRECTORY)
+target_link_libraries(${PROJECT_NAME}
+    PRIVATE
+        ${Vulkan_LIBRARY}
+        ${Vulkan_volk_LIBRARY}
+        "${Vulkan_Lib}/shaderc_sharedd.lib"
+        "${Vulkan_Lib}/spirv-cross-cored.lib"
+        "${Vulkan_Lib}/spirv-cross-glsld.lib"
+        "${Vulkan_Lib}/SPIRV-Toolsd.lib"
+)
 
 # Copy Limnova.dll to dependent executable directories.
 #add_custom_command(TARGET Limnova POST_BUILD COMMAND

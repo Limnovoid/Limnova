@@ -48,7 +48,7 @@ namespace Limnova
     class OpenGLUniformBuffer : public UniformBuffer
     {
     public:
-        OpenGLUniformBuffer(void* data, uint32_t size);
+        OpenGLUniformBuffer(uint32_t binding, uint32_t size);
         ~OpenGLUniformBuffer();
 
         void Bind() const override;

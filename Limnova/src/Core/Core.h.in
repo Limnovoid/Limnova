@@ -48,6 +48,7 @@
 #define LV_DIR "@CMAKE_SOURCE_DIR@"
 #define LV_ASSET_DIR "@PROJECT_SOURCE_DIR@/assets"
 
+
 namespace Limnova
 {
 

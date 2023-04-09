@@ -19,6 +19,12 @@ namespace Limnova
     }
 
 
+    void SceneHierarchyPanel::SetSelectedEntity(Entity entity)
+    {
+        m_SelectedEntity = entity;
+    }
+
+
     void SceneHierarchyPanel::OnImGuiRender()
     {
         ImGui::Begin("Scene Hierarchy");

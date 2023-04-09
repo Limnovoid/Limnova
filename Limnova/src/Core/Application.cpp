@@ -4,6 +4,7 @@
 #include "KeyCodes.h"
 
 #include "Renderer/Renderer.h"
+#include "Renderer/Renderer2D.h"
 
 
 namespace Limnova
@@ -12,7 +13,8 @@ namespace Limnova
     Application& Application::Get() { return *s_Instance; }
 
 
-    Application::Application(const std::string& name)
+    Application::Application(const std::string& name, ApplicationCommandLineArgs args)
+        : m_CommandLineArgs(args)
     {
         LV_PROFILE_FUNCTION();
 
@@ -24,7 +26,9 @@ namespace Limnova
         m_Window->SetEventCallback(LV_BIND_EVENT_FN(Application::OnEvent));
         m_Window->SetVSync(false);
 
+        // TODO - build definition to select renderer ??? or leave initialisation up to user application ??
         Renderer::Init();
+        Renderer2D::Init();
 
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);
