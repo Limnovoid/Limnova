@@ -12,14 +12,14 @@ namespace Limnova
     public:
         struct Data
         {
-            glm::mat4 ViewProj;
-            glm::vec3 Position;
+            Matrix4 ViewProj;
+            Vector3 Position;
         /*--pad 1byte-------------------------*/private: float pad0; public:
-            glm::vec3 AimDirection;
+            Vector3 AimDirection;
         /*--pad 1byte-------------------------*/private: float pad1; public:
 
             Data() = default;
-            Data(glm::mat4 viewProj, glm::vec3 position, glm::vec3 aimDirection)
+            Data(const Matrix4& viewProj, const Vector3& position, const Vector3& aimDirection)
                 : ViewProj(viewProj), Position(position), AimDirection(aimDirection) {}
         };
     public:

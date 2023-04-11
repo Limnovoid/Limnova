@@ -6,6 +6,8 @@
 #include "Texture.h"
 #include "SubTexture.h"
 
+#include "Scene/Components.h"
+
 
 namespace Limnova
 {
@@ -18,6 +20,8 @@ namespace Limnova
 
         static void BeginScene(Camera& camera);
         static void EndScene();
+
+        // Quads //
     private:
         static void DrawBatchedQuad(const Matrix4& transform, const Vector4& color, const Vector2* textureCoords, const Vector2& textureScale, const float textureIndex, int entityId = -1);
     public:
@@ -39,12 +43,19 @@ namespace Limnova
         static void DrawRotatedQuad(const Vector3& positionCentre, const Vector2& size, const float rotation, const Ref<SubTexture2D>& subTexture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
         static void DrawRotatedQuad(const Vector2& positionCentre, const Vector2& size, const float rotation, const Ref<SubTexture2D>& subTexture, const Vector4& tint = { 1.f }, const Vector2& textureScale = { 1.f });
 
-        static void DrawCircle(const Matrix4& transform, const Vector4& color, float thickness = 1.f, float fade = 0.005f);
-        static void DrawCircle(const Vector3& origin, float radius, const Vector4& color, float thickness = 1.f, float fade = 0.005f);
+        // Circles //
+    public:
+        static void DrawCircle(const Matrix4& transform, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
+        static void DrawCircle(const Vector3& origin, float radius, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
 
-        static void DrawEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness = 1.f, float fade = 0.005f);
-        static void DrawEllipse(const Vector3& centre, const Quaternion& orientation, float semiMajorAxis, float semiMinorAxis, const Vector4& color, float thickness = 1.f, float fade = 0.005f);
+        // Ellipses //
+    private:
+        static void DrawBatchedEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
+    public:
+        static void DrawEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
+        static void DrawEllipse(const Vector3& centre, const Quaternion& orientation, float semiMajorAxis, float semiMinorAxis, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
 
+        // Lines //
         static void DrawLine(const Vector2& start, const Vector2& end, const float width, const Vector4& color, int layer = 0);
 
         static void DrawEllipse(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer = 0);

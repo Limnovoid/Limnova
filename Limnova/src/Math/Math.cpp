@@ -74,12 +74,40 @@ namespace Limnova
     }
 
 
-    Vector3 Rotate(const Vector3 vec, const Vector3 rAxis, const float rAngleRad)
+    // Vector operations ///////////////////
+
+    Vector3 Rotate(const Vector3 vec, const Vector3 rotationAxis, const float rotationAngle)
     {
-        Quaternion r(rAxis, rAngleRad);
+        Quaternion r(rotationAxis, rotationAngle);
         return r.RotateVector(vec);
     }
 
+
+    Quaternion GetRotation(const Vector3& start, const Vector3& end)
+    {
+        float lengthProduct = sqrtf(start.SqrMagnitude() * end.SqrMagnitude());
+        float dotProduct = start.Dot(end);
+        if (abs(dotProduct) > lengthProduct * kParallelDotProductLimit)
+        {
+            if (dotProduct > 0.f) {
+                // Parallel
+                return Quaternion::Unit();
+            }
+            else {
+                // Antiparallel
+                Vector3 rotationAxis = (start.Dot(Vector3::X()) > kParallelDotProductLimit)
+                    ? start.Cross(Vector3::Y()) : Vector3::X();
+                return Quaternion(rotationAxis.Normalized(), PIf);
+            }
+            /* if-scope always returns */
+        }
+
+        Vector3 crossProduct = start.Cross(end);
+        return Quaternion(crossProduct.x, crossProduct.y, crossProduct.z, lengthProduct + dotProduct);
+    }
+
+
+    // Matrix operations ///////////////////
 
     bool DecomposeTransform(const Matrix4& transform, Vector3& position, Quaternion& orientation, Vector3& scale)
     {

@@ -27,6 +27,9 @@ namespace Limnova
         Vector4 Color;
         float Thickness;
         float Fade;
+
+        // Editor only
+        int EntityId;
     };
 
 
@@ -38,6 +41,9 @@ namespace Limnova
         float MajorMinorRatio;
         float Thickness;
         float Fade;
+
+        // Editor only
+        int EntityId;
     };
 
 
@@ -191,7 +197,8 @@ namespace Limnova
             { ShaderDataType::Float2,   "a_LocalPosition" },
             { ShaderDataType::Float4,   "a_Color"         },
             { ShaderDataType::Float,    "a_Thickness"     },
-            { ShaderDataType::Float,    "a_Fade"          }
+            { ShaderDataType::Float,    "a_Fade"          },
+            { ShaderDataType::Int,      "a_EntityId"      }
         });
         s_Data.CircleVertexArray->AddVertexBuffer(s_Data.CircleVertexBuffer);
         s_Data.CircleVertexArray->SetIndexBuffer(quadIB); /* Reuse quad indexes (same geometry) */
@@ -209,7 +216,8 @@ namespace Limnova
             { ShaderDataType::Float4,   "a_Color"           },
             { ShaderDataType::Float,    "a_MajorMinorRatio" },
             { ShaderDataType::Float,    "a_Thickness"       },
-            { ShaderDataType::Float,    "a_Fade"            }
+            { ShaderDataType::Float,    "a_Fade"            },
+            { ShaderDataType::Int,      "a_EntityId"        }
         });
         s_Data.EllipseVertexArray->AddVertexBuffer(s_Data.EllipseVertexBuffer);
         s_Data.EllipseVertexArray->SetIndexBuffer(quadIB); /* Reuse quad indexes (same geometry) */
@@ -558,6 +566,8 @@ namespace Limnova
     }
 
 
+    // Circles /////////////////////////////
+
     void Renderer2D::FlushCircles()
     {
         LV_PROFILE_FUNCTION();
@@ -587,7 +597,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawCircle(const Matrix4& transform, const Vector4& color, float thickness, float fade)
+    void Renderer2D::DrawCircle(const Matrix4& transform, const Vector4& color, float thickness, float fade, int entityId)
     {
         LV_PROFILE_FUNCTION();
 
@@ -605,6 +615,7 @@ namespace Limnova
             s_Data.CircleVertexBufferPtr->Color = color;
             s_Data.CircleVertexBufferPtr->Thickness = thickness;
             s_Data.CircleVertexBufferPtr->Fade = fade;
+            s_Data.CircleVertexBufferPtr->EntityId = entityId;
             s_Data.CircleVertexBufferPtr++;
         }
         s_Data.CircleIndexCount += 6;
@@ -614,14 +625,16 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawCircle(const Vector3& origin, float radius, const Vector4& color, float thickness, float fade)
+    void Renderer2D::DrawCircle(const Vector3& origin, float radius, const Vector4& color, float thickness, float fade, int entityId)
     {
         glm::mat4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)origin);
         transform = glm::scale(transform, glm::vec3(glm::vec2{2.f * radius}, 1.f));
 
-        DrawCircle(transform, color, thickness, fade);
+        DrawCircle(transform, color, thickness, fade, entityId);
     }
 
+
+    // Ellipses ////////////////////////////
 
     void Renderer2D::FlushEllipses()
     {
@@ -652,7 +665,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness, float fade)
+    void Renderer2D::DrawBatchedEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness, float fade, int entityId)
     {
         LV_PROFILE_FUNCTION();
 
@@ -678,6 +691,7 @@ namespace Limnova
             s_Data.EllipseVertexBufferPtr->MajorMinorRatio = majorMinorAxisRatio;
             s_Data.EllipseVertexBufferPtr->Thickness = thickness;
             s_Data.EllipseVertexBufferPtr->Fade = fade;
+            s_Data.EllipseVertexBufferPtr->EntityId = entityId;
             s_Data.EllipseVertexBufferPtr++;
         }
         s_Data.EllipseIndexCount += 6;
@@ -687,16 +701,24 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawEllipse(const Vector3& centre, const Quaternion& orientation, float semiMajorAxis, float semiMinorAxis, const Vector4& color, float thickness, float fade)
+    void Renderer2D::DrawEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness, float fade, int entityId)
+    {
+        DrawBatchedEllipse(transform, majorMinorAxisRatio, color, thickness, fade, entityId);
+    }
+
+
+    void Renderer2D::DrawEllipse(const Vector3& centre, const Quaternion& orientation, float semiMajorAxis, float semiMinorAxis, const Vector4& color, float thickness, float fade, int entityId)
     {
         glm::mat4 transform = glm::mat4(1.f);
         transform = glm::translate(transform, (glm::vec3)centre);
         transform = Matrix4(orientation).glm_mat4() * transform;
         transform = glm::scale(transform, glm::vec3(glm::vec2{ 2.f * semiMajorAxis, 2.f * semiMinorAxis }, 0.f));
 
-        DrawEllipse(transform, semiMajorAxis / semiMinorAxis, color, thickness, fade);
+        DrawBatchedEllipse(transform, semiMajorAxis / semiMinorAxis, color, thickness, fade, entityId);
     }
 
+
+    // Lines ///////////////////////////////
 
     void Renderer2D::DrawLine(const Vector2& start, const Vector2& end, const float width, const Vector4& color, int layer)
     {

@@ -211,6 +211,19 @@ namespace Limnova
     };
 
 
+    struct BillboardSpriteRendererComponent
+    {
+        //LV_REFLECT(BillboardSpriteRendererComponent);
+
+        Vector4 Color{ 1.f, 0.f, 1.f, 1.f };
+
+        BillboardSpriteRendererComponent() = default;
+        BillboardSpriteRendererComponent(const BillboardSpriteRendererComponent&) = default;
+        BillboardSpriteRendererComponent(const Vector4& color)
+            : Color(color) {}
+    };
+
+
     struct CircleRendererComponent
     {
         //LV_REFLECT(CircleRendererComponent);
@@ -221,6 +234,19 @@ namespace Limnova
 
         CircleRendererComponent() = default;
         CircleRendererComponent(const CircleRendererComponent&) = default;
+    };
+
+
+    struct BillboardCircleRendererComponent
+    {
+        //LV_REFLECT(BillboardCircleRendererComponent);
+
+        Vector4 Color = { 1.f, 0.f, 1.f, 1.f };
+        float Thickness = 0.5f;
+        float Fade = 0.005f;
+
+        BillboardCircleRendererComponent() = default;
+        BillboardCircleRendererComponent(const BillboardCircleRendererComponent&) = default;
     };
 
 
@@ -246,9 +272,9 @@ namespace Limnova
     private:
         Physics::TObjectId PhysicsObjectId = Physics::Null;
         Physics* Physics = nullptr;
-
     public:
         Vector3 LocalScale = { 1.f };
+        Vector3 UIColor = { 1.f };
         float Albedo; /* Surface reflectivity of orbital object - determines object's brightness as a star-like object when viewed from far away */
 
         OrbitalComponent() = default;

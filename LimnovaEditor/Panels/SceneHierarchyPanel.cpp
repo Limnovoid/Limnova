@@ -191,19 +191,31 @@ namespace Limnova
                 m_SelectedEntity.AddComponent<CameraComponent>();
                 ImGui::CloseCurrentPopup();
             }
+#ifdef LV_EDITOR_USE_ORBITAL
             if (ImGui::MenuItem("Orbital"))
             {
                 m_SelectedEntity.AddComponent<OrbitalComponent>();
                 ImGui::CloseCurrentPopup();
             }
+#endif
             if (ImGui::MenuItem("Sprite Renderer"))
             {
                 m_SelectedEntity.AddComponent<SpriteRendererComponent>();
                 ImGui::CloseCurrentPopup();
             }
+            if (ImGui::MenuItem("Billboard Sprite Renderer"))
+            {
+                m_SelectedEntity.AddComponent<BillboardSpriteRendererComponent>();
+                ImGui::CloseCurrentPopup();
+            }
             if (ImGui::MenuItem("Circle Renderer"))
             {
                 m_SelectedEntity.AddComponent<CircleRendererComponent>();
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::MenuItem("Billboard Circle Renderer"))
+            {
+                m_SelectedEntity.AddComponent<BillboardCircleRendererComponent>();
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
@@ -591,8 +603,35 @@ namespace Limnova
             LimnGui::ColorEdit("Color", spriteRenderer.Color);
         });
 
+        ComponentInspector<BillboardSpriteRendererComponent>(entity, "Billboard Sprite Renderer", true, [&]() {
+            auto& bsrc = entity.GetComponent<BillboardSpriteRendererComponent>();
+            LimnGui::ColorEdit("Color", bsrc.Color);
+        });
+
         ComponentInspector<CircleRendererComponent>(entity, "Circle Renderer", true, [&]() {
             auto& circleRenderer = entity.GetComponent<CircleRendererComponent>();
+
+            LimnGui::ColorEdit("Color", circleRenderer.Color);
+
+            {
+                LimnGui::InputConfig<float> config;
+                config.Min = 0.f;
+                config.Max = 1.f;
+                config.Speed = 0.001f;
+                LimnGui::DragFloat("Thickness", circleRenderer.Thickness, config);
+            }
+
+            {
+                LimnGui::InputConfig<float> config;
+                config.Min = 0.f;
+                config.Max = 1.f;
+                config.Speed = 0.001f;
+                LimnGui::DragFloat("Fade", circleRenderer.Fade, config);
+            }
+        });
+
+        ComponentInspector<BillboardCircleRendererComponent>(entity, "Billboard Circle Renderer", true, [&]() {
+            auto& circleRenderer = entity.GetComponent<BillboardCircleRendererComponent>();
 
             LimnGui::ColorEdit("Color", circleRenderer.Color);
 

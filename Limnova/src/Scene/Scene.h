@@ -47,16 +47,21 @@ namespace Limnova
         virtual void OnRenderRuntime();
         virtual void OnRenderEditor(EditorCamera& camera);
         virtual void OnEvent(Event& e);
+    protected:
+        // A call to any member of this function set must come after a call to Renderer2D::BeginScene and before a corresponding call to Renderer2D::EndScene
+        //template<typename T>
+        //void RenderComponent(const T& component) { /* Do nothing by default */ }
+
+        void RenderScene(Camera& camera, const Quaternion& cameraOrientation);
     private:
-        /* Events and signals */
+        /* Events */
+        bool OnWindowResize(WindowResizeEvent& e);
+
+        /* Signals */
         void OnHierarchyComponentConstruction(entt::registry&, entt::entity);
         void OnHierarchyComponentDestruction(entt::registry&, entt::entity);
         void OnCameraComponentConstruction(entt::registry&, entt::entity);
         void OnCameraComponentDestruction(entt::registry&, entt::entity);
-
-        bool OnWindowResize(WindowResizeEvent& e);
-
-        virtual void RenderScene(Camera& camera);
 
         /* Helpers */
         void HierarchyConnect(Entity entity, Entity parent);

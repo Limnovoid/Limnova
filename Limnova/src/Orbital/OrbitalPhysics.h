@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Math/Math.h>
+#include <Core/Timestep.h>
 
 
 namespace Limnova
@@ -37,13 +38,13 @@ namespace Limnova
         using TObjectId = uint32_t;
         static constexpr TObjectId Null = std::numeric_limits<TObjectId>::max();
     private:
-        static constexpr Vector3 kReferenceX = { 1.f, 0.f, 0.f };
-        static constexpr Vector3 kReferenceY = { 0.f, 1.f, 0.f };
-        static constexpr Vector3 kReferenceNormal = { 0.f, 0.f, 1.f };
+        /* Basis of the reference frame: the XY-plane represents the orbital plane of the system which has the root object as its primary */
+        static constexpr Vector3 kReferenceX        = { 1.f, 0.f, 0.f };
+        static constexpr Vector3 kReferenceY        = { 0.f, 0.f,-1.f };
+        static constexpr Vector3 kReferenceNormal   = { 0.f, 1.f, 0.f };
 
         static constexpr double kGravitational = 6.6743e-11;
         static constexpr float kDefaultLocalSpaceRadius = 0.1f;
-        static constexpr float kParallelDotProductLimit = 1.f - 1e-4f;
     private:
         using TAttrId = uint32_t;
 
@@ -171,7 +172,7 @@ namespace Limnova
 
             /* Basis of the perifocal frame */
             Vector3 PerifocalX = { 0.f }, PerifocalY = { 0.f }, PerifocalNormal = { 0.f };
-            Quaternion PerifocalOrientation;
+            Quaternion PerifocalOrientation; /* Orientation of the perifocal frame relative to the reference frame */
 
             float TrueAnomaly = 0.f;
 
@@ -423,12 +424,12 @@ namespace Limnova
             if (elems.N.Dot(elems.PerifocalY) > 0.f) {
                 elems.ArgPeriapsis = PI2f - elems.ArgPeriapsis;
             }
-            //elems.PerifocalOrientation =
-            //    Quaternion(kReferenceNormal, elems.Omega)
-            //    * Quaternion(elems.PerifocalX, elems.I)
-            //    * Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis);
             elems.PerifocalOrientation =
-                Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis);
+                Quaternion(kReferenceNormal, -elems.Omega)
+                * Quaternion(elems.PerifocalX, -elems.I)
+                * Quaternion(elems.PerifocalNormal, -elems.ArgPeriapsis);
+            //elems.PerifocalOrientation =
+            //    Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis);
 
             elems.TrueAnomaly = acosf(elems.PerifocalX.Dot(posDir));
             // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
@@ -475,7 +476,6 @@ namespace Limnova
             float rMag = sqrtf(position.SqrMagnitude());
             Vector3 rDir = position / rMag;
 
-            static constexpr float kParallelDotProductLimit = 1.f - 1e-4f;
             float rDotNormal = rDir.Dot(kReferenceNormal);
             if (abs(rDotNormal) > kParallelDotProductLimit)
             {
@@ -491,6 +491,11 @@ namespace Limnova
         }
     public:
         /*** Usage ***/
+
+        void OnUpdate(Timestep dT)
+        {
+        }
+
 
         /// <summary>
         /// Assign the orbital physics root object a user object and return the physics object's ID.
@@ -523,6 +528,7 @@ namespace Limnova
             return m_LocalSpaces[m_RootObject].MetersPerRadius;
         }
 
+
         /// <summary>
         /// Checks if the given ID identifies an existing physics object.
         /// </summary>
@@ -532,6 +538,7 @@ namespace Limnova
         {
             return object < m_Objects.size() && m_EmptyObjects.find(object) == m_EmptyObjects.end();
         }
+
 
         /// <summary>
         /// Create an orbital physics object in the specified orbital space.
@@ -662,10 +669,12 @@ namespace Limnova
             RecycleObject(object);
         }
 
+
         Validity GetValidity(TObjectId object)
         {
             return m_Objects[object].Validity;
         }
+
 
         void SetParent(TObjectId object, TObjectId parent)
         {
@@ -708,6 +717,7 @@ namespace Limnova
             return children;
         }
 
+
         bool IsInfluencing(TObjectId object)
         {
             return m_LocalSpaces.Get(object).Influencing;
@@ -740,6 +750,7 @@ namespace Limnova
             return m_LocalSpaces.Get(object).Radius;
         }
 
+
         void SetMass(TObjectId object, double mass)
         {
             m_Objects[object].State.Mass = mass;
@@ -757,6 +768,7 @@ namespace Limnova
         {
             return m_Objects[object].State.Mass;
         }
+
 
         void SetPosition(TObjectId object, Vector3 position)
         {
@@ -781,6 +793,7 @@ namespace Limnova
         {
             return m_Objects[object].State.Position;
         }
+
 
         void SetVelocity(TObjectId object, Vector3d velocity)
         {
@@ -832,10 +845,12 @@ namespace Limnova
             return vDir * CircularOrbitSpeed(m_Objects[object].Parent, rMag);
         }
 
+
         const Elements& GetElements(TObjectId object)
         {
             return m_Elements[object];
         }
+
     };
 
 }

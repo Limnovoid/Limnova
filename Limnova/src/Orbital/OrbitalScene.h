@@ -27,10 +27,13 @@ namespace Limnova
         std::vector<Entity> GetSecondaries(Entity entity);
 
         void OnUpdateRuntime(Timestep dT) override;
-        void OnUpdateEditor(Timestep dT) override {}
+        void OnUpdateEditor(Timestep dT) override;
         void OnRenderRuntime() override;
-        void OnRenderEditor(EditorCamera& camera) override {}
+        void OnRenderEditor(EditorCamera& camera) override;
     private:
+        void UpdateOrbitalScene();
+        void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation);
+
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
     public:
@@ -40,9 +43,12 @@ namespace Limnova
         float m_OrbitThickness = 0.004f;
         float m_OrbitThicknessFactor = 2.f;
         float m_OrbitAlpha = 0.4f;
+        float m_OrbitPointRadius = 0.01f;
     private:
         Physics m_Physics;
         entt::entity m_ViewPrimary;
+
+        Quaternion m_OrbitalReferenceFrameOrientation; /* Orientation of the orbital physics system's reference frame relative to the scene frame */
 
         friend class OrbitalSceneSerializer;
     };

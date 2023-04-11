@@ -94,6 +94,9 @@ namespace Limnova
             );
         }
 
+        static constexpr TVector3 X() { return { 1.0, 0.0, 0.0 }; }
+        static constexpr TVector3 Y() { return { 0.0, 1.0, 0.0 }; }
+        static constexpr TVector3 Z() { return { 0.0, 0.0, 1.0 }; }
         static constexpr TVector3 Forward() { return    { 0.0, 0.0,-1.0 }; }
         static constexpr TVector3 Up() { return         { 0.0, 1.0, 0.0 }; }
         static constexpr TVector3 Left() { return       {-1.0, 0.0, 0.0 }; }

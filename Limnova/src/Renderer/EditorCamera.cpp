@@ -52,8 +52,8 @@ namespace Limnova
         Vector3 walkForward = horzOrientation.RotateVector(Vector3::Forward());
         Vector3 walkLeft = horzOrientation.RotateVector(Vector3::Left());
 
-        Quaternion orientation = horzOrientation * Quaternion(Vector3::Left(), m_Elevation);
-        Vector3 aimDirection = orientation.RotateVector(Vector3::Forward());
+        m_Orientation = horzOrientation * Quaternion(Vector3::Left(), m_Elevation);
+        Vector3 aimDirection = m_Orientation.RotateVector(Vector3::Forward());
 
         Vector3 moveDir{ 0.f };
         if (m_Dragging && shift)
@@ -65,7 +65,7 @@ namespace Limnova
         else if (m_Dragging && ctrl)
         {
             // Drag movement control: vertical and sideways
-            moveDir += deltaY * orientation.RotateVector(Vector3::Up()) + deltaX * walkLeft;
+            moveDir += deltaY * m_Orientation.RotateVector(Vector3::Up()) + deltaX * walkLeft;
         }
         else if (m_Dragging && alt)
         {

@@ -6,6 +6,7 @@
 namespace Limnova
 {
 
+    /* Forced-normalized quaternions */
     class Quaternion
     {
     private:

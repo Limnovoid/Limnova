@@ -41,7 +41,7 @@ add_compile_definitions(
     GLFW_INCLUDE_NONE
     _CRT_SECURE_NO_WARNINGS
 
-    #LV_EDITOR_USE_ORBITAL
+    LV_EDITOR_USE_ORBITAL
 )
 
 target_precompile_headers(${PROJECT_NAME} REUSE_FROM Limnova)

@@ -179,7 +179,6 @@ namespace Limnova
 
     void Scene::OnRenderRuntime()
     {
-        // Camera
         if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<CameraComponent>(m_ActiveCamera))
         {
             LV_CORE_WARN("Scene has no active camera - no rendering!");
@@ -188,17 +187,17 @@ namespace Limnova
         auto [camera, camTransform] = m_Registry.get<CameraComponent, TransformComponent>(m_ActiveCamera);
         camera.Camera.SetView(camTransform.GetTransform().Inverse());
 
-        RenderScene(camera.Camera);
+        RenderScene(camera.Camera, camTransform.GetOrientation());
     }
 
 
     void Scene::OnRenderEditor(EditorCamera& camera)
     {
-        RenderScene(camera.GetCamera());
+        RenderScene(camera.GetCamera(), camera.GetOrientation());
     }
 
 
-    void Scene::RenderScene(Camera& camera)
+    void Scene::RenderScene(Camera& camera, const Quaternion& cameraOrientation)
     {
         Renderer2D::BeginScene(camera);
 
@@ -214,6 +213,21 @@ namespace Limnova
             }
         }
 
+        // Billboard sprites
+        {
+            auto view = m_Registry.view<TransformComponent, BillboardSpriteRendererComponent>();
+
+            for (auto entity : view)
+            {
+                auto [tc, bsrc] = view.get<TransformComponent, BillboardSpriteRendererComponent>(entity);
+
+                Matrix4 billboardTransform = glm::translate(glm::mat4(1.f), (glm::vec3)(tc.GetPosition()));
+                billboardTransform = billboardTransform * Matrix4(cameraOrientation);
+                billboardTransform = glm::scale((glm::mat4)billboardTransform, (glm::vec3)(tc.GetScale()));
+                Renderer2D::DrawQuad(billboardTransform, bsrc.Color, (int)entity);
+            }
+        }
+
         // Circles
         {
             auto view = m_Registry.view<TransformComponent, CircleRendererComponent>();
@@ -222,6 +236,21 @@ namespace Limnova
                 auto [transform, circle] = view.get<TransformComponent, CircleRendererComponent>(entity);
 
                 Renderer2D::DrawCircle(transform.GetTransform(), circle.Color, circle.Thickness, circle.Fade);
+            }
+        }
+
+        // Billboard circles
+        {
+            auto view = m_Registry.view<TransformComponent, BillboardCircleRendererComponent>();
+
+            for (auto entity : view)
+            {
+                auto [tc, bcrc] = view.get<TransformComponent, BillboardCircleRendererComponent>(entity);
+
+                Matrix4 billboardTransform = glm::translate(glm::mat4(1.f), (glm::vec3)(tc.GetPosition()));
+                billboardTransform = billboardTransform * Matrix4(cameraOrientation);
+                billboardTransform = glm::scale((glm::mat4)billboardTransform, (glm::vec3)(tc.GetScale()));
+                Renderer2D::DrawCircle(billboardTransform, bcrc.Color, bcrc.Thickness, bcrc.Fade, (int)entity);
             }
         }
 
@@ -234,7 +263,7 @@ namespace Limnova
                 float sx = abs(transform.GetScale().x);
                 float sy = abs(transform.GetScale().y);
                 float axisRatio = sx > sy ? sx / sy : sy / sx;
-                Renderer2D::DrawEllipse(transform.GetTransform(), axisRatio, ellipse.Color, ellipse.Thickness, ellipse.Fade);
+                Renderer2D::DrawEllipse(transform.GetTransform(), axisRatio, ellipse.Color, ellipse.Thickness, ellipse.Fade, (int)entity);
             }
         }
 

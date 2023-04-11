@@ -28,6 +28,12 @@ namespace Limnova
             m_IsEntitySelected = entitySelected;
         }
 
+        void SetAzimuth(float azimuth) { m_Azimuth = azimuth; }
+        void SetElevation(float elevation) { m_Elevation = elevation; }
+        void SetDistance(float distance) { m_FocusDistance = distance; }
+
+        const Quaternion& GetOrientation() { return m_Orientation; }
+
         Camera& GetCamera() { return m_Camera; }
         const Camera& GetCamera() const { return m_Camera; }
     private:
@@ -54,6 +60,7 @@ namespace Limnova
         float m_Azimuth = 0.f, m_Elevation = 0.f;
         const float m_MaxElevation = Radiansf(89.f);
         const float m_MinElevation = Radiansf(-89.f);
+        Quaternion m_Orientation = Quaternion::Unit();
 
         float m_OrbitRate = 0.01f;
         float m_DragRate = 2.f;

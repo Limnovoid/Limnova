@@ -38,6 +38,9 @@ namespace Limnova
         m_Framebuffer = Framebuffer::Create(fbSpec);
 
 #ifdef LV_EDITOR_USE_ORBITAL
+
+        m_EditorCamera.SetElevation(Radiansf(30.f));
+
         m_Scene = CreateRef<OrbitalScene>();
         auto camera = m_Scene->CreateEntity("Camera");
         {
@@ -49,7 +52,10 @@ namespace Limnova
         m_Scene->SetRootScaling(10.0);
         auto root = m_Scene->GetRoot();
         {
-            root.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 1.f, 0.9f, 1.f });
+            auto& crc = root.AddComponent<BillboardCircleRendererComponent>();
+            crc.Color = { 1.f, 1.f, 0.9f, 1.f };
+            crc.Fade = 0.f;
+            crc.Thickness = 1.f;
             auto& orbital = root.GetComponent<OrbitalComponent>();
             orbital.LocalScale = { 0.05f, 0.05f, 0.f };
             orbital.SetMass(1.0 / 6.6743e-11);
@@ -57,20 +63,32 @@ namespace Limnova
 
         auto orbital0 = m_Scene->CreateEntity("Orbital 0");
         {
-            orbital0.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 0.3f, 0.2f, 1.f });
+            //orbital0.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 0.3f, 0.2f, 1.f });
+            auto& crc = orbital0.AddComponent<BillboardCircleRendererComponent>();
+            crc.Color = { 1.f, 0.3f, 0.2f, 1.f };
+            crc.Fade = 0.f;
+            crc.Thickness = 1.f;
             auto& transform = orbital0.GetComponent<TransformComponent>();
             transform.SetPosition({ 0.9f, 0.f, 0.f });
             transform.SetScale({ 0.1f, 0.1f, 0.f });
-            orbital0.AddComponent<OrbitalComponent>().SetMass(1.0);
+            auto& oc = orbital0.AddComponent<OrbitalComponent>();
+            oc.SetMass(1.0);
+            oc.UIColor = { 1.f, 0.3f, 0.2f };
         }
 
         auto orbital1 = m_Scene->CreateEntity("Orbital 1");
         {
-            orbital1.AddComponent<SpriteRendererComponent>(Vector4{ 0.3f, 0.2f, 1.f, 1.f });
+            //orbital1.AddComponent<SpriteRendererComponent>(Vector4{ 0.3f, 0.2f, 1.f, 1.f });
+            auto& crc = orbital1.AddComponent<BillboardCircleRendererComponent>();
+            crc.Color = { 0.3f, 0.2f, 1.f, 1.f };
+            crc.Fade = 0.f;
+            crc.Thickness = 1.f;
             auto& transform = orbital1.GetComponent<TransformComponent>();
-            transform.SetPosition({ 0.f, 0.5f, 0.f });
+            transform.SetPosition({ 0.f, 0.f,-0.5f });
             transform.SetScale({ 0.1f, 0.1f, 0.f });
-            orbital1.AddComponent<OrbitalComponent>().SetMass(1.0);
+            auto& oc = orbital1.AddComponent<OrbitalComponent>();
+            oc.SetMass(1.0);
+            oc.UIColor = { 0.3f, 0.2f, 1.f };
         }
 #else
         m_Scene = CreateRef<Scene>();
@@ -352,6 +370,8 @@ namespace Limnova
         {
             ImGui::DragFloat("Thickness", &m_Scene->m_OrbitThickness, 0.001f, 0.001f, 1.f, "%.3f");
             ImGui::DragFloat("Thickness Factor", &m_Scene->m_OrbitThicknessFactor, 0.001f, 0.001f, 1.f, "%.3f");
+            ImGui::DragFloat("Alpha", &m_Scene->m_OrbitAlpha, 0.001f, 0.f, 1.f, "%.3f");
+            ImGui::DragFloat("Plot Point Radius", &m_Scene->m_OrbitPointRadius, 0.001f, 0.001f, 0.1f, "%.3f");
 
             ImGui::TreePop();
         }
