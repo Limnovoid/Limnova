@@ -83,7 +83,7 @@ namespace Limnova
     }
 
 
-    Quaternion GetRotation(const Vector3& start, const Vector3& end)
+    Quaternion Rotation(const Vector3& start, const Vector3& end)
     {
         float lengthProduct = sqrtf(start.SqrMagnitude() * end.SqrMagnitude());
         float dotProduct = start.Dot(end);

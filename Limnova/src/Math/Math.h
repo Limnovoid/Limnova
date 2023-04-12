@@ -16,8 +16,8 @@ namespace Limnova
 
     // Constants ///////////////////////////
 
-    static constexpr float kDotProductEpsilon = 1e-4f; /* Minimum permissible magnitude of the dot product of two non-perpendicular unit vectors */
-    static constexpr float kParallelDotProductLimit = 1.f - 1e-4f; /* Maximum permissible magnitude of the dot product of two non-parallel unit vectors */
+    static constexpr float kDotProductEpsilon = 1e-5f; /* Minimum permissible magnitude of the dot product of two non-perpendicular unit vectors */
+    static constexpr float kParallelDotProductLimit = 1.f - 1e-5f; /* Maximum permissible magnitude of the dot product of two non-parallel unit vectors */
 
 
     // Basic number operations /////////////
@@ -74,7 +74,16 @@ namespace Limnova
     /// <summary>
     /// Returns the shortest-arc rotation from the start vector to the end vector.
     /// </summary>
-    Quaternion GetRotation(const Vector3& start, const Vector3& end);
+    Quaternion Rotation(const Vector3& start, const Vector3& end);
+
+    /// <summary>
+    /// Handles floating point error which can result in a dot product being greater than 1 for parallel or near-parallel unit vectors
+    /// </summary>
+    inline float AngleBetweenUnitVectorsSafe(const Vector3& u0, const Vector3& u1)
+    {
+        return acosf(std::min(1.f, u0.Dot(u1)));
+    }
+
 
     // Matrix operations ///////////////////
 

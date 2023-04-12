@@ -415,21 +415,20 @@ namespace Limnova
 
             elems.I = acosf(elems.PerifocalNormal.Dot(kReferenceNormal));
             elems.N = abs(elems.PerifocalNormal.Dot(kReferenceNormal)) > kParallelDotProductLimit
-                ? kReferenceX : kReferenceNormal.Cross(elems.PerifocalNormal).Normalized();
+                ? elems.PerifocalX : kReferenceNormal.Cross(elems.PerifocalNormal).Normalized();
             elems.Omega = acosf(elems.N.Dot(kReferenceX));
             if (elems.N.Dot(kReferenceY) < 0.f) {
                 elems.Omega = PI2f - elems.Omega;
             }
-            elems.ArgPeriapsis = acosf(elems.N.Dot(elems.PerifocalX));
+            elems.ArgPeriapsis = AngleBetweenUnitVectorsSafe(elems.N, elems.PerifocalX);
+            LV_CORE_ASSERT(!isnan(elems.ArgPeriapsis), "");
             if (elems.N.Dot(elems.PerifocalY) > 0.f) {
                 elems.ArgPeriapsis = PI2f - elems.ArgPeriapsis;
             }
             elems.PerifocalOrientation =
-                Quaternion(kReferenceNormal, -elems.Omega)
-                * Quaternion(elems.PerifocalX, -elems.I)
-                * Quaternion(elems.PerifocalNormal, -elems.ArgPeriapsis);
-            //elems.PerifocalOrientation =
-            //    Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis);
+                Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis)
+                * Quaternion(elems.N, elems.I)
+                * Quaternion(kReferenceNormal, elems.Omega);
 
             elems.TrueAnomaly = acosf(elems.PerifocalX.Dot(posDir));
             // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
