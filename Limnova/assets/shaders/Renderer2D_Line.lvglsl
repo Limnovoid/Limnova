@@ -1,5 +1,5 @@
 // Limnova
-// Renderer2D Circle Shader
+// Renderer2D Line Shader
 
 #type vertex
 #version 450
@@ -13,15 +13,15 @@ layout (std140, binding = 0) uniform CameraUniform {
 struct VertexData {
     vec2 PlanarPosition;
     vec4 Color;
+    float Length;
     float Thickness;
-    float Fade;
 };
 
 layout(location = 0) in vec3 a_WorldPosition;
 layout(location = 1) in vec2 a_PlanarPosition;
 layout(location = 2) in vec4 a_Color;
-layout(location = 3) in float a_Thickness;
-layout(location = 4) in float a_Fade;
+layout(location = 3) in float a_Length;
+layout(location = 4) in float a_Thickness;
 layout(location = 5) in int a_EntityId;
 
 layout (location = 0) out VertexData outData;
@@ -31,8 +31,8 @@ void main()
 {
     outData.PlanarPosition  = a_PlanarPosition;
     outData.Color           = a_Color;
+    outData.Length          = a_Length;
     outData.Thickness       = a_Thickness;
-    outData.Fade            = a_Fade;
 
     v_EntityId = a_EntityId;
 
@@ -46,8 +46,8 @@ void main()
 struct VertexData {
     vec2 PlanarPosition;
     vec4 Color;
+    float Length;
     float Thickness;
-    float Fade;
 };
 
 layout (location = 0) in VertexData inData;
@@ -58,17 +58,7 @@ layout (location = 1) out int o_EntityId;
 
 void main()
 {
-    float distance = 1.0 - length(inData.PlanarPosition);
-
-    if (distance > inData.Thickness + inData.Fade) {
-        discard;
-    }
-
-    float fade = smoothstep(0.0, inData.Fade, distance);
-    fade *= smoothstep(inData.Thickness + inData.Fade, inData.Thickness, distance);
-
     vec4 color = inData.Color;
-    color.a *= fade;
     color.rgb *= color.a; // Premultiplied alpha
     o_Color = color;
 

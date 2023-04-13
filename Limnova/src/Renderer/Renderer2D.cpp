@@ -47,6 +47,19 @@ namespace Limnova
     };
 
 
+    struct LineVertex
+    {
+        Vector3 WorldPosition;
+        Vector2 LocalPosition;
+        Vector4 Color;
+        float Length;
+        float Thickness;
+
+        // Editor only
+        int EntityId;
+    };
+
+
     struct Renderer2DData
     {
         // Camera
@@ -100,6 +113,19 @@ namespace Limnova
         uint32_t EllipseIndexCount = 0;
         EllipseVertex* EllipseVertexBufferBase = nullptr;
         EllipseVertex* EllipseVertexBufferPtr = nullptr;
+
+        // Lines
+        const uint32_t MaxLines = 1024;
+        const uint32_t MaxLineVertices = MaxLines * 4;
+        const uint32_t MaxLineIndices = MaxLines * 6;
+
+        Ref<VertexArray> LineVertexArray;
+        Ref<VertexBuffer> LineVertexBuffer;
+        Ref<Shader> LineShader;
+
+        uint32_t LineIndexCount = 0;
+        LineVertex* LineVertexBufferBase = nullptr;
+        LineVertex* LineVertexBufferPtr = nullptr;
 
         // Orbit resources
         //Ref<VertexArray> HyperbolaVertexArray2;
@@ -226,6 +252,23 @@ namespace Limnova
         //s_Data.EllipseShader = Shader::Create(LV_ASSET_DIR"/shaders/Renderer2D_Ellipse.lvglsl");
         s_Data.EllipseShader = Shader::Create(LV_ASSET_DIR"/shaders/Orbital_Ellipse.lvglsl");
 
+        // Lines
+        s_Data.LineVertexArray = VertexArray::Create();
+
+        s_Data.LineVertexBuffer = VertexBuffer::Create(s_Data.MaxLineVertices * sizeof(LineVertex));
+        s_Data.LineVertexBuffer->SetLayout({
+            { ShaderDataType::Float3,   "a_WorldPosition" },
+            { ShaderDataType::Float2,   "a_LocalPosition" },
+            { ShaderDataType::Float4,   "a_Color"         },
+            { ShaderDataType::Float,    "a_Length"        },
+            { ShaderDataType::Float,    "a_Thickness"     },
+            { ShaderDataType::Int,      "a_EntityId"      }
+        });
+        s_Data.LineVertexArray->AddVertexBuffer(s_Data.LineVertexBuffer);
+        s_Data.LineVertexArray->SetIndexBuffer(quadIB); /* Reuse quad indexes (same geometry) */
+        s_Data.LineVertexBufferBase = new LineVertex[s_Data.MaxLineVertices];
+
+        s_Data.LineShader = Shader::Create(LV_ASSET_DIR"/shaders/Renderer2D_Line.lvglsl");
 
 #ifdef EXCLUDED
         // Color hyperbola
@@ -291,6 +334,7 @@ namespace Limnova
         ResetQuadBatch();
         ResetCircleBatch();
         ResetEllipseBatch();
+        ResetLineBatch();
     }
 
 
@@ -301,6 +345,7 @@ namespace Limnova
         FlushQuads();
         FlushCircles();
         FlushEllipses();
+        FlushLines();
     }
 
 
@@ -709,10 +754,9 @@ namespace Limnova
 
     void Renderer2D::DrawEllipse(const Vector3& centre, const Quaternion& orientation, float semiMajorAxis, float semiMinorAxis, const Vector4& color, float thickness, float fade, int entityId)
     {
-        glm::mat4 transform = glm::mat4(1.f);
-        transform = glm::translate(transform, (glm::vec3)centre);
-        transform = Matrix4(orientation).glm_mat4() * transform;
-        transform = glm::scale(transform, glm::vec3(glm::vec2{ 2.f * semiMajorAxis, 2.f * semiMinorAxis }, 0.f));
+        Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)centre);
+        transform = Matrix4(orientation) * transform;
+        transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ 2.f * semiMajorAxis, 2.f * semiMinorAxis }, 0.f));
 
         DrawBatchedEllipse(transform, semiMajorAxis / semiMinorAxis, color, thickness, fade, entityId);
     }
@@ -720,7 +764,83 @@ namespace Limnova
 
     // Lines ///////////////////////////////
 
-    void Renderer2D::DrawLine(const Vector2& start, const Vector2& end, const float width, const Vector4& color, int layer)
+    void Renderer2D::FlushLines()
+    {
+        LV_PROFILE_FUNCTION();
+
+        if (s_Data.LineIndexCount == 0) {
+            return;
+        }
+
+        s_Data.LineShader->Bind();
+
+        uint32_t dataSize = (uint8_t*)s_Data.LineVertexBufferPtr - (uint8_t*)s_Data.LineVertexBufferBase;
+        s_Data.LineVertexBuffer->SetData(s_Data.LineVertexBufferBase, dataSize);
+
+        RenderCommand::DrawIndexed(s_Data.LineVertexArray, s_Data.LineIndexCount);
+
+
+        s_Data.Stats.DrawCalls++;
+    }
+
+
+    void Renderer2D::ResetLineBatch()
+    {
+        LV_PROFILE_FUNCTION();
+
+        s_Data.LineIndexCount = 0;
+        s_Data.LineVertexBufferPtr = s_Data.LineVertexBufferBase;
+    }
+
+
+    void Renderer2D::DrawBatchedLine(const Matrix4& transform, const Vector4& color, float length, float thickness, int entityId)
+    {
+        LV_PROFILE_FUNCTION();
+
+        if (s_Data.LineIndexCount >= s_Data.MaxLineIndices)
+        {
+            FlushLines();
+            ResetLineBatch();
+        }
+
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            s_Data.LineVertexBufferPtr->WorldPosition = (transform * s_Data.QuadVertexPositions[i]).XYZ();
+            s_Data.LineVertexBufferPtr->LocalPosition.x = s_Data.QuadVertexPositions[i].x;
+            s_Data.LineVertexBufferPtr->LocalPosition.y = s_Data.QuadVertexPositions[i].y;
+            s_Data.LineVertexBufferPtr->Color = color;
+            s_Data.LineVertexBufferPtr->Length = length;
+            s_Data.LineVertexBufferPtr->Thickness = thickness;
+            s_Data.LineVertexBufferPtr->EntityId = entityId;
+            s_Data.LineVertexBufferPtr++;
+        }
+        s_Data.LineIndexCount += 6;
+
+
+        s_Data.Stats.QuadCount++;
+    }
+
+
+    void Renderer2D::DrawLine(const Vector3& start, const Vector3& end, const Quaternion& orientation, const Vector4& color, float thickness, int entityId)
+    {
+        Vector3 direction = end - start;
+        float length = sqrtf(direction.SqrMagnitude());
+        direction.Normalize();
+        Vector3 centre = 0.5f * (start + end);
+
+        Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)centre);
+
+        // TODO : face towards camera
+        Quaternion rotation = Rotation(Vector3::X(), direction);
+        transform = transform * Matrix4(rotation);
+
+        transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ length, thickness }, 0.f));
+
+        DrawBatchedLine(transform, color, length, thickness, entityId);
+    }
+
+
+    void Renderer2D::DrawLine(const Vector2& start, const Vector2& end, float width, const Vector4& color, int layer)
     {
         LV_PROFILE_FUNCTION();
 
@@ -732,6 +852,8 @@ namespace Limnova
         DrawRotatedQuad({ midpoint, (float)layer }, dimensions, rotation, color);
     }
 
+
+    // Orbital /////////////////////////////
 
     void Renderer2D::DrawEllipse(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer)
     {

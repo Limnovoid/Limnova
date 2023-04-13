@@ -406,11 +406,16 @@ namespace Limnova
                     ? kReferenceX : kReferenceY.Cross(elems.PerifocalNormal);
                 elems.PerifocalY = elems.PerifocalNormal.Cross(elems.PerifocalX);
             }
-            else
+            else if (elems.E < 1.f)
             {
                 // Elliptical
                 elems.PerifocalX = Evec / elems.E;
                 elems.PerifocalY = elems.PerifocalNormal.Cross(elems.PerifocalX);
+            }
+            else
+            {
+                // Hyperbolic
+                LV_CORE_ASSERT(false, "Hyperbolic orbits not yet implemented!");
             }
 
             elems.I = acosf(elems.PerifocalNormal.Dot(kReferenceNormal));
@@ -421,7 +426,6 @@ namespace Limnova
                 elems.Omega = PI2f - elems.Omega;
             }
             elems.ArgPeriapsis = AngleBetweenUnitVectorsSafe(elems.N, elems.PerifocalX);
-            LV_CORE_ASSERT(!isnan(elems.ArgPeriapsis), "");
             if (elems.N.Dot(elems.PerifocalY) > 0.f) {
                 elems.ArgPeriapsis = PI2f - elems.ArgPeriapsis;
             }

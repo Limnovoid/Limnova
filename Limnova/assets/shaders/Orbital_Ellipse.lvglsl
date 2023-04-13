@@ -16,7 +16,7 @@ layout(location = 2) in vec4  a_Color;
 layout(location = 3) in float a_MajorMinorRatio;
 layout(location = 4) in float a_Thickness;
 layout(location = 5) in float a_Fade;
-// layout(location = 6) in int a_EntityId; // TODO
+layout(location = 6) in int a_EntityId;
 
 struct VertexData {
     vec2  PerifocalPos;
@@ -36,6 +36,8 @@ void main()
     outData.MajorMinorRatio = a_MajorMinorRatio;
     outData.Thickness       = a_Thickness;
     outData.Fade            = a_Fade;
+
+    v_EntityId = a_EntityId;
 
     gl_Position = u_Camera.ViewProj * vec4(a_WorldPosition, 1.0);
 }
@@ -108,5 +110,5 @@ void main()
     color.rgb *= color.a; // Premultiplied alpha
     o_Color = color;
 
-    o_EntityId = -1; // TODO
+    o_EntityId = v_EntityId;
 }

@@ -24,7 +24,7 @@ layout(location = 2) in vec4  a_Color;
 layout(location = 3) in float a_MajorMinorRatio;
 layout(location = 4) in float a_Thickness;
 layout(location = 5) in float a_Fade;
-layout(location = 6) in float a_EntityId;
+layout(location = 6) in int a_EntityId;
 
 layout (location = 0) out VertexData outData;
 layout (location = 5) flat out int v_EntityId;

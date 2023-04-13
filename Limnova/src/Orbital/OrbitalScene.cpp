@@ -19,6 +19,9 @@ namespace Limnova
         rootOrbital.Physics = &m_Physics;
 
         m_OrbitalReferenceFrameOrientation = Quaternion(Vector3::Left(), PIover2f);
+        m_OrbitalReferenceX = m_OrbitalReferenceFrameOrientation.RotateVector(Vector3::X());
+        m_OrbitalReferenceY = m_OrbitalReferenceFrameOrientation.RotateVector(Vector3::Y());
+        m_OrbitalReferenceNormal = m_OrbitalReferenceFrameOrientation.RotateVector(Vector3::Z());
 
         m_ViewPrimary = m_Root;
 
@@ -167,6 +170,20 @@ namespace Limnova
         // Render orbital visuals
         Entity primary = { m_ViewPrimary, this };
         Vector3 primaryPosition = m_Registry.get<TransformComponent>(m_ViewPrimary).GetPosition();
+
+        if (m_ShowReferenceAxes)
+        {
+            // X
+            Renderer2D::DrawLine(primaryPosition, primaryPosition + (m_OrbitalReferenceX * m_ReferenceAxisLength),
+                cameraOrientation, m_ReferenceAxisColor, m_ReferenceAxisThickness);
+            // Y
+            Renderer2D::DrawLine(primaryPosition, primaryPosition + (m_OrbitalReferenceY * m_ReferenceAxisLength),
+                cameraOrientation, m_ReferenceAxisColor, m_ReferenceAxisThickness);
+            // Normal
+            Renderer2D::DrawLine(primaryPosition, primaryPosition + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
+                cameraOrientation, m_ReferenceAxisColor, m_ReferenceAxisThickness);
+        }
+
         auto secondaries = m_Physics.GetChildren(m_Registry.get<OrbitalComponent>(m_ViewPrimary).PhysicsObjectId);
         for (auto secondary : secondaries)
         {
@@ -210,6 +227,9 @@ namespace Limnova
                 centreTransform = glm::scale((glm::mat4)centreTransform, glm::vec3(m_OrbitPointRadius));
                 Renderer2D::DrawCircle(centreTransform, uiColor, 1.f, 0.f, (int)secondary);
             }
+
+            // Major axis
+
         }
 
         // TODO : draw tertiaries as point lights orbiting secondaries

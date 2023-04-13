@@ -56,8 +56,13 @@ namespace Limnova
         static void DrawEllipse(const Vector3& centre, const Quaternion& orientation, float semiMajorAxis, float semiMinorAxis, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
 
         // Lines //
-        static void DrawLine(const Vector2& start, const Vector2& end, const float width, const Vector4& color, int layer = 0);
+    private:
+        static void DrawBatchedLine(const Matrix4& transform, const Vector4& color, float length, float thickness, int entityId = -1);
+    public:
+        static void DrawLine(const Vector2& start, const Vector2& end, float width, const Vector4& color, int layer = 0);
+        static void DrawLine(const Vector3& start, const Vector3& end, const Quaternion& orientation, const Vector4& color, float thickness, int entityId = -1);
 
+        // Orbital - OLD/SUPERSEDED //
         static void DrawEllipse(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer = 0);
         static void DrawHyperbola(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer = 0);
     private:
@@ -71,6 +76,9 @@ namespace Limnova
 
         static void FlushEllipses();
         static void ResetEllipseBatch();
+
+        static void FlushLines();
+        static void ResetLineBatch();
 
         // stats
     public:

@@ -357,6 +357,19 @@ namespace Limnova
             }
         }
 
+
+        ImGui::Checkbox("Show reference axes", &m_Scene->m_ShowReferenceAxes);
+        ImGui::BeginDisabled(!m_Scene->m_ShowReferenceAxes);
+        if (ImGui::TreeNodeEx("##ReferenceAxes", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::ColorEdit4("Color", m_Scene->m_ReferenceAxisColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
+            ImGui::DragFloat("Length", &m_Scene->m_ReferenceAxisLength, 0.01f, 0.01f, 1.f, "%.2f");
+            ImGui::DragFloat("Thickness", &m_Scene->m_ReferenceAxisThickness, 0.001f, 0.001f, 0.01f, "%.3f");
+
+            ImGui::TreePop();
+        }
+        ImGui::EndDisabled();
+
         if (ImGui::TreeNodeEx("Influence Visuals", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::ColorEdit4("Color", m_Scene->m_InfluenceColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
