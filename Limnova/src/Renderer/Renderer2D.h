@@ -60,9 +60,11 @@ namespace Limnova
         static void DrawBatchedLine(const Matrix4& transform, const Vector4& color, float length, float thickness, int entityId = -1);
     public:
         static void DrawLine(const Vector2& start, const Vector2& end, float width, const Vector4& color, int layer = 0);
-        static void DrawLine(const Vector3& start, const Vector3& end, const Quaternion& orientation, const Vector4& color, float thickness, int entityId = -1);
+        static void DrawLine(const Vector3& start, const Vector3& end, const Vector4& color, float thickness, int entityId = -1);
 
-        // Orbital - OLD/SUPERSEDED //
+        static void DrawArrow(const Vector3& start, const Vector3& end, const Vector4& color, float thickness, float headSize, int entityId = -1);
+
+        // Orbital - DEPRACATED //
         static void DrawEllipse(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer = 0);
         static void DrawHyperbola(const Vector2& centre, const float rotation, const float semiMajorAxis, const float semiMinorAxis, const Vector2& escapePointFromCentre, const float thickness, const Vector4& color, int layer = 0);
     private:

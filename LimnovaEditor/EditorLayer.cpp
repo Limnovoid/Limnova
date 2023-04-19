@@ -364,7 +364,8 @@ namespace Limnova
         {
             ImGui::ColorEdit4("Color", m_Scene->m_ReferenceAxisColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
             ImGui::DragFloat("Length", &m_Scene->m_ReferenceAxisLength, 0.01f, 0.01f, 1.f, "%.2f");
-            ImGui::DragFloat("Thickness", &m_Scene->m_ReferenceAxisThickness, 0.001f, 0.001f, 0.01f, "%.3f");
+            ImGui::DragFloat("Thickness", &m_Scene->m_ReferenceAxisThickness, 0.001f, 0.001f, 0.1f, "%.3f");
+            ImGui::DragFloat("Arrow Head Size", &m_Scene->m_ReferenceAxisArrowSize, 0.001f, 0.001f, 0.5f, "%.3f");
 
             ImGui::TreePop();
         }

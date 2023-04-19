@@ -173,15 +173,26 @@ namespace Limnova
 
         if (m_ShowReferenceAxes)
         {
+            /*
             // X
             Renderer2D::DrawLine(primaryPosition, primaryPosition + (m_OrbitalReferenceX * m_ReferenceAxisLength),
-                cameraOrientation, m_ReferenceAxisColor, m_ReferenceAxisThickness);
+                m_ReferenceAxisColor, m_ReferenceAxisThickness);
             // Y
             Renderer2D::DrawLine(primaryPosition, primaryPosition + (m_OrbitalReferenceY * m_ReferenceAxisLength),
-                cameraOrientation, m_ReferenceAxisColor, m_ReferenceAxisThickness);
+                m_ReferenceAxisColor, m_ReferenceAxisThickness);
             // Normal
             Renderer2D::DrawLine(primaryPosition, primaryPosition + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
-                cameraOrientation, m_ReferenceAxisColor, m_ReferenceAxisThickness);
+                m_ReferenceAxisColor, m_ReferenceAxisThickness);
+            */
+            // X
+            Renderer2D::DrawArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceX * m_ReferenceAxisLength),
+                m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize);
+            // Y
+            Renderer2D::DrawArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceY * m_ReferenceAxisLength),
+                m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize);
+            // Normal
+            Renderer2D::DrawArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
+                m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize);
         }
 
         auto secondaries = m_Physics.GetChildren(m_Registry.get<OrbitalComponent>(m_ViewPrimary).PhysicsObjectId);

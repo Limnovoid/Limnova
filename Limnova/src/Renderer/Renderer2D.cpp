@@ -821,18 +821,20 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawLine(const Vector3& start, const Vector3& end, const Quaternion& orientation, const Vector4& color, float thickness, int entityId)
+    void Renderer2D::DrawLine(const Vector3& start, const Vector3& end, const Vector4& color, float thickness, int entityId)
     {
         Vector3 direction = end - start;
         float length = sqrtf(direction.SqrMagnitude());
-        direction.Normalize();
+        direction = direction / length;
         Vector3 centre = 0.5f * (start + end);
 
         Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)centre);
 
+        // Rotations:
+        // 
         // Rotate the quad such that the long edges are parallel with the direction vector
         Quaternion rotation = Rotation(Vector3::X(), direction);
-
+        //
         // Rotate the quad about the direction vector such that the quad is 'facing' the camera as much as possible while
         // restricted to the direction axis
         Vector3 initialNormal = rotation.RotateVector(Vector3::Z());
@@ -851,7 +853,7 @@ namespace Limnova
             normalRotationAngle = PI2f - normalRotationAngle;
         }
         Quaternion normalRotation{ direction, normalRotationAngle };
-
+        //
         // Apply rotations
         transform = transform * Matrix4(normalRotation);
         transform = transform * Matrix4(rotation);
@@ -859,6 +861,68 @@ namespace Limnova
         transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ length, thickness }, 0.f));
 
         DrawBatchedLine(transform, color, length, thickness, entityId);
+    }
+
+
+    void Renderer2D::DrawArrow(const Vector3& start, const Vector3& end, const Vector4& color, float thickness, float headSize, int entityId)
+    {
+        Vector3 direction = end - start;
+        float length = sqrtf(direction.SqrMagnitude());
+        direction = direction / length;
+
+        static const float overRoot2 = 1.f / sqrtf(2.f);
+        float stemLength = length - thickness * overRoot2;
+
+        Vector3 stemCentre = 0.5f * (start + stemLength * direction);
+
+        Matrix4 stemTransform = glm::translate(glm::mat4(1.f), (glm::vec3)stemCentre);
+
+        // Rotations:
+        // 
+        // Rotate the quad such that the long edges are parallel with the direction vector
+        Quaternion rotation = Rotation(Vector3::X(), direction);
+        //
+        // Rotate the quad about the direction vector such that the quad is 'facing' the camera as much as possible while
+        // restricted to the direction axis
+        Vector3 initialNormal = rotation.RotateVector(Vector3::Z());
+        Vector3 cameraDirection = s_Data.CameraData->Position.Normalized();
+        /* The final normal is the camera direction vector projected onto the normal's plane of rotation (the plane
+         * perpendicular to the line direction). The rotation angle of the quad around the line direction is then the
+         * angle between the initial normal and the final normal, measured counter-clockwise about the line direction.
+         * Projection of vector u onto a plane with normal n (assuming all vectors are normalized):
+         *  u_plane = u - (u DOT n) * n
+         */
+        Vector3 finalNormal = cameraDirection - (direction * (cameraDirection.Dot(direction)));
+        finalNormal.Normalize();
+        float normalRotationAngle = acosf(initialNormal.Dot(finalNormal));
+        // Disambiguate quadrant
+        if (initialNormal.Cross(finalNormal).Dot(direction) < 0.f) {
+            normalRotationAngle = PI2f - normalRotationAngle;
+        }
+        Quaternion normalRotation{ direction, normalRotationAngle };
+        //
+        // Apply rotations
+        stemTransform = stemTransform * Matrix4(normalRotation);
+        stemTransform = stemTransform * Matrix4(rotation);
+
+        stemTransform = glm::scale((glm::mat4)stemTransform, glm::vec3(glm::vec2{ stemLength, thickness }, 0.f));
+
+        DrawBatchedLine(stemTransform, color, length, thickness, entityId);
+
+        // Arrowhead arms
+        Vector3 arm0Direction = Quaternion(finalNormal, 3.f * PIover4f).RotateVector(direction);
+        Vector3 arm1Direction = Quaternion(finalNormal,-3.f * PIover4f).RotateVector(direction);
+
+        Vector3 arm0WidthOffset = thickness / 2.f * arm1Direction;
+        Vector3 arm0Start = end + arm0WidthOffset;
+        Vector3 arm0End = end + arm0WidthOffset + headSize * arm0Direction;
+
+        Vector3 arm1WidthOffset = thickness / 2.f * arm0Direction;
+        Vector3 arm1Start = end + arm1WidthOffset;
+        Vector3 arm1End = end + arm1WidthOffset + headSize * arm1Direction;
+
+        DrawLine(arm0Start, arm0End, color, thickness, entityId);
+        DrawLine(arm1Start, arm1End, color, thickness, entityId);
     }
 
 

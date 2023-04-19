@@ -50,6 +50,7 @@ namespace Limnova
         Vector4 m_ReferenceAxisColor = { 1.f, 1.f, 1.f, 0.4 };
         float m_ReferenceAxisLength = 1.f;
         float m_ReferenceAxisThickness = 0.01f;
+        float m_ReferenceAxisArrowSize = 0.05f;
     private:
         Physics m_Physics;
         entt::entity m_ViewPrimary;
