@@ -830,8 +830,30 @@ namespace Limnova
 
         Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)centre);
 
-        // TODO : face towards camera
+        // Rotate the quad such that the long edges are parallel with the direction vector
         Quaternion rotation = Rotation(Vector3::X(), direction);
+
+        // Rotate the quad about the direction vector such that the quad is 'facing' the camera as much as possible while
+        // restricted to the direction axis
+        Vector3 initialNormal = rotation.RotateVector(Vector3::Z());
+        Vector3 cameraDirection = s_Data.CameraData->Position.Normalized();
+        /* The final normal is the camera direction vector projected onto the normal's plane of rotation (the plane
+         * perpendicular to the line direction). The rotation angle of the quad around the line direction is then the
+         * angle between the initial normal and the final normal, measured counter-clockwise about the line direction.
+         * Projection of vector u onto a plane with normal n (assuming all vectors are normalized):
+         *  u_plane = u - (u DOT n) * n
+         */
+        Vector3 finalNormal = cameraDirection - (direction * (cameraDirection.Dot(direction)));
+        finalNormal.Normalize();
+        float normalRotationAngle = acosf(initialNormal.Dot(finalNormal));
+        // Disambiguate quadrant
+        if (initialNormal.Cross(finalNormal).Dot(direction) < 0.f) {
+            normalRotationAngle = PI2f - normalRotationAngle;
+        }
+        Quaternion normalRotation{ direction, normalRotationAngle };
+
+        // Apply rotations
+        transform = transform * Matrix4(normalRotation);
         transform = transform * Matrix4(rotation);
 
         transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ length, thickness }, 0.f));
