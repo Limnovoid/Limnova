@@ -658,9 +658,9 @@ namespace Limnova
         out << YAML::BeginMap; // Scene
         out << YAML::Key << "OrbitalScene" << YAML::Value << "Untitled";
 
-        out << YAML::Key << "InfluenceColor"        << YAML::Value << scene->m_InfluenceColor;
-        out << YAML::Key << "InfluenceThickness"    << YAML::Value << scene->m_InfluenceThickness;
-        out << YAML::Key << "InfluenceFade"         << YAML::Value << scene->m_InfluenceFade;
+        out << YAML::Key << "LocalSpaceColor" << YAML::Value << scene->m_LocalSpaceColor;
+        out << YAML::Key << "LocalSpaceThickness" << YAML::Value << scene->m_LocalSpaceThickness;
+        out << YAML::Key << "LocalSpaceFade"         << YAML::Value << scene->m_LocalSpaceFade;
         out << YAML::Key << "OrbitThickness"        << YAML::Value << scene->m_OrbitThickness;
         out << YAML::Key << "OrbitThicknessFactor"  << YAML::Value << scene->m_OrbitThicknessFactor;
         out << YAML::Key << "OrbitAlpha"            << YAML::Value << scene->m_OrbitAlpha;
@@ -707,9 +707,9 @@ namespace Limnova
         std::string sceneName = data["OrbitalScene"].as<std::string>();
         LV_CORE_TRACE("Deserializing orbital scene '{0}'", sceneName);
 
-        scene->m_InfluenceColor = data["InfluenceColor"].as<Vector4>();
-        scene->m_InfluenceThickness = data["InfluenceThickness"].as<float>();
-        scene->m_InfluenceFade = data["InfluenceFade"].as<float>();
+        scene->m_LocalSpaceColor = data["InfluenceColor"].as<Vector4>();
+        scene->m_LocalSpaceThickness = data["InfluenceThickness"].as<float>();
+        scene->m_LocalSpaceFade = data["InfluenceFade"].as<float>();
         scene->m_OrbitThickness = data["OrbitThickness"].as<float>();
         scene->m_OrbitThicknessFactor = data["OrbitThicknessFactor"].as<float>();
         scene->m_OrbitAlpha = data["OrbitAlpha"].as<float>();

@@ -15,6 +15,8 @@ struct VertexData {
     vec4 Color;
     float Length;
     float Thickness;
+    float DashLength;
+    float GapLength;
 };
 
 layout(location = 0) in vec3 a_WorldPosition;
@@ -22,10 +24,12 @@ layout(location = 1) in vec2 a_PlanarPosition;
 layout(location = 2) in vec4 a_Color;
 layout(location = 3) in float a_Length;
 layout(location = 4) in float a_Thickness;
-layout(location = 5) in int a_EntityId;
+layout(location = 5) in float a_DashLength;
+layout(location = 6) in float a_GapLength;
+layout(location = 7) in int a_EntityId;
 
 layout (location = 0) out VertexData outData;
-layout (location = 4) flat out int v_EntityId;
+layout (location = 6) flat out int v_EntityId;
 
 void main()
 {
@@ -33,6 +37,8 @@ void main()
     outData.Color           = a_Color;
     outData.Length          = a_Length;
     outData.Thickness       = a_Thickness;
+    outData.DashLength      = a_DashLength;
+    outData.GapLength       = a_GapLength;
 
     v_EntityId = a_EntityId;
 
@@ -48,16 +54,29 @@ struct VertexData {
     vec4 Color;
     float Length;
     float Thickness;
+    float DashLength;
+    float GapLength;
 };
 
 layout (location = 0) in VertexData inData;
-layout (location = 4) flat in int v_EntityId;
+layout (location = 6) flat in int v_EntityId;
 
 layout (location = 0) out vec4 o_Color;
 layout (location = 1) out int o_EntityId;
 
 void main()
 {
+    float posX = inData.PlanarPosition.x * inData.Length;
+
+    float posFactor = posX / (inData.DashLength + inData.GapLength);
+    posFactor -= floor(posFactor);
+
+    // Discard if in a gap and not in the line-end block
+    if (posFactor > inData.DashLength / (inData.DashLength + inData.GapLength)
+        && posX < inData.Length - inData.Thickness) {
+        discard;
+    }
+
     vec4 color = inData.Color;
     color.rgb *= color.a; // Premultiplied alpha
     o_Color = color;

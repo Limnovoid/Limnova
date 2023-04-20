@@ -165,6 +165,8 @@ namespace Limnova
             double H = 0.0;             /* Orbital specific angular momentum */
             double E = { 0.f };         /* Eccentricity */
 
+            float P = 0.f;              /* Orbit parameter, or semi-latus rectum */
+
             float I = 0.f;              /* Inclination */
             Vector3 N = { 0.f };        /* Direction of ascending node */
             float Omega = 0.f;          /* Right ascension of ascending node */
@@ -393,6 +395,9 @@ namespace Limnova
             elems.H = sqrt(H2);
             elems.PerifocalNormal = Hvec / elems.H;
 
+            /* Loss of precision due to casting is acceptable: semi-latus recturm is on the order of 1 in all common cases, due to distance parameterisation */
+            elems.P = (float)(H2 / elems.Grav);
+
             /* Loss of precision due to casting is acceptable: result of vector division (V x H / Grav) is on the order of 1 */
             Vector3 posDir = state.Position.Normalized();
             Vector3 Evec = (Vector3)(state.Velocity.Cross(Hvec) / elems.Grav) - posDir;
@@ -434,7 +439,7 @@ namespace Limnova
                 * Quaternion(elems.N, elems.I)
                 * Quaternion(kReferenceNormal, elems.Omega);
 
-            elems.TrueAnomaly = acosf(elems.PerifocalX.Dot(posDir));
+            elems.TrueAnomaly = AngleBetweenUnitVectorsSafe(elems.PerifocalX, posDir);
             // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
             if (posDir.Dot(elems.PerifocalY) < 0.f)
             {
@@ -444,13 +449,11 @@ namespace Limnova
 
             // Dimensions
             float e2 = powf(elems.E, 2.f);
-            /* Loss of precision due to casting is acceptable: semi-major axis is on the order of 1 in all common cases, due to distance parameterisation */
-            float H2_Grav = (float)(H2 / elems.Grav);
-            elems.SemiMajor = H2_Grav / (1.f - e2);
+            elems.SemiMajor = elems.P / (1.f - e2);
             elems.SemiMinor = elems.SemiMajor * sqrtf(1.f - e2);
 
             elems.T = pow((double)elems.SemiMajor, 1.5) * PI2 / sqrt(elems.H);
-            elems.C = H2_Grav / (1.f + elems.E) - elems.SemiMajor;
+            elems.C = elems.P / (1.f + elems.E) - elems.SemiMajor;
         }
 
         /// <summary>

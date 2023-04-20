@@ -37,9 +37,9 @@ namespace Limnova
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
     public:
-        Vector4 m_InfluenceColor = { 1.f, 1.f, 1.f, 0.3f };
-        float m_InfluenceThickness = 0.002f;
-        float m_InfluenceFade = 0.006f;
+        Vector4 m_LocalSpaceColor = { 1.f, 1.f, 1.f, 0.3f };
+        float m_LocalSpaceThickness = 0.002f;
+        float m_LocalSpaceFade = 0.006f;
 
         float m_OrbitThickness = 0.004f;
         float m_OrbitThicknessFactor = 2.f;
@@ -47,10 +47,13 @@ namespace Limnova
         float m_OrbitPointRadius = 0.01f;
 
         bool m_ShowReferenceAxes = false;
-        Vector4 m_ReferenceAxisColor = { 1.f, 1.f, 1.f, 0.4 };
-        float m_ReferenceAxisLength = 1.f;
-        float m_ReferenceAxisThickness = 0.01f;
-        float m_ReferenceAxisArrowSize = 0.05f;
+        Vector4 m_ReferenceAxisColor = { 1.f, 1.f, 1.f, 0.2 };
+        float m_ReferenceAxisLength = 0.4f;
+        float m_ReferenceAxisThickness = 0.005f;
+        float m_ReferenceAxisArrowSize = 0.025f;
+
+        float m_PerifocalAxisThickness = 0.005f;
+        float m_PerifocalAxisArrowSize = 0.025f;
     private:
         Physics m_Physics;
         entt::entity m_ViewPrimary;

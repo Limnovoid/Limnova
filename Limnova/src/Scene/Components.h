@@ -277,6 +277,9 @@ namespace Limnova
         Vector3 UIColor = { 1.f };
         float Albedo; /* Surface reflectivity of orbital object - determines object's brightness as a star-like object when viewed from far away */
 
+        bool ShowMajorMinorAxes = false;
+        bool ShowNormal = false;
+
         OrbitalComponent() = default;
         //OrbitalComponent(const OrbitalComponent&) = default;
         //OrbitalComponent(const OrbitalPhysics<entt::entity>::TObjectId& physicsObjectId)

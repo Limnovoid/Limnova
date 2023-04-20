@@ -380,6 +380,15 @@ namespace Limnova
             case Physics::Validity::InvalidPosition:ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Position!"); break;
             }
 
+            if (entity != m_Scene->GetRoot())
+            {
+                ImGui::BeginDisabled(isOrbital && !isOrbitalViewSecondary);
+                LimnGui::Checkbox("Show Major/Minor Axes", orbital.ShowMajorMinorAxes, 175.f);
+                LimnGui::Checkbox("Show Normal", orbital.ShowNormal, 175.f);
+                ImGui::EndDisabled();
+            }
+
+            ImGui::Separator();
             ImGui::BeginDisabled(isOrbital && !(isOrbitalViewPrimary || isOrbitalViewSecondary));
 
             // Local scale
@@ -423,6 +432,7 @@ namespace Limnova
 
             ImGui::EndDisabled();
 
+            ImGui::Separator();
             ImGui::BeginDisabled(isOrbital && !isOrbitalViewSecondary);
 
             // Position
@@ -458,6 +468,8 @@ namespace Limnova
             }
 
             ImGui::EndDisabled(); // (isOrbital && !isOrbitalViewSecondary)
+
+            ImGui::Separator();
 
             // Elements
             if (entity != m_Scene->GetRoot())

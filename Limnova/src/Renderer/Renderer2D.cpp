@@ -54,6 +54,8 @@ namespace Limnova
         Vector4 Color;
         float Length;
         float Thickness;
+        float DashLength;
+        float GapLength;
 
         // Editor only
         int EntityId;
@@ -262,6 +264,8 @@ namespace Limnova
             { ShaderDataType::Float4,   "a_Color"         },
             { ShaderDataType::Float,    "a_Length"        },
             { ShaderDataType::Float,    "a_Thickness"     },
+            { ShaderDataType::Float,    "a_DashLength"    },
+            { ShaderDataType::Float,    "a_GapLength"     },
             { ShaderDataType::Int,      "a_EntityId"      }
         });
         s_Data.LineVertexArray->AddVertexBuffer(s_Data.LineVertexBuffer);
@@ -793,7 +797,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawBatchedLine(const Matrix4& transform, const Vector4& color, float length, float thickness, int entityId)
+    void Renderer2D::DrawBatchedLine(const Matrix4& transform, const Vector4& color, float length, float thickness, float dashLength, float gapLength, int entityId)
     {
         LV_PROFILE_FUNCTION();
 
@@ -806,11 +810,13 @@ namespace Limnova
         for (uint32_t i = 0; i < 4; i++)
         {
             s_Data.LineVertexBufferPtr->WorldPosition = (transform * s_Data.QuadVertexPositions[i]).XYZ();
-            s_Data.LineVertexBufferPtr->LocalPosition.x = s_Data.QuadVertexPositions[i].x;
-            s_Data.LineVertexBufferPtr->LocalPosition.y = s_Data.QuadVertexPositions[i].y;
+            s_Data.LineVertexBufferPtr->LocalPosition.x = s_Data.QuadVertexPositions[i].x + 0.5f;   // X range: [0, 1]
+            s_Data.LineVertexBufferPtr->LocalPosition.y = s_Data.QuadVertexPositions[i].y;          // Y range: [-0.5, 0.5]
             s_Data.LineVertexBufferPtr->Color = color;
             s_Data.LineVertexBufferPtr->Length = length;
             s_Data.LineVertexBufferPtr->Thickness = thickness;
+            s_Data.LineVertexBufferPtr->DashLength = dashLength;
+            s_Data.LineVertexBufferPtr->GapLength = gapLength;
             s_Data.LineVertexBufferPtr->EntityId = entityId;
             s_Data.LineVertexBufferPtr++;
         }
@@ -860,7 +866,53 @@ namespace Limnova
 
         transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ length, thickness }, 0.f));
 
-        DrawBatchedLine(transform, color, length, thickness, entityId);
+        DrawBatchedLine(transform, color, length, thickness, length, 0.f, entityId);
+    }
+
+
+    void Renderer2D::DrawDashedLine(const Vector3& start, const Vector3& end, const Vector4& color, float thickness, float dashFactor, float gapFactor, int entityId)
+    {
+        Vector3 direction = end - start;
+        float length = sqrtf(direction.SqrMagnitude());
+        direction = direction / length;
+        Vector3 centre = 0.5f * (start + end);
+
+        Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)centre);
+
+        // Rotations:
+        // 
+        // Rotate the quad such that the long edges are parallel with the direction vector
+        Quaternion rotation = Rotation(Vector3::X(), direction);
+        //
+        // Rotate the quad about the direction vector such that the quad is 'facing' the camera as much as possible while
+        // restricted to the direction axis
+        Vector3 initialNormal = rotation.RotateVector(Vector3::Z());
+        Vector3 cameraDirection = s_Data.CameraData->Position.Normalized();
+        /* The final normal is the camera direction vector projected onto the normal's plane of rotation (the plane
+         * perpendicular to the line direction). The rotation angle of the quad around the line direction is then the
+         * angle between the initial normal and the final normal, measured counter-clockwise about the line direction.
+         * Projection of vector u onto a plane with normal n (assuming all vectors are normalized):
+         *  u_plane = u - (u DOT n) * n
+         */
+        Vector3 finalNormal = cameraDirection - (direction * (cameraDirection.Dot(direction)));
+        finalNormal.Normalize();
+        float normalRotationAngle = acosf(initialNormal.Dot(finalNormal));
+        // Disambiguate quadrant
+        if (initialNormal.Cross(finalNormal).Dot(direction) < 0.f) {
+            normalRotationAngle = PI2f - normalRotationAngle;
+        }
+        Quaternion normalRotation{ direction, normalRotationAngle };
+        //
+        // Apply rotations
+        transform = transform * Matrix4(normalRotation);
+        transform = transform * Matrix4(rotation);
+
+        transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ length, thickness }, 0.f));
+
+        float dashLength = dashFactor * thickness;
+        float gapLength = gapFactor * thickness;
+
+        DrawBatchedLine(transform, color, length, thickness, dashLength, gapLength, entityId);
     }
 
 
@@ -873,7 +925,7 @@ namespace Limnova
         static const float overRoot2 = 1.f / sqrtf(2.f);
         float stemLength = length - thickness * overRoot2;
 
-        Vector3 stemCentre = 0.5f * (start + stemLength * direction);
+        Vector3 stemCentre = start + 0.5f * stemLength * direction;
 
         Matrix4 stemTransform = glm::translate(glm::mat4(1.f), (glm::vec3)stemCentre);
 
@@ -907,7 +959,71 @@ namespace Limnova
 
         stemTransform = glm::scale((glm::mat4)stemTransform, glm::vec3(glm::vec2{ stemLength, thickness }, 0.f));
 
-        DrawBatchedLine(stemTransform, color, length, thickness, entityId);
+        DrawBatchedLine(stemTransform, color, length, thickness, length, 0.f, entityId);
+
+        // Arrowhead arms
+        Vector3 arm0Direction = Quaternion(finalNormal, 3.f * PIover4f).RotateVector(direction);
+        Vector3 arm1Direction = Quaternion(finalNormal, -3.f * PIover4f).RotateVector(direction);
+
+        Vector3 arm0WidthOffset = thickness / 2.f * arm1Direction;
+        Vector3 arm0Start = end + arm0WidthOffset;
+        Vector3 arm0End = end + arm0WidthOffset + headSize * arm0Direction;
+
+        Vector3 arm1WidthOffset = thickness / 2.f * arm0Direction;
+        Vector3 arm1Start = end + arm1WidthOffset;
+        Vector3 arm1End = end + arm1WidthOffset + headSize * arm1Direction;
+
+        DrawLine(arm0Start, arm0End, color, thickness, entityId);
+        DrawLine(arm1Start, arm1End, color, thickness, entityId);
+    }
+
+
+    void Renderer2D::DrawDashedArrow(const Vector3& start, const Vector3& end, const Vector4& color, float thickness, float headSize, float dashFactor, float gapFactor, int entityId)
+    {
+        Vector3 direction = end - start;
+        float length = sqrtf(direction.SqrMagnitude());
+        direction = direction / length;
+
+        static const float overRoot2 = 1.f / sqrtf(2.f);
+        float stemLength = length - thickness * overRoot2;
+
+        Vector3 stemCentre = start + 0.5f * stemLength * direction;
+
+        Matrix4 stemTransform = glm::translate(glm::mat4(1.f), (glm::vec3)stemCentre);
+
+        // Rotations:
+        // 
+        // Rotate the quad such that the long edges are parallel with the direction vector
+        Quaternion rotation = Rotation(Vector3::X(), direction);
+        //
+        // Rotate the quad about the direction vector such that the quad is 'facing' the camera as much as possible while
+        // restricted to the direction axis
+        Vector3 initialNormal = rotation.RotateVector(Vector3::Z());
+        Vector3 cameraDirection = s_Data.CameraData->Position.Normalized();
+        /* The final normal is the camera direction vector projected onto the normal's plane of rotation (the plane
+         * perpendicular to the line direction). The rotation angle of the quad around the line direction is then the
+         * angle between the initial normal and the final normal, measured counter-clockwise about the line direction.
+         * Projection of vector u onto a plane with normal n (assuming all vectors are normalized):
+         *  u_plane = u - (u DOT n) * n
+         */
+        Vector3 finalNormal = cameraDirection - (direction * (cameraDirection.Dot(direction)));
+        finalNormal.Normalize();
+        float normalRotationAngle = acosf(initialNormal.Dot(finalNormal));
+        // Disambiguate quadrant
+        if (initialNormal.Cross(finalNormal).Dot(direction) < 0.f) {
+            normalRotationAngle = PI2f - normalRotationAngle;
+        }
+        Quaternion normalRotation{ direction, normalRotationAngle };
+        //
+        // Apply rotations
+        stemTransform = stemTransform * Matrix4(normalRotation);
+        stemTransform = stemTransform * Matrix4(rotation);
+
+        stemTransform = glm::scale((glm::mat4)stemTransform, glm::vec3(glm::vec2{ stemLength, thickness }, 0.f));
+
+        float dashLength = dashFactor * thickness;
+        float gapLength = gapFactor * thickness;
+        DrawBatchedLine(stemTransform, color, length, thickness, dashLength, gapLength, entityId);
 
         // Arrowhead arms
         Vector3 arm0Direction = Quaternion(finalNormal, 3.f * PIover4f).RotateVector(direction);
@@ -921,8 +1037,8 @@ namespace Limnova
         Vector3 arm1Start = end + arm1WidthOffset;
         Vector3 arm1End = end + arm1WidthOffset + headSize * arm1Direction;
 
-        DrawLine(arm0Start, arm0End, color, thickness, entityId);
-        DrawLine(arm1Start, arm1End, color, thickness, entityId);
+        DrawDashedLine(arm0Start, arm0End, color, thickness, dashFactor, gapFactor, entityId);
+        DrawDashedLine(arm1Start, arm1End, color, thickness, dashFactor, gapFactor, entityId);
     }
 
 

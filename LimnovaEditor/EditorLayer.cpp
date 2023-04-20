@@ -373,9 +373,9 @@ namespace Limnova
 
         if (ImGui::TreeNodeEx("Influence Visuals", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::ColorEdit4("Color", m_Scene->m_InfluenceColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
-            ImGui::DragFloat("Thickness", &m_Scene->m_InfluenceThickness, 0.001f, 0.001f, 1.f, "%.3f");
-            ImGui::DragFloat("Fade", &m_Scene->m_InfluenceFade, 0.001f, 0.001f, 1.f, "%.3f");
+            ImGui::ColorEdit4("Color", m_Scene->m_LocalSpaceColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
+            ImGui::DragFloat("Thickness", &m_Scene->m_LocalSpaceThickness, 0.001f, 0.001f, 1.f, "%.3f");
+            ImGui::DragFloat("Fade", &m_Scene->m_LocalSpaceFade, 0.001f, 0.001f, 1.f, "%.3f");
 
             ImGui::TreePop();
         }
@@ -386,6 +386,13 @@ namespace Limnova
             ImGui::DragFloat("Thickness Factor", &m_Scene->m_OrbitThicknessFactor, 0.001f, 0.001f, 1.f, "%.3f");
             ImGui::DragFloat("Alpha", &m_Scene->m_OrbitAlpha, 0.001f, 0.f, 1.f, "%.3f");
             ImGui::DragFloat("Plot Point Radius", &m_Scene->m_OrbitPointRadius, 0.001f, 0.001f, 0.1f, "%.3f");
+
+            if (ImGui::TreeNodeEx("Perifocal Frame", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::DragFloat("Thickness", &m_Scene->m_PerifocalAxisThickness, 0.001f, 0.001f, 0.1f, "%.3f");
+                ImGui::DragFloat("Arrow Head Size", &m_Scene->m_PerifocalAxisArrowSize, 0.001f, 0.001f, 0.5f, "%.3f");
+                ImGui::TreePop();
+            }
 
             ImGui::TreePop();
         }

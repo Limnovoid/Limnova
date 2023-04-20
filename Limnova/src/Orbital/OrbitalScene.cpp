@@ -173,26 +173,15 @@ namespace Limnova
 
         if (m_ShowReferenceAxes)
         {
-            /*
             // X
-            Renderer2D::DrawLine(primaryPosition, primaryPosition + (m_OrbitalReferenceX * m_ReferenceAxisLength),
-                m_ReferenceAxisColor, m_ReferenceAxisThickness);
+            Renderer2D::DrawDashedArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceX * m_ReferenceAxisLength),
+                m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize, 4.f, 2.f);
             // Y
-            Renderer2D::DrawLine(primaryPosition, primaryPosition + (m_OrbitalReferenceY * m_ReferenceAxisLength),
-                m_ReferenceAxisColor, m_ReferenceAxisThickness);
+            Renderer2D::DrawDashedArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceY * m_ReferenceAxisLength),
+                m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize, 4.f, 2.f);
             // Normal
-            Renderer2D::DrawLine(primaryPosition, primaryPosition + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
-                m_ReferenceAxisColor, m_ReferenceAxisThickness);
-            */
-            // X
-            Renderer2D::DrawArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceX * m_ReferenceAxisLength),
-                m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize);
-            // Y
-            Renderer2D::DrawArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceY * m_ReferenceAxisLength),
-                m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize);
-            // Normal
-            Renderer2D::DrawArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
-                m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize);
+            Renderer2D::DrawDashedArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
+                m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize, 4.f, 2.f);
         }
 
         auto secondaries = m_Physics.GetChildren(m_Registry.get<OrbitalComponent>(m_ViewPrimary).PhysicsObjectId);
@@ -218,29 +207,37 @@ namespace Limnova
                 Renderer2D::DrawEllipse(orbitTransform, elems.SemiMajor / elems.SemiMinor, uiColor, orbitThickness, 0.f, (int)secondary);
             }
 
-            // Influence
+            // Local space
             {
-                Matrix4 influenceTransform = glm::translate(glm::mat4(1.f), (glm::vec3)(transform.GetPosition()));
-                influenceTransform = influenceTransform * Matrix4(cameraOrientation);
+                Matrix4 lsTransform = glm::translate(glm::mat4(1.f), (glm::vec3)(transform.GetPosition()));
+                lsTransform = lsTransform * Matrix4(cameraOrientation);
 
-                float influenceRadius = orbital.GetLocalSpaceRadius();
-                influenceTransform = glm::scale((glm::mat4)influenceTransform, glm::vec3(influenceRadius));
+                float lsRadius = orbital.GetLocalSpaceRadius();
+                lsTransform = glm::scale((glm::mat4)lsTransform, glm::vec3(lsRadius));
 
-                float influenceThickness = m_InfluenceThickness / influenceRadius;
-                Renderer2D::DrawCircle(influenceTransform, m_InfluenceColor, influenceThickness, m_InfluenceFade, (int)secondary);
+                float lsThickness = m_LocalSpaceThickness / lsRadius;
+                Renderer2D::DrawCircle(lsTransform, m_LocalSpaceColor, lsThickness, m_LocalSpaceFade, (int)secondary);
             }
 
-            // Orbit centre
+            // Perifocal frame
+            if (orbital.ShowMajorMinorAxes)
             {
-                //Renderer2D::DrawCircle(orbitCenter, 0.01f, uiColor, 1.f, 0.f, (int)secondary);
-                Matrix4 centreTransform = glm::translate(glm::mat4(1.f), (glm::vec3)(orbitCenter));
-                centreTransform = centreTransform * Matrix4(cameraOrientation);
-                centreTransform = glm::scale((glm::mat4)centreTransform, glm::vec3(m_OrbitPointRadius));
-                Renderer2D::DrawCircle(centreTransform, uiColor, 1.f, 0.f, (int)secondary);
+                // Semi-major axis
+                Renderer2D::DrawArrow(orbitCenter, orbitCenter + elems.PerifocalX * elems.SemiMajor,
+                    uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, (int)secondary);
+                Renderer2D::DrawDashedLine(orbitCenter, orbitCenter - elems.PerifocalX * elems.SemiMajor,
+                    uiColor, m_PerifocalAxisThickness, 4.f, 2.f, (int)secondary);
+                // Semi-minor axis
+                Renderer2D::DrawArrow(orbitCenter, orbitCenter + elems.PerifocalY * elems.SemiMinor,
+                    uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, (int)secondary);
+                Renderer2D::DrawDashedLine(orbitCenter, orbitCenter - elems.PerifocalY * elems.SemiMinor,
+                    uiColor, m_PerifocalAxisThickness, 4.f, 2.f, (int)secondary);
             }
-
-            // Major axis
-
+            if (orbital.ShowNormal)
+            {
+                Renderer2D::DrawArrow(orbitCenter, orbitCenter + elems.PerifocalNormal * 0.5f * elems.SemiMinor,
+                    uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, (int)secondary);
+            }
         }
 
         // TODO : draw tertiaries as point lights orbiting secondaries
