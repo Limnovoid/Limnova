@@ -116,7 +116,7 @@ namespace Limnova
                 tc.SetScale(oc.LocalScale);
                 tc.SetPosition({ 0.f });
             }
-            else if (hc.Parent == Entity(m_ViewPrimary, this))
+            else if (hc.Parent.m_EnttId == m_ViewPrimary)
             {
                 // View secondary
                 tc.SetScale(oc.LocalScale * m_Physics.GetLocalSpaceRadius(oc.PhysicsObjectId));
@@ -237,6 +237,20 @@ namespace Limnova
             {
                 Renderer2D::DrawArrow(orbitCenter, orbitCenter + elems.PerifocalNormal * 0.5f * elems.SemiMinor,
                     uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, (int)secondary);
+            }
+
+
+            // debug
+            if (orbital.IsDynamic())
+            {
+                auto& dynamics = orbital.GetDynamics();
+                if (dynamics.EscapeTrueAnomaly > 0.f)
+                {
+                    static constexpr Vector4 escapePointColor{ 1.f, 0.3f, 0.2f, 0.4f };
+                    static constexpr Vector4 entryPointColor{ 0.3f, 1.f, 0.2f, 0.4f };
+                    Renderer2D::DrawCircle(primaryPosition + dynamics.EscapePoint, 0.1f, escapePointColor, 0.1f, 0.f, (int)secondary);
+                    Renderer2D::DrawCircle(primaryPosition + dynamics.EntryPoint, 0.1f, entryPointColor, 0.1f, 0.f, (int)secondary);
+                }
             }
         }
 

@@ -45,6 +45,7 @@ namespace Limnova
 
         static constexpr double kGravitational = 6.6743e-11;
         static constexpr float kDefaultLocalSpaceRadius = 0.1f;
+        static constexpr float kLocalSpaceEscapeRadius = 1.01f;
     private:
         using TAttrId = uint32_t;
 
@@ -129,6 +130,7 @@ namespace Limnova
             InvalidParent   = 0,
             InvalidMass     = 1,
             InvalidPosition = 2,
+            InvalidPath     = 3,
             Valid           = 100
         };
     private:
@@ -178,9 +180,16 @@ namespace Limnova
 
             float TrueAnomaly = 0.f;
 
-            float SemiMajor = 0.f, SemiMinor = 0.f;
-            float C = 0.f; /* Signed distance from occupied focus to centre, measured in perifocal frame's x-axis */
-            double T = 0.0;
+            float SemiMajor = 0.f, SemiMinor = 0.f; /* Semi-major and semi-minor axes */
+            float C = 0.f;              /* Signed distance from occupied focus to centre, measured along perifocal frame's x-axis */
+            double T = 0.0;             /* Orbit period, measured in seconds */
+        };
+
+        struct Dynamics
+        {
+            float EscapeTrueAnomaly = 0.f;  /* True anomaly at which orbital radius equals the local-space escape radius */
+            Vector3 EscapePoint = { 0.f }; /* Point on the orbit at which the orbiter will cross the primary's local space boundary to exit the local space */
+            Vector3 EntryPoint = { 0.f }; /* Point on the orbit at which the orbiter (would have) crossed the primary's local space boundary to enter the local space */
         };
     private:
         struct LocalSpace
@@ -201,6 +210,7 @@ namespace Limnova
 
         AttributeStorage<Elements> m_Elements;
         AttributeStorage<LocalSpace> m_LocalSpaces;
+        AttributeStorage<Dynamics> m_Dynamics;
     private:
         /*** Resource helpers ***/
 
@@ -304,7 +314,7 @@ namespace Limnova
 
         bool ValidPosition(TObjectId object)
         {
-            static constexpr float kEscapeDistanceSqr = 1.01f * 1.01f;
+            static constexpr float kEscapeDistanceSqr = kLocalSpaceEscapeRadius * kLocalSpaceEscapeRadius;
 
             return m_Objects[object].State.Position.SqrMagnitude() < kEscapeDistanceSqr;
                 /* TODO - check for influence overlaps */;
@@ -335,10 +345,6 @@ namespace Limnova
             return false;
         }
 
-        /// <summary>
-        /// Currently ignores velocity - no invalid velocities.
-        /// </summary>
-        /// <returns>True if object state is valid, false otherwise</returns>
         bool ComputeStateValidity(TObjectId object)
         {
             // TODO : #ifdef LV_DEBUG ??? is validity needed in release?
@@ -353,40 +359,112 @@ namespace Limnova
             else if (!ValidPosition(object)) {
                 validity = Validity::InvalidPosition;
             }
+            /* Currently ignores velocity - no invalid velocities */
+
             m_Objects[object].Validity = validity;
             return validity == Validity::Valid;
         }
 
+        inline float OrbitEquation(TObjectId object, float trueAnomaly)
+        {
+            return m_Elements[object].P / (1.f + m_Elements[object].E * cosf(trueAnomaly));
+        }
+
+        Vector3 ObjectPositionAtTrueAnomaly(TObjectId object, float trueAnomaly)
+        {
+            float radiusAtTrueAnomaly = OrbitEquation(object, trueAnomaly);
+            Vector3 directionAtTrueAnomaly = cosf(trueAnomaly) * m_Elements[object].PerifocalX
+                + sinf(trueAnomaly) * m_Elements[object].PerifocalY;
+            return radiusAtTrueAnomaly * directionAtTrueAnomaly;
+        }
+
         void ComputeInfluence(TObjectId object)
         {
+            LV_CORE_ASSERT(object != m_RootObject, "Cannot compute influence of root object!");
+
+            auto& ls = m_LocalSpaces[object];
+            TObjectId parent = m_Objects[object].Parent;
+
             /* Radius of influence = a(m / M)^0.4
              * Semi-major axis must be in the order of 1,
              * so the order of ROI is determined by (m / M)^0.4 */
             static constexpr double kMinimumMassFactor = 1e-4;
-            double massFactor = pow(m_Objects[object].State.Mass / m_Objects[m_Objects[object].Parent].State.Mass, 0.4);
+            double massFactor = pow(m_Objects[object].State.Mass / m_Objects[parent].State.Mass, 0.4);
             if (massFactor > kMinimumMassFactor)
             {
-                m_LocalSpaces[object].Influencing = true;
-                m_LocalSpaces[object].Radius = m_Elements[object].SemiMajor * massFactor;
+                ls.Influencing = true;
+                ls.Radius = m_Elements[object].SemiMajor * massFactor;
+                ls.MetersPerRadius = m_LocalSpaces[parent].MetersPerRadius * ls.Radius;
             }
-            /* If already non-influencing, local-space radius may have been explicitly set by user:
+            /* If already non-influencing, local-space radius may have been set by the user:
              * only reset it to default radius if this is not the case */
-            else if (m_LocalSpaces[object].Influencing)
+            else if (ls.Influencing)
             {
-                m_LocalSpaces[object].Influencing = false;
-                m_LocalSpaces[object].Radius = kDefaultLocalSpaceRadius;
+                ls.Influencing = false;
+                ls.Radius = kDefaultLocalSpaceRadius;
+                ls.MetersPerRadius = m_LocalSpaces[parent].MetersPerRadius * ls.Radius;
             }
+        }
+
+        void ComputeDynamics(TObjectId object)
+        {
+            LV_CORE_ASSERT(object != m_RootObject, "Cannot compute dynamics on root object!");
+
+            auto& obj = m_Objects[object];
+            auto& elems = m_Elements[object];
+
+            float apoapsisRadius = elems.P / (1.f - elems.E);
+            bool escapesLocalSpace = apoapsisRadius > kLocalSpaceEscapeRadius;
+
+            float escapeTrueAnomaly = 0.f;
+            if (escapesLocalSpace) {
+                escapeTrueAnomaly = acosf((elems.P / kLocalSpaceEscapeRadius - 1.f) / elems.E);
+            }
+
+            // TODO : #ifdef to exclude Validity from release ?
+            LV_CORE_ASSERT(obj.Validity == Validity::Valid || obj.Validity == Validity::InvalidPath,
+                "Cannot compute dynamics on object with invalid parent, mass, or position!");
+
+            obj.Validity = Validity::Valid;
+            if (m_Dynamics.Has(object))
+            {
+                if (escapesLocalSpace && obj.Parent == m_RootObject) {
+                    LV_WARN("Orbit path cannot exit the simulation space!");
+                    obj.Validity = Validity::InvalidPath;
+                }
+                return;
+            }
+            else
+            {
+                bool invalidPath = false;
+                if (escapesLocalSpace) {
+                    LV_WARN("Non-dynamic orbit cannot exit its primary's local space!");
+                    invalidPath = true;
+                }
+                /* TODO : test for other dynamic orbit events */
+                if (invalidPath) {
+                    obj.Validity = Validity::InvalidPath;
+                }
+                return;
+            }
+
+            auto& dynamics = m_Dynamics.Get(object);
+
+            dynamics.EscapeTrueAnomaly = escapeTrueAnomaly;
+            dynamics.EscapePoint = escapesLocalSpace ? ObjectPositionAtTrueAnomaly(object, escapeTrueAnomaly) : { 0.f };
+            dynamics.EntryPoint = escapesLocalSpace ? ObjectPositionAtTrueAnomaly(object, PI2f - escapeTrueAnomaly) : { 0.f };
         }
 
         void ComputeElements(TObjectId object)
         {
-            LV_CORE_ASSERT(object != m_RootObject, "Cannot compute elements on root object!")
+            LV_CORE_ASSERT(object != m_RootObject, "Cannot compute elements on root object!");
 
             auto& obj = m_Objects[object];
             auto& state = obj.State;
             auto& elems = m_Elements.Get(object);
 
-            LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Cannot compute elements on an invalid object!");
+            LV_CORE_ASSERT(obj.Validity == Validity::Valid || obj.Validity == Validity::InvalidPath,
+                "Cannot compute elements on an object with invalid parent, mass, or position!");
 
             elems.Grav = kGravitational * m_Objects[obj.Parent].State.Mass * pow(m_LocalSpaces.Get(obj.Parent).MetersPerRadius, -3.0);
 
@@ -452,8 +530,19 @@ namespace Limnova
             elems.SemiMajor = elems.P / (1.f - e2);
             elems.SemiMinor = elems.SemiMajor * sqrtf(1.f - e2);
 
-            elems.T = pow((double)elems.SemiMajor, 1.5) * PI2 / sqrt(elems.H);
             elems.C = elems.P / (1.f + elems.E) - elems.SemiMajor;
+            elems.T = pow((double)elems.SemiMajor, 1.5) * PI2 / sqrt(elems.H);
+        }
+
+        void TryComputeOrbitalState(TObjectId object)
+        {
+            if (object != m_RootObject && (m_Objects[object].Validity == Validity::Valid ||
+                m_Objects[object].Validity == Validity::InvalidPath))
+            {
+                ComputeElements(object);
+                ComputeDynamics(object); /* If orbiter is not dynamic, sets Validity to InvalidPath if dynamic events are found */
+                ComputeInfluence(object);
+            }
         }
 
         /// <summary>
@@ -551,7 +640,7 @@ namespace Limnova
         /// </summary>
         /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
         /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId, TObjectId parent, double mass, Vector3 position, Vector3 velocity)
+        TObjectId Create(TUserId userId, TObjectId parent, double mass, Vector3 position, Vector3 velocity, bool dynamic = false)
         {
             LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
 
@@ -565,11 +654,13 @@ namespace Limnova
             m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
             m_Elements.Add(newObject);
 
-            if (ComputeStateValidity(newObject))
-            {
-                ComputeElements(newObject);
-                ComputeInfluence(newObject);
+            if (dynamic) {
+                m_Dynamics.Add(newObject);
             }
+
+            ComputeStateValidity(newObject);
+            TryComputeOrbitalState(newObject);
+
             return newObject;
         }
 
@@ -579,27 +670,11 @@ namespace Limnova
         /// </summary>
         /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
         /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId, TObjectId parent, bool mass, Vector3 position)
+        TObjectId Create(TUserId userId, TObjectId parent, bool mass, Vector3 position, bool dynamic = false)
         {
             LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
 
-            //TObjectId newObject = GetEmptyObject();
-            //m_Objects[newObject].UserId = userId;
-            //AttachObject(newObject, parent);
-            //m_Objects[newObject].State.Mass = mass;
-            //m_Objects[newObject].State.Position = position;
-            //
-            //m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
-            //m_Elements.Add(newObject);
-            //if (ComputeStateValidity(newObject))
-            //{
-            //    m_Objects[newObject].State.Velocity = GetDefaultOrbitVelocity(newObject);
-            //
-            //    ComputeElements(newObject);
-            //    ComputeInfluence(newObject);
-            //}
-
-            return Create(userId, parent, mass, position, CircularOrbitVelocity(parent, position));
+            return Create(userId, parent, mass, position, CircularOrbitVelocity(parent, position), dynamic);
         }
 
         /// <summary>
@@ -607,21 +682,11 @@ namespace Limnova
         /// </summary>
         /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
         /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId, TObjectId parent)
+        TObjectId Create(TUserId userId, TObjectId parent, bool dynamic = false)
         {
             LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
 
-            //TObjectId newObject = GetEmptyObject();
-            //m_Objects[newObject].UserId = userId;
-            //AttachObject(newObject, parent);
-            //
-            //ComputeStateValidity(newObject);
-            //
-            //m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
-            //m_Elements.Add(newObject);
-            //return newObject;
-
-            return Create(userId, parent, 0.0, { 0.f }, { 0.0 });
+            return Create(userId, parent, 0.0, { 0.f }, { 0.0 }, dynamic);
         }
 
         /// <summary>
@@ -629,16 +694,9 @@ namespace Limnova
         /// </summary>
         /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
         /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId)
+        TObjectId Create(TUserId userId, bool dynamic = false)
         {
-            //TObjectId newObject = GetEmptyObject();
-            //m_Objects[newObject].UserId = userId;
-            //AttachObject(newObject, m_RootObject);
-            //m_LocalSpaces.Add(newObject).Radius = kDefaultLocalSpaceRadius;
-            //m_Elements.Add(newObject);
-            //return newObject;
-
-            return Create(userId, m_RootObject, 0.0, { 0.f }, { 0.0 });
+            return Create(userId, m_RootObject, 0.0, { 0.f }, { 0.0 }, dynamic);
         }
 
         /// <summary>
@@ -687,12 +745,7 @@ namespace Limnova
             LV_CORE_ASSERT(object != parent && Has(parent), "Invalid parent ID!");
             m_Objects[object].Parent = parent;
             ComputeStateValidity(object);
-
-            if (m_Objects[object].Validity == Validity::Valid)
-            {
-                ComputeElements(object);
-                ComputeInfluence(object);
-            }
+            TryComputeOrbitalState(object);
             // TODO : update satellites ?
         }
 
@@ -736,7 +789,7 @@ namespace Limnova
         bool SetLocalSpaceRadius(TObjectId object, float radius)
         {
             static constexpr float kMaxLocalSpaceRadius = 0.25f;
-            static constexpr float kMinLocalSpaceRadius = 0.f;
+            static constexpr float kMinLocalSpaceRadius = 0.01f;
 
             if (!IsInfluencing(object) && radius < kMaxLocalSpaceRadius && radius > kMinLocalSpaceRadius)
             {
@@ -747,7 +800,7 @@ namespace Limnova
                 return true;
             }
             LV_CORE_ASSERT(!m_LocalSpaces[object].Influencing, "Local-space radius of influencing entities cannot be manually set (must be set equal to radius of influence)!");
-            LV_CORE_WARN("Attempted to set invalid local-space radius ({0}): bounds = [{1}, {2}]", radius, kMinLocalSpaceRadius, kMaxLocalSpaceRadius);
+            LV_CORE_WARN("Attempted to set invalid local-space radius ({0}): must be in the range [{1}, {2}]", radius, kMinLocalSpaceRadius, kMaxLocalSpaceRadius);
             return false;
         }
 
@@ -761,12 +814,7 @@ namespace Limnova
         {
             m_Objects[object].State.Mass = mass;
             ComputeStateValidity(object);
-
-            if (m_Objects[object].Validity == Validity::Valid && object != m_RootObject)
-            {
-                ComputeElements(object);
-                ComputeInfluence(object);
-            }
+            TryComputeOrbitalState(object); /* NOTE: this should be redundant as orbital motion is independent of orbiter mass, but do it anyway just for consistency */
             // TODO : update satellites ?
         }
 
@@ -786,12 +834,7 @@ namespace Limnova
 
             m_Objects[object].State.Position = position;
             ComputeStateValidity(object);
-
-            if (m_Objects[object].Validity == Validity::Valid)
-            {
-                ComputeElements(object);
-                ComputeInfluence(object);
-            }
+            TryComputeOrbitalState(object);
             // TODO : update satellites ?
         }
 
@@ -810,13 +853,7 @@ namespace Limnova
             }
 
             m_Objects[object].State.Velocity = velocity;
-            /* Currently no validity check for velocity */
-
-            if (m_Objects[object].Validity == Validity::Valid)
-            {
-                ComputeElements(object);
-                ComputeInfluence(object);
-            }
+            TryComputeOrbitalState(object);
             // TODO : update satellites ?
         }
 
@@ -855,6 +892,31 @@ namespace Limnova
         const Elements& GetElements(TObjectId object)
         {
             return m_Elements[object];
+        }
+
+
+        void SetDynamic(TObjectId object, bool isDynamic)
+        {
+            if (isDynamic)
+            {
+                m_Dynamics.GetOrAdd(object);
+            }
+            else
+            {
+                m_Dynamics.TryRemove(object);
+            }
+
+            TryComputeOrbitalState(object);
+        }
+
+        bool IsDynamic(TObjectId object)
+        {
+            return m_Dynamics.Has(object);
+        }
+
+        const Dynamics& GetDynamics(TObjectId object)
+        {
+            return m_Dynamics[object];
         }
 
     };

@@ -866,7 +866,10 @@ namespace Limnova
 
         transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ length, thickness }, 0.f));
 
-        DrawBatchedLine(transform, color, length, thickness, length, 0.f, entityId);
+        float dashLength = length;
+        float gapLength = 0.f;
+
+        DrawBatchedLine(transform, color, length, thickness, dashLength, gapLength, entityId);
     }
 
 
@@ -959,7 +962,9 @@ namespace Limnova
 
         stemTransform = glm::scale((glm::mat4)stemTransform, glm::vec3(glm::vec2{ stemLength, thickness }, 0.f));
 
-        DrawBatchedLine(stemTransform, color, length, thickness, length, 0.f, entityId);
+        float dashLength = length;
+        float gapLength = 0.f;
+        DrawBatchedLine(stemTransform, color, length, thickness, dashLength, gapLength, entityId);
 
         // Arrowhead arms
         Vector3 arm0Direction = Quaternion(finalNormal, 3.f * PIover4f).RotateVector(direction);

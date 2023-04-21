@@ -72,13 +72,12 @@ namespace Limnova
             transform.SetPosition({ 0.9f, 0.f, 0.f });
             transform.SetScale({ 0.1f, 0.1f, 0.f });
             auto& oc = orbital0.AddComponent<OrbitalComponent>();
-            oc.SetMass(1.0);
+            oc.SetMass(1e5f);
             oc.UIColor = { 1.f, 0.3f, 0.2f };
         }
 
         auto orbital1 = m_Scene->CreateEntity("Orbital 1");
         {
-            //orbital1.AddComponent<SpriteRendererComponent>(Vector4{ 0.3f, 0.2f, 1.f, 1.f });
             auto& crc = orbital1.AddComponent<BillboardCircleRendererComponent>();
             crc.Color = { 0.3f, 0.2f, 1.f, 1.f };
             crc.Fade = 0.f;
@@ -87,8 +86,25 @@ namespace Limnova
             transform.SetPosition({ 0.f, 0.f,-0.5f });
             transform.SetScale({ 0.1f, 0.1f, 0.f });
             auto& oc = orbital1.AddComponent<OrbitalComponent>();
-            oc.SetMass(1.0);
+            oc.SetMass(1e5f);
             oc.UIColor = { 0.3f, 0.2f, 1.f };
+        }
+
+        auto playerShip = m_Scene->CreateEntity("Player Ship");
+        {
+            playerShip.Parent(orbital0);
+
+            auto& crc = playerShip.AddComponent<BillboardCircleRendererComponent>();
+            crc.Color = { 0.9f, 0.9f, 0.9f, 1.f };
+            crc.Fade = 0.f;
+            crc.Thickness = 1.f;
+            auto& transform = playerShip.GetComponent<TransformComponent>();
+            transform.SetPosition({-0.7f, 0.f, 0.f });
+            transform.SetScale({ 0.1f, 0.1f, 0.f });
+            auto& oc = playerShip.AddComponent<OrbitalComponent>();
+            oc.SetMass(1e-11f);
+            oc.SetDynamic();
+            oc.UIColor = { 0.9f, 0.9f, 0.9f };
         }
 #else
         m_Scene = CreateRef<Scene>();

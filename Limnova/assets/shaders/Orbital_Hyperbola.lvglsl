@@ -1,0 +1,73 @@
+// Limnova
+// Renderer2D Hyperbola Shader
+
+#type vertex
+#version 450
+
+layout (std140, binding = 0) uniform CameraUniform {
+    mat4 ViewProj;
+    vec3 Position;
+    vec3 AimDirection;
+} u_Camera;
+
+layout(location = 0) in vec3  a_WorldPosition;
+layout(location = 1) in vec2  a_PerifocalPos;
+layout(location = 2) in vec4  a_Color;
+layout(location = 3) in float a_MajorMinorRatio;
+layout(location = 4) in float a_Thickness;
+layout(location = 5) in float a_Fade;
+layout(location = 6) in int a_EntityId;
+
+struct VertexData {
+    vec2  PerifocalPos;
+    vec4  Color;
+    float MajorMinorRatio;
+    float Thickness;
+    float Fade;
+};
+
+layout (location = 0) out VertexData outData;
+layout (location = 5) flat out int v_EntityId;
+
+void main()
+{
+    outData.PerifocalPos    = a_PerifocalPos;
+    outData.Color           = a_Color;
+    outData.MajorMinorRatio = a_MajorMinorRatio;
+    outData.Thickness       = a_Thickness;
+    outData.Fade            = a_Fade;
+
+    v_EntityId = a_EntityId;
+
+    gl_Position = u_Camera.ViewProj * vec4(a_WorldPosition, 1.0);
+}
+
+
+#type fragment
+#version 450
+
+struct VertexData {
+    vec2  PerifocalPos;
+    vec4  Color;
+    float MajorMinorRatio;
+    float Thickness;
+    float Fade;
+};
+
+layout (location = 0) in VertexData inData;
+layout (location = 5) flat in int v_EntityId;
+
+layout(location = 0) out vec4 o_Color;
+layout(location = 1) out int o_EntityId;
+
+void main()
+{
+    // TODO
+
+
+    vec4 color = inData.Color;
+    color.rgb *= color.a; // Premultiplied alpha
+    o_Color = color;
+
+    o_EntityId = v_EntityId;
+}

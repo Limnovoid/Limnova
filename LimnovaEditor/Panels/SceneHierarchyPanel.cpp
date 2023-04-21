@@ -92,6 +92,7 @@ namespace Limnova
             if (ImGui::Button("View")) {
                 ((OrbitalScene*)m_Scene)->SetViewPrimary(entity);
             }
+            // TODO - replace button with double click on tree-node
         }
 
         if (expanded)
@@ -378,18 +379,26 @@ namespace Limnova
             case Physics::Validity::InvalidParent:  ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Parent!");   break;
             case Physics::Validity::InvalidMass:    ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Mass!");     break;
             case Physics::Validity::InvalidPosition:ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Position!"); break;
+            case Physics::Validity::InvalidPath:    ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Path!");     break;
             }
 
             if (entity != m_Scene->GetRoot())
             {
-                ImGui::BeginDisabled(isOrbital && !isOrbitalViewSecondary);
+                bool isDynamic = orbital.IsDynamic();
+                if (LimnGui::Checkbox("Dynamic", isDynamic)) {
+                    orbital.SetDynamic(isDynamic);
+                }
+
+                ImGui::Separator();
+
+                ImGui::BeginDisabled(!isOrbitalViewSecondary);
                 LimnGui::Checkbox("Show Major/Minor Axes", orbital.ShowMajorMinorAxes, 175.f);
                 LimnGui::Checkbox("Show Normal", orbital.ShowNormal, 175.f);
                 ImGui::EndDisabled();
             }
 
             ImGui::Separator();
-            ImGui::BeginDisabled(isOrbital && !(isOrbitalViewPrimary || isOrbitalViewSecondary));
+            ImGui::BeginDisabled(!(isOrbitalViewPrimary || isOrbitalViewSecondary));
 
             // Local scale
             {
@@ -403,25 +412,25 @@ namespace Limnova
             ImGui::Separator();
 
             // Local space radius
-            if (orbital.IsInfluencing())
-            {
-                ImGui::Columns(2);
-                ImGui::SetColumnWidth(0, 125.f);
-                ImGui::Text("Influence Radius");
-                ImGui::NextColumn();
-                ImGui::Text("%.4f", orbital.GetLocalSpaceRadius());
-                ImGui::Columns(1);
+            bool isInfluencing = orbital.IsInfluencing();
+            if (isInfluencing) {
+                ImGui::Text("Influencing");
             }
-            else
-            {
-                float localSpaceRadius = orbital.GetLocalSpaceRadius();
-                LimnGui::InputConfig<float> config;
-                config.Speed = 0.0001f;
-                config.Precision = 4;
-                if (LimnGui::DragFloat("Local Space Radius", localSpaceRadius, config, 125.f)) {
-                    orbital.SetLocalSpaceRadius(localSpaceRadius);
-                }
+            else {
+                ImGui::Text("Non-influencing");
             }
+
+            ImGui::BeginDisabled(isInfluencing);
+
+            float localSpaceRadius = orbital.GetLocalSpaceRadius();
+            LimnGui::InputConfig<float> config;
+            config.Speed = 0.0001f;
+            config.Precision = 4;
+            if (LimnGui::DragFloat("Local Space Radius", localSpaceRadius, config, 125.f)) {
+                orbital.SetLocalSpaceRadius(localSpaceRadius);
+            }
+
+            ImGui::EndDisabled();
 
             // Mass
             double mass = orbital.GetMass();
@@ -433,7 +442,7 @@ namespace Limnova
             ImGui::EndDisabled();
 
             ImGui::Separator();
-            ImGui::BeginDisabled(isOrbital && !isOrbitalViewSecondary);
+            ImGui::BeginDisabled(!isOrbitalViewSecondary);
 
             // Position
             {
@@ -456,14 +465,18 @@ namespace Limnova
                 config.Speed = 0.0001f;
                 config.Precision = 4;
                 config.ResetValue = 0.f;
-                if (LimnGui::DragVec3("Velocity", velocity, config))
-                {
+                if (LimnGui::DragVec3("Velocity", velocity, config)) {
                     orbital.SetVelocity(velocity);
                 }
 
-                if (ImGui::Button("Circularise Velocity"))
-                {
+                if (ImGui::Button("Circularise Orbit")) {
                     orbital.SetCircular();
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("Reverse Orbit")) {
+                    orbital.SetVelocity(-velocity);
                 }
             }
 
