@@ -38,6 +38,23 @@ namespace Limnova
         Vector3 WorldPosition;
         Vector2 LocalPosition;
         Vector4 Color;
+        float SemiMajorAxis;
+        float SemiMinorAxis;
+        Vector2 CutoffPoint;
+        Vector2 CutoffNormal;
+        float Thickness;
+        float Fade;
+
+        // Editor only
+        int EntityId;
+    };
+
+
+    struct HyperbolaVertex
+    {
+        Vector3 WorldPosition;
+        Vector2 LocalPosition;
+        Vector4 Color;
         float MajorMinorRatio;
         Vector2 CutoffPoint;
         Vector2 CutoffNormal;
@@ -244,7 +261,8 @@ namespace Limnova
             { ShaderDataType::Float3,   "a_WorldPosition"   },
             { ShaderDataType::Float2,   "a_LocalPosition"   },
             { ShaderDataType::Float4,   "a_Color"           },
-            { ShaderDataType::Float,    "a_MajorMinorRatio" },
+            { ShaderDataType::Float,    "a_SemiMajorAxis" },
+            { ShaderDataType::Float,    "a_SemiMinorAxis" },
             { ShaderDataType::Float2,   "a_CutoffPoint"     },
             { ShaderDataType::Float2,   "a_CutoffNormal"    },
             { ShaderDataType::Float,    "a_Thickness"       },
@@ -741,7 +759,8 @@ namespace Limnova
             s_Data.EllipseVertexBufferPtr->LocalPosition.x = 2.f * (s_Data.QuadVertexPositions[i].x + vertexPositionPadding.x) * majorMinorAxisRatio;
             s_Data.EllipseVertexBufferPtr->LocalPosition.y = 2.f * (s_Data.QuadVertexPositions[i].y + vertexPositionPadding.y);
             s_Data.EllipseVertexBufferPtr->Color = color;
-            s_Data.EllipseVertexBufferPtr->MajorMinorRatio = majorMinorAxisRatio;
+            s_Data.EllipseVertexBufferPtr->SemiMajorAxis = majorMinorAxisRatio;
+            s_Data.EllipseVertexBufferPtr->SemiMinorAxis = 1.0f;
             s_Data.EllipseVertexBufferPtr->CutoffPoint = cutoffPoint;
             s_Data.EllipseVertexBufferPtr->CutoffNormal = cutoffNormal;
             s_Data.EllipseVertexBufferPtr->Thickness = thickness;
@@ -782,7 +801,7 @@ namespace Limnova
 
         Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)center);
         transform = transform * Matrix4(orientation);
-        transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ 2.f * elems.SemiMajor, 2.f * elems.SemiMinor }, 0.f));
+        transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ 2.f * elems.SemiMajor + thickness, 2.f * elems.SemiMinor + thickness }, 0.f));
 
         /* cutoffX is the x-value of the root of the cutoff line
          * cutoffNormal is the normal to the the cutoff line, equal to the unit direction vector of the orbit velocity at the cutoff point */
@@ -806,21 +825,45 @@ namespace Limnova
                 float cutoffPosX = cutoffRadius * cosT - elems.C;   /* subtract center's x-offset to convert x-component */
                 float cutoffPosY = cutoffRadius * sinT;             /* y-component unaffected by conversion */
 
-                #ifdef EXCLUDE
-                // Compute x-offset from cutoff point to cutoff root, using the x/y ratio of the direction vector which points from the cutoff point to the root
-                // multiplied by the known y-component:
-                // Vector2 cutoffRootDirection = { cutoffNormal.y, -cutoffNormal.x };
-                float cutoffToRootX = cutoffPosY * cutoffNormal.y / -cutoffNormal.x;
-                cutoffX = cutoffPosX - cutoffToRootX;
-                #endif
-
-                // Convert cutoff position to quad coordinate system (for comparison with LocalPosition vertex attribute)
-                cutoffPoint.x = cutoffPosX / elems.SemiMinor;
-                cutoffPoint.y = cutoffPosY / elems.SemiMinor;
+                //// Convert cutoff position to quad coordinate system (for comparison with LocalPosition vertex attribute)
+                //cutoffPoint.x = cutoffPosX / elems.SemiMinor;
+                //cutoffPoint.y = cutoffPosY / elems.SemiMinor;
+                cutoffPoint.x = cutoffPosX;
+                cutoffPoint.y = cutoffPosY;
             }
         }
 
-        DrawBatchedEllipse(transform, elems.SemiMajor / elems.SemiMinor, cutoffPoint, cutoffNormal, color, thickness, fade, entityId);
+        //DrawBatchedEllipse(transform, elems.SemiMajor / elems.SemiMinor, cutoffPoint, cutoffNormal, color, thickness, fade, entityId);
+
+        // Submit to batch manually
+        if (s_Data.CircleIndexCount >= s_Data.MaxCircleIndices)
+        {
+            FlushEllipses();
+            ResetEllipseBatch();
+        }
+
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            float padX = (i == 0 || i == 3) ? -thickness / 2.f : thickness / 2.f;
+            float padY = (i == 0 || i == 1) ? -thickness / 2.f : thickness / 2.f;
+
+            s_Data.EllipseVertexBufferPtr->WorldPosition = (transform * s_Data.QuadVertexPositions[i]).XYZ();
+            s_Data.EllipseVertexBufferPtr->LocalPosition.x = s_Data.QuadVertexPositions[i].x * 2.f * elems.SemiMajor + padX;
+            s_Data.EllipseVertexBufferPtr->LocalPosition.y = s_Data.QuadVertexPositions[i].y * 2.f * elems.SemiMinor + padY;
+            s_Data.EllipseVertexBufferPtr->Color = color;
+            s_Data.EllipseVertexBufferPtr->SemiMajorAxis = elems.SemiMajor;
+            s_Data.EllipseVertexBufferPtr->SemiMinorAxis = elems.SemiMinor;
+            s_Data.EllipseVertexBufferPtr->CutoffPoint = cutoffPoint;
+            s_Data.EllipseVertexBufferPtr->CutoffNormal = cutoffNormal;
+            s_Data.EllipseVertexBufferPtr->Thickness = thickness;
+            s_Data.EllipseVertexBufferPtr->Fade = fade;
+            s_Data.EllipseVertexBufferPtr->EntityId = entityId;
+            s_Data.EllipseVertexBufferPtr++;
+        }
+        s_Data.EllipseIndexCount += 6;
+
+
+        s_Data.Stats.QuadCount++;
     }
 
 

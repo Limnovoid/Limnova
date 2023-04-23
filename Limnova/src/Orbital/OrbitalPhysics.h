@@ -481,6 +481,7 @@ namespace Limnova
             Vector3 posDir = state.Position.Normalized();
             Vector3 Evec = (Vector3)(state.Velocity.Cross(Hvec) / elems.Grav) - posDir;
             elems.E = sqrtf(Evec.SqrMagnitude());
+            float e2 = powf(elems.E, 2.f), e2term;
             static constexpr float kEccentricityEpsilon = 1e-4f;
             if (elems.E < kEccentricityEpsilon)
             {
@@ -489,19 +490,42 @@ namespace Limnova
                 elems.PerifocalX = abs(elems.PerifocalNormal.Dot(kReferenceY)) > kParallelDotProductLimit
                     ? kReferenceX : kReferenceY.Cross(elems.PerifocalNormal);
                 elems.PerifocalY = elems.PerifocalNormal.Cross(elems.PerifocalX);
-            }
-            else if (elems.E < 1.f)
-            {
-                // Elliptical
-                elems.PerifocalX = Evec / elems.E;
-                elems.PerifocalY = elems.PerifocalNormal.Cross(elems.PerifocalX);
+
+                e2term = 1.f;
             }
             else
             {
-                // Hyperbolic
-                LV_CORE_ASSERT(false, "Hyperbolic orbits not yet implemented!");
+                elems.PerifocalX = Evec / elems.E;
+                elems.PerifocalY = elems.PerifocalNormal.Cross(elems.PerifocalX);
+
+                if (elems.E < 1.f) {
+                    // Elliptical
+                    e2term = 1.f - e2;
+                }
+                else {
+                    // Hyperbolic
+                    e2term = 1.f + e2;
+                }
             }
 
+            // Dimensions
+            elems.SemiMajor = elems.P / (e2term);
+            elems.SemiMinor = elems.SemiMajor * sqrtf(e2term);
+
+            elems.C = elems.P / (1.f + elems.E);
+            elems.C += elems.E < 1.f ? -elems.SemiMajor : elems.SemiMajor; /* differentiate center position for ellipse and hyperbola */
+
+            elems.T = pow((double)elems.SemiMajor, 1.5) * PI2 / sqrt(elems.H);
+
+            elems.TrueAnomaly = AngleBetweenUnitVectorsSafe(elems.PerifocalX, posDir);
+            // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
+            if (posDir.Dot(elems.PerifocalY) < 0.f)
+            {
+                // Velocity is in the negative X-axis of the perifocal frame
+                elems.TrueAnomaly = PI2f - elems.TrueAnomaly;
+            }
+
+            // Frame orientation
             elems.I = acosf(elems.PerifocalNormal.Dot(kReferenceNormal));
             elems.N = abs(elems.PerifocalNormal.Dot(kReferenceNormal)) > kParallelDotProductLimit
                 ? elems.PerifocalX : kReferenceNormal.Cross(elems.PerifocalNormal).Normalized();
@@ -517,22 +541,6 @@ namespace Limnova
                 Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis)
                 * Quaternion(elems.N, elems.I)
                 * Quaternion(kReferenceNormal, elems.Omega);
-
-            elems.TrueAnomaly = AngleBetweenUnitVectorsSafe(elems.PerifocalX, posDir);
-            // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
-            if (posDir.Dot(elems.PerifocalY) < 0.f)
-            {
-                // Velocity is in the negative X-axis of the perifocal frame
-                elems.TrueAnomaly = PI2f - elems.TrueAnomaly;
-            }
-
-            // Dimensions
-            float e2 = powf(elems.E, 2.f);
-            elems.SemiMajor = elems.P / (1.f - e2);
-            elems.SemiMinor = elems.SemiMajor * sqrtf(1.f - e2);
-
-            elems.C = elems.P / (1.f + elems.E) - elems.SemiMajor;
-            elems.T = pow((double)elems.SemiMajor, 1.5) * PI2 / sqrt(elems.H);
         }
 
         void TryComputeOrbitalState(TObjectId object)
