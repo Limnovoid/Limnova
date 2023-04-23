@@ -14,26 +14,32 @@ layout(location = 0) in vec3  a_WorldPosition;
 layout(location = 1) in vec2  a_PerifocalPos;
 layout(location = 2) in vec4  a_Color;
 layout(location = 3) in float a_MajorMinorRatio;
-layout(location = 4) in float a_Thickness;
-layout(location = 5) in float a_Fade;
-layout(location = 6) in int a_EntityId;
+layout(location = 4) in vec2  a_CutoffPoint;
+layout(location = 5) in vec2  a_CutoffNormal;
+layout(location = 6) in float a_Thickness;
+layout(location = 7) in float a_Fade;
+layout(location = 8) in int a_EntityId;
 
 struct VertexData {
     vec2  PerifocalPos;
     vec4  Color;
     float MajorMinorRatio;
+    vec2  CutoffPoint;
+    vec2  CutoffNormal;
     float Thickness;
     float Fade;
 };
 
 layout (location = 0) out VertexData outData;
-layout (location = 5) flat out int v_EntityId;
+layout (location = 8) flat out int v_EntityId;
 
 void main()
 {
     outData.PerifocalPos    = a_PerifocalPos;
     outData.Color           = a_Color;
     outData.MajorMinorRatio = a_MajorMinorRatio;
+    outData.CutoffPoint     = a_CutoffPoint;
+    outData.CutoffNormal    = a_CutoffNormal;
     outData.Thickness       = a_Thickness;
     outData.Fade            = a_Fade;
 
@@ -50,12 +56,14 @@ struct VertexData {
     vec2  PerifocalPos;
     vec4  Color;
     float MajorMinorRatio;
+    vec2  CutoffPoint;
+    vec2  CutoffNormal;
     float Thickness;
     float Fade;
 };
 
 layout (location = 0) in VertexData inData;
-layout (location = 5) flat in int v_EntityId;
+layout (location = 8) flat in int v_EntityId;
 
 layout(location = 0) out vec4 o_Color;
 layout(location = 1) out int o_EntityId;
@@ -63,11 +71,19 @@ layout(location = 1) out int o_EntityId;
 void main()
 {
     if (length(inData.PerifocalPos) > inData.MajorMinorRatio + inData.Thickness ||
-        length(inData.PerifocalPos) < 1.0 - inData.Thickness) {
+        length(inData.PerifocalPos) < 1.0 - inData.Thickness)
+    {
+        discard;
+    }
+
+    // Discard if pixel position (with absolute y-component) is above the cutoff line
+    vec2 pixelCutoff = vec2(inData.PerifocalPos.x - inData.CutoffPoint.x, abs(inData.PerifocalPos.y) - inData.CutoffPoint.y);
+    if (dot(pixelCutoff, inData.CutoffNormal) > 0.0) {
         discard;
     }
 
     float a2 = pow(inData.MajorMinorRatio, 2.0);
+    // NOTE : b2 = b = 1.0
 
     float k_x = abs(inData.PerifocalPos.x);
     float k_y = abs(inData.PerifocalPos.y);

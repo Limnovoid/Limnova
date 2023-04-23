@@ -313,10 +313,10 @@ namespace Limnova
         Vector3 GetPosition() { return Physics->GetPosition(PhysicsObjectId); }
         Vector3d GetVelocity() { return Physics->GetVelocity(PhysicsObjectId); }
 
-        const Physics::Elements& GetElements() { return Physics->GetElements(PhysicsObjectId); }
-        const Physics::Dynamics& GetDynamics() { return Physics->GetDynamics(PhysicsObjectId); }
+        const Physics::Elements& GetElements() const { return Physics->GetElements(PhysicsObjectId); }
+        const Physics::Dynamics& GetDynamics() const { return Physics->GetDynamics(PhysicsObjectId); }
 
-        bool IsDynamic() { return Physics->IsDynamic(PhysicsObjectId); }
+        bool IsDynamic() const { return Physics->IsDynamic(PhysicsObjectId); }
         void SetDynamic(bool isDynamic = true) { Physics->SetDynamic(PhysicsObjectId, isDynamic); }
     };
 

@@ -165,7 +165,7 @@ namespace Limnova
         {
             double Grav = 0.f;          /* Gravitational parameter (mu) */
             double H = 0.0;             /* Orbital specific angular momentum */
-            double E = { 0.f };         /* Eccentricity */
+            float E = { 0.f };          /* Eccentricity */
 
             float P = 0.f;              /* Orbit parameter, or semi-latus rectum */
 
@@ -428,11 +428,12 @@ namespace Limnova
             obj.Validity = Validity::Valid;
             if (m_Dynamics.Has(object))
             {
-                if (escapesLocalSpace && obj.Parent == m_RootObject) {
+                if (escapesLocalSpace && obj.Parent == m_RootObject)
+                {
                     LV_WARN("Orbit path cannot exit the simulation space!");
                     obj.Validity = Validity::InvalidPath;
+                    return;
                 }
-                return;
             }
             else
             {
@@ -451,8 +452,8 @@ namespace Limnova
             auto& dynamics = m_Dynamics.Get(object);
 
             dynamics.EscapeTrueAnomaly = escapeTrueAnomaly;
-            dynamics.EscapePoint = escapesLocalSpace ? ObjectPositionAtTrueAnomaly(object, escapeTrueAnomaly) : { 0.f };
-            dynamics.EntryPoint = escapesLocalSpace ? ObjectPositionAtTrueAnomaly(object, PI2f - escapeTrueAnomaly) : { 0.f };
+            dynamics.EscapePoint = escapesLocalSpace ? ObjectPositionAtTrueAnomaly(object, escapeTrueAnomaly) : Vector3{ 0.f };
+            dynamics.EntryPoint = escapesLocalSpace ? ObjectPositionAtTrueAnomaly(object, PI2f - escapeTrueAnomaly) : Vector3{ 0.f };
         }
 
         void ComputeElements(TObjectId object)

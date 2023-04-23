@@ -201,10 +201,12 @@ namespace Limnova
                 // TODO - get thickness from camera distance
                 float orbitThickness = m_OrbitThickness * elems.SemiMinor / powf(elems.SemiMajor, m_OrbitThicknessFactor);
 
-                Matrix4 orbitTransform = glm::translate(glm::mat4(1.f), (glm::vec3)orbitCenter);
-                orbitTransform = orbitTransform * Matrix4(elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation);
-                orbitTransform = glm::scale((glm::mat4)orbitTransform, glm::vec3(glm::vec2{ 2.f * elems.SemiMajor, 2.f * elems.SemiMinor }, 0.f));
-                Renderer2D::DrawEllipse(orbitTransform, elems.SemiMajor / elems.SemiMinor, uiColor, orbitThickness, 0.f, (int)secondary);
+                //Matrix4 orbitTransform = glm::translate(glm::mat4(1.f), (glm::vec3)orbitCenter);
+                //orbitTransform = orbitTransform * Matrix4(elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation);
+                //orbitTransform = glm::scale((glm::mat4)orbitTransform, glm::vec3(glm::vec2{ 2.f * elems.SemiMajor, 2.f * elems.SemiMinor }, 0.f));
+                //Renderer2D::DrawEllipse(orbitTransform, elems.SemiMajor / elems.SemiMinor, uiColor, orbitThickness, 0.f, (int)secondary);
+                Renderer2D::DrawOrbitalEllipse(orbitCenter, elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation, orbital,
+                    uiColor, orbitThickness, 0.f, (int)secondary);
             }
 
             // Local space

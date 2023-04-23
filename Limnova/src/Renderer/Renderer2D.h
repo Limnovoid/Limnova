@@ -50,10 +50,11 @@ namespace Limnova
 
         // Ellipses //
     private:
-        static void DrawBatchedEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
+        static void DrawBatchedEllipse(const Matrix4& transform, float majorMinorAxisRatio, Vector2 cutoffPoint, Vector2 cutoffNormal, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
     public:
         static void DrawEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
-        static void DrawEllipse(const Vector3& centre, const Quaternion& orientation, float semiMajorAxis, float semiMinorAxis, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
+        static void DrawEllipse(const Vector3& center, const Quaternion& orientation, float semiMajorAxis, float semiMinorAxis, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
+        static void DrawOrbitalEllipse(const Vector3& center, const Quaternion& orientation, const OrbitalComponent& component, const Vector4& color, float thickness = 1.f, float fade = 0.005f, int entityId = -1);
 
         // Lines //
     private:

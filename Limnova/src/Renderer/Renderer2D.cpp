@@ -39,6 +39,8 @@ namespace Limnova
         Vector2 LocalPosition;
         Vector4 Color;
         float MajorMinorRatio;
+        Vector2 CutoffPoint;
+        Vector2 CutoffNormal;
         float Thickness;
         float Fade;
 
@@ -243,6 +245,8 @@ namespace Limnova
             { ShaderDataType::Float2,   "a_LocalPosition"   },
             { ShaderDataType::Float4,   "a_Color"           },
             { ShaderDataType::Float,    "a_MajorMinorRatio" },
+            { ShaderDataType::Float2,   "a_CutoffPoint"     },
+            { ShaderDataType::Float2,   "a_CutoffNormal"    },
             { ShaderDataType::Float,    "a_Thickness"       },
             { ShaderDataType::Float,    "a_Fade"            },
             { ShaderDataType::Int,      "a_EntityId"        }
@@ -714,7 +718,7 @@ namespace Limnova
     }
 
 
-    void Renderer2D::DrawBatchedEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness, float fade, int entityId)
+    void Renderer2D::DrawBatchedEllipse(const Matrix4& transform, float majorMinorAxisRatio, Vector2 cutoffPoint, Vector2 cutoffNormal, const Vector4& color, float thickness, float fade, int entityId)
     {
         LV_PROFILE_FUNCTION();
 
@@ -738,6 +742,8 @@ namespace Limnova
             s_Data.EllipseVertexBufferPtr->LocalPosition.y = 2.f * (s_Data.QuadVertexPositions[i].y + vertexPositionPadding.y);
             s_Data.EllipseVertexBufferPtr->Color = color;
             s_Data.EllipseVertexBufferPtr->MajorMinorRatio = majorMinorAxisRatio;
+            s_Data.EllipseVertexBufferPtr->CutoffPoint = cutoffPoint;
+            s_Data.EllipseVertexBufferPtr->CutoffNormal = cutoffNormal;
             s_Data.EllipseVertexBufferPtr->Thickness = thickness;
             s_Data.EllipseVertexBufferPtr->Fade = fade;
             s_Data.EllipseVertexBufferPtr->EntityId = entityId;
@@ -752,7 +758,9 @@ namespace Limnova
 
     void Renderer2D::DrawEllipse(const Matrix4& transform, float majorMinorAxisRatio, const Vector4& color, float thickness, float fade, int entityId)
     {
-        DrawBatchedEllipse(transform, majorMinorAxisRatio, color, thickness, fade, entityId);
+        Vector2 cutoffPoint = { 0.f };
+        Vector2 cutoffNormal = { 0.f };
+        DrawBatchedEllipse(transform, majorMinorAxisRatio, cutoffPoint, cutoffNormal, color, thickness, fade, entityId);
     }
 
 
@@ -762,7 +770,57 @@ namespace Limnova
         transform = Matrix4(orientation) * transform;
         transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ 2.f * semiMajorAxis, 2.f * semiMinorAxis }, 0.f));
 
-        DrawBatchedEllipse(transform, semiMajorAxis / semiMinorAxis, color, thickness, fade, entityId);
+        Vector2 cutoffPoint = { 0.f };
+        Vector2 cutoffNormal = { 0.f };
+        DrawBatchedEllipse(transform, semiMajorAxis / semiMinorAxis, cutoffPoint, cutoffNormal, color, thickness, fade, entityId);
+    }
+
+
+    void Renderer2D::DrawOrbitalEllipse(const Vector3& center, const Quaternion& orientation, const OrbitalComponent& component, const Vector4& color, float thickness, float fade, int entityId)
+    {
+        auto& elems = component.GetElements();
+
+        Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)center);
+        transform = transform * Matrix4(orientation);
+        transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ 2.f * elems.SemiMajor, 2.f * elems.SemiMinor }, 0.f));
+
+        /* cutoffX is the x-value of the root of the cutoff line
+         * cutoffNormal is the normal to the the cutoff line, equal to the unit direction vector of the orbit velocity at the cutoff point */
+        Vector2 cutoffPoint = { 0.f };
+        Vector2 cutoffNormal = { 0.f };
+        if (component.IsDynamic())
+        {
+            auto& dynamics = component.GetDynamics();
+            if (dynamics.EscapeTrueAnomaly > 0.f)
+            {
+                float sinT = sinf(dynamics.EscapeTrueAnomaly);
+                float cosT = cosf(dynamics.EscapeTrueAnomaly);
+
+                // Compute cutoff normal from the orbit velocity at the cutoff point
+                cutoffNormal.x = -sinT;
+                cutoffNormal.y = elems.E + cosT;
+                cutoffNormal.Normalize();
+
+                // Compute cutoff point coordinates relative to orbit center: compute relative to primary and convert to being relative to orbit center
+                float cutoffRadius = elems.P / (1.f + elems.E * cosT);
+                float cutoffPosX = cutoffRadius * cosT - elems.C;   /* subtract center's x-offset to convert x-component */
+                float cutoffPosY = cutoffRadius * sinT;             /* y-component unaffected by conversion */
+
+                #ifdef EXCLUDE
+                // Compute x-offset from cutoff point to cutoff root, using the x/y ratio of the direction vector which points from the cutoff point to the root
+                // multiplied by the known y-component:
+                // Vector2 cutoffRootDirection = { cutoffNormal.y, -cutoffNormal.x };
+                float cutoffToRootX = cutoffPosY * cutoffNormal.y / -cutoffNormal.x;
+                cutoffX = cutoffPosX - cutoffToRootX;
+                #endif
+
+                // Convert cutoff position to quad coordinate system (for comparison with LocalPosition vertex attribute)
+                cutoffPoint.x = cutoffPosX / elems.SemiMinor;
+                cutoffPoint.y = cutoffPosY / elems.SemiMinor;
+            }
+        }
+
+        DrawBatchedEllipse(transform, elems.SemiMajor / elems.SemiMinor, cutoffPoint, cutoffNormal, color, thickness, fade, entityId);
     }
 
 
