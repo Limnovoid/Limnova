@@ -1,5 +1,3 @@
-'*' = see definition
-
 # Summary
 Limnova Engine is an ongoing hobby project/learning exercise with the ultimate goal of producing a game engine with out-of-the-box orbital mechanics, including an engine editor with intuitive GUI-based controls, and of teaching as much as possible about game engine architecture, orbital physics simulation, and modern C++ development along the way.
 
