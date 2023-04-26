@@ -15,11 +15,11 @@ Systems like these can be used to describe many common scenarios such as star-pl
 No restrictions are placed on the values that can be entered into the editor: placing an orbital object in the scene or setting its physical attributes such that it violates any number of restrictions will simply mark that object as invalid, causing it to be excluded from the orbital simulation, and inform the user of the nature of the invalidity.
 
 # Building with Visual Studio
-Open the root directory (contains this README and the top CMakeLists file) in Visual Studio.
-Open a Terminal window in this directory and run:
+Open the root directory containing this README in Visual Studio.
+Open a Terminal window (in the root directory) and run:
 
 `cmake -S . -B build/`.
 
-This will create the output directory structure under a new subdirectory called "build", to contain all build objects (including executables). It is likely to be hidden in the Solution Explorer by the .gitignore - select "Show All Files" to view.
+This will create the output directory structure under a new subdirectory called `build`, which will contain all build objects (including executables). It is likely to be hidden in the Solution Explorer by the .gitignore - select "Show All Files" to view.
 
-Select Build/Build All to compile the LimnovaEngine project and its executables - LimnovaEditor, PlayApp, and Orbital.
+Select "Build/Build All" to compile the LimnovaEngine project and its executables.
