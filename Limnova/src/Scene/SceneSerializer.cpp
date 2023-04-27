@@ -662,7 +662,6 @@ namespace Limnova
         out << YAML::Key << "LocalSpaceThickness" << YAML::Value << scene->m_LocalSpaceThickness;
         out << YAML::Key << "LocalSpaceFade"         << YAML::Value << scene->m_LocalSpaceFade;
         out << YAML::Key << "OrbitThickness"        << YAML::Value << scene->m_OrbitThickness;
-        out << YAML::Key << "OrbitThicknessFactor"  << YAML::Value << scene->m_OrbitThicknessFactor;
         out << YAML::Key << "OrbitAlpha"            << YAML::Value << scene->m_OrbitAlpha;
         //out << YAML::Key << "ViewPrimary" << YAML::Value << (uint32_t)(scene->m_ViewPrimary); // TODO - use uuid
 
@@ -711,7 +710,6 @@ namespace Limnova
         scene->m_LocalSpaceThickness = data["InfluenceThickness"].as<float>();
         scene->m_LocalSpaceFade = data["InfluenceFade"].as<float>();
         scene->m_OrbitThickness = data["OrbitThickness"].as<float>();
-        scene->m_OrbitThicknessFactor = data["OrbitThicknessFactor"].as<float>();
         scene->m_OrbitAlpha = data["OrbitAlpha"].as<float>();
         //m_Scene->m_ViewPrimary          = data["ViewPrimary"].as<uint32_t>(); // TODO - use uuid
 

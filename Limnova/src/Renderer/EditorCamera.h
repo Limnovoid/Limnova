@@ -30,8 +30,9 @@ namespace Limnova
 
         void SetAzimuth(float azimuth) { m_Azimuth = azimuth; }
         void SetElevation(float elevation) { m_Elevation = elevation; }
-        void SetDistance(float distance) { m_FocusDistance = distance; }
+        void SetDistance(float distance) { m_FocusDistance = distance; UpdateProportionalScrollRate(); }
 
+        float GetDistance() { return m_FocusDistance; }
         const Quaternion& GetOrientation() { return m_Orientation; }
 
         Camera& GetCamera() { return m_Camera; }
@@ -41,6 +42,13 @@ namespace Limnova
         bool OnMouseButtonReleased(MouseButtonReleasedEvent& e);
         bool OnMouseScrolled(MouseScrolledEvent& e);
         bool OnWindowResized(WindowResizeEvent& e);
+
+        inline void UpdateProportionalScrollRate()
+        {
+            static const float kMaxScrollRate;
+
+            m_ScrollRate = 0.1f * m_FocusDistance;
+        }
     private:
         Camera m_Camera;
 
@@ -64,7 +72,7 @@ namespace Limnova
 
         float m_OrbitRate = 0.01f;
         float m_DragRate = 2.f;
-        float m_ScrollRate = 0.1f;
+        float m_ScrollRate; /* initialized/controlled by UpdateProportionalScrollRate() */
 
         Vector2 m_MousePos;
     };

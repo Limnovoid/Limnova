@@ -55,7 +55,8 @@ namespace Limnova
         Vector3 WorldPosition;
         Vector2 LocalPosition;
         Vector4 Color;
-        float MajorMinorRatio;
+        float SemiMajorAxis;
+        float SemiMinorAxis;
         Vector2 CutoffPoint;
         Vector2 CutoffNormal;
         float Thickness;
@@ -134,6 +135,21 @@ namespace Limnova
         uint32_t EllipseIndexCount = 0;
         EllipseVertex* EllipseVertexBufferBase = nullptr;
         EllipseVertex* EllipseVertexBufferPtr = nullptr;
+
+        // Hyperbolas
+        const uint32_t MaxHyperbolas = 1024;
+        const uint32_t MaxHyperbolaVertices = MaxHyperbolas * 3;
+        const uint32_t MaxHyperbolaIndices = MaxHyperbolas * 3;
+
+        Ref<VertexArray> HyperbolaVertexArray;
+        Ref<VertexBuffer> HyperbolaVertexBuffer;
+        Ref<Shader> HyperbolaShader;
+
+        uint32_t HyperbolaIndexCount = 0;
+        HyperbolaVertex* HyperbolaVertexBufferBase = nullptr;
+        HyperbolaVertex* HyperbolaVertexBufferPtr = nullptr;
+
+        Vector4 HyperbolaVertexPositions[3];
 
         // Lines
         const uint32_t MaxLines = 1024;
@@ -230,10 +246,10 @@ namespace Limnova
 
         s_Data.TextureSlots[0] = s_Data.WhiteTexture;
 
-        s_Data.QuadVertexPositions[0] = { -0.5f, -0.5f, 0.f, 1.f };
-        s_Data.QuadVertexPositions[1] = {  0.5f, -0.5f, 0.f, 1.f };
-        s_Data.QuadVertexPositions[2] = {  0.5f,  0.5f, 0.f, 1.f };
-        s_Data.QuadVertexPositions[3] = { -0.5f,  0.5f, 0.f, 1.f };
+        s_Data.QuadVertexPositions[0] = {-0.5f,-0.5f, 0.f, 1.f  };
+        s_Data.QuadVertexPositions[1] = { 0.5f,-0.5f, 0.f, 1.f  };
+        s_Data.QuadVertexPositions[2] = { 0.5f, 0.5f, 0.f, 1.f  };
+        s_Data.QuadVertexPositions[3] = {-0.5f, 0.5f, 0.f, 1.f  };
 
         // Circles
         s_Data.CircleVertexArray = VertexArray::Create();
@@ -261,8 +277,8 @@ namespace Limnova
             { ShaderDataType::Float3,   "a_WorldPosition"   },
             { ShaderDataType::Float2,   "a_LocalPosition"   },
             { ShaderDataType::Float4,   "a_Color"           },
-            { ShaderDataType::Float,    "a_SemiMajorAxis" },
-            { ShaderDataType::Float,    "a_SemiMinorAxis" },
+            { ShaderDataType::Float,    "a_SemiMajorAxis"   },
+            { ShaderDataType::Float,    "a_SemiMinorAxis"   },
             { ShaderDataType::Float2,   "a_CutoffPoint"     },
             { ShaderDataType::Float2,   "a_CutoffNormal"    },
             { ShaderDataType::Float,    "a_Thickness"       },
@@ -275,6 +291,40 @@ namespace Limnova
 
         //s_Data.EllipseShader = Shader::Create(LV_ASSET_DIR"/shaders/Renderer2D_Ellipse.lvglsl");
         s_Data.EllipseShader = Shader::Create(LV_ASSET_DIR"/shaders/Orbital_Ellipse.lvglsl");
+
+        // Hyperbolas
+        s_Data.HyperbolaVertexArray = VertexArray::Create();
+
+        s_Data.HyperbolaVertexBuffer = VertexBuffer::Create(s_Data.MaxHyperbolaVertices * sizeof(HyperbolaVertex));
+        s_Data.HyperbolaVertexBuffer->SetLayout({
+            { ShaderDataType::Float3,   "a_WorldPosition"   },
+            { ShaderDataType::Float2,   "a_LocalPosition"   },
+            { ShaderDataType::Float4,   "a_Color"           },
+            { ShaderDataType::Float,    "a_SemiMajorAxis"   },
+            { ShaderDataType::Float,    "a_SemiMinorAxis"   },
+            { ShaderDataType::Float2,   "a_CutoffPoint"     },
+            { ShaderDataType::Float2,   "a_CutoffNormal"    },
+            { ShaderDataType::Float,    "a_Thickness"       },
+            { ShaderDataType::Float,    "a_Fade"            },
+            { ShaderDataType::Int,      "a_EntityId"        }
+            });
+        s_Data.HyperbolaVertexArray->AddVertexBuffer(s_Data.HyperbolaVertexBuffer);
+
+        uint32_t* hyperbolaIndices = new uint32_t[s_Data.MaxHyperbolaIndices];
+        for (uint32_t i = 0; i < s_Data.MaxHyperbolaIndices; i++) {
+            hyperbolaIndices[i] = i;
+        }
+        Ref<IndexBuffer> hyperbolaIB = IndexBuffer::Create(hyperbolaIndices, s_Data.MaxHyperbolaIndices);
+        s_Data.HyperbolaVertexArray->SetIndexBuffer(hyperbolaIB);
+        delete[] hyperbolaIndices;
+
+        s_Data.HyperbolaVertexArray->SetIndexBuffer(hyperbolaIB);
+        s_Data.HyperbolaVertexBufferBase = new HyperbolaVertex[s_Data.MaxHyperbolaVertices];
+        s_Data.HyperbolaShader = Shader::Create(LV_ASSET_DIR"/shaders/Orbital_Hyperbola.lvglsl");
+
+        s_Data.HyperbolaVertexPositions[0] = { 0.f,  0.f,  0.f,  1.f  };
+        s_Data.HyperbolaVertexPositions[1] = {-1.f,  1.f,  0.f,  1.f  };
+        s_Data.HyperbolaVertexPositions[2] = {-1.f, -1.f,  0.f,  1.f  };
 
         // Lines
         s_Data.LineVertexArray = VertexArray::Create();
@@ -360,6 +410,7 @@ namespace Limnova
         ResetQuadBatch();
         ResetCircleBatch();
         ResetEllipseBatch();
+        ResetHyperbolaBatch();
         ResetLineBatch();
     }
 
@@ -371,6 +422,7 @@ namespace Limnova
         FlushQuads();
         FlushCircles();
         FlushEllipses();
+        FlushHyperbolas();
         FlushLines();
     }
 
@@ -740,7 +792,7 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
-        if (s_Data.CircleIndexCount >= s_Data.MaxCircleIndices)
+        if (s_Data.EllipseIndexCount >= s_Data.MaxEllipseIndices)
         {
             FlushEllipses();
             ResetEllipseBatch();
@@ -803,40 +855,24 @@ namespace Limnova
         transform = transform * Matrix4(orientation);
         transform = glm::scale((glm::mat4)transform, glm::vec3(glm::vec2{ 2.f * elems.SemiMajor + thickness, 2.f * elems.SemiMinor + thickness }, 0.f));
 
-        /* cutoffX is the x-value of the root of the cutoff line
-         * cutoffNormal is the normal to the the cutoff line, equal to the unit direction vector of the orbit velocity at the cutoff point */
-        Vector2 cutoffPoint = { 0.f };
-        Vector2 cutoffNormal = { 0.f };
+        Vector2 cutoffPoint = { 0.f }; /* the point on the orbit path above the x-axis (positive y-component) at which the orbit should stop being drawn */
+        Vector2 cutoffNormal = { 0.f }; /* the normal to the the cutoff line, equal to the unit direction vector of the orbit velocity at the cutoff point */
         if (component.IsDynamic())
         {
             auto& dynamics = component.GetDynamics();
             if (dynamics.EscapeTrueAnomaly > 0.f)
             {
-                float sinT = sinf(dynamics.EscapeTrueAnomaly);
-                float cosT = cosf(dynamics.EscapeTrueAnomaly);
+                cutoffPoint = dynamics.EscapePointPerifocal;
 
                 // Compute cutoff normal from the orbit velocity at the cutoff point
-                cutoffNormal.x = -sinT;
-                cutoffNormal.y = elems.E + cosT;
+                cutoffNormal.x = -sinf(dynamics.EscapeTrueAnomaly);
+                cutoffNormal.y = elems.E + cosf(dynamics.EscapeTrueAnomaly);
                 cutoffNormal.Normalize();
-
-                // Compute cutoff point coordinates relative to orbit center: compute relative to primary and convert to being relative to orbit center
-                float cutoffRadius = elems.P / (1.f + elems.E * cosT);
-                float cutoffPosX = cutoffRadius * cosT - elems.C;   /* subtract center's x-offset to convert x-component */
-                float cutoffPosY = cutoffRadius * sinT;             /* y-component unaffected by conversion */
-
-                //// Convert cutoff position to quad coordinate system (for comparison with LocalPosition vertex attribute)
-                //cutoffPoint.x = cutoffPosX / elems.SemiMinor;
-                //cutoffPoint.y = cutoffPosY / elems.SemiMinor;
-                cutoffPoint.x = cutoffPosX;
-                cutoffPoint.y = cutoffPosY;
             }
         }
 
-        //DrawBatchedEllipse(transform, elems.SemiMajor / elems.SemiMinor, cutoffPoint, cutoffNormal, color, thickness, fade, entityId);
-
-        // Submit to batch manually
-        if (s_Data.CircleIndexCount >= s_Data.MaxCircleIndices)
+        // Submit to batch
+        if (s_Data.EllipseIndexCount >= s_Data.MaxEllipseIndices)
         {
             FlushEllipses();
             ResetEllipseBatch();
@@ -864,6 +900,85 @@ namespace Limnova
 
 
         s_Data.Stats.QuadCount++;
+    }
+
+
+    // Hyperbolas //
+
+    void Renderer2D::FlushHyperbolas()
+    {
+        LV_PROFILE_FUNCTION();
+
+        if (s_Data.HyperbolaIndexCount == 0) {
+            return;
+        }
+
+        s_Data.HyperbolaShader->Bind();
+
+        uint32_t dataSize = (uint8_t*)s_Data.HyperbolaVertexBufferPtr - (uint8_t*)s_Data.HyperbolaVertexBufferBase;
+        s_Data.HyperbolaVertexBuffer->SetData(s_Data.HyperbolaVertexBufferBase, dataSize);
+
+        RenderCommand::DrawIndexed(s_Data.HyperbolaVertexArray, s_Data.HyperbolaIndexCount);
+
+
+        s_Data.Stats.DrawCalls++;
+    }
+
+
+    void Renderer2D::ResetHyperbolaBatch()
+    {
+        LV_PROFILE_FUNCTION();
+
+        s_Data.HyperbolaIndexCount = 0;
+        s_Data.HyperbolaVertexBufferPtr = s_Data.HyperbolaVertexBufferBase;
+    }
+
+
+    void Renderer2D::DrawOrbitalHyperbola(const Vector3& center, const Quaternion& orientation, const OrbitalComponent& component, const Vector4& color, float thickness, float fade, int entityId)
+    {
+        auto& elems = component.GetElements();
+        LV_CORE_ASSERT(elems.Type == Physics::OrbitType::Hyperbola, "Orbit must be hyperbolic!");
+        auto& dynamics = component.GetDynamics();
+
+        Vector2 cutoffPoint = dynamics.EscapePointPerifocal; /* the point on the orbit path above the x-axis (positive y-component) at which the orbit should stop being drawn */
+        Vector2 cutoffNormal = { 0.f }; /* the normal to the cutoff line, equal to the unit direction vector of the orbit velocity at the cutoff point */
+
+        // Compute cutoff normal from the orbit velocity at the cutoff point
+        cutoffNormal.x = -sinf(dynamics.EscapeTrueAnomaly);
+        cutoffNormal.y = elems.E + cosf(dynamics.EscapeTrueAnomaly);
+        cutoffNormal.Normalize();
+
+        // Transform
+        Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)center);
+        transform = transform * Matrix4(orientation);
+
+        float triangleMaxX = abs(cutoffPoint.x) + thickness;
+        float triangleMaxY = triangleMaxX * elems.SemiMinor / elems.SemiMajor; /* y-value of hyperbola's asymptote at x = triangleMaxX plus  */
+        transform = glm::scale((glm::mat4)transform, glm::vec3{ glm::vec2{ triangleMaxX, triangleMaxY }, 0.f });
+
+        // Submit to batch
+        if (s_Data.HyperbolaIndexCount >= s_Data.MaxHyperbolaIndices)
+        {
+            FlushHyperbolas();
+            ResetHyperbolaBatch();
+        }
+
+        for (uint32_t i = 0; i < 3; i++)
+        {
+            s_Data.HyperbolaVertexBufferPtr->WorldPosition = (transform * s_Data.HyperbolaVertexPositions[i]).XYZ();
+            s_Data.HyperbolaVertexBufferPtr->LocalPosition.x = s_Data.HyperbolaVertexPositions[i].x * triangleMaxX;
+            s_Data.HyperbolaVertexBufferPtr->LocalPosition.y = s_Data.HyperbolaVertexPositions[i].y * triangleMaxY;
+            s_Data.HyperbolaVertexBufferPtr->Color = color;
+            s_Data.HyperbolaVertexBufferPtr->SemiMajorAxis = elems.SemiMajor;
+            s_Data.HyperbolaVertexBufferPtr->SemiMinorAxis = elems.SemiMinor;
+            s_Data.HyperbolaVertexBufferPtr->CutoffPoint = cutoffPoint;
+            s_Data.HyperbolaVertexBufferPtr->CutoffNormal = cutoffNormal;
+            s_Data.HyperbolaVertexBufferPtr->Thickness = thickness;
+            s_Data.HyperbolaVertexBufferPtr->Fade = fade;
+            s_Data.HyperbolaVertexBufferPtr->EntityId = entityId;
+            s_Data.HyperbolaVertexBufferPtr++;
+        }
+        s_Data.HyperbolaIndexCount += 6;
     }
 
 

@@ -32,7 +32,7 @@ namespace Limnova
         void OnRenderEditor(EditorCamera& camera) override;
     private:
         void UpdateOrbitalScene();
-        void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation);
+        void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, float cameraDistance);
 
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
@@ -41,19 +41,19 @@ namespace Limnova
         float m_LocalSpaceThickness = 0.002f;
         float m_LocalSpaceFade = 0.006f;
 
-        float m_OrbitThickness = 0.004f;
-        float m_OrbitThicknessFactor = 2.f;
+        float m_OrbitThickness = 0.006f;
+        float m_OrbitFade = 0.f;
         float m_OrbitAlpha = 0.4f;
         float m_OrbitPointRadius = 0.01f;
 
         bool m_ShowReferenceAxes = false;
         Vector4 m_ReferenceAxisColor = { 1.f, 1.f, 1.f, 0.2 };
         float m_ReferenceAxisLength = 0.4f;
-        float m_ReferenceAxisThickness = 0.005f;
-        float m_ReferenceAxisArrowSize = 0.025f;
+        float m_ReferenceAxisThickness = 0.006f;
+        float m_ReferenceAxisArrowSize = 0.024f;
 
-        float m_PerifocalAxisThickness = 0.005f;
-        float m_PerifocalAxisArrowSize = 0.025f;
+        float m_PerifocalAxisThickness = 0.006f;
+        float m_PerifocalAxisArrowSize = 0.024f;
     private:
         Physics m_Physics;
         entt::entity m_ViewPrimary;

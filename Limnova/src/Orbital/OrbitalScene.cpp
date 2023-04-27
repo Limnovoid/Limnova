@@ -35,12 +35,14 @@ namespace Limnova
     {
         if (entity.HasComponent<OrbitalComponent>())
         {
-            if (!parent.HasComponent<OrbitalComponent>()) return; /* Cannot parent orbital entity to a non-orbital entity */
+            if (!parent.HasComponent<OrbitalComponent>()) {
+                LV_WARN("Cannot parent orbital entity to a non-orbital entity!");
+                return;
+            }
 
             // Update physics system to reflect new parentage
-            auto& orbital = entity.GetComponent<OrbitalComponent>();
-            auto& porbital = parent.GetComponent<OrbitalComponent>();
-            m_Physics.SetParent(orbital.PhysicsObjectId, porbital.PhysicsObjectId);
+            m_Physics.SetParent(entity.GetComponent<OrbitalComponent>().PhysicsObjectId,
+                parent.GetComponent<OrbitalComponent>().PhysicsObjectId);
         }
         Scene::SetParent(entity, parent);
     }
@@ -147,17 +149,18 @@ namespace Limnova
         auto [camera, camTransform] = m_Registry.get<CameraComponent, TransformComponent>(m_ActiveCamera);
         camera.Camera.SetView(camTransform.GetTransform().Inverse());
 
-        RenderOrbitalScene(camera.Camera, camTransform.GetOrientation());
+        float cameraDistance = sqrtf(camTransform.GetPosition().SqrMagnitude());
+        RenderOrbitalScene(camera.Camera, camTransform.GetOrientation(), cameraDistance);
     }
 
 
     void OrbitalScene::OnRenderEditor(EditorCamera& camera)
     {
-        RenderOrbitalScene(camera.GetCamera(), camera.GetOrientation());
+        RenderOrbitalScene(camera.GetCamera(), camera.GetOrientation(), camera.GetDistance());
     }
 
 
-    void OrbitalScene::RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation)
+    void OrbitalScene::RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, float cameraDistance)
     {
         Scene::RenderScene(camera, cameraOrientation);
 
@@ -184,6 +187,8 @@ namespace Limnova
                 m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize, 4.f, 2.f);
         }
 
+        float orbitDrawingThickness = m_OrbitThickness * cameraDistance;
+
         auto secondaries = m_Physics.GetChildren(m_Registry.get<OrbitalComponent>(m_ViewPrimary).PhysicsObjectId);
         for (auto secondary : secondaries)
         {
@@ -198,15 +203,18 @@ namespace Limnova
             Vector3 orbitCenter = primaryPosition + (elems.PerifocalX * elems.C);
             Vector4 uiColor = Vector4{ orbital.UIColor, 0.4f };
             {
-                // TODO - get thickness from camera distance
-                float orbitThickness = m_OrbitThickness * elems.SemiMinor / powf(elems.SemiMajor, m_OrbitThicknessFactor);
-
-                //Matrix4 orbitTransform = glm::translate(glm::mat4(1.f), (glm::vec3)orbitCenter);
-                //orbitTransform = orbitTransform * Matrix4(elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation);
-                //orbitTransform = glm::scale((glm::mat4)orbitTransform, glm::vec3(glm::vec2{ 2.f * elems.SemiMajor, 2.f * elems.SemiMinor }, 0.f));
-                //Renderer2D::DrawEllipse(orbitTransform, elems.SemiMajor / elems.SemiMinor, uiColor, orbitThickness, 0.f, (int)secondary);
-                Renderer2D::DrawOrbitalEllipse(orbitCenter, elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation, orbital,
-                    uiColor, orbitThickness, 0.f, (int)secondary);
+                switch (elems.Type)
+                {
+                case Physics::OrbitType::Circle:
+                case Physics::OrbitType::Ellipse:
+                    Renderer2D::DrawOrbitalEllipse(orbitCenter, elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation, orbital,
+                        uiColor, orbitDrawingThickness, m_OrbitFade, (int)secondary);
+                    break;
+                case Physics::OrbitType::Hyperbola:
+                    Renderer2D::DrawOrbitalHyperbola(orbitCenter, elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation, orbital,
+                        uiColor, orbitDrawingThickness, m_OrbitFade, (int)secondary);
+                    break;
+                }
             }
 
             // Local space
@@ -217,7 +225,7 @@ namespace Limnova
                 float lsRadius = orbital.GetLocalSpaceRadius();
                 lsTransform = glm::scale((glm::mat4)lsTransform, glm::vec3(lsRadius));
 
-                float lsThickness = m_LocalSpaceThickness / lsRadius;
+                float lsThickness = m_LocalSpaceThickness * cameraDistance / lsRadius;
                 Renderer2D::DrawCircle(lsTransform, m_LocalSpaceColor, lsThickness, m_LocalSpaceFade, (int)secondary);
             }
 
@@ -250,8 +258,8 @@ namespace Limnova
                 {
                     static constexpr Vector4 escapePointColor{ 1.f, 0.3f, 0.2f, 0.4f };
                     static constexpr Vector4 entryPointColor{ 0.3f, 1.f, 0.2f, 0.4f };
-                    Renderer2D::DrawCircle(primaryPosition + dynamics.EscapePoint, 0.1f, escapePointColor, 0.1f, 0.f, (int)secondary);
-                    Renderer2D::DrawCircle(primaryPosition + dynamics.EntryPoint, 0.1f, entryPointColor, 0.1f, 0.f, (int)secondary);
+                    Renderer2D::DrawCircle(primaryPosition + dynamics.EscapePoint, 0.01f, escapePointColor, 1.f, 0.f, (int)secondary);
+                    Renderer2D::DrawCircle(primaryPosition + dynamics.EntryPoint, 0.01f, entryPointColor, 1.f, 0.f, (int)secondary);
                 }
             }
         }

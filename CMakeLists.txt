@@ -11,7 +11,7 @@ add_compile_definitions(
     $<$<CONFIG:Release>:LV_RELEASE>
 )
 
-# Projects.
+# Projects
 add_subdirectory(Limnova)
 add_subdirectory(LimnovaEditor)
 add_subdirectory(PlayApp)

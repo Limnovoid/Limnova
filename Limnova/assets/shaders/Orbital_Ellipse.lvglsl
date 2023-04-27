@@ -1,5 +1,5 @@
 // Limnova
-// Renderer2D Ellipse Shader
+// Renderer2D Orbital Ellipse Shader
 
 #type vertex
 #version 450
@@ -94,9 +94,8 @@ void main()
     float k_y = abs(inData.PerifocalPos.y);
     vec2 k = vec2(k_x, k_y);
 
-    // NOTE : if k is outside the ellipse, sqrt() will be given a negative argument in one of the following lines
-    float j_x = sqrt(a2 * (1.0 - k_y * k_y / b2));
-    float i_y = sqrt(b2 * (1.0 - k_x * k_x / a2));
+    float j_x = sqrt(a2 * (1.0 - k_y * k_y / b2)); // NOTE : j_x is undefined if k_y is greater than the semi-minor axis
+    float i_y = sqrt(b2 * (1.0 - k_x * k_x / a2)); // NOTE : i_y is undefined if k_x is greater than the semi-major axis
 
     float distance;
     if (k_x > inData.SemiMajor)
@@ -113,6 +112,7 @@ void main()
     }
     else
     {
+        // NOTE : subtraction order guarantees that A and B are always the same sign (avoids call to abs())
         float A = j_x - k_x;
         float B = i_y - k_y;
         float C = sqrt(A * A + B * B);

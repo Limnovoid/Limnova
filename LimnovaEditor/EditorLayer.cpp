@@ -63,7 +63,6 @@ namespace Limnova
 
         auto orbital0 = m_Scene->CreateEntity("Orbital 0");
         {
-            //orbital0.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 0.3f, 0.2f, 1.f });
             auto& crc = orbital0.AddComponent<BillboardCircleRendererComponent>();
             crc.Color = { 1.f, 0.3f, 0.2f, 1.f };
             crc.Fade = 0.f;
@@ -93,6 +92,7 @@ namespace Limnova
         auto playerShip = m_Scene->CreateEntity("Player Ship");
         {
             playerShip.Parent(orbital0);
+            m_Scene->SetViewPrimary(orbital0);
 
             auto& crc = playerShip.AddComponent<BillboardCircleRendererComponent>();
             crc.Color = { 0.9f, 0.9f, 0.9f, 1.f };
@@ -104,6 +104,7 @@ namespace Limnova
             auto& oc = playerShip.AddComponent<OrbitalComponent>();
             oc.SetMass(1e-11f);
             oc.SetDynamic();
+            oc.SetVelocity({ 0.f, 0.f, 0.21f });
             oc.UIColor = { 0.9f, 0.9f, 0.9f };
         }
 #else
@@ -399,7 +400,6 @@ namespace Limnova
         if (ImGui::TreeNodeEx("Orbit Visuals", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::DragFloat("Thickness", &m_Scene->m_OrbitThickness, 0.001f, 0.001f, 1.f, "%.3f");
-            ImGui::DragFloat("Thickness Factor", &m_Scene->m_OrbitThicknessFactor, 0.001f, 0.001f, 1.f, "%.3f");
             ImGui::DragFloat("Alpha", &m_Scene->m_OrbitAlpha, 0.001f, 0.f, 1.f, "%.3f");
             ImGui::DragFloat("Plot Point Radius", &m_Scene->m_OrbitPointRadius, 0.001f, 0.001f, 0.1f, "%.3f");
 

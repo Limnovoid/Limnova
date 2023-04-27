@@ -13,6 +13,8 @@ namespace Limnova
         : m_Camera(m_FocusPoint - (Vector3::Forward() * m_FocusDistance), Vector3::Forward(), Vector3::Up())
     {
         std::tie(m_MousePos.x, m_MousePos.y) = Input::GetMousePosition();
+
+        UpdateProportionalScrollRate();
     }
 
 
@@ -127,6 +129,7 @@ namespace Limnova
         if (m_IsViewportHovered) {
             m_FocusDistance -= m_ScrollRate * e.GetYOffset();
             m_FocusDistance = std::max(m_FocusDistance, 0.f);
+            UpdateProportionalScrollRate();
         }
         return false;
     }
@@ -141,5 +144,4 @@ namespace Limnova
         }
         return false;
     }
-
 }

@@ -1,5 +1,5 @@
 // Limnova
-// Renderer2D Hyperbola Shader
+// Renderer2D Orbital Hyperbola Shader
 
 #type vertex
 #version 450
@@ -13,20 +13,22 @@ layout (std140, binding = 0) uniform CameraUniform {
 layout(location = 0) in vec3  a_WorldPosition;
 layout(location = 1) in vec2  a_PerifocalPos;
 layout(location = 2) in vec4  a_Color;
-layout(location = 3) in float a_MajorMinorRatio;
-layout(location = 4) in vec2  a_CutoffPoint;
-layout(location = 5) in vec2  a_CutoffNormal;
-layout(location = 6) in float a_Thickness;
-layout(location = 7) in float a_Fade;
-layout(location = 8) in int a_EntityId;
+layout(location = 3) in float a_SemiMajorAxis;
+layout(location = 4) in float a_SemiMinorAxis;
+layout(location = 5) in vec2  a_CutoffPoint;
+layout(location = 6) in vec2  a_CutoffNormal;
+layout(location = 7) in float a_Thickness;
+layout(location = 8) in float a_Fade;
+layout(location = 9) in int a_EntityId;
 
 struct VertexData {
     vec2  PerifocalPos;
     vec4  Color;
-    float MajorMinorRatio;
+    float SemiMajor;
+    float SemiMinor;
     vec2  CutoffPoint;
     vec2  CutoffNormal;
-    float Thickness;
+    float LineRadius;
     float Fade;
 };
 
@@ -37,10 +39,11 @@ void main()
 {
     outData.PerifocalPos    = a_PerifocalPos;
     outData.Color           = a_Color;
-    outData.MajorMinorRatio = a_MajorMinorRatio;
+    outData.SemiMajor       = a_SemiMajorAxis;
+    outData.SemiMinor       = a_SemiMinorAxis;
     outData.CutoffPoint     = a_CutoffPoint;
     outData.CutoffNormal    = a_CutoffNormal;
-    outData.Thickness       = a_Thickness;
+    outData.LineRadius      = a_Thickness / 2.0;
     outData.Fade            = a_Fade;
 
     v_EntityId = a_EntityId;
@@ -55,10 +58,11 @@ void main()
 struct VertexData {
     vec2  PerifocalPos;
     vec4  Color;
-    float MajorMinorRatio;
+    float SemiMajor;
+    float SemiMinor;
     vec2  CutoffPoint;
     vec2  CutoffNormal;
-    float Thickness;
+    float LineRadius;
     float Fade;
 };
 
@@ -76,47 +80,41 @@ void main()
         discard;
     }
 
-    float a2 = pow(inData.MajorMinorRatio, 2.0);
-    // NOTE : b2 = b = 1.0
+    float a2 = pow(inData.SemiMajor, 2.0);
+    float b2 = pow(inData.SemiMinor, 2.0);
 
-    float k_x = abs(inData.PerifocalPos.x);
+    float k_x = abs(inData.PerifocalPos.x); // NOTE : perifocal position will always be negative in the x-axis (orbit primary and periapsis are left of the center for hyperbolas)
     float k_y = abs(inData.PerifocalPos.y);
     vec2 k = vec2(k_x, k_y);
 
-    // NOTE : if k is outside the ellipse, sqrt() will be given a negative argument in one of the following lines
-    float j_x = sqrt(a2 * (1.0 - k_y * k_y));
-    float i_y = sqrt(1.0 - k_x * k_x / a2);
+    float j_x = sqrt(a2 * (k_y * k_y / b2 + 1.0));
+    float i_y = sqrt(b2 * (k_x * k_x / a2 - 1.0)); // NOTE : i_y is undefined if k_x is less than the semi-major axis
 
     float distance;
-    if (k_x > inData.MajorMinorRatio)
+    if (k_x < inData.SemiMajor)
     {
-        vec2 i = vec2(inData.MajorMinorRatio, 0.0);
-        vec2 chordNormal = normalize(vec2(k_y, inData.MajorMinorRatio - j_x));
+        vec2 i = vec2(inData.SemiMajor, 0.0);
+        vec2 chordNormal = normalize(vec2(-k_y, j_x - inData.SemiMajor));
         distance = dot(k - i, chordNormal);
-    }
-    else if (k_y > 1.0)
-    {
-        vec2 j = vec2(0.0, 1.0);
-        vec2 chordNormal = normalize(vec2(1.0 - i_y, k_x));
-        distance = dot(k - j, chordNormal);
     }
     else
     {
+        // NOTE : subtraction order guarantees that A and B are always the same sign (avoids call to abs())
         float A = j_x - k_x;
-        float B = i_y - k_y;
+        float B = k_y - i_y;
         float C = sqrt(A * A + B * B);
         distance = A * B / C;
     }
 
-    if (distance > inData.Thickness) {
+    if (distance > inData.LineRadius) {
         discard;
     }
 
 
-    float fade = 1.0 - smoothstep(inData.Thickness - inData.Fade, inData.Thickness, distance);
+    //float fade = 1.0 - smoothstep(inData.LineRadius - inData.Fade, inData.LineRadius, distance);
 
     vec4 color = inData.Color;
-    color.a *= fade;
+    //color.a *= fade;
     color.rgb *= color.a; // Premultiplied alpha
     o_Color = color;
 

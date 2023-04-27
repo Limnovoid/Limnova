@@ -133,6 +133,13 @@ namespace Limnova
             InvalidPath     = 3,
             Valid           = 100
         };
+
+        enum class OrbitType
+        {
+            Circle    = 0,
+            Ellipse   = 1,
+            Hyperbola = 2
+        };
     private:
         /*** Objects ***/
 
@@ -167,6 +174,8 @@ namespace Limnova
             double H = 0.0;             /* Orbital specific angular momentum */
             float E = { 0.f };          /* Eccentricity */
 
+            OrbitType Type = OrbitType::Circle; /* Type of orbit, reflecting its eccentricity */
+
             float P = 0.f;              /* Orbit parameter, or semi-latus rectum */
 
             float I = 0.f;              /* Inclination */
@@ -190,6 +199,7 @@ namespace Limnova
             float EscapeTrueAnomaly = 0.f;  /* True anomaly at which orbital radius equals the local-space escape radius */
             Vector3 EscapePoint = { 0.f }; /* Point on the orbit at which the orbiter will cross the primary's local space boundary to exit the local space */
             Vector3 EntryPoint = { 0.f }; /* Point on the orbit at which the orbiter (would have) crossed the primary's local space boundary to enter the local space */
+            Vector2 EscapePointPerifocal = { 0.f }; /* The escape point relative to the perifocal frame - 2D because it is restricted to the orbital (perifocal-XY) plane */
         };
     private:
         struct LocalSpace
@@ -414,7 +424,7 @@ namespace Limnova
             auto& elems = m_Elements[object];
 
             float apoapsisRadius = elems.P / (1.f - elems.E);
-            bool escapesLocalSpace = apoapsisRadius > kLocalSpaceEscapeRadius;
+            bool escapesLocalSpace = elems.Type == OrbitType::Hyperbola || apoapsisRadius > kLocalSpaceEscapeRadius;
 
             float escapeTrueAnomaly = 0.f;
             if (escapesLocalSpace) {
@@ -452,8 +462,28 @@ namespace Limnova
             auto& dynamics = m_Dynamics.Get(object);
 
             dynamics.EscapeTrueAnomaly = escapeTrueAnomaly;
-            dynamics.EscapePoint = escapesLocalSpace ? ObjectPositionAtTrueAnomaly(object, escapeTrueAnomaly) : Vector3{ 0.f };
-            dynamics.EntryPoint = escapesLocalSpace ? ObjectPositionAtTrueAnomaly(object, PI2f - escapeTrueAnomaly) : Vector3{ 0.f };
+
+            dynamics.EscapePoint = { 0.f };
+            dynamics.EntryPoint = { 0.f };
+            dynamics.EscapePointPerifocal = { 0.f };
+            if (escapesLocalSpace)
+            {
+                float cosTEscape = cosf(escapeTrueAnomaly);
+                float sinTEscape = sinf(escapeTrueAnomaly);
+
+                float entryTrueAnomaly = PI2f - escapeTrueAnomaly;
+
+                Vector3 escapeDirection = cosTEscape * elems.PerifocalX
+                    + sinTEscape * elems.PerifocalY;
+                Vector3 entryDirection = cosf(entryTrueAnomaly) * elems.PerifocalX
+                    + sinf(entryTrueAnomaly) * elems.PerifocalY;
+
+                dynamics.EscapePoint = kLocalSpaceEscapeRadius * escapeDirection;
+                dynamics.EntryPoint = kLocalSpaceEscapeRadius * entryDirection;
+
+                dynamics.EscapePointPerifocal = { kLocalSpaceEscapeRadius * cosTEscape - elems.C, /* subtract center's x-offset to convert x-component to the perifocal frame */
+                    kLocalSpaceEscapeRadius * sinTEscape };
+            }
         }
 
         void ComputeElements(TObjectId object)
@@ -487,6 +517,8 @@ namespace Limnova
             {
                 // Circular
                 elems.E = 0.f;
+                elems.Type = OrbitType::Circle;
+
                 elems.PerifocalX = abs(elems.PerifocalNormal.Dot(kReferenceY)) > kParallelDotProductLimit
                     ? kReferenceX : kReferenceY.Cross(elems.PerifocalNormal);
                 elems.PerifocalY = elems.PerifocalNormal.Cross(elems.PerifocalX);
@@ -500,11 +532,13 @@ namespace Limnova
 
                 if (elems.E < 1.f) {
                     // Elliptical
+                    elems.Type = OrbitType::Ellipse;
                     e2term = 1.f - e2;
                 }
                 else {
                     // Hyperbolic
-                    e2term = 1.f + e2;
+                    elems.Type = OrbitType::Hyperbola;
+                    e2term = e2 - 1.f;
                 }
             }
 
@@ -513,7 +547,7 @@ namespace Limnova
             elems.SemiMinor = elems.SemiMajor * sqrtf(e2term);
 
             elems.C = elems.P / (1.f + elems.E);
-            elems.C += elems.E < 1.f ? -elems.SemiMajor : elems.SemiMajor; /* differentiate center position for ellipse and hyperbola */
+            elems.C += (elems.Type == OrbitType::Ellipse) ? -elems.SemiMajor : elems.SemiMajor; /* different center position for ellipse and hyperbola */
 
             elems.T = pow((double)elems.SemiMajor, 1.5) * PI2 / sqrt(elems.H);
 
