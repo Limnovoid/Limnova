@@ -21,6 +21,13 @@ namespace Limnova
         void OnImGuiRender() override;
         void OnEvent(Event& e) override;
     private:
+        enum class SceneState
+        {
+            Edit = 0, Play = 1
+        };
+    private:
+        void UI_Toolbar();
+
         bool OnKeyPressed(KeyPressedEvent& e);
         bool OnMouseButtonPressed(MouseButtonPressedEvent& e);
 
@@ -29,6 +36,9 @@ namespace Limnova
         void NewScene();
         void OpenScene();
         void SaveSceneAs();
+
+        void OnScenePlay();
+        void OnSceneStop();
     private:
 #ifdef LV_EDITOR_USE_ORBITAL
         Ref<OrbitalScene> m_Scene;
@@ -43,9 +53,13 @@ namespace Limnova
         Vector2 m_ViewportBounds[2];
         bool m_ViewportFocused = false, m_ViewportHovered = false;
 
-        Entity m_HoveredEntity = Entity::Null;
-
         SceneHierarchyPanel m_SceneHierarchyPanel;
+
+        SceneState m_SceneState = SceneState::Edit;
+        Ref<Texture2D> m_IconPlay;
+        Ref<Texture2D> m_IconStop;
+
+        Entity m_HoveredEntity = Entity::Null;
 
         int m_ActiveGizmo = -1; /* from ImGuizmo::OPERATION */
         float m_SnapTranslate = 0.5f, m_SnapRotate = 45.f, m_SnapScale = 0.5f;

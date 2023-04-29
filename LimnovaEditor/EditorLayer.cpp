@@ -6,7 +6,7 @@
 #include <Utils/PlatformUtils.h>
 #include <imguizmo/ImGuizmo.h>
 
-#define ASSET_DIR "C:\\Programming\\source\\Limnova\\LimnovaEditor\\Assets"
+#define LV_EDITOR_ASSET_DIR "C:\\Programming\\source\\Limnova\\LimnovaEditor\\Assets"
 
 
 namespace Limnova
@@ -178,6 +178,8 @@ namespace Limnova
 #endif
 
         m_SceneHierarchyPanel.SetContext(m_Scene.get());
+        m_IconPlay = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\PlayButton.png");
+        m_IconStop = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\StopButton.png");
     }
 
 
@@ -202,10 +204,20 @@ namespace Limnova
 #endif
 
             // Update scene
-            //m_Scene->OnUpdateRuntime(dT);
-            m_Scene->OnUpdateEditor(dT);
-
-            m_EditorCamera.OnUpdate(dT);
+            switch (m_SceneState)
+            {
+            case SceneState::Edit:
+            {
+                m_Scene->OnUpdateEditor(dT);
+                m_EditorCamera.OnUpdate(dT);
+                break;
+            }
+            case SceneState::Play:
+            {
+                m_Scene->OnUpdateRuntime(dT);
+                break;
+            }
+            }
         }
 
         // Render
@@ -224,8 +236,19 @@ namespace Limnova
         {
             LV_PROFILE_SCOPE("Render Draw - EditorLayer::OnUpdate");
 
-            //m_Scene->OnRenderRuntime();
-            m_Scene->OnRenderEditor(m_EditorCamera);
+            switch (m_SceneState)
+            {
+            case SceneState::Edit:
+            {
+                m_Scene->OnRenderEditor(m_EditorCamera);
+                break;
+            }
+            case SceneState::Play:
+            {
+                m_Scene->OnRenderRuntime();
+                break;
+            }
+            }
 
             // Mouse hovering entities
             int mouseX = (int)(ImGui::GetMousePos().x - m_ViewportBounds[0].x);
@@ -510,9 +533,47 @@ namespace Limnova
         // Scene hierarchy
         m_SceneHierarchyPanel.OnImGuiRender();
 
+        UI_Toolbar();
+
         ImGui::End(); // DockSpace
 
         ImGui::ShowDemoWindow();
+    }
+
+
+    void EditorLayer::UI_Toolbar()
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.f, 2.f });
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2{ 0.f, 0.f });
+
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.f, 0.f, 0.f, 0.f });
+        auto& colorButtonHovered = ImGui::GetStyle().Colors[ImGuiCol_ButtonHovered];
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ colorButtonHovered.x, colorButtonHovered.y, colorButtonHovered.z, 0.5f });
+        auto& colorButtonActive = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ colorButtonActive.x, colorButtonActive.y, colorButtonActive.z, 0.5f });
+
+        ImGui::Begin("##toolbar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
+
+        // Play button
+        float size = ImGui::GetWindowHeight() - 8.f;
+        const Ref<Texture2D>& playButtonIcon = m_SceneState == SceneState::Edit ? m_IconPlay : m_IconStop;
+        ImGui::SetCursorPosX((ImGui::GetWindowContentRegionMax().x - size) * 0.5f);
+        if (ImGui::ImageButton("##playButton", (ImTextureID)playButtonIcon->GetRendererId(), ImVec2{size, size}))
+        {
+            switch (m_SceneState)
+            {
+            case SceneState::Edit:
+                OnScenePlay();
+                break;
+            case SceneState::Play:
+                OnSceneStop();
+                break;
+            }
+        }
+        ImGui::End();
+
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(2);
     }
 
 
@@ -628,6 +689,18 @@ namespace Limnova
         {
             SceneSerializer::Serialize(m_Scene.get(), filepath);
         }
+    }
+
+
+    void EditorLayer::OnScenePlay()
+    {
+        m_SceneState = SceneState::Play;
+    }
+
+
+    void EditorLayer::OnSceneStop()
+    {
+        m_SceneState = SceneState::Edit;
     }
 
 }

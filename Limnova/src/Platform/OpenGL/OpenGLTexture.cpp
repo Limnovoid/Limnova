@@ -19,7 +19,7 @@ namespace Limnova
 
         // TODO : parameters set by user
         glTextureParameteri(m_RendererId, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(m_RendererId, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureParameteri(m_RendererId, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
         SetWrapMode(Texture::WrapMode::Tile);
     }
@@ -58,7 +58,7 @@ namespace Limnova
 
         // TODO : parameters set by user
         glTextureParameteri(m_RendererId, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(m_RendererId, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureParameteri(m_RendererId, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
         SetWrapMode(wrap);
 
@@ -91,9 +91,9 @@ namespace Limnova
         GLint mode;
         switch (wrap)
         {
-            case WrapMode::Tile:            mode = GL_REPEAT; break;
-            case WrapMode::MirroredTile:    mode = GL_MIRRORED_REPEAT; break;
-            case WrapMode::Clamp:           mode = GL_CLAMP_TO_EDGE; break;
+        case WrapMode::Tile:         mode = GL_REPEAT; break;
+        case WrapMode::MirroredTile: mode = GL_MIRRORED_REPEAT; break;
+        case WrapMode::Clamp:        mode = GL_CLAMP_TO_EDGE; break;
         default: LV_CORE_ERROR("Invalid wrap mode!"); mode = GL_REPEAT;
         }
         glTextureParameteri(m_RendererId, GL_TEXTURE_WRAP_S, mode);
