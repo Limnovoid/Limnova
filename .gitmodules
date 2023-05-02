@@ -22,3 +22,6 @@
 [submodule "Limnova/thirdparty/imguizmo"]
 	path = Limnova/thirdparty/imguizmo
 	url = https://github.com/CedricGuillemet/ImGuizmo.git
+[submodule "Limnova/thirdparty/pcg-cpp"]
+	path = Limnova/thirdparty/pcg-cpp
+	url = https://github.com/imneme/pcg-cpp.git
