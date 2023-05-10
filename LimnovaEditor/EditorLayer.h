@@ -41,9 +41,11 @@ namespace Limnova
         void OnSceneStop();
     private:
 #ifdef LV_EDITOR_USE_ORBITAL
-        Ref<OrbitalScene> m_Scene;
+        Ref<OrbitalScene> m_ActiveScene;
+        Ref<OrbitalScene> m_EditorScene;
 #else
-        Ref<Scene> m_Scene;
+        Ref<Scene> m_ActiveScene;
+        Ref<Scene> m_EditorScene;
 #endif
 
         EditorCamera m_EditorCamera;

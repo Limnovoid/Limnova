@@ -1,14 +1,26 @@
 #pragma once
 
-#include "Entity.h"
-#include "Script.h"
-
+#include <Core/UUID.h>
 #include <Math/Math.h>
 #include <Renderer/Camera.h>
 #include <Orbital/OrbitalPhysics.h>
 
+#include <entt.hpp>
+
 namespace Limnova
 {
+
+    struct IDComponent
+    {
+        UUID ID;
+
+        IDComponent() = default;
+        IDComponent(const IDComponent&) = default;
+        IDComponent(const UUID uuid) : ID(uuid) {}
+
+        operator UUID() const { return ID; }
+    };
+
 
     struct TagComponent
     {
@@ -89,12 +101,12 @@ namespace Limnova
         friend class Scene;
         friend class OrbitalScene;
         friend class SceneSerializer;
+        friend class SceneHierarchyPanel;
     private:
-        /* TODO - use UUIDs */
-        Entity Parent;
-        Entity NextSibling;
-        Entity PrevSibling;
-        Entity FirstChild;
+        UUID Parent         = UUID::Null;
+        UUID NextSibling    = UUID::Null;
+        UUID PrevSibling    = UUID::Null;
+        UUID FirstChild     = UUID::Null;
     public:
         HierarchyComponent() = default;
         HierarchyComponent(const HierarchyComponent&) = default;
@@ -176,6 +188,7 @@ namespace Limnova
     };
 
 
+    class NativeScript;
     struct NativeScriptComponent
     {
         //LV_REFLECT(NativeScriptComponent)
@@ -263,7 +276,7 @@ namespace Limnova
     };
 
 
-    using Physics = OrbitalPhysics<entt::entity>;
+    using Physics = OrbitalPhysics<UUID>;
     struct OrbitalComponent
     {
         //LV_REFLECT(OrbitalComponent);

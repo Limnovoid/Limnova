@@ -7,6 +7,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Core/Layer.cpp"
     "src/Core/LayerStack.cpp"
     "src/Core/Timer.h"
+    "src/Core/UUID.cpp"
 
     "src/Events/Event.h"
     "src/Events/KeyEvent.h"
@@ -131,6 +132,7 @@ target_include_directories(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/imgui"
         "${PROJECT_SOURCE_DIR}/thirdparty/imguizmo"
+        "${PROJECT_SOURCE_DIR}/thirdparty/pcg-cpp/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/stb_image"
         "${PROJECT_SOURCE_DIR}/thirdparty/yaml-cpp/include"

@@ -14,9 +14,9 @@ namespace Limnova
         // Orbital setup
         /* NOTE : root MUST be assigned before signal setup - the root's OrbitalComponent should NOT create
          * a new object in OrbitalPhysics */
-        auto& rootOrbital = m_Registry.emplace<OrbitalComponent>(m_Root);
-        rootOrbital.PhysicsObjectId = m_Physics.AssignRoot(m_Root);
-        rootOrbital.Physics = &m_Physics;
+        auto& oc = AddComponent<OrbitalComponent>(m_Entities.at(m_Root));
+        oc.PhysicsObjectId = m_Physics.AssignRoot(m_Root);
+        oc.Physics = &m_Physics;
 
         m_OrbitalReferenceFrameOrientation = Quaternion(Vector3::Left(), PIover2f);
         m_OrbitalReferenceX = m_OrbitalReferenceFrameOrientation.RotateVector(Vector3::X());
@@ -28,6 +28,97 @@ namespace Limnova
         // Signals
         m_Registry.on_construct<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentConstruct>(this);
         m_Registry.on_destroy<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentDestruct>(this);
+    }
+
+
+    Ref<OrbitalScene> OrbitalScene::Copy(Ref<OrbitalScene> scene)
+    {
+        Ref<OrbitalScene> newScene = CreateRef<OrbitalScene>();
+
+        // Replicate scene hierarchy
+        newScene->SetRootId(scene->m_Root);
+        newScene->m_ViewportAspectRatio = scene->m_ViewportAspectRatio;
+        newScene->m_ActiveCamera = scene->m_ActiveCamera;
+
+        auto& srcRegistry = scene->m_Registry;
+        auto& dstRegistry = newScene->m_Registry;
+        auto idView = srcRegistry.view<IDComponent>();
+        for (auto e : idView)
+        {
+            UUID uuid = srcRegistry.get<IDComponent>(e).ID;
+            if (uuid == scene->m_Root) continue; /* root is already created so we skip it here */
+
+            const std::string& name = srcRegistry.get<TagComponent>(e).Tag;
+            newScene->CreateEntityFromUUID(uuid, name);
+        }
+
+        CopyAllOfComponent<TransformComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<HierarchyComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<CameraComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<NativeScriptComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<SpriteRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<BillboardSpriteRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<CircleRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<BillboardCircleRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<EllipseRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+
+        // Replicate scene physics state
+        // TODO - copy physics root settings, then copy components should take care of the rest ??
+        CopyAllOfComponent<OrbitalComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        LV_CORE_ASSERT(false, "TODO - replicate physics state explicitly");
+
+        // Copy scene settings
+        newScene->m_LocalSpaceColor = scene->m_LocalSpaceColor;
+        newScene->m_LocalSpaceThickness = scene->m_LocalSpaceThickness;
+        newScene->m_LocalSpaceFade = scene->m_LocalSpaceFade;
+        newScene->m_OrbitThickness = scene->m_OrbitThickness;
+        newScene->m_OrbitFade = scene->m_OrbitFade;
+        newScene->m_OrbitAlpha = scene->m_OrbitAlpha;
+        newScene->m_OrbitPointRadius = scene->m_OrbitPointRadius;
+        newScene->m_ShowReferenceAxes = scene->m_ShowReferenceAxes;
+        newScene->m_ReferenceAxisColor = scene->m_ReferenceAxisColor;
+        newScene->m_ReferenceAxisLength = scene->m_ReferenceAxisLength;
+        newScene->m_ReferenceAxisThickness = scene->m_ReferenceAxisThickness;
+        newScene->m_ReferenceAxisArrowSize = scene->m_ReferenceAxisArrowSize;
+        newScene->m_PerifocalAxisThickness = scene->m_PerifocalAxisThickness;
+        newScene->m_PerifocalAxisArrowSize = scene->m_PerifocalAxisArrowSize;
+
+        newScene->m_ViewPrimary = scene->m_ViewPrimary;
+
+        newScene->m_OrbitalReferenceFrameOrientation = scene->m_OrbitalReferenceFrameOrientation;
+        newScene->m_OrbitalReferenceX = scene->m_OrbitalReferenceX;
+        newScene->m_OrbitalReferenceY = scene->m_OrbitalReferenceY;
+        newScene->m_OrbitalReferenceNormal = scene->m_OrbitalReferenceNormal;
+
+        return newScene;
+    }
+
+
+    void OrbitalScene::SetRootScaling(double meters)
+    {
+        m_Physics.SetRootScaling(meters);
+    }
+
+
+    double OrbitalScene::GetRootScaling()
+    {
+        return m_Physics.GetRootScaling();
+    }
+
+
+    void OrbitalScene::SetViewPrimary(Entity primary)
+    {
+        if (primary.GetUUID() == m_ViewPrimary) return;
+
+        m_ViewPrimary = primary.GetUUID();
+
+        // TODO : update transforms to be correctly scaled for the viewed scaling space in the editor (no updates outside playtime) ?
+    }
+
+
+    Entity OrbitalScene::GetViewPrimary()
+    {
+        return Entity{ m_Entities[m_ViewPrimary], this };
     }
 
 
@@ -48,41 +139,13 @@ namespace Limnova
     }
 
 
-    void OrbitalScene::SetRootScaling(double meters)
-    {
-        m_Physics.SetRootScaling(meters);
-    }
-
-
-    double OrbitalScene::GetRootScaling()
-    {
-        return m_Physics.GetRootScaling();
-    }
-
-
-    void OrbitalScene::SetViewPrimary(Entity primary)
-    {
-        if (primary.m_EnttId == m_ViewPrimary) return;
-
-        m_ViewPrimary = primary.m_EnttId;
-
-        // TODO : update transforms to be correctly scaled for the viewed scaling space in the editor (no updates outside playtime) ?
-    }
-
-
-    Entity OrbitalScene::GetViewPrimary()
-    {
-        return Entity{ m_ViewPrimary, this };
-    }
-
-
     std::vector<Entity> OrbitalScene::GetSecondaries(Entity entity)
     {
         auto entityIds = m_Physics.GetChildren(m_Registry.get<OrbitalComponent>(entity.m_EnttId).PhysicsObjectId);
         std::vector<Entity> secondaries(entityIds.size());
         for (uint32_t i = 0; i < entityIds.size(); i++)
         {
-            secondaries[i] = { entityIds[i], this };
+            secondaries[i] = Entity{ m_Entities[entityIds[i]], this };
         }
         return secondaries;
     }
@@ -110,15 +173,15 @@ namespace Limnova
         auto view = m_Registry.view<OrbitalComponent>();
         for (auto entity : view)
         {
-            auto [tc, oc, hc] = m_Registry.get<TransformComponent, OrbitalComponent, HierarchyComponent>(entity);
+            auto [id, tc, oc, hc] = m_Registry.get<IDComponent, TransformComponent, OrbitalComponent, HierarchyComponent>(entity);
 
-            if (entity == m_ViewPrimary)
+            if (id.ID == m_ViewPrimary)
             {
                 // View primary
                 tc.SetScale(oc.LocalScale);
                 tc.SetPosition({ 0.f });
             }
-            else if (hc.Parent.m_EnttId == m_ViewPrimary)
+            else if (hc.Parent == m_ViewPrimary)
             {
                 // View secondary
                 tc.SetScale(oc.LocalScale * m_Physics.GetLocalSpaceRadius(oc.PhysicsObjectId));
@@ -141,12 +204,12 @@ namespace Limnova
 
     void OrbitalScene::OnRenderRuntime()
     {
-        if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<CameraComponent>(m_ActiveCamera))
+        if (!Valid(m_Entities[m_ActiveCamera]) || !HasComponent<CameraComponent>(m_Entities[m_ActiveCamera]))
         {
             LV_CORE_WARN("Scene has no active camera - no rendering!");
             return;
         }
-        auto [camera, camTransform] = m_Registry.get<CameraComponent, TransformComponent>(m_ActiveCamera);
+        auto [camera, camTransform] = GetComponents<CameraComponent, TransformComponent>(m_Entities[m_ActiveCamera]);
         camera.Camera.SetView(camTransform.GetTransform().Inverse());
 
         float cameraDistance = sqrtf(camTransform.GetPosition().SqrMagnitude());
@@ -171,8 +234,8 @@ namespace Limnova
         Renderer2D::BeginScene(camera);
 
         // Render orbital visuals
-        Entity primary = { m_ViewPrimary, this };
-        Vector3 primaryPosition = m_Registry.get<TransformComponent>(m_ViewPrimary).GetPosition();
+        auto primary = m_Entities[m_ViewPrimary];
+        Vector3 primaryPosition = GetComponent<TransformComponent>(primary).GetPosition();
 
         if (m_ShowReferenceAxes)
         {
@@ -189,11 +252,13 @@ namespace Limnova
 
         float orbitDrawingThickness = m_OrbitThickness * cameraDistance;
 
-        auto secondaries = m_Physics.GetChildren(m_Registry.get<OrbitalComponent>(m_ViewPrimary).PhysicsObjectId);
+        auto secondaries = m_Physics.GetChildren(GetComponent<OrbitalComponent>(primary).PhysicsObjectId);
         for (auto secondary : secondaries)
         {
-            auto& transform = m_Registry.get<TransformComponent>(secondary);
-            auto& orbital = m_Registry.get<OrbitalComponent>(secondary);
+            auto entity = m_Entities[secondary];
+            int editorPickingId = (int)(entity);
+            auto& transform = GetComponent<TransformComponent>(entity);
+            auto& orbital = GetComponent<OrbitalComponent>(entity);
             if (orbital.GetValidity() != Physics::Validity::Valid) continue;
             const auto& elems = orbital.GetElements();
 
@@ -208,11 +273,11 @@ namespace Limnova
                 case Physics::OrbitType::Circle:
                 case Physics::OrbitType::Ellipse:
                     Renderer2D::DrawOrbitalEllipse(orbitCenter, elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation, orbital,
-                        uiColor, orbitDrawingThickness, m_OrbitFade, (int)secondary);
+                        uiColor, orbitDrawingThickness, m_OrbitFade, editorPickingId);
                     break;
                 case Physics::OrbitType::Hyperbola:
                     Renderer2D::DrawOrbitalHyperbola(orbitCenter, elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation, orbital,
-                        uiColor, orbitDrawingThickness, m_OrbitFade, (int)secondary);
+                        uiColor, orbitDrawingThickness, m_OrbitFade, editorPickingId);
                     break;
                 }
             }
@@ -226,7 +291,7 @@ namespace Limnova
                 lsTransform = glm::scale((glm::mat4)lsTransform, glm::vec3(lsRadius));
 
                 float lsThickness = m_LocalSpaceThickness * cameraDistance / lsRadius;
-                Renderer2D::DrawCircle(lsTransform, m_LocalSpaceColor, lsThickness, m_LocalSpaceFade, (int)secondary);
+                Renderer2D::DrawCircle(lsTransform, m_LocalSpaceColor, lsThickness, m_LocalSpaceFade, editorPickingId);
             }
 
             // Perifocal frame
@@ -234,19 +299,19 @@ namespace Limnova
             {
                 // Semi-major axis
                 Renderer2D::DrawArrow(orbitCenter, orbitCenter + elems.PerifocalX * elems.SemiMajor,
-                    uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, (int)secondary);
+                    uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, editorPickingId);
                 Renderer2D::DrawDashedLine(orbitCenter, orbitCenter - elems.PerifocalX * elems.SemiMajor,
-                    uiColor, m_PerifocalAxisThickness, 4.f, 2.f, (int)secondary);
+                    uiColor, m_PerifocalAxisThickness, 4.f, 2.f, editorPickingId);
                 // Semi-minor axis
                 Renderer2D::DrawArrow(orbitCenter, orbitCenter + elems.PerifocalY * elems.SemiMinor,
-                    uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, (int)secondary);
+                    uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, editorPickingId);
                 Renderer2D::DrawDashedLine(orbitCenter, orbitCenter - elems.PerifocalY * elems.SemiMinor,
-                    uiColor, m_PerifocalAxisThickness, 4.f, 2.f, (int)secondary);
+                    uiColor, m_PerifocalAxisThickness, 4.f, 2.f, editorPickingId);
             }
             if (orbital.ShowNormal)
             {
                 Renderer2D::DrawArrow(orbitCenter, orbitCenter + elems.PerifocalNormal * 0.5f * elems.SemiMinor,
-                    uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, (int)secondary);
+                    uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, editorPickingId);
             }
 
 
@@ -275,16 +340,18 @@ namespace Limnova
         auto[orbital, hierarchy, transform] = m_Registry.get<OrbitalComponent, HierarchyComponent, TransformComponent>(entity);
 
         /* Parent of an orbital entity must also be orbital */
-        if (hierarchy.Parent.HasComponent<OrbitalComponent>())
+        auto id = m_Registry.get<IDComponent>(entity).ID;
+        if (HasComponent<OrbitalComponent>(m_Entities[hierarchy.Parent]))
         {
-            orbital.PhysicsObjectId = m_Physics.Create(entity, m_Registry.get<OrbitalComponent>(hierarchy.Parent.m_EnttId).PhysicsObjectId, 0.0, transform.GetPosition());
+            orbital.PhysicsObjectId = m_Physics.Create(id, GetComponent<OrbitalComponent>(m_Entities[hierarchy.Parent]).PhysicsObjectId, 0.0, transform.GetPosition());
         }
         else
         {
-            /* Default to the root entity, which is guaranteed to be orbital */
-            SetParent(Entity{ entity, this }, Entity{ m_Root, this });
+            /* Default to the root entity, which is guaranteed to be orbital in OrbitalScene */
+            HierarchyDisconnect(entity);
+            HierarchyConnect(entity, m_Entities[m_Root]);
 
-            orbital.PhysicsObjectId = m_Physics.Create(entity); /* Primary defaults to root physics object which corresponds to the root entity */
+            orbital.PhysicsObjectId = m_Physics.Create(id); /* Primary defaults to root physics object which corresponds to the root entity */
             m_Physics.SetPosition(orbital.PhysicsObjectId, transform.GetPosition());
         }
         orbital.Physics = &m_Physics;

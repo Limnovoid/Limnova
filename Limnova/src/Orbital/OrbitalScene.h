@@ -8,7 +8,7 @@
 namespace Limnova
 {
 
-    using Physics = OrbitalPhysics<entt::entity>;
+    using Physics = OrbitalPhysics<UUID>;
 
 
     class OrbitalScene : public Scene
@@ -17,13 +17,15 @@ namespace Limnova
         OrbitalScene();
         ~OrbitalScene() = default;
 
-        void SetParent(Entity entity, Entity parent);
+        static Ref<OrbitalScene> Copy(Ref<OrbitalScene> scene);
 
         void SetRootScaling(double meters);
         double GetRootScaling();
 
         void SetViewPrimary(Entity primary);
         Entity GetViewPrimary();
+
+        void SetParent(Entity entity, Entity parent);
         std::vector<Entity> GetSecondaries(Entity entity);
 
         void OnUpdateRuntime(Timestep dT) override;
@@ -56,12 +58,12 @@ namespace Limnova
         float m_PerifocalAxisArrowSize = 0.024f;
     private:
         Physics m_Physics;
-        entt::entity m_ViewPrimary;
+        UUID m_ViewPrimary;
 
         Quaternion m_OrbitalReferenceFrameOrientation; /* Orientation of the orbital physics system's reference frame relative to the scene frame */
         Vector3 m_OrbitalReferenceX, m_OrbitalReferenceY, m_OrbitalReferenceNormal;
 
-        friend class OrbitalSceneSerializer;
+        friend class SceneSerializer;
     };
 
 }

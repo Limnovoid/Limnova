@@ -29,6 +29,7 @@ namespace Limnova
             rootspace.Radius = 1.f;
             rootspace.Influencing = true;
         }
+        OrbitalPhysics(const OrbitalPhysics&) = default;
         ~OrbitalPhysics()
         {
             // Estimating maximum object allocation for optimising vectors -> arrays
@@ -57,6 +58,9 @@ namespace Limnova
             std::unordered_set<TAttrId> m_Empties;
             std::unordered_map<TObjectId, TAttrId> m_ObjectToAttr;
         public:
+            AttributeStorage() = default;
+            AttributeStorage(const AttributeStorage&) = default;
+
             bool Has(TObjectId object)
             {
                 return m_ObjectToAttr.find(object) != m_ObjectToAttr.end();
@@ -124,6 +128,8 @@ namespace Limnova
                 m_Empties.insert(attributes);
             }
         };
+
+        /*** Enums ***/
     public:
         enum class Validity
         {
@@ -140,9 +146,9 @@ namespace Limnova
             Ellipse   = 1,
             Hyperbola = 2
         };
-    private:
-        /*** Objects ***/
 
+        /*** Objects ***/
+    private:
         struct State
         {
             /* Compulsory attribute - all physics objects are expected to have a physics state */
@@ -211,9 +217,10 @@ namespace Limnova
 
             TObjectId FirstChild = Null;
         };
-    private:
-        /*** Simulation resources ***/
 
+
+        /*** Simulation resources ***/
+    private:
         TObjectId m_RootObject = 0;
         std::vector<Object> m_Objects = { Object() }; /* Initialised with root object */
         std::unordered_set<TObjectId> m_EmptyObjects;
@@ -221,9 +228,10 @@ namespace Limnova
         AttributeStorage<Elements> m_Elements;
         AttributeStorage<LocalSpace> m_LocalSpaces;
         AttributeStorage<Dynamics> m_Dynamics;
-    private:
-        /*** Resource helpers ***/
 
+
+        /*** Resource helpers ***/
+    private:
         TObjectId GetEmptyObject()
         {
             TObjectId emptyObject;
@@ -290,10 +298,8 @@ namespace Limnova
             auto& ls = m_LocalSpaces.Get(obj.Parent);
 
             // Disconnect from parent
-            if (ls.FirstChild == object)
-            {
-                /* No need to check if this entity has siblings - NextSibling is the null entity in this case */
-                ls.FirstChild = obj.NextSibling;
+            if (ls.FirstChild == object) {
+                ls.FirstChild = obj.NextSibling; /* No need to check if this entity has siblings - if not, NextSibling is the Null entity */
             }
             obj.Parent = Null;
 
@@ -547,7 +553,7 @@ namespace Limnova
             elems.SemiMinor = elems.SemiMajor * sqrtf(e2term);
 
             elems.C = elems.P / (1.f + elems.E);
-            elems.C += (elems.Type == OrbitType::Ellipse) ? -elems.SemiMajor : elems.SemiMajor; /* different center position for ellipse and hyperbola */
+            elems.C += (elems.Type == OrbitType::Hyperbola) ? elems.SemiMajor : -elems.SemiMajor; /* different center position for cirlce/ellipse and hyperbola */
 
             elems.T = pow((double)elems.SemiMajor, 1.5) * PI2 / sqrt(elems.H);
 
@@ -940,6 +946,7 @@ namespace Limnova
 
         void SetDynamic(TObjectId object, bool isDynamic)
         {
+            LV_CORE_ASSERT(object != m_RootObject, "Cannot set root object dynamics!");
             if (isDynamic)
             {
                 m_Dynamics.GetOrAdd(object);

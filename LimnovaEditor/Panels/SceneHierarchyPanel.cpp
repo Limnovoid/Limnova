@@ -58,7 +58,6 @@ namespace Limnova
     void SceneHierarchyPanel::EntityNode(Entity entity, bool forceExpanded)
     {
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow
-            | ImGuiTreeNodeFlags_OpenOnDoubleClick
             | ImGuiTreeNodeFlags_SpanAvailWidth;
 
         if (forceExpanded) flags |= ImGuiTreeNodeFlags_DefaultOpen;
@@ -70,30 +69,40 @@ namespace Limnova
         if (children.empty()) flags |= ImGuiTreeNodeFlags_Leaf;
 
         bool expanded = ImGui::TreeNodeEx((void*)(uint64_t)(uint32_t)entity, flags, tag.Tag.c_str());
-        if (ImGui::IsItemClicked()) {
-            m_SelectedEntity = entity;
-        }
-
         bool deleteEntity = false;
-        if (ImGui::BeginPopupContextItem())
         {
-            if (ImGui::MenuItem("Delete Entity")) {
-                deleteEntity = true;
+            if (ImGui::IsItemClicked()) {
+                m_SelectedEntity = entity;
+            }
 
-                if (m_SelectedEntity == entity) {
-                    m_SelectedEntity = Entity::Null;
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+            {
+                // Handle double-clicks on entity node:
+
+                if (entity.HasComponent<OrbitalComponent>()) {
+                    ((OrbitalScene*)m_Scene)->SetViewPrimary(entity);
                 }
             }
-            ImGui::EndPopup();
+
+            if (ImGui::BeginPopupContextItem())
+            {
+                if (ImGui::MenuItem("Create Child Entity")) {
+                    m_SelectedEntity = m_Scene->CreateEntityAsChild(entity, tag.Tag + " Child");
+                }
+
+                if (ImGui::MenuItem("Delete Entity")) {
+                    deleteEntity = true;
+
+                    if (m_SelectedEntity == entity) {
+                        m_SelectedEntity = Entity::Null;
+                    }
+                }
+                ImGui::EndPopup();
+            }
         }
 
-        if (entity.HasComponent<OrbitalComponent>()) {
-            ImGui::SameLine();
-            if (ImGui::Button("View")) {
-                ((OrbitalScene*)m_Scene)->SetViewPrimary(entity);
-            }
-            // TODO - replace button with double click on tree-node
-        }
+        std::ostringstream oss; oss << (uint64_t)entity.GetUUID();
+        LimnGui::HelpMarker(oss.str());
 
         if (expanded)
         {
@@ -283,6 +292,31 @@ namespace Limnova
                     }
                 }
                 ImGui::EndDisabled();
+            }
+        });
+
+        ComponentInspector<HierarchyComponent>(entity, "Hierarchy", true, [&]() {
+            auto& hierarchy = entity.GetComponent<HierarchyComponent>();
+
+            if (hierarchy.Parent != UUID::Null) {
+                ImGui::Text("Parent: %s", m_Scene->GetEntity(hierarchy.Parent).GetComponent<TagComponent>().Tag.c_str());
+                std::ostringstream oss; oss << (uint64_t)hierarchy.Parent;
+                LimnGui::HelpMarker(oss.str());
+            }
+            if (hierarchy.NextSibling != UUID::Null) {
+                ImGui::Text("Next sib: %s", m_Scene->GetEntity(hierarchy.NextSibling).GetComponent<TagComponent>().Tag.c_str());
+                std::ostringstream oss; oss << (uint64_t)hierarchy.NextSibling;
+                LimnGui::HelpMarker(oss.str());
+            }
+            if (hierarchy.PrevSibling != UUID::Null) {
+                ImGui::Text("Prev sib: %s", m_Scene->GetEntity(hierarchy.PrevSibling).GetComponent<TagComponent>().Tag.c_str());
+                std::ostringstream oss; oss << (uint64_t)hierarchy.PrevSibling;
+                LimnGui::HelpMarker(oss.str());
+            }
+            if (hierarchy.FirstChild != UUID::Null) {
+                ImGui::Text("First child: %s", m_Scene->GetEntity(hierarchy.FirstChild).GetComponent<TagComponent>().Tag.c_str());
+                std::ostringstream oss; oss << (uint64_t)hierarchy.FirstChild;
+                LimnGui::HelpMarker(oss.str());
             }
         });
 

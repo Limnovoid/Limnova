@@ -1,7 +1,7 @@
 #include "Scene.h"
 
-#include "Components.h"
 #include "Entity.h"
+#include "Script.h"
 
 #include <Renderer/Renderer2D.h>
 
@@ -14,83 +14,138 @@ namespace Limnova
 
     Scene::Scene()
     {
-#ifdef ENTT_DEMO
-        struct Transform
-        {
-            Vector3 Position;
-            Vector4 Orientation;
-
-            Transform() = default;
-            Transform(const Transform&) = default;
-            Transform(const Vector3& position, const Vector4& orientation)
-                : Position(position), Orientation(orientation) {}
-        };
-
-        struct Mesh;
-
-
-        entt::entity entity = m_Registry.create();
-
-        auto& transform = m_Registry.emplace<Transform>(entity, Vector3{ 1.f }, Vector4{ 0.f, 0.f, 0.f, 1.f });
-
-        auto viewObj = m_Registry.view<Transform, Mesh>();
-        for (auto entity : viewObj)
-        {
-            auto [transf, mesh] = viewObj.get<Transform, Mesh>(entity);
-        }
-#endif
-
         // Scene hierarchy
-        auto root = CreateEntity("Root");
-        m_Root = root.m_EnttId;
+        Entity root = Entity{ m_Registry.create(), this };
+        auto& idc = root.AddComponent<IDComponent>();
+        m_Entities[idc.ID] = root.m_EnttId;
+        m_Root = idc.ID;
+        root.AddComponent<TagComponent>("Root");
+        root.AddComponent<TransformComponent>();
+        root.AddComponent<HierarchyComponent>(); /* All relationships NULL */
 
         // Signals
-        m_Registry.on_construct<HierarchyComponent>().connect<&Scene::OnHierarchyComponentConstruction>(this);
         m_Registry.on_destroy<HierarchyComponent>().connect<&Scene::OnHierarchyComponentDestruction>(this);
+        /* No on_construct signal for HierarchyComponent: construction dependencies are handled by CreateEntity */
 
         m_Registry.on_construct<CameraComponent>().connect<&Scene::OnCameraComponentConstruction>(this);
         m_Registry.on_destroy<CameraComponent>().connect<&Scene::OnCameraComponentDestruction>(this);
     }
 
 
+    Ref<Scene> Scene::Copy(Ref<Scene> scene)
+    {
+        Ref<Scene> newScene = CreateRef<Scene>();
+
+        newScene->SetRootId(scene->m_Root);
+        newScene->m_ViewportAspectRatio = scene->m_ViewportAspectRatio;
+        newScene->m_ActiveCamera = scene->m_ActiveCamera;
+
+        auto& srcRegistry = scene->m_Registry;
+        auto& dstRegistry = newScene->m_Registry;
+        auto idView = srcRegistry.view<IDComponent>();
+        for (auto e : idView)
+        {
+            UUID uuid = srcRegistry.get<IDComponent>(e).ID;
+            if (uuid == scene->m_Root) continue; /* root is already created so we skip it here */
+
+            const std::string& name = srcRegistry.get<TagComponent>(e).Tag;
+            newScene->CreateEntityFromUUID(uuid, name);
+        }
+
+        CopyAllOfComponent<TransformComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<HierarchyComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<CameraComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<NativeScriptComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<SpriteRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<BillboardSpriteRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<CircleRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<BillboardCircleRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<EllipseRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        CopyAllOfComponent<OrbitalComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+
+        return newScene;
+    }
+
+
     Entity Scene::CreateEntity(const std::string& name)
+    {
+        return CreateEntityFromUUID(UUID(), name);
+    }
+
+
+    Entity Scene::CreateEntityAsChild(Entity parent, const std::string& name)
+    {
+        return CreateEntityFromUUID(UUID(), name, parent.GetUUID());
+    }
+
+
+    Entity Scene::CreateEntityFromUUID(UUID uuid, const std::string& name, UUID parent)
     {
         Entity entity{ m_Registry.create(), this };
 
-        /* Essential components !!!
-         * Every entity is assumed to have these components throughout its lifetime.
-         */
-        auto& tag = entity.AddComponent<TagComponent>();
-        tag.Tag = name.empty() ? "UnnamedEntity" : name;
+        /* Essential components:
+         * every entity is assumed to have the following components throughout its lifetime: */
+        auto& idc = entity.AddComponent<IDComponent>(uuid);
+        m_Entities[idc.ID] = entity.m_EnttId;
+        entity.AddComponent<TagComponent>(name.empty() ? "Unnamed Entity" : name);
         entity.AddComponent<TransformComponent>();
         entity.AddComponent<HierarchyComponent>();
-
+        HierarchyConnect(entity.m_EnttId, m_Entities[(parent == UUID::Null) ? m_Root : parent]);
         return entity;
     }
 
 
     void Scene::DestroyEntity(Entity entity)
     {
-        m_Registry.destroy(entity.m_EnttId);
+        Destroy(entity.m_EnttId);
+    }
+
+
+    Entity Scene::GetEntity(UUID uuid)
+    {
+        auto it = m_Entities.find(uuid);
+        if (it == m_Entities.end()) {
+            LV_WARN("Could not find entity with ID {0}!", uuid);
+            return Entity::Null;
+        }
+        return Entity{ it->second, this };
+    }
+
+
+    void Scene::SetRootId(UUID id)
+    {
+        LV_CORE_ASSERT(m_Entities.find(id) == m_Entities.end(), "Root ID clash!");
+        m_Entities.insert({ id, m_Entities.at(m_Root) });
+        m_Entities.erase(m_Root);
+        m_Root = id;
+
+        auto& idc = GetComponent<IDComponent>(m_Entities.at(m_Root));
+        idc.ID = id;
+
+        auto rootChildren = GetChildren({ m_Entities.at(m_Root), this });
+        for (auto child : rootChildren) {
+            auto& hc = child.GetComponent<HierarchyComponent>();
+            hc.Parent = id;
+        }
     }
 
 
     Entity Scene::GetRoot()
     {
-        return Entity{ m_Root, this };
+        return Entity{ m_Entities[m_Root], this };
     }
 
 
     void Scene::SetParent(Entity entity, Entity newParent)
     {
-        HierarchyDisconnect(entity);
-        HierarchyConnect(entity, newParent);
+        HierarchyDisconnect(entity.m_EnttId);
+        HierarchyConnect(entity.m_EnttId, newParent.m_EnttId);
     }
 
 
     Entity Scene::GetParent(Entity entity)
     {
-        return m_Registry.get<HierarchyComponent>(entity.m_EnttId).Parent;
+        return Entity{ m_Entities[ GetComponent<HierarchyComponent>(entity.m_EnttId).Parent ], this };
     }
 
 
@@ -101,24 +156,54 @@ namespace Limnova
         auto first = hierarchy.FirstChild;
         auto child = first;
         do {
-            if (!child) break;
-            children.push_back(child);
-            child = m_Registry.get<HierarchyComponent>(child.m_EnttId).NextSibling;
+            if (!child) break; // TODO - check that bool cast operator is being called (not uint64_t cast)
+            children.push_back(Entity{ m_Entities[child], this });
+            child = GetComponent<HierarchyComponent>(m_Entities[child]).NextSibling;
         } while (child != first);
         return children;
+    }
+
+
+    /// <summary>
+    /// Ordered by hierarchy level: the children of the root entity will be placed in a continuous sequence at the beginning of the array,
+    /// followed by a continuous sequence of each of their children (the root's grandchildren), and so on.
+    /// Equivalent to a breadth-first search of all entities in the hierarchy attached to root.
+    /// </summary>
+    std::vector<Entity> Scene::GetTree(Entity root)
+    {
+        /* Breadth-first search of all entities in the hierarchy attached to root */
+        std::vector<Entity> entities{ { root } };
+        size_t numAdded = 1;
+        do {
+            size_t end = entities.size();
+            size_t idx = end - numAdded;
+            numAdded = 0;
+            for (; idx < end; idx++)
+            {
+                auto children = GetChildren(entities[idx]);
+                entities.insert(entities.end(), children.begin(), children.end());
+                numAdded += children.size();
+            }
+        } while (numAdded > 0);
+        return entities;
     }
 
 
     void Scene::SetActiveCamera(Entity cameraEntity)
     {
         LV_CORE_ASSERT(cameraEntity.HasComponent<CameraComponent>(), "Attempted to set active camera to a non-camera entity!");
-        m_ActiveCamera = cameraEntity.m_EnttId;
+        m_ActiveCamera = cameraEntity.GetUUID();
     }
 
 
     Entity Scene::GetActiveCamera()
     {
-        return Entity{ m_ActiveCamera, this };
+        if (m_ActiveCamera != UUID::Null) {
+            return Entity{ m_Entities[m_ActiveCamera], this };
+        }
+        else {
+            return Entity::Null;
+        }
     }
 
 
@@ -138,37 +223,33 @@ namespace Limnova
     }
 
 
+    void Scene::OnStartRuntime()
+    {
+        // Scripts
+        m_Registry.view<NativeScriptComponent>().each([=](auto entity, auto& script)
+        {
+            if (script.InstantiateScript) {
+                script.InstantiateScript(&script.Instance);
+                script.Instance->m_Entity = Entity{ entity, this };
+
+                script.Instance->OnCreate();
+            }
+            else {
+                LV_CORE_WARN("Entity {0} has unbound script component!", (uint32_t)entity);
+            }
+        });
+    }
+
+
     void Scene::OnUpdateRuntime(Timestep dT)
     {
         // Scripts
+        m_Registry.view<NativeScriptComponent>().each([=](auto entity, auto& script)
         {
-            m_Registry.view<NativeScriptComponent>().each([=](auto entity, auto& script)
-            {
-                // TODO : move to Scene::OnPlay()
-                if (!script.Instance)
-                {
-                    if (script.InstantiateScript)
-                    {
-                        script.InstantiateScript(&script.Instance);
-                        script.Instance->m_Entity = Entity{ entity, this };
-
-                        script.Instance->OnCreate();
-                    }
-                    else {
-                        LV_CORE_WARN("Entity {0} has unbound script component!", (uint32_t)entity);
-                    }
-                }
-                else {
-                    script.Instance->OnUpdate(dT);
-                }
-
-                // TODO : move to Scene::OnStop()
-                /*if (script.Instance)
-                {
-                    script.DeleteScript(&script.Instance);
-                }*/
-            });
-        }
+            if (script.Instance) {
+                script.Instance->OnUpdate(dT);
+            }
+        });
     }
 
 
@@ -179,12 +260,12 @@ namespace Limnova
 
     void Scene::OnRenderRuntime()
     {
-        if (!m_Registry.valid(m_ActiveCamera) || !m_Registry.all_of<CameraComponent>(m_ActiveCamera))
-        {
+        if (m_ActiveCamera == UUID::Null) {
             LV_CORE_WARN("Scene has no active camera - no rendering!");
             return;
         }
-        auto [camera, camTransform] = m_Registry.get<CameraComponent, TransformComponent>(m_ActiveCamera);
+        auto cameraEntity = m_Entities[m_ActiveCamera];
+        auto [camera, camTransform] = GetComponents<CameraComponent, TransformComponent>(cameraEntity);
         camera.Camera.SetView(camTransform.GetTransform().Inverse());
 
         RenderScene(camera.Camera, camTransform.GetOrientation());
@@ -271,6 +352,21 @@ namespace Limnova
     }
 
 
+    void Scene::OnStopRuntime()
+    {
+        // Scripts
+        {
+            m_Registry.view<NativeScriptComponent>().each([=](auto entity, auto& script)
+            {
+                if (script.Instance)
+                {
+                    script.DeleteScript(&script.Instance);
+                }
+            });
+        }
+    }
+
+
     void Scene::OnEvent(Event& e)
     {
         EventDispatcher dispatcher(e);
@@ -295,22 +391,22 @@ namespace Limnova
 
     void Scene::OnHierarchyComponentConstruction(entt::registry&, entt::entity entity)
     {
-        HierarchyConnect(Entity{ entity, this }, Entity{ m_Root, this });
+        HierarchyConnect(entity, m_Entities[m_Root]);
     }
 
 
     void Scene::OnHierarchyComponentDestruction(entt::registry&, entt::entity entity)
     {
-        HierarchyDisconnect(Entity{ entity, this });
+        HierarchyDisconnect(entity);
 
         // Destroy children (this will destroy their hierarchy components and thus their children, and so on)
-        auto& hierarchy = m_Registry.get<HierarchyComponent>(entity);
+        auto& hierarchy = GetComponent<HierarchyComponent>(entity);
         auto first = hierarchy.FirstChild;
         auto child = first;
         do {
             if (!child) break;
-            auto next = m_Registry.get<HierarchyComponent>(child.m_EnttId).NextSibling;
-            child.Destroy();
+            auto next = GetComponent<HierarchyComponent>(m_Entities[child]).NextSibling;
+            Destroy(m_Entities[child]);
             child = next;
         } while (child != first);
     }
@@ -318,9 +414,9 @@ namespace Limnova
 
     void Scene::OnCameraComponentConstruction(entt::registry&, entt::entity entity)
     {
-        if (!m_Registry.valid(m_ActiveCamera))
+        if (m_ActiveCamera == UUID::Null)
         {
-            m_ActiveCamera = entity;
+            m_ActiveCamera = m_Registry.get<IDComponent>(entity).ID;
         }
 
         auto& camera = m_Registry.get<CameraComponent>(entity);
@@ -333,19 +429,19 @@ namespace Limnova
 
     void Scene::OnCameraComponentDestruction(entt::registry&, entt::entity entity)
     {
-        if (entity == m_ActiveCamera)
+        if (m_Registry.get<IDComponent>(entity).ID == m_ActiveCamera)
         {
-            m_ActiveCamera = entt::null;
+            m_ActiveCamera = UUID::Null;
 
             // Find a replacement camera entity
             auto view = m_Registry.view<CameraComponent>();
             for (auto cameraEntity : view)
             {
                 /* on_destroy signal is emitted before the component in question is deleted, so
-                 * this entity will appear in view and we have to perform this check. */
+                 * this entity will appear in the view and we have to perform this check. */
                 if (cameraEntity != entity)
                 {
-                    m_ActiveCamera = cameraEntity;
+                    m_ActiveCamera = m_Registry.get<IDComponent>(cameraEntity).ID;
                     break;
                 }
             }
@@ -353,78 +449,81 @@ namespace Limnova
     }
 
 
-    void Scene::HierarchyConnect(Entity entity, Entity parent)
+    void Scene::HierarchyConnect(entt::entity entity, entt::entity parent)
     {
-        auto& hierarchy = m_Registry.get<HierarchyComponent>(entity.m_EnttId);
-        auto& parentHierarchy = m_Registry.get<HierarchyComponent>(parent.m_EnttId);
+        auto& id = GetComponent<IDComponent>(entity);
+        auto& hierarchy = GetComponent<HierarchyComponent>(entity);
+        auto& parentId = GetComponent<IDComponent>(parent);
+        auto& parentHierarchy = GetComponent<HierarchyComponent>(parent);
 
-        LV_CORE_ASSERT(!hierarchy.Parent && !hierarchy.NextSibling && !hierarchy.PrevSibling, "Hierarchy component has not been disconnected!");
+        LV_CORE_ASSERT(hierarchy.Parent == UUID::Null && hierarchy.NextSibling == UUID::Null && hierarchy.PrevSibling == UUID::Null, "Hierarchy component has not been disconnected!");
 
         // Connect to parent
-        hierarchy.Parent = parent;
-        if (!parentHierarchy.FirstChild)
+        hierarchy.Parent = parentId;
+        if (parentHierarchy.FirstChild == UUID::Null)
         {
-            parentHierarchy.FirstChild = entity;
+            parentHierarchy.FirstChild = id;
         }
         else
         {
             // Connect to siblings
-            auto& nextHierarchy = m_Registry.get<HierarchyComponent>(parentHierarchy.FirstChild.m_EnttId);
-            if (nextHierarchy.PrevSibling)
+            auto& nextHierarchy = GetComponent<HierarchyComponent>(m_Entities[parentHierarchy.FirstChild]);
+            if (nextHierarchy.PrevSibling != UUID::Null)
             {
                 // More than one sibling
-                auto& prevHierarchy = m_Registry.get<HierarchyComponent>(nextHierarchy.PrevSibling.m_EnttId);
+                auto& prevHierarchy = GetComponent<HierarchyComponent>(m_Entities[nextHierarchy.PrevSibling]);
 
-                hierarchy.NextSibling = Entity{ parentHierarchy.FirstChild.m_EnttId, this };
-                hierarchy.PrevSibling = Entity{ nextHierarchy.PrevSibling.m_EnttId, this };
+                hierarchy.NextSibling = parentHierarchy.FirstChild;
+                hierarchy.PrevSibling = nextHierarchy.PrevSibling;
 
-                nextHierarchy.PrevSibling = entity;
-                prevHierarchy.NextSibling = entity;
+                nextHierarchy.PrevSibling = id;
+                prevHierarchy.NextSibling = id;
             }
             else
             {
                 // Only one sibling
-                hierarchy.PrevSibling = hierarchy.NextSibling = Entity{ parentHierarchy.FirstChild.m_EnttId, this };
-                nextHierarchy.PrevSibling = nextHierarchy.NextSibling = entity;
+                hierarchy.PrevSibling = hierarchy.NextSibling = parentHierarchy.FirstChild;
+                nextHierarchy.PrevSibling = nextHierarchy.NextSibling = id;
             }
         }
     }
 
 
-    void Scene::HierarchyDisconnect(Entity entity)
+    void Scene::HierarchyDisconnect(entt::entity entity)
     {
-        auto& hierarchy = m_Registry.get<HierarchyComponent>(entity.m_EnttId);
+        auto& id = GetComponent<IDComponent>(entity);
+        auto& hierarchy = GetComponent<HierarchyComponent>(entity);
 
-        LV_CORE_ASSERT(hierarchy.Parent, "Hierarchy component has not been connected!");
+        LV_CORE_ASSERT(hierarchy.Parent != UUID::Null, "Hierarchy component has not been connected!");
 
         // Disconnect from parent
-        auto& parentHierarchy = m_Registry.get<HierarchyComponent>(hierarchy.Parent.m_EnttId);
-        if (parentHierarchy.FirstChild == entity)
+        auto& parentHierarchy = GetComponent<HierarchyComponent>(m_Entities[hierarchy.Parent]);
+        if (parentHierarchy.FirstChild == id.ID)
         {
             /* No need to check if this entity has siblings - NextSibling is the null entity in this case */
             parentHierarchy.FirstChild = hierarchy.NextSibling;
         }
-        hierarchy.Parent = Entity::Null;
+        hierarchy.Parent = UUID::Null;
 
         // Disconnect from siblings
-        if (hierarchy.NextSibling)
+        if (hierarchy.NextSibling != UUID::Null)
         {
-            auto& nextHierarchy = m_Registry.get<HierarchyComponent>(hierarchy.NextSibling.m_EnttId);
+            auto& nextHierarchy = GetComponent<HierarchyComponent>(m_Entities[hierarchy.NextSibling]);
             if (hierarchy.NextSibling == hierarchy.PrevSibling)
             {
                 // Only one sibling
-                nextHierarchy.NextSibling = nextHierarchy.PrevSibling = Entity::Null;
+                nextHierarchy.NextSibling = nextHierarchy.PrevSibling = UUID::Null;
             }
             else
             {
                 // More than one sibling
-                auto& prevHierarchy = m_Registry.get<HierarchyComponent>(hierarchy.PrevSibling.m_EnttId);
+                auto& prevHierarchy = GetComponent<HierarchyComponent>(m_Entities[hierarchy.PrevSibling]);
 
                 nextHierarchy.PrevSibling = hierarchy.PrevSibling;
                 prevHierarchy.NextSibling = hierarchy.NextSibling;
             }
 
-            hierarchy.NextSibling = hierarchy.PrevSibling = Entity::Null;
+            hierarchy.NextSibling = hierarchy.PrevSibling = UUID::Null;
         }
     }
 }

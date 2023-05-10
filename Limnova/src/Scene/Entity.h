@@ -1,6 +1,9 @@
 #pragma once
 
+#include "Components.h"
 #include "Scene.h"
+
+#include <Core/UUID.h>
 
 #include <entt.hpp>
 
@@ -36,6 +39,12 @@ namespace Limnova
             return m_Scene->m_Registry.get<T>(m_EnttId);
         }
 
+        template<typename T>
+        T& GetOrAddComponent()
+        {
+            return m_Scene->m_Registry.get_or_emplace<T>(m_EnttId);
+        }
+
         template<typename First, typename... Rest>
         std::tuple<First&, Rest&...> GetComponents()
         {
@@ -50,6 +59,8 @@ namespace Limnova
             LV_CORE_ASSERT(m_Scene->m_Registry.all_of<T>(m_EnttId), "Entity does not have component!");
             m_Scene->m_Registry.erase<T>(m_EnttId);
         }
+
+        UUID GetUUID() { return GetComponent<IDComponent>().ID; }
 
         void Destroy();
 

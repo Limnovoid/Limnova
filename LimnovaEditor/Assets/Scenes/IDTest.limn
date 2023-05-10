@@ -1,0 +1,82 @@
+Scene: Untitled
+Entities:
+  - Entity: 16709926921430780431
+    TagComponent:
+      Tag: Root
+    HierarchyComponent:
+      Parent: 0
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [1, 1, 1]
+  - Entity: 9157926467259027718
+    TagComponent:
+      Tag: E0
+    HierarchyComponent:
+      Parent: 16709926921430780431
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [1, 1, 1]
+  - Entity: 12991781101056911616
+    TagComponent:
+      Tag: E1
+    HierarchyComponent:
+      Parent: 16709926921430780431
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [1, 1, 1]
+  - Entity: 14470277586491426002
+    TagComponent:
+      Tag: E2
+    HierarchyComponent:
+      Parent: 16709926921430780431
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [1, 1, 1]
+  - Entity: 3097205236253540205
+    TagComponent:
+      Tag: E0.0
+    HierarchyComponent:
+      Parent: 9157926467259027718
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [1, 1, 1]
+  - Entity: 9431753279850864781
+    TagComponent:
+      Tag: E2.0
+    HierarchyComponent:
+      Parent: 14470277586491426002
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [1, 1, 1]
+  - Entity: 11939035971509053840
+    TagComponent:
+      Tag: E2.1
+    HierarchyComponent:
+      Parent: 14470277586491426002
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [1, 1, 1]
+  - Entity: 8293051665752758031
+    TagComponent:
+      Tag: E2.0.0
+    HierarchyComponent:
+      Parent: 9431753279850864781
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [1, 1, 1]

@@ -27,6 +27,7 @@
 #include <src/Scene/Scene.h>
 #include <src/Scene/Entity.h>
 #include <src/Scene/Components.h>
+#include <src/Scene/Script.h>
 
 // Renderer ------------
 #include <src/Renderer/Renderer.h>

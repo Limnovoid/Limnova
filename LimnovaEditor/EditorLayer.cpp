@@ -41,16 +41,27 @@ namespace Limnova
 
         m_EditorCamera.SetElevation(Radiansf(30.f));
 
-        m_Scene = CreateRef<OrbitalScene>();
-        auto camera = m_Scene->CreateEntity("Camera");
+        m_ActiveScene = CreateRef<OrbitalScene>();
+
+        auto commandLineArgs = Application::Get().GetCommandLineArgs();
+        if (commandLineArgs.Count > 2)
+        {
+            std::string sceneFilePath = commandLineArgs[2];
+            if (!SceneSerializer::Deserialize(m_ActiveScene.get(), sceneFilePath)) {
+                LV_CORE_ERROR("Could not load default scene!");
+            }
+        }
+
+    #ifdef EXCLUDE_SETUP
+        auto camera = m_ActiveScene->CreateEntity("Camera");
         {
             auto& cc = camera.AddComponent<CameraComponent>();
             cc.SetPerspectiveFov(Radiansf(80.f));
             camera.AddComponent<NativeScriptComponent>().Bind<OrbitalCameraScript>();
         }
 
-        m_Scene->SetRootScaling(10.0);
-        auto root = m_Scene->GetRoot();
+        m_ActiveScene->SetRootScaling(10.0);
+        auto root = m_ActiveScene->GetRoot();
         {
             auto& crc = root.AddComponent<BillboardCircleRendererComponent>();
             crc.Color = { 1.f, 1.f, 0.9f, 1.f };
@@ -61,7 +72,7 @@ namespace Limnova
             orbital.SetMass(1.0 / 6.6743e-11);
         }
 
-        auto orbital0 = m_Scene->CreateEntity("Orbital 0");
+        auto orbital0 = m_ActiveScene->CreateEntity("Orbital 0");
         {
             auto& crc = orbital0.AddComponent<BillboardCircleRendererComponent>();
             crc.Color = { 1.f, 0.3f, 0.2f, 1.f };
@@ -75,7 +86,7 @@ namespace Limnova
             oc.UIColor = { 1.f, 0.3f, 0.2f };
         }
 
-        auto orbital1 = m_Scene->CreateEntity("Orbital 1");
+        auto orbital1 = m_ActiveScene->CreateEntity("Orbital 1");
         {
             auto& crc = orbital1.AddComponent<BillboardCircleRendererComponent>();
             crc.Color = { 0.3f, 0.2f, 1.f, 1.f };
@@ -89,10 +100,10 @@ namespace Limnova
             oc.UIColor = { 0.3f, 0.2f, 1.f };
         }
 
-        auto playerShip = m_Scene->CreateEntity("Player Ship");
+        auto playerShip = m_ActiveScene->CreateEntity("Player Ship");
         {
             playerShip.Parent(orbital0);
-            m_Scene->SetViewPrimary(orbital0);
+            m_ActiveScene->SetViewPrimary(orbital0);
 
             auto& crc = playerShip.AddComponent<BillboardCircleRendererComponent>();
             crc.Color = { 0.9f, 0.9f, 0.9f, 1.f };
@@ -107,34 +118,36 @@ namespace Limnova
             oc.SetVelocity({ 0.f, 0.f, 0.21f });
             oc.UIColor = { 0.9f, 0.9f, 0.9f };
         }
+    #endif
+
 #else
-        m_Scene = CreateRef<Scene>();
+        m_ActiveScene = CreateRef<Scene>();
 
         auto commandLineArgs = Application::Get().GetCommandLineArgs();
         if (commandLineArgs.Count > 1)
         {
             std::string sceneFilePath = commandLineArgs[1];
-            if (!SceneSerializer::Deserialize(m_Scene.get(), sceneFilePath)) {
-                LV_CORE_ERROR("Could not default load scene!");
+            if (!SceneSerializer::Deserialize(m_ActiveScene.get(), sceneFilePath)) {
+                LV_CORE_ERROR("Could not load default scene!");
             }
         }
 
     #ifdef EXCLUDE_SETUP
-        Entity camera0 = m_Scene->CreateEntity("Camera 0");
+        Entity camera0 = m_ActiveScene->CreateEntity("Camera 0");
         {
             camera0.AddComponent<CameraComponent>();
             auto& transform = camera0.GetComponent<TransformComponent>();
             transform.Set({ 1.f }, { 0.f, 0.f, 2.f });
         }
 
-        Entity camera1 = m_Scene->CreateEntity("Camera 1");
+        Entity camera1 = m_ActiveScene->CreateEntity("Camera 1");
         {
             camera1.AddComponent<CameraComponent>();
             auto& transform = camera1.GetComponent<TransformComponent>();
             transform.Set({ 1.f }, { 0.f, 0.f, 3.f });
         }
 
-        m_Scene->SetActiveCamera(camera0);
+        m_ActiveScene->SetActiveCamera(camera0);
 
         {
             auto& script = camera0.AddComponent<NativeScriptComponent>();
@@ -146,21 +159,21 @@ namespace Limnova
         }
 
         // Renderables
-        Entity square = m_Scene->CreateEntity("Default Square");
+        Entity square = m_ActiveScene->CreateEntity("Default Square");
         {
             auto& src = square.AddComponent<SpriteRendererComponent>(Vector4{ 0.2f, 1.f, 0.3f, 1.f });
             src.Color.w = 0.6f;
         }
 
-        Entity subSquare = m_Scene->CreateEntity("Sub-Square");
+        Entity subSquare = m_ActiveScene->CreateEntity("Sub-Square");
         {
             auto& src = subSquare.AddComponent<SpriteRendererComponent>(Vector4{ 1.f, 0.8f, 0.3f, 1.f });
             auto& transform = subSquare.GetComponent<TransformComponent>();
             transform.Set({ 0.2f }, { 0.5f, 0.5f, 0.2f });
-            m_Scene->SetParent(subSquare, square);
+            m_ActiveScene->SetParent(subSquare, square);
         }
 
-        Entity circle = m_Scene->CreateEntity("Circle");
+        Entity circle = m_ActiveScene->CreateEntity("Circle");
         {
             auto& crc = circle.AddComponent<CircleRendererComponent>();
             crc.Fade = 0.12f;
@@ -168,7 +181,7 @@ namespace Limnova
             transform.Set({ 0.4f }, {-0.5f,-0.5f, 0.2f });
         }
 
-        Entity ellipse = m_Scene->CreateEntity("Ellipse");
+        Entity ellipse = m_ActiveScene->CreateEntity("Ellipse");
         {
             auto& erc = ellipse.AddComponent<EllipseRendererComponent>();
             auto& transform = ellipse.GetComponent<TransformComponent>();
@@ -177,7 +190,9 @@ namespace Limnova
     #endif
 #endif
 
-        m_SceneHierarchyPanel.SetContext(m_Scene.get());
+        m_EditorScene = m_ActiveScene;
+
+        m_SceneHierarchyPanel.SetContext(m_ActiveScene.get());
         m_IconPlay = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\PlayButton.png");
         m_IconStop = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\StopButton.png");
     }
@@ -208,13 +223,13 @@ namespace Limnova
             {
             case SceneState::Edit:
             {
-                m_Scene->OnUpdateEditor(dT);
+                m_ActiveScene->OnUpdateEditor(dT);
                 m_EditorCamera.OnUpdate(dT);
                 break;
             }
             case SceneState::Play:
             {
-                m_Scene->OnUpdateRuntime(dT);
+                m_ActiveScene->OnUpdateRuntime(dT);
                 break;
             }
             }
@@ -240,12 +255,12 @@ namespace Limnova
             {
             case SceneState::Edit:
             {
-                m_Scene->OnRenderEditor(m_EditorCamera);
+                m_ActiveScene->OnRenderEditor(m_EditorCamera);
                 break;
             }
             case SceneState::Play:
             {
-                m_Scene->OnRenderRuntime();
+                m_ActiveScene->OnRenderRuntime();
                 break;
             }
             }
@@ -262,7 +277,7 @@ namespace Limnova
                 pixelData = m_Framebuffer->ReadPixel(mouseX, mouseY, 1);
             }
             m_HoveredEntity = (pixelData == -1) ? Entity::Null
-                : Entity{ (entt::entity)pixelData, m_Scene.get() };
+                : Entity{ (entt::entity)pixelData, m_ActiveScene.get() };
 
             m_Framebuffer->Unbind();
         }
@@ -362,17 +377,17 @@ namespace Limnova
 
         ImGui::Begin("Scene Properties");
 
-        if (Entity activeCamera = m_Scene->GetActiveCamera())
+        if (Entity activeCamera = m_ActiveScene->GetActiveCamera())
         {
             if (ImGui::BeginCombo("Camera", activeCamera.GetComponent<TagComponent>().Tag.c_str()))
             {
-                auto cameraEntities = m_Scene->GetEntitiesByComponents<CameraComponent>();
+                auto cameraEntities = m_ActiveScene->GetEntitiesByComponents<CameraComponent>();
                 for (auto& entity : cameraEntities)
                 {
                     if (ImGui::Selectable(entity.GetComponent<TagComponent>().Tag.c_str(), activeCamera == entity))
                     {
                         activeCamera = entity;
-                        m_Scene->SetActiveCamera(entity);
+                        m_ActiveScene->SetActiveCamera(entity);
                     }
                 }
                 ImGui::EndCombo();
@@ -391,21 +406,21 @@ namespace Limnova
         ImGui::Separator();
 
         {
-            double rootScaling = m_Scene->GetRootScaling();
+            double rootScaling = m_ActiveScene->GetRootScaling();
             if (LimnGui::InputScientific("RootScaling", rootScaling)) {
-                m_Scene->SetRootScaling(rootScaling);
+                m_ActiveScene->SetRootScaling(rootScaling);
             }
         }
 
 
-        ImGui::Checkbox("Show reference axes", &m_Scene->m_ShowReferenceAxes);
-        ImGui::BeginDisabled(!m_Scene->m_ShowReferenceAxes);
+        ImGui::Checkbox("Show reference axes", &m_ActiveScene->m_ShowReferenceAxes);
+        ImGui::BeginDisabled(!m_ActiveScene->m_ShowReferenceAxes);
         if (ImGui::TreeNodeEx("##ReferenceAxes", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::ColorEdit4("Color", m_Scene->m_ReferenceAxisColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
-            ImGui::DragFloat("Length", &m_Scene->m_ReferenceAxisLength, 0.01f, 0.01f, 1.f, "%.2f");
-            ImGui::DragFloat("Thickness", &m_Scene->m_ReferenceAxisThickness, 0.001f, 0.001f, 0.1f, "%.3f");
-            ImGui::DragFloat("Arrow Head Size", &m_Scene->m_ReferenceAxisArrowSize, 0.001f, 0.001f, 0.5f, "%.3f");
+            ImGui::ColorEdit4("Color", m_ActiveScene->m_ReferenceAxisColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
+            ImGui::DragFloat("Length", &m_ActiveScene->m_ReferenceAxisLength, 0.01f, 0.01f, 1.f, "%.2f");
+            ImGui::DragFloat("Thickness", &m_ActiveScene->m_ReferenceAxisThickness, 0.001f, 0.001f, 0.1f, "%.3f");
+            ImGui::DragFloat("Arrow Head Size", &m_ActiveScene->m_ReferenceAxisArrowSize, 0.001f, 0.001f, 0.5f, "%.3f");
 
             ImGui::TreePop();
         }
@@ -413,23 +428,23 @@ namespace Limnova
 
         if (ImGui::TreeNodeEx("Influence Visuals", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::ColorEdit4("Color", m_Scene->m_LocalSpaceColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
-            ImGui::DragFloat("Thickness", &m_Scene->m_LocalSpaceThickness, 0.001f, 0.001f, 1.f, "%.3f");
-            ImGui::DragFloat("Fade", &m_Scene->m_LocalSpaceFade, 0.001f, 0.001f, 1.f, "%.3f");
+            ImGui::ColorEdit4("Color", m_ActiveScene->m_LocalSpaceColor.Ptr(), ImGuiColorEditFlags_AlphaBar);
+            ImGui::DragFloat("Thickness", &m_ActiveScene->m_LocalSpaceThickness, 0.001f, 0.001f, 1.f, "%.3f");
+            ImGui::DragFloat("Fade", &m_ActiveScene->m_LocalSpaceFade, 0.001f, 0.001f, 1.f, "%.3f");
 
             ImGui::TreePop();
         }
 
         if (ImGui::TreeNodeEx("Orbit Visuals", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::DragFloat("Thickness", &m_Scene->m_OrbitThickness, 0.001f, 0.001f, 1.f, "%.3f");
-            ImGui::DragFloat("Alpha", &m_Scene->m_OrbitAlpha, 0.001f, 0.f, 1.f, "%.3f");
-            ImGui::DragFloat("Plot Point Radius", &m_Scene->m_OrbitPointRadius, 0.001f, 0.001f, 0.1f, "%.3f");
+            ImGui::DragFloat("Thickness", &m_ActiveScene->m_OrbitThickness, 0.001f, 0.001f, 1.f, "%.3f");
+            ImGui::DragFloat("Alpha", &m_ActiveScene->m_OrbitAlpha, 0.001f, 0.f, 1.f, "%.3f");
+            ImGui::DragFloat("Plot Point Radius", &m_ActiveScene->m_OrbitPointRadius, 0.001f, 0.001f, 0.1f, "%.3f");
 
             if (ImGui::TreeNodeEx("Perifocal Frame", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                ImGui::DragFloat("Thickness", &m_Scene->m_PerifocalAxisThickness, 0.001f, 0.001f, 0.1f, "%.3f");
-                ImGui::DragFloat("Arrow Head Size", &m_Scene->m_PerifocalAxisArrowSize, 0.001f, 0.001f, 0.5f, "%.3f");
+                ImGui::DragFloat("Thickness", &m_ActiveScene->m_PerifocalAxisThickness, 0.001f, 0.001f, 0.1f, "%.3f");
+                ImGui::DragFloat("Arrow Head Size", &m_ActiveScene->m_PerifocalAxisArrowSize, 0.001f, 0.001f, 0.5f, "%.3f");
                 ImGui::TreePop();
             }
 
@@ -476,7 +491,7 @@ namespace Limnova
 
             m_Framebuffer->Resize((uint32_t)viewportSize.x, (uint32_t)viewportSize.y);
             m_EditorCamera.SetAspect(aspect);
-            m_Scene->OnWindowChangeAspect(aspect);
+            m_ActiveScene->OnWindowChangeAspect(aspect);
         }
         uint32_t viewportRendererId = m_Framebuffer->GetColorAttachmentRendererId();
         ImGui::Image((void*)viewportRendererId, viewportPanelSize, { 0, 1 }, { 1, 0 });
@@ -485,7 +500,7 @@ namespace Limnova
         if (m_ActiveGizmo > -1)
         {
             Entity selectedEntity = m_SceneHierarchyPanel.GetSelectedEntity();
-            Entity activeCameraEntity = m_Scene->GetActiveCamera();
+            Entity activeCameraEntity = m_ActiveScene->GetActiveCamera();
             if (selectedEntity && activeCameraEntity)
             {
                 ImGuizmo::SetOrthographic(false); // TODO - check if editor camera is orthographic
@@ -588,7 +603,7 @@ namespace Limnova
             m_EditorCamera.OnEvent(e);
         }
 
-        m_Scene->OnEvent(e);
+        m_ActiveScene->OnEvent(e);
 
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<KeyPressedEvent>(LV_BIND_EVENT_FN(EditorLayer::OnKeyPressed));
@@ -659,24 +674,28 @@ namespace Limnova
 
     void EditorLayer::NewScene()
     {
+        if (m_SceneState != SceneState::Edit) {
+            OnSceneStop();
+        }
+
 #ifdef LV_EDITOR_USE_ORBITAL
-        m_Scene = CreateRef<OrbitalScene>();
+        m_EditorScene = CreateRef<OrbitalScene>();
 #else
-        m_Scene = CreateRef<Scene>();
+        m_EditorScene = CreateRef<Scene>();
 #endif
-        m_Scene->OnWindowChangeAspect(m_ViewportSize.x / m_ViewportSize.y);
-        m_SceneHierarchyPanel.SetContext(m_Scene.get());
+        m_EditorScene->OnWindowChangeAspect(m_ViewportSize.x / m_ViewportSize.y);
+        m_SceneHierarchyPanel.SetContext(m_EditorScene.get());
+
+        m_ActiveScene = m_EditorScene;
     }
 
 
     void EditorLayer::OpenScene()
     {
         std::string filepath = FileDialogs::OpenFile("Limnova Scene (*.limn)\0*.limn\0");
-
-        if (!filepath.empty())
-        {
+        if (!filepath.empty()) {
             NewScene();
-            SceneSerializer::Deserialize(m_Scene.get(), filepath);
+            SceneSerializer::Deserialize(m_EditorScene.get(), filepath);
         }
     }
 
@@ -684,10 +703,9 @@ namespace Limnova
     void EditorLayer::SaveSceneAs()
     {
         std::string filepath = FileDialogs::SaveFile("Limnova Scene (*.limn)\0*.limn\0");
-        
-        if (!filepath.empty())
-        {
-            SceneSerializer::Serialize(m_Scene.get(), filepath);
+
+        if (!filepath.empty()) {
+            SceneSerializer::Serialize(m_EditorScene.get(), filepath);
         }
     }
 
@@ -695,12 +713,22 @@ namespace Limnova
     void EditorLayer::OnScenePlay()
     {
         m_SceneState = SceneState::Play;
+
+#ifdef LV_EDITOR_USE_ORBITAL
+        m_ActiveScene = OrbitalScene::Copy(m_EditorScene);
+#else
+        m_ActiveScene = Scene::Copy(m_EditorScene);
+#endif
+        m_ActiveScene->OnStartRuntime();
     }
 
 
     void EditorLayer::OnSceneStop()
     {
         m_SceneState = SceneState::Edit;
+
+        m_ActiveScene->OnStopRuntime();
+        m_ActiveScene = m_EditorScene;
     }
 
 }
