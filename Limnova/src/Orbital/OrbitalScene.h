@@ -30,6 +30,7 @@ namespace Limnova
 
         void SetParent(Entity entity, Entity parent);
         std::vector<Entity> GetSecondaries(Entity entity);
+        std::vector<Entity> GetSatellites(Entity primary);
 
         void OnStartRuntime() override;
         void OnUpdateRuntime(Timestep dT) override;

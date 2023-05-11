@@ -653,10 +653,10 @@ namespace Limnova
         out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
         // Serialise in descending scene hierarchy order,
         // so each entity is deserialised after its parent and can be immediately parented
+        SerializeEntity(scene, out, scene->GetRoot());
         auto entities = scene->GetTree(scene->GetRoot());
-        for (auto entity : entities)
-        {
-            if (!entity) { return; }
+        for (auto entity : entities) {
+            if (!entity) return;
             SerializeEntity(scene, out, entity);
         }
         out << YAML::EndSeq;
@@ -736,10 +736,11 @@ namespace Limnova
         out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
         // Serialise in descending scene hierarchy order,
         // so each entity is deserialised after its parent and can be immediately parented
+        SerializeEntity(scene, out, scene->GetRoot());
         auto entities = scene->GetTree(scene->GetRoot());
         for (auto entity : entities)
         {
-            if (!entity) { return; }
+            if (!entity) return;
             SerializeEntity(scene, out, entity);
         }
         out << YAML::EndSeq;

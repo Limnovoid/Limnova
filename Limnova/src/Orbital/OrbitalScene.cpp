@@ -70,9 +70,28 @@ namespace Limnova
         dstRootOrbital.LocalScale = srcRootOrbital.LocalScale;
 
         // CopyAllOfComponent<OrbitalComponent>(dstRegistry, srcRegistry, newScene->m_Entities); /* can't use CopyAllOfComponent() because OrbitalComponents are hierarchy-dependent - they have to be copied breadth-first from the root */
-        //auto srcTree = scene->GetTree(scene->GetRoot());
-        auto dstTree = newScene->GetTree(newScene->GetRoot()); /* srcTree and dstTree should be identical now their HierarchyComponents have been copied */
-        LV_CORE_ASSERT(false, "TODO: Copy OrbitalComponents throughout the tree, breadth-first below the root");
+        auto orbitalEntities = scene->GetSatellites(scene->GetRoot());
+        for (auto e : orbitalEntities) {
+            auto& srcOc = e.GetComponent<OrbitalComponent>();
+            auto& dstOc = newScene->GetEntity(e.GetUUID()).AddComponent<OrbitalComponent>();
+
+            dstOc.SetDynamic(srcOc.IsDynamic());
+            dstOc.SetMass(srcOc.GetMass());
+            dstOc.SetPosition(srcOc.GetPosition());
+            dstOc.SetVelocity(srcOc.GetVelocity());
+            if (!srcOc.IsInfluencing()) {
+                dstOc.SetLocalSpaceRadius(srcOc.GetLocalSpaceRadius());
+            }
+
+            dstOc.Albedo = srcOc.Albedo;
+            dstOc.UIColor = srcOc.UIColor;
+            dstOc.LocalScale = srcOc.LocalScale;
+            dstOc.ShowMajorMinorAxes = srcOc.ShowMajorMinorAxes;
+            dstOc.ShowNormal = srcOc.ShowNormal;
+
+            LV_CORE_ASSERT((dstOc.GetPosition() - srcOc.GetPosition()).SqrMagnitude() < 1e-5f, "Failed to adequately replicate position!");
+            LV_CORE_ASSERT(dstOc.GetElements().E - srcOc.GetElements().E < 1e-5f, "Failed to adequately replicate orbit shape!");
+        }
 
         // Copy scene settings
         newScene->m_LocalSpaceColor = scene->m_LocalSpaceColor;
@@ -162,6 +181,25 @@ namespace Limnova
             secondaries[i] = Entity{ m_Entities[entityIds[i]], this };
         }
         return secondaries;
+    }
+
+
+    std::vector<Entity> OrbitalScene::GetSatellites(Entity primary)
+    {
+        std::vector<Entity> satellites = GetSecondaries(primary);
+        size_t numAdded = satellites.size();
+        do {
+            size_t end = satellites.size();
+            size_t idx = end - numAdded;
+            numAdded = 0;
+            for (; idx < end; idx++)
+            {
+                auto children = GetSecondaries(satellites[idx]);
+                satellites.insert(satellites.end(), children.begin(), children.end());
+                numAdded += children.size();
+            }
+        } while (numAdded > 0);
+        return satellites;
     }
 
 

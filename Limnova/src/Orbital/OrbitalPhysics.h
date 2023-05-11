@@ -808,11 +808,10 @@ namespace Limnova
             std::vector<TUserId> children;
 
             TObjectId first = Null;
-            if (object == m_RootObject) {
+            /*if (object == m_RootObject) {
                 first = m_LocalSpaces.Get(m_RootObject).FirstChild;
             }
-            else if (m_LocalSpaces.Has(object))
-            {
+            else */if (m_LocalSpaces.Has(object)) {
                 first = m_LocalSpaces.Get(object).FirstChild;
             }
             TObjectId child = first;

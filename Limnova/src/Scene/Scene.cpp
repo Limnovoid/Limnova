@@ -171,9 +171,8 @@ namespace Limnova
     /// </summary>
     std::vector<Entity> Scene::GetTree(Entity root)
     {
-        /* Breadth-first search of all entities in the hierarchy attached to root */
-        std::vector<Entity> entities{ { root } };
-        size_t numAdded = 1;
+        std::vector<Entity> entities = GetChildren(root);
+        size_t numAdded = entities.size();
         do {
             size_t end = entities.size();
             size_t idx = end - numAdded;
