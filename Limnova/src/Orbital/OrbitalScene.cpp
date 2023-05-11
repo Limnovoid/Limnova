@@ -63,9 +63,16 @@ namespace Limnova
         CopyAllOfComponent<EllipseRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
 
         // Replicate scene physics state
-        // TODO - copy physics root settings, then copy components should take care of the rest ??
-        CopyAllOfComponent<OrbitalComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        LV_CORE_ASSERT(false, "TODO - replicate physics state explicitly");
+        newScene->SetRootScaling(scene->GetRootScaling());
+        auto& srcRootOrbital = scene->GetComponent<OrbitalComponent>(scene->m_Entities.at(scene->m_Root));
+        auto& dstRootOrbital = newScene->GetComponent<OrbitalComponent>(newScene->m_Entities.at(newScene->m_Root));
+        dstRootOrbital.SetMass(srcRootOrbital.GetMass());
+        dstRootOrbital.LocalScale = srcRootOrbital.LocalScale;
+
+        // CopyAllOfComponent<OrbitalComponent>(dstRegistry, srcRegistry, newScene->m_Entities); /* can't use CopyAllOfComponent() because OrbitalComponents are hierarchy-dependent - they have to be copied breadth-first from the root */
+        //auto srcTree = scene->GetTree(scene->GetRoot());
+        auto dstTree = newScene->GetTree(newScene->GetRoot()); /* srcTree and dstTree should be identical now their HierarchyComponents have been copied */
+        LV_CORE_ASSERT(false, "TODO: Copy OrbitalComponents throughout the tree, breadth-first below the root");
 
         // Copy scene settings
         newScene->m_LocalSpaceColor = scene->m_LocalSpaceColor;
@@ -91,6 +98,13 @@ namespace Limnova
         newScene->m_OrbitalReferenceNormal = scene->m_OrbitalReferenceNormal;
 
         return newScene;
+    }
+
+
+    void OrbitalScene::SetRootId(UUID id)
+    {
+        Scene::SetRootId(id);
+        m_Physics.AssignRoot(id); /* no need to save physics object ID again - it is saved to the root's OrbitalComponent in the OrbitalScene constructor, and SetRootId() preserves the components of the root object */
     }
 
 
@@ -151,6 +165,12 @@ namespace Limnova
     }
 
 
+    void OrbitalScene::OnStartRuntime()
+    {
+        Scene::OnStartRuntime();
+    }
+
+
     void OrbitalScene::OnUpdateRuntime(Timestep dT)
     {
         Scene::OnUpdateRuntime(dT);
@@ -173,9 +193,9 @@ namespace Limnova
         auto view = m_Registry.view<OrbitalComponent>();
         for (auto entity : view)
         {
-            auto [id, tc, oc, hc] = m_Registry.get<IDComponent, TransformComponent, OrbitalComponent, HierarchyComponent>(entity);
+            auto [idc, tc, oc, hc] = m_Registry.get<IDComponent, TransformComponent, OrbitalComponent, HierarchyComponent>(entity);
 
-            if (id.ID == m_ViewPrimary)
+            if (idc.ID == m_ViewPrimary)
             {
                 // View primary
                 tc.SetScale(oc.LocalScale);
@@ -184,8 +204,8 @@ namespace Limnova
             else if (hc.Parent == m_ViewPrimary)
             {
                 // View secondary
-                tc.SetScale(oc.LocalScale * m_Physics.GetLocalSpaceRadius(oc.PhysicsObjectId));
-                tc.SetPosition(m_Physics.GetPosition(oc.PhysicsObjectId));
+                tc.SetScale(oc.LocalScale * oc.GetLocalSpaceRadius());
+                tc.SetPosition(oc.GetPosition());
             }
             else
             {
@@ -332,6 +352,12 @@ namespace Limnova
         // TODO : draw tertiaries as point lights orbiting secondaries
 
         Renderer2D::EndScene();
+    }
+
+
+    void OrbitalScene::OnStopRuntime()
+    {
+        Scene::OnStopRuntime();
     }
 
 

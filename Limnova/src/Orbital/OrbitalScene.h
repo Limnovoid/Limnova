@@ -19,6 +19,9 @@ namespace Limnova
 
         static Ref<OrbitalScene> Copy(Ref<OrbitalScene> scene);
 
+    protected:
+        void SetRootId(UUID id) override;
+    public:
         void SetRootScaling(double meters);
         double GetRootScaling();
 
@@ -28,10 +31,12 @@ namespace Limnova
         void SetParent(Entity entity, Entity parent);
         std::vector<Entity> GetSecondaries(Entity entity);
 
+        void OnStartRuntime() override;
         void OnUpdateRuntime(Timestep dT) override;
         void OnUpdateEditor(Timestep dT) override;
         void OnRenderRuntime() override;
         void OnRenderEditor(EditorCamera& camera) override;
+        void OnStopRuntime() override;
     private:
         void UpdateOrbitalScene();
         void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, float cameraDistance);

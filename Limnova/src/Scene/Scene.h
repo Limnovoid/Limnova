@@ -46,7 +46,8 @@ namespace Limnova
         Entity GetActiveCamera();
         void OnWindowChangeAspect(float aspect);
 
-    protected: void SetRootId(UUID id); /* for serializing */
+    protected:
+        virtual void SetRootId(UUID id); /* for serializing */
     public:
         Entity GetRoot();
 
