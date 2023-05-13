@@ -47,6 +47,10 @@ namespace Limnova
         static constexpr double kGravitational = 6.6743e-11;
         static constexpr float kDefaultLocalSpaceRadius = 0.1f;
         static constexpr float kLocalSpaceEscapeRadius = 1.01f;
+
+        static constexpr float kMaxLocalSpaceRadius = 0.2f;
+        static constexpr float kMinLocalSpaceRadius = 0.01f;
+        static constexpr float kEpsLocalSpaceRadius = 1e-6f;
     private:
         using TAttrId = uint32_t;
 
@@ -836,10 +840,9 @@ namespace Limnova
         /// <returns>True if successfully changed, false otherwise</returns>
         bool SetLocalSpaceRadius(TObjectId object, float radius)
         {
-            static constexpr float kMaxLocalSpaceRadius = 0.25f;
-            static constexpr float kMinLocalSpaceRadius = 0.01f;
-
-            if (!IsInfluencing(object) && radius < kMaxLocalSpaceRadius && radius > kMinLocalSpaceRadius)
+            if (!IsInfluencing(object)
+                && radius < kMaxLocalSpaceRadius + kEpsLocalSpaceRadius
+                && radius > kMinLocalSpaceRadius - kEpsLocalSpaceRadius)
             {
                 m_LocalSpaces.Get(object).Radius = radius;
 

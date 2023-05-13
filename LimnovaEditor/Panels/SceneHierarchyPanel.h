@@ -45,6 +45,7 @@ namespace Limnova
         bool DragFloat(const std::string& label, float& value, const InputConfig<float>& config, float columnWidth = 100.f);
         bool DragVec3(const std::string& label, Vector3& values, const InputConfig<float>& config, float columnWidth = 100.f);
         bool ColorEdit(const std::string& label, Vector4& values, float columnWidth = 100.f);
+        bool ColorEdit3(const std::string& label, Vector3& values, float columnWidth = 100.f);
 
     }
 

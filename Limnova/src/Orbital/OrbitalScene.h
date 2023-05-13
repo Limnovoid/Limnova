@@ -19,6 +19,8 @@ namespace Limnova
 
         static Ref<OrbitalScene> Copy(Ref<OrbitalScene> scene);
 
+        Entity DuplicateEntity(Entity entity) override;
+
     protected:
         void SetRootId(UUID id) override;
     public:
@@ -43,10 +45,11 @@ namespace Limnova
         void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, float cameraDistance);
 
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
+        void OnOrbitalComponentUpdate(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
     public:
         Vector4 m_LocalSpaceColor = { 1.f, 1.f, 1.f, 0.3f };
-        float m_LocalSpaceThickness = 0.002f;
+        float m_LocalSpaceThickness = 0.003f;
         float m_LocalSpaceFade = 0.006f;
 
         float m_OrbitThickness = 0.006f;

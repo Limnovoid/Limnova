@@ -32,6 +32,12 @@ namespace Limnova
             return m_Scene->m_Registry.emplace<T>(m_EnttId, std::forward<Args>(args)...);
         }
 
+        template<typename T, typename... Args>
+        T& AddOrReplaceComponent(Args&&... args)
+        {
+            return m_Scene->m_Registry.emplace_or_replace<T>(m_EnttId, std::forward<Args>(args)...);
+        }
+
         template<typename T>
         T& GetComponent()
         {
@@ -61,6 +67,8 @@ namespace Limnova
         }
 
         UUID GetUUID() { return GetComponent<IDComponent>().ID; }
+        const std::string& GetName() { return GetComponent<TagComponent>().Tag; }
+        Entity GetParent() { return m_Scene->GetParent(*this); }
 
         void Destroy();
 

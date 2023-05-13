@@ -87,7 +87,11 @@ namespace Limnova
             if (ImGui::BeginPopupContextItem())
             {
                 if (ImGui::MenuItem("Create Child Entity")) {
-                    m_SelectedEntity = m_Scene->CreateEntityAsChild(entity, tag.Tag + " Child");
+                    m_SelectedEntity = m_Scene->CreateEntityAsChild(entity, tag.Tag + " child");
+                }
+
+                if (ImGui::MenuItem("Duplicate Entity")) {
+                    m_Scene->DuplicateEntity(entity);
                 }
 
                 if (ImGui::MenuItem("Delete Entity")) {
@@ -407,6 +411,8 @@ namespace Limnova
         {
             auto& orbital = entity.GetComponent<OrbitalComponent>();
 
+            LimnGui::ColorEdit3("UI Color", orbital.UIColor);
+
             switch (orbital.GetValidity())
             {
             case Physics::Validity::Valid:          ImGui::Text(                                "Validity: Valid");             break;
@@ -460,6 +466,8 @@ namespace Limnova
             LimnGui::InputConfig<float> config;
             config.Speed = 0.0001f;
             config.Precision = 4;
+            config.Min = 0.01f;
+            config.Max = 2.f;
             if (LimnGui::DragFloat("Local Space Radius", localSpaceRadius, config, 125.f)) {
                 orbital.SetLocalSpaceRadius(localSpaceRadius);
             }
@@ -903,6 +911,23 @@ namespace Limnova
         ImGui::NextColumn();
 
         bool valueChanged = ImGui::ColorEdit4("##V", values.Ptr(), ImGuiColorEditFlags_AlphaBar);
+
+        ImGui::Columns(1);
+        ImGui::PopID();
+        return valueChanged;
+    }
+
+
+    bool LimnGui::ColorEdit3(const std::string& label, Vector3& values, float columnWidth)
+    {
+        ImGui::PushID(label.c_str());
+
+        ImGui::Columns(2);
+        ImGui::SetColumnWidth(0, columnWidth);
+        ImGui::Text(label.c_str());
+        ImGui::NextColumn();
+
+        bool valueChanged = ImGui::ColorEdit3("##V", values.Ptr());
 
         ImGui::Columns(1);
         ImGui::PopID();

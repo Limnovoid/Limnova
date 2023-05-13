@@ -28,6 +28,8 @@ namespace Limnova
         Entity CreateEntityFromUUID(UUID uuid, const std::string& name = std::string(), UUID parent = UUID::Null);
         void DestroyEntity(Entity entity);
 
+        virtual Entity DuplicateEntity(Entity entity);
+
         Entity GetEntity(UUID uuid);
 
         template<typename First, typename... Rest>
@@ -82,7 +84,7 @@ namespace Limnova
 
     protected:
         /* Helpers */
-        template<typename T>
+        /*template<typename T>
         static void CopyAllOfComponent(entt::registry& dst, entt::registry& src, std::unordered_map<UUID, entt::entity>& dstEntities)
         {
             auto view = src.view<T>();
@@ -93,6 +95,28 @@ namespace Limnova
                 const T& srcComponent = src.get<T>(e);
                 LV_CORE_ASSERT(dstEntities.find(uuid) != dstEntities.end(), "Could not find entity with matching ID in the destination scene!");
                 dst.emplace_or_replace<T>(dstEntities[uuid], srcComponent);
+            }
+        }*/
+
+        template<typename T>
+        void CopyAllOfComponent(entt::registry& src)
+        {
+            auto view = src.view<T>();
+            for (auto e : view)
+            {
+                LV_CORE_ASSERT(src.all_of<IDComponent>(e), "All entities must have UUID!");
+                UUID uuid = src.get<IDComponent>(e).ID;
+                const T& srcComponent = src.get<T>(e);
+                LV_CORE_ASSERT(m_Entities.find(uuid) != m_Entities.end(), "Could not find entity with matching ID in the destination scene!");
+                m_Registry.emplace_or_replace<T>(m_Entities.at(uuid), srcComponent);
+            }
+        }
+
+        template<typename T>
+        void CopyComponentIfExists(entt::entity dst, entt::entity src)
+        {
+            if (HasComponent<T>(src)) {
+                AddOrReplaceComponent<T>(dst, GetComponent<T>(src));
             }
         }
 
@@ -108,10 +132,13 @@ namespace Limnova
             return m_Registry.all_of<First, Rest...>(entity);
         }
         template<typename T, typename... Args>
-        T& AddComponent(entt::entity entity, Args&&... args)
-        {
+        T& AddComponent(entt::entity entity, Args&&... args) {
             LV_CORE_ASSERT(!HasComponent<T>(entity), "Entity already has component!");
             return m_Registry.emplace<T>(entity, std::forward<Args>(args)...);
+        }
+        template<typename T, typename... Args>
+        T& AddOrReplaceComponent(entt::entity entity, Args&&... args) {
+            return m_Registry.emplace_or_replace<T>(entity, std::forward<Args>(args)...);
         }
         template<typename T>
         T& GetComponent(entt::entity entity) {

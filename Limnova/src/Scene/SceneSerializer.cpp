@@ -469,12 +469,6 @@ namespace Limnova
                 ? entity.GetComponent<OrbitalComponent>()
                 : entity.AddComponent<OrbitalComponent>();
 
-            oc.LocalScale           = oNode["LocalScale"].as<Vector3>();
-            oc.UIColor              = oNode["UIColor"].as<Vector3>();
-            oc.Albedo               = oNode["Albedo"].as<float>();
-            oc.ShowMajorMinorAxes   = oNode["ShowMajorMinorAxes"].as<bool>();
-            oc.ShowNormal           = oNode["ShowNormal"].as<bool>();
-
             oc.SetMass(             oNode["Mass"].as<double>());
             if (!isRoot) {
                 oc.SetDynamic(      oNode["Dynamic"].as<bool>());
@@ -488,6 +482,12 @@ namespace Limnova
                         "Computed radius of influence does not match previously stored value!");
                 }
             }
+
+            oc.LocalScale = oNode["LocalScale"].as<Vector3>();
+            oc.UIColor = oNode["UIColor"].as<Vector3>();
+            oc.Albedo = oNode["Albedo"].as<float>();
+            oc.ShowMajorMinorAxes = oNode["ShowMajorMinorAxes"].as<bool>();
+            oc.ShowNormal = oNode["ShowNormal"].as<bool>();
         }
 
     }

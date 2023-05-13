@@ -480,7 +480,7 @@ namespace Limnova
         m_ViewportFocused = ImGui::IsWindowFocused();
         m_ViewportHovered = ImGui::IsWindowHovered();
         m_EditorCamera.SetControl(m_ViewportHovered, m_ViewportFocused, m_SceneHierarchyPanel.GetSelectedEntity());
-        Application::Get().GetImGuiLayer()->SetBlockEvents(!m_ViewportFocused && !m_ViewportHovered);
+        //Application::Get().GetImGuiLayer()->SetBlockEvents(!m_ViewportFocused && !m_ViewportHovered);
 
         ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
         Vector2 viewportSize{ ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y };
@@ -619,20 +619,6 @@ namespace Limnova
         // Shortcuts
         switch (e.GetKeyCode())
         {
-            // Gizmo
-        case LV_KEY_Q:
-            m_ActiveGizmo = -1;
-            break;
-        case LV_KEY_W:
-            m_ActiveGizmo = ImGuizmo::OPERATION::TRANSLATE;
-            break;
-        case LV_KEY_E:
-            m_ActiveGizmo = ImGuizmo::OPERATION::ROTATE;
-            break;
-        case LV_KEY_R:
-            m_ActiveGizmo = ImGuizmo::OPERATION::SCALE;
-            break;
-
             // File
         case LV_KEY_N:
             if (ctrl) {
@@ -648,6 +634,29 @@ namespace Limnova
             if (ctrl && shift) {
                 SaveSceneAs();
             }
+            if (ctrl && !shift) {
+                SaveScene();
+            }
+            break;
+
+            // Scene
+        case LV_KEY_D:
+            if (ctrl) {
+                OnDuplicateEntity();
+            }
+
+            // Gizmo
+        case LV_KEY_Q:
+            m_ActiveGizmo = -1;
+            break;
+        case LV_KEY_W:
+            m_ActiveGizmo = ImGuizmo::OPERATION::TRANSLATE;
+            break;
+        case LV_KEY_E:
+            m_ActiveGizmo = ImGuizmo::OPERATION::ROTATE;
+            break;
+        case LV_KEY_R:
+            m_ActiveGizmo = ImGuizmo::OPERATION::SCALE;
             break;
         }
         return false;
@@ -685,8 +694,8 @@ namespace Limnova
 #endif
         m_EditorScene->OnWindowChangeAspect(m_ViewportSize.x / m_ViewportSize.y);
         m_SceneHierarchyPanel.SetContext(m_EditorScene.get());
-
         m_ActiveScene = m_EditorScene;
+        m_EditorScenePath.clear();
     }
 
 
@@ -696,6 +705,18 @@ namespace Limnova
         if (!filepath.empty()) {
             NewScene();
             SceneSerializer::Deserialize(m_EditorScene.get(), filepath);
+            m_EditorScenePath = filepath;
+        }
+    }
+
+
+    void EditorLayer::SaveScene()
+    {
+        if (!m_EditorScenePath.empty()) {
+            SceneSerializer::Serialize(m_EditorScene.get(), m_EditorScenePath.string());
+        }
+        else {
+            SaveSceneAs();
         }
     }
 
@@ -706,6 +727,7 @@ namespace Limnova
 
         if (!filepath.empty()) {
             SceneSerializer::Serialize(m_EditorScene.get(), filepath);
+            m_EditorScenePath = filepath;
         }
     }
 
@@ -720,6 +742,8 @@ namespace Limnova
         m_ActiveScene = Scene::Copy(m_EditorScene);
 #endif
         m_ActiveScene->OnStartRuntime();
+
+        m_SceneHierarchyPanel.SetContext(m_ActiveScene.get());
     }
 
 
@@ -728,7 +752,20 @@ namespace Limnova
         m_SceneState = SceneState::Edit;
 
         m_ActiveScene->OnStopRuntime();
+
         m_ActiveScene = m_EditorScene;
+        m_SceneHierarchyPanel.SetContext(m_EditorScene.get());
+    }
+
+
+    void EditorLayer::OnDuplicateEntity()
+    {
+        if (m_SceneState != SceneState::Edit) return;
+
+        Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
+        if (selected) {
+            m_EditorScene->DuplicateEntity(selected);
+        }
     }
 
 }

@@ -35,10 +35,13 @@ namespace Limnova
 
         void NewScene();
         void OpenScene();
+        void SaveScene();
         void SaveSceneAs();
 
         void OnScenePlay();
         void OnSceneStop();
+
+        void OnDuplicateEntity();
     private:
 #ifdef LV_EDITOR_USE_ORBITAL
         Ref<OrbitalScene> m_ActiveScene;
@@ -47,6 +50,8 @@ namespace Limnova
         Ref<Scene> m_ActiveScene;
         Ref<Scene> m_EditorScene;
 #endif
+
+        std::filesystem::path m_EditorScenePath;
 
         EditorCamera m_EditorCamera;
 

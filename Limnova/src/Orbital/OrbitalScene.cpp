@@ -52,15 +52,15 @@ namespace Limnova
             newScene->CreateEntityFromUUID(uuid, name);
         }
 
-        CopyAllOfComponent<TransformComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<HierarchyComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<CameraComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<NativeScriptComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<SpriteRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<BillboardSpriteRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<CircleRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<BillboardCircleRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<EllipseRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        newScene->CopyAllOfComponent<TransformComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<HierarchyComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<CameraComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<NativeScriptComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<SpriteRendererComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<BillboardSpriteRendererComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<CircleRendererComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<BillboardCircleRendererComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<EllipseRendererComponent>(scene->m_Registry);
 
         // Replicate scene physics state
         newScene->SetRootScaling(scene->GetRootScaling());
@@ -69,7 +69,7 @@ namespace Limnova
         dstRootOrbital.SetMass(srcRootOrbital.GetMass());
         dstRootOrbital.LocalScale = srcRootOrbital.LocalScale;
 
-        // CopyAllOfComponent<OrbitalComponent>(dstRegistry, srcRegistry, newScene->m_Entities); /* can't use CopyAllOfComponent() because OrbitalComponents are hierarchy-dependent - they have to be copied breadth-first from the root */
+        /* can't use CopyAllOfComponent() for OrbitalComponents because they are hierarchy-dependent - they have to be copied breadth-first from the root */
         auto orbitalEntities = scene->GetSatellites(scene->GetRoot());
         for (auto e : orbitalEntities) {
             auto& srcOc = e.GetComponent<OrbitalComponent>();
@@ -117,6 +117,49 @@ namespace Limnova
         newScene->m_OrbitalReferenceNormal = scene->m_OrbitalReferenceNormal;
 
         return newScene;
+    }
+
+
+    Entity OrbitalScene::DuplicateEntity(Entity entity)
+    {
+        Entity newEntity = CreateEntityAsChild(GetParent(entity), entity.GetName() + " (copy)");
+
+        CopyComponentIfExists<TransformComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        /* DO NOT copy HierarchyComponent - the original's and duplicate's sibling relationships are necessarily different and should be handled by CreateEntity() */
+        CopyComponentIfExists<CameraComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<NativeScriptComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<SpriteRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<BillboardSpriteRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<CircleRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<BillboardCircleRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<EllipseRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+
+        auto& srcOc = entity.GetComponent<OrbitalComponent>();
+
+        if (newEntity.HasComponent<OrbitalComponent>()) {
+            newEntity.RemoveComponent<OrbitalComponent>();
+        }
+        auto& dstOc = newEntity.AddComponent<OrbitalComponent>();
+
+        dstOc.SetDynamic(srcOc.IsDynamic());
+        dstOc.SetMass(srcOc.GetMass());
+        dstOc.SetPosition(srcOc.GetPosition());
+        dstOc.SetVelocity(srcOc.GetVelocity());
+        if (!srcOc.IsInfluencing()) {
+            dstOc.SetLocalSpaceRadius(srcOc.GetLocalSpaceRadius());
+        }
+
+        dstOc.Albedo = srcOc.Albedo;
+        dstOc.UIColor = srcOc.UIColor;
+        dstOc.LocalScale = srcOc.LocalScale;
+        dstOc.ShowMajorMinorAxes = srcOc.ShowMajorMinorAxes;
+        dstOc.ShowNormal = srcOc.ShowNormal;
+
+        LV_CORE_ASSERT((dstOc.GetPosition() - srcOc.GetPosition()).SqrMagnitude() < 1e-5f, "Failed to adequately replicate position!");
+        LV_CORE_ASSERT(dstOc.GetElements().E - srcOc.GetElements().E < 1e-5f, "Failed to adequately replicate orbit shape!");
+        LV_CORE_ASSERT(dstOc.GetDynamics().EscapeTrueAnomaly - srcOc.GetDynamics().EscapeTrueAnomaly < 1e-5f, "Failed to adequately replicate dynamics!");
+
+        return newEntity;
     }
 
 

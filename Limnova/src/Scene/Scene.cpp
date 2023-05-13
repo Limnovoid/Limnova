@@ -52,16 +52,15 @@ namespace Limnova
             newScene->CreateEntityFromUUID(uuid, name);
         }
 
-        CopyAllOfComponent<TransformComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<HierarchyComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<CameraComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<NativeScriptComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<SpriteRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<BillboardSpriteRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<CircleRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<BillboardCircleRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<EllipseRendererComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
-        CopyAllOfComponent<OrbitalComponent>(dstRegistry, srcRegistry, newScene->m_Entities);
+        newScene->CopyAllOfComponent<TransformComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<HierarchyComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<CameraComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<NativeScriptComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<SpriteRendererComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<BillboardSpriteRendererComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<CircleRendererComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<BillboardCircleRendererComponent>(scene->m_Registry);
+        newScene->CopyAllOfComponent<EllipseRendererComponent>(scene->m_Registry);
 
         return newScene;
     }
@@ -92,6 +91,24 @@ namespace Limnova
         entity.AddComponent<HierarchyComponent>();
         HierarchyConnect(entity.m_EnttId, m_Entities[(parent == UUID::Null) ? m_Root : parent]);
         return entity;
+    }
+
+
+    Entity Scene::DuplicateEntity(Entity entity)
+    {
+        Entity newEntity = CreateEntityAsChild(GetParent(entity), entity.GetName() + " (copy)");
+
+        CopyComponentIfExists<TransformComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        /* DO NOT copy HierarchyComponent - the original and copy entities' relationships are necessarily different and are handled by CreateEntity() */
+        CopyComponentIfExists<CameraComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<NativeScriptComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<SpriteRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<BillboardSpriteRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<CircleRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<BillboardCircleRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<EllipseRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+
+        return newEntity;
     }
 
 
@@ -156,7 +173,7 @@ namespace Limnova
         auto first = hierarchy.FirstChild;
         auto child = first;
         do {
-            if (!child) break; // TODO - check that bool cast operator is being called (not uint64_t cast)
+            if (child == UUID::Null) break;
             children.push_back(Entity{ m_Entities[child], this });
             child = GetComponent<HierarchyComponent>(m_Entities[child]).NextSibling;
         } while (child != first);
