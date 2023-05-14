@@ -223,9 +223,14 @@ namespace Limnova
             {
             case SceneState::Edit:
             {
-                m_ActiveScene->OnUpdateEditor(dT);
                 m_EditorCamera.OnUpdate(dT);
+                m_ActiveScene->OnUpdateEditor(dT);
                 break;
+            }
+            case SceneState::Simulate:
+            {
+                m_EditorCamera.OnUpdate(dT);
+                /* don't break, call OnUpdateRuntime() */
             }
             case SceneState::Play:
             {
@@ -254,6 +259,7 @@ namespace Limnova
             switch (m_SceneState)
             {
             case SceneState::Edit:
+            case SceneState::Simulate:
             {
                 m_ActiveScene->OnRenderEditor(m_EditorCamera);
                 break;
@@ -578,8 +584,10 @@ namespace Limnova
             switch (m_SceneState)
             {
             case SceneState::Edit:
-                OnScenePlay();
+                //OnScenePlay();
+                OnSceneSimulate();
                 break;
+            case SceneState::Simulate:
             case SceneState::Play:
                 OnSceneStop();
                 break;
@@ -735,6 +743,21 @@ namespace Limnova
     void EditorLayer::OnScenePlay()
     {
         m_SceneState = SceneState::Play;
+
+#ifdef LV_EDITOR_USE_ORBITAL
+        m_ActiveScene = OrbitalScene::Copy(m_EditorScene);
+#else
+        m_ActiveScene = Scene::Copy(m_EditorScene);
+#endif
+        m_ActiveScene->OnStartRuntime();
+
+        m_SceneHierarchyPanel.SetContext(m_ActiveScene.get());
+    }
+
+
+    void EditorLayer::OnSceneSimulate()
+    {
+        m_SceneState = SceneState::Simulate;
 
 #ifdef LV_EDITOR_USE_ORBITAL
         m_ActiveScene = OrbitalScene::Copy(m_EditorScene);

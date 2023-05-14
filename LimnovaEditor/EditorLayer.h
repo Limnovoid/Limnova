@@ -23,7 +23,9 @@ namespace Limnova
     private:
         enum class SceneState
         {
-            Edit = 0, Play = 1
+            Edit = 0,
+            Play = 1,
+            Simulate = 2
         };
     private:
         void UI_Toolbar();
@@ -39,6 +41,7 @@ namespace Limnova
         void SaveSceneAs();
 
         void OnScenePlay();
+        void OnSceneSimulate();
         void OnSceneStop();
 
         void OnDuplicateEntity();
