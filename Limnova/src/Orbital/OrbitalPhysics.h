@@ -51,6 +51,12 @@ namespace Limnova
         static constexpr float kMaxLocalSpaceRadius = 0.2f;
         static constexpr float kMinLocalSpaceRadius = 0.01f;
         static constexpr float kEpsLocalSpaceRadius = 1e-6f;
+
+        static constexpr float kMinUpdateDistance = 1e-5f;
+        static constexpr double kMinUpdateDistanced = (double)kMinUpdateDistance;
+        static constexpr int kMaxUpdatesPerObjectPerFrame = 20;
+        static constexpr double kMinDT = 1.0 / (60.0 * kMaxUpdatesPerObjectPerFrame);
+
     private:
         using TAttrId = uint32_t;
 
@@ -155,10 +161,23 @@ namespace Limnova
     private:
         struct State
         {
-            /* Compulsory attribute - all physics objects are expected to have a physics state */
+            /* Required attribute - all physics objects are expected to have a physics state */
             double Mass = 0.0;
-            Vector3 Position = { 0.f, 0.f, 0.f };
-            Vector3d Velocity = { 0.0, 0.0, 0.0 };
+            Vector3 Position = { 0.f };
+            Vector3d Velocity = { 0.0 };
+            Vector3d Acceleration = { 0.0 };
+        };
+
+        struct Integration
+        {
+            enum class Method {
+                Angular = 0,
+                Linear = 1
+            };
+            double PrevDT = 0.0;
+            double UpdateTimer = 0.0;
+            TObjectId UpdateNext = Null;
+            Method Method = Method::Linear; /* safest option as Angular makes assumptions about the suitability of orbit solution */
         };
 
         struct Object
@@ -170,6 +189,7 @@ namespace Limnova
 
             Validity Validity = Validity::InvalidParent;
             State State;
+            Integration Integration;
 
             Object() = default;
             Object(TUserId userId) : UserId(userId) {}
@@ -184,9 +204,10 @@ namespace Limnova
             double H = 0.0;             /* Orbital specific angular momentum */
             float E = { 0.f };          /* Eccentricity */
 
-            OrbitType Type = OrbitType::Circle; /* Type of orbit, reflecting its eccentricity */
+            OrbitType Type = OrbitType::Circle; /* Type of orbit - defined by eccentricity, indicates the type of shape which describes the orbit path */
 
-            float P = 0.f;              /* Orbit parameter, or semi-latus rectum */
+            float P = 0.f;              /* Orbit parameter, or semi-latus rectum:   h^2 / mu    */
+            double VConstant = 0.f;      /* Constant factor of orbital velocity:     mu / h      */
 
             float I = 0.f;              /* Inclination */
             Vector3 N = { 0.f };        /* Direction of ascending node */
@@ -210,6 +231,8 @@ namespace Limnova
             Vector3 EscapePoint = { 0.f }; /* Point on the orbit at which the orbiter will cross the primary's local space boundary to exit the local space */
             Vector3 EntryPoint = { 0.f }; /* Point on the orbit at which the orbiter (would have) crossed the primary's local space boundary to enter the local space */
             Vector2 EscapePointPerifocal = { 0.f }; /* The escape point relative to the perifocal frame - 2D because it is restricted to the orbital (perifocal-XY) plane */
+
+            Vector3d ContAcceleration = { 0.0 }; /* Acceleration assumed to be constant between timesteps */
         };
     private:
         struct LocalSpace
@@ -233,6 +256,7 @@ namespace Limnova
         AttributeStorage<LocalSpace> m_LocalSpaces;
         AttributeStorage<Dynamics> m_Dynamics;
 
+        TObjectId m_UpdateNext = Null;
 
         /*** Resource helpers ***/
     private:
@@ -254,8 +278,13 @@ namespace Limnova
         void RecycleObject(TObjectId object)
         {
             LV_CORE_ASSERT(object != 0, "Cannot recycle the root object!");
+            m_Objects[object].UserId = TUserId();
             m_Objects[object].Parent = Null;
+            m_Objects[object].PrevSibling = Null;
+            m_Objects[object].NextSibling = Null;
             m_Objects[object].Validity = Validity::InvalidParent;
+            m_Objects[object].State = State();
+            m_Objects[object].Integration = Integration();
             m_EmptyObjects.insert(object);
         }
 
@@ -267,22 +296,18 @@ namespace Limnova
 
             // Connect to parent
             obj.Parent = parent;
-            if (ls.FirstChild == Null)
-            {
+            if (ls.FirstChild == Null) {
                 ls.FirstChild = object;
             }
-            else
-            {
+            else {
                 // Connect to siblings
                 auto& next = m_Objects[ls.FirstChild];
-                if (next.PrevSibling == Null)
-                {
+                if (next.PrevSibling == Null) {
                     // Only one sibling
                     obj.PrevSibling = obj.NextSibling = ls.FirstChild;
                     next.PrevSibling = next.NextSibling = object;
                 }
-                else
-                {
+                else {
                     // More than one sibling
                     auto& prev = m_Objects[next.PrevSibling];
 
@@ -516,6 +541,7 @@ namespace Limnova
 
             /* Loss of precision due to casting is acceptable: semi-latus recturm is on the order of 1 in all common cases, due to distance parameterisation */
             elems.P = (float)(H2 / elems.Grav);
+            elems.VConstant = elems.Grav / elems.H;
 
             /* Loss of precision due to casting is acceptable: result of vector division (V x H / Grav) is on the order of 1 */
             Vector3 posDir = state.Position.Normalized();
@@ -585,18 +611,29 @@ namespace Limnova
                 Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis)
                 * Quaternion(elems.N, elems.I)
                 * Quaternion(kReferenceNormal, elems.Omega);
+
+            // Integration
+            obj.Integration.Method = Integration::Method::Angular;
         }
 
-        void TryComputeOrbitalState(TObjectId object)
+
+        void TryComputeAttributes(TObjectId object)
         {
+            UpdateQueueSafeRemove(object);
+
             if (object != m_RootObject && (m_Objects[object].Validity == Validity::Valid ||
                 m_Objects[object].Validity == Validity::InvalidPath))
             {
                 ComputeElements(object);
                 ComputeDynamics(object); /* If orbiter is not dynamic, sets Validity to InvalidPath if dynamic events are found */
                 ComputeInfluence(object);
+
+                if (m_Objects[object].Validity == Validity::Valid) {
+                    UpdateQueuePushFront(object);
+                }
             }
         }
+
 
         /// <summary>
         /// Returns speed for a circular orbit around the given primary at the given distance.
@@ -611,12 +648,13 @@ namespace Limnova
             return sqrt(kGravitational * m_Objects[primary].State.Mass * pow(m_LocalSpaces[primary].MetersPerRadius, -3.0) / (double)radius);
         }
 
+
         /// <summary>
         /// Returns velocity for a circular counter-clockwise orbit around the given primary at the given position.
         /// Assumes orbiter has insignificant mass compared to primary.
         /// </summary>
         /// <param name="object">Physics object ID</param>
-        Vector3d CircularOrbitVelocity(TObjectId primary, const Vector3& position)
+        Vector3d CircularOrbitVelocity(TObjectId primary, Vector3 const& position)
         {
             /* Keep the orbital plane as flat (close to the reference plane) as possible:
              * derive velocity direction as the cross product of reference normal and normalized position */
@@ -637,11 +675,177 @@ namespace Limnova
             }
             return vDir * CircularOrbitSpeed(primary, rMag);
         }
+
+
+        void UpdateQueuePushFront(TObjectId object)
+        {
+            if (m_UpdateNext == Null) {
+                m_UpdateNext = object;
+                m_Objects[object].Integration.UpdateNext = Null;
+                return;
+            }
+            m_Objects[object].Integration.UpdateNext = m_UpdateNext;
+            m_UpdateNext = object;
+        }
+
+        /// <summary>
+        /// Removes the given object from the update queue.
+        /// Attempting to remove an object which is not in the queue will result in an array out-of-bounds error caused by executing 'm_Objects[Null]'.
+        /// See also: UpdateQueueSafeRemove().
+        /// </summary>
+        void UpdateQueueRemove(TObjectId object)
+        {
+            LV_CORE_ASSERT(m_UpdateNext != Null, "Attempting to remove item from empty queue!");
+            if (m_UpdateNext == object) {
+                m_UpdateNext = m_Objects[object].Integration.UpdateNext;
+                m_Objects[object].Integration.UpdateNext = Null;
+                return;
+            }
+            TObjectId queueItem = m_UpdateNext,
+                queueNext = m_Objects[m_UpdateNext].Integration.UpdateNext;
+            while (queueNext != object) {
+                LV_CORE_ASSERT(queueNext != Null, "UpdateQueueRemove() could not find the given object in the update queue!");
+                queueItem = queueNext;
+                queueNext = m_Objects[queueNext].Integration.UpdateNext;
+            }
+            m_Objects[queueItem].Integration.UpdateNext = m_Objects[object].Integration.UpdateNext;
+            m_Objects[object].Integration.UpdateNext = Null;
+        }
+
+        /// <summary>
+        /// Removes the given object from the update queue, if it exists in the update queue.
+        /// </summary>
+        /// <returns>True if object was found and removed, false otherwise.</returns>
+        bool UpdateQueueSafeRemove(TObjectId object)
+        {
+            if (m_UpdateNext == Null) return false;
+            if (m_UpdateNext == object) {
+                m_UpdateNext = m_Objects[object].Integration.UpdateNext;
+                m_Objects[object].Integration.UpdateNext = Null;
+                return true;
+            }
+            TObjectId queueItem = m_UpdateNext,
+                queueNext = m_Objects[m_UpdateNext].Integration.UpdateNext;
+            while (queueNext != Null) {
+                if (queueNext == object) {
+                    m_Objects[queueItem].Integration.UpdateNext = m_Objects[queueNext].Integration.UpdateNext;
+                    m_Objects[object].Integration.UpdateNext = Null;
+                    return true;
+                }
+                queueItem = queueNext;
+                queueNext = m_Objects[queueNext].Integration.UpdateNext;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Assumes the first entry in the queue is the only entry which is potentially unsorted.
+        /// </summary>
+        void UpdateQueueSortFront()
+        {
+            LV_CORE_ASSERT(m_UpdateNext != Null, "Attempting to sort empty queue!");
+
+            TObjectId object = m_UpdateNext;
+            auto& integ = m_Objects[object].Integration;
+
+            TObjectId queueItem = integ.UpdateNext;
+            if (queueItem == Null) return;
+            if (integ.UpdateTimer < m_Objects[queueItem].Integration.UpdateTimer) return;
+            m_UpdateNext = queueItem;
+
+            TObjectId queueNext = m_Objects[queueItem].Integration.UpdateNext;
+            while (queueNext != Null) {
+                if (integ.UpdateTimer < m_Objects[queueNext].Integration.UpdateTimer) break;
+                queueItem = queueNext;
+                queueNext = m_Objects[queueNext].Integration.UpdateNext;
+            }
+            m_Objects[queueItem].Integration.UpdateNext = object;
+            integ.UpdateNext = queueNext;
+        }
     public:
         /*** Usage ***/
 
         void OnUpdate(Timestep dT)
         {
+#ifdef LV_DEBUG 
+            std::vector<size_t> numUpdates(m_Objects.size(), 0);
+#endif
+
+            // Update all objects with timers less than 0
+            while (m_Objects[m_UpdateNext].Integration.UpdateTimer < 0.0)
+            {
+#ifdef LV_DEBUG 
+                numUpdates[m_UpdateNext] += 1;
+#endif
+
+                auto& obj = m_Objects[m_UpdateNext];
+                auto& elems = m_Elements[m_UpdateNext];
+                bool isDynamic = m_Dynamics.Has(m_UpdateNext);
+
+                double objDT = std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), kMinDT);
+
+                float r2 = obj.State.Position.SqrMagnitude();
+
+                /* integration */
+                switch (obj.Integration.Method)
+                {
+                case Integration::Method::Angular:
+                {
+                    /* Integrate true anomaly:
+                    * dTheta/dT = h / r^2
+                    * */
+                    elems.TrueAnomaly += (float)(objDT * elems.H) / r2;
+                    elems.TrueAnomaly = Wrapf(elems.TrueAnomaly, 0.f, PI2f);
+
+                    // Compute new state
+                    float sinT = sinf(elems.TrueAnomaly);
+                    float cosT = cosf(elems.TrueAnomaly);
+                    float r = elems.P / (1.f + elems.E * cosT); /* orbit equation: r = h^2 / mu * 1 / (1 + e * cos(trueAnomaly)) */
+                    obj.State.Position = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
+                    obj.State.Velocity = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
+                    break;
+                }
+                case Integration::Method::Linear:
+                {
+                    /* Velocity verlet :
+                    * p1 = p0 + v0 * dT + 0.5 * a0 * dT^2
+                    * a1 = (-rDirection) * G * M / r^2 + dynamicAcceleration
+                    * v1 = v0 + 0.5 * (a0 + a1) * dT
+                    * */
+                    obj.State.Position += (Vector3)(obj.State.Velocity * objDT) + 0.5f * (Vector3)(obj.State.Acceleration * objDT * objDT);
+                    Vector3d newAcceleration = -Vector3d{ obj.State.Position } *elems.Grav / (double)(r2 * sqrtf(r2));
+                    bool needsRecompute = false;
+                    if (isDynamic) {
+                        newAcceleration += m_Dynamics[m_UpdateNext].ContAcceleration;
+                        needsRecompute = m_Dynamics[m_UpdateNext].ContAcceleration.IsZero();
+                    }
+                    obj.State.Velocity += 0.5 * (obj.State.Acceleration + newAcceleration) * objDT;
+                    obj.State.Acceleration = newAcceleration;
+
+                    if (needsRecompute) {
+                        ComputeElements(m_UpdateNext);
+                        ComputeDynamics(m_UpdateNext);
+                        ComputeInfluence(m_UpdateNext);
+                    }
+                    break;
+                }
+                }
+
+                obj.Integration.PrevDT = objDT;
+                obj.Integration.UpdateTimer += objDT;
+                UpdateQueueSortFront();
+            }
+
+            // Subtract elapsed time from all object timers
+            TObjectId object = m_UpdateNext;
+            while (object != Null) {
+#ifdef LV_DEBUG 
+                std::cout << "(" << object << ", " << numUpdates[object] << ") ";
+#endif
+                m_Objects[object].Integration.UpdateTimer -= dT;
+                object = m_Objects[object].Integration.UpdateNext;
+            }
+            std::cout << std::endl; // debug
         }
 
 
@@ -693,7 +897,7 @@ namespace Limnova
         /// </summary>
         /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
         /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId, TObjectId parent, double mass, Vector3 position, Vector3 velocity, bool dynamic = false)
+        TObjectId Create(TUserId userId, TObjectId parent, double mass, Vector3 const& position, Vector3 const& velocity, bool dynamic = false)
         {
             LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
 
@@ -712,7 +916,7 @@ namespace Limnova
             }
 
             ComputeStateValidity(newObject);
-            TryComputeOrbitalState(newObject);
+            TryComputeAttributes(newObject);
 
             return newObject;
         }
@@ -723,7 +927,7 @@ namespace Limnova
         /// </summary>
         /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
         /// <returns>ID of the created physics object</returns>
-        TObjectId Create(TUserId userId, TObjectId parent, bool mass, Vector3 position, bool dynamic = false)
+        TObjectId Create(TUserId userId, TObjectId parent, bool mass, Vector3 const& position, bool dynamic = false)
         {
             LV_CORE_ASSERT(Has(parent), "Invalid parent ID!");
 
@@ -798,7 +1002,7 @@ namespace Limnova
             LV_CORE_ASSERT(object != parent && Has(parent), "Invalid parent ID!");
             m_Objects[object].Parent = parent;
             ComputeStateValidity(object);
-            TryComputeOrbitalState(object);
+            TryComputeAttributes(object);
             // TODO : update satellites ?
         }
 
@@ -865,7 +1069,7 @@ namespace Limnova
         {
             m_Objects[object].State.Mass = mass;
             ComputeStateValidity(object);
-            TryComputeOrbitalState(object); /* NOTE: this should be redundant as orbital motion is independent of orbiter mass, but do it anyway just for consistency */
+            TryComputeAttributes(object); /* NOTE: this should be redundant as orbital motion is independent of orbiter mass, but do it anyway just for consistency */
             // TODO : update satellites ?
         }
 
@@ -875,7 +1079,7 @@ namespace Limnova
         }
 
 
-        void SetPosition(TObjectId object, Vector3 position)
+        void SetPosition(TObjectId object, Vector3 const& position)
         {
             if (object == m_RootObject)
             {
@@ -885,17 +1089,17 @@ namespace Limnova
 
             m_Objects[object].State.Position = position;
             ComputeStateValidity(object);
-            TryComputeOrbitalState(object);
+            TryComputeAttributes(object);
             // TODO : update satellites ?
         }
 
-        Vector3 GetPosition(TObjectId object)
+        Vector3 const& GetPosition(TObjectId object)
         {
             return m_Objects[object].State.Position;
         }
 
 
-        void SetVelocity(TObjectId object, Vector3d velocity)
+        void SetVelocity(TObjectId object, Vector3d const& velocity)
         {
             if (object == m_RootObject)
             {
@@ -904,11 +1108,11 @@ namespace Limnova
             }
 
             m_Objects[object].State.Velocity = velocity;
-            TryComputeOrbitalState(object);
+            TryComputeAttributes(object);
             // TODO : update satellites ?
         }
 
-        Vector3d GetVelocity(TObjectId object)
+        Vector3d const& GetVelocity(TObjectId object)
         {
             return m_Objects[object].State.Velocity;
         }
@@ -958,7 +1162,7 @@ namespace Limnova
                 m_Dynamics.TryRemove(object);
             }
 
-            TryComputeOrbitalState(object);
+            TryComputeAttributes(object);
         }
 
         bool IsDynamic(TObjectId object)
@@ -969,6 +1173,35 @@ namespace Limnova
         const Dynamics& GetDynamics(TObjectId object)
         {
             return m_Dynamics[object];
+        }
+
+
+        void SetContinuousAcceleration(TObjectId object, Vector3d const& acceleration)
+        {
+            LV_CORE_ASSERT(m_Dynamics.Has(object), "Attempted to set dynamic acceleration on a non-dynamic orbiter!");
+
+            auto& state = m_Objects[object].State;
+            auto& dynamics = m_Dynamics[object];
+
+            state.Position += 0.5f * (acceleration - dynamics.ContAcceleration) * powf(state.UpdateTimer, 2.f);
+            state.Velocity += (acceleration - dynamics.ContAcceleration) * state.UpdateTimer;
+            state.UpdateTimer += max(kMinUpdateDistanced / state.Velocity, kMinDT) - state.PrevDT;
+
+            dynamics.ContAcceleration = acceleration;
+
+            TryComputeAttributes(object);
+        }
+
+
+        void SetContinuousThrust(TObjectId object, Vector3d const& force)
+        {
+            SetContinuousAcceleration(object, force / m_Objects[object].State.Mass);
+        }
+
+
+        void ApplyInstantAcceleration(TObjectId object, Vector3d const& acceleration)
+        {
+
         }
 
     };

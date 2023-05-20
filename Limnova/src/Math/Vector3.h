@@ -85,6 +85,12 @@ namespace Limnova
                 this->x * rhs.y - this->y * rhs.x
             );
         }
+
+        bool IsZero() const {
+            return this->x == T(0)
+                && this->y == T(0)
+                && this->z == T(0);
+        }
     public:
         static TVector3 Cross(const TVector3 lhs, const TVector3 rhs) {
             return TVector3(
@@ -94,15 +100,17 @@ namespace Limnova
             );
         }
 
-        static constexpr TVector3 X() { return { 1.0, 0.0, 0.0 }; }
-        static constexpr TVector3 Y() { return { 0.0, 1.0, 0.0 }; }
-        static constexpr TVector3 Z() { return { 0.0, 0.0, 1.0 }; }
-        static constexpr TVector3 Forward() { return    { 0.0, 0.0,-1.0 }; }
-        static constexpr TVector3 Up() { return         { 0.0, 1.0, 0.0 }; }
-        static constexpr TVector3 Left() { return       {-1.0, 0.0, 0.0 }; }
-        static constexpr TVector3 Backward() { return   { 0.0, 0.0, 1.0 }; }
-        static constexpr TVector3 Down() { return       { 0.0,-1.0, 0.0 }; }
-        static constexpr TVector3 Right() { return      { 1.0, 0.0, 0.0 }; }
+        static constexpr TVector3 Zero() { return { 0, 0, 0 }; }
+
+        static constexpr TVector3 X() { return { 1, 0, 0 }; }
+        static constexpr TVector3 Y() { return { 0, 1, 0 }; }
+        static constexpr TVector3 Z() { return { 0, 0, 1 }; }
+        static constexpr TVector3 Forward() { return  { 0, 0,-1 }; }
+        static constexpr TVector3 Up() { return       { 0, 1, 0 }; }
+        static constexpr TVector3 Left() { return     {-1, 0, 0 }; }
+        static constexpr TVector3 Backward() { return { 0, 0, 1 }; }
+        static constexpr TVector3 Down() { return     { 0,-1, 0 }; }
+        static constexpr TVector3 Right() { return    { 1, 0, 0 }; }
     public:
         TVector3& operator=(const glm::vec3& rhs) {
             this->x = rhs.x;
