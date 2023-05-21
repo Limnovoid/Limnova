@@ -40,6 +40,10 @@ namespace Limnova
         void OnRenderRuntime() override;
         void OnRenderEditor(EditorCamera& camera) override;
         void OnStopRuntime() override;
+
+#ifdef LV_DEBUG
+        Physics::Stats const& GetPhysicsStats() { return m_Physics.GetStats(); }
+#endif
     private:
         void UpdateOrbitalScene();
         void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, float cameraDistance);

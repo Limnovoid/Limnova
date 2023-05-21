@@ -469,6 +469,27 @@ namespace Limnova
         ImGui::Text("Indices:       %d", stats.GetNumIndices());
         ImGui::End(); // Renderer2D Statistics
 
+#if defined(LV_DEBUG) && defined(LV_EDITOR_USE_ORBITAL)
+        ImGui::Begin("OrbitalPhysics Statistics");
+        auto& orbitalStats = m_ActiveScene->GetPhysicsStats();
+
+        { // Object update counts
+            static int offset = 0;
+            static constexpr int kPlotSpan = 12;
+            static std::vector<std::array<float, kPlotSpan>> objectUpdates;
+            objectUpdates.resize(orbitalStats.NumObjectUpdates.size());
+            for (size_t object = 1; object < orbitalStats.NumObjectUpdates.size(); object++) {
+                objectUpdates[object][offset] = (float)orbitalStats.NumObjectUpdates[object];
+
+                std::ostringstream title; title << object;
+                ImGui::PlotLines(title.str().c_str(), objectUpdates[object].data(), kPlotSpan, offset, 0, 0.f, 20.f, ImVec2{ ImGui::GetContentRegionAvail().x - 20, 60});
+            }
+            offset = Wrapi(++offset, 0, kPlotSpan);
+        }
+
+        ImGui::End();
+#endif
+
 
         // Viewport //
 

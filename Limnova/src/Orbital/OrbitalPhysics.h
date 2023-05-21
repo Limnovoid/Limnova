@@ -585,7 +585,7 @@ namespace Limnova
             elems.C = elems.P / (1.f + elems.E);
             elems.C += (elems.Type == OrbitType::Hyperbola) ? elems.SemiMajor : -elems.SemiMajor; /* different center position for cirlce/ellipse and hyperbola */
 
-            elems.T = pow((double)elems.SemiMajor, 1.5) * PI2 / sqrt(elems.H);
+            elems.T = PI2 * (double)(elems.SemiMajor * elems.SemiMinor) / elems.H;
 
             elems.TrueAnomaly = AngleBetweenUnitVectorsSafe(elems.PerifocalX, posDir);
             // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
@@ -765,28 +765,43 @@ namespace Limnova
     public:
         /*** Usage ***/
 
+#ifdef LV_DEBUG
+        struct Stats
+        {
+            std::vector<size_t> NumObjectUpdates;
+        };
+        Stats m_Stats;
+        Stats const& GetStats() { return m_Stats; }
+#endif
+
+
         void OnUpdate(Timestep dT)
         {
 #ifdef LV_DEBUG 
-            std::vector<size_t> numUpdates(m_Objects.size(), 0);
+            m_Stats.NumObjectUpdates.assign(m_Objects.size(), 0);
 #endif
+
+            double minObjDT = dT / 20.0;
 
             // Update all objects with timers less than 0
             while (m_Objects[m_UpdateNext].Integration.UpdateTimer < 0.0)
             {
 #ifdef LV_DEBUG 
-                numUpdates[m_UpdateNext] += 1;
+                m_Stats.NumObjectUpdates[m_UpdateNext] += 1;
 #endif
 
                 auto& obj = m_Objects[m_UpdateNext];
                 auto& elems = m_Elements[m_UpdateNext];
                 bool isDynamic = m_Dynamics.Has(m_UpdateNext);
 
-                double objDT = std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), kMinDT);
+                double objDT = std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
+                //double objDT = sqrt(obj.State.Velocity.SqrMagnitude());
+                //objDT = kMinUpdateDistanced / objDT;
+                //objDT = std::max(objDT, minObjDT);
 
                 float r2 = obj.State.Position.SqrMagnitude();
 
-                /* integration */
+                // Motion integration
                 switch (obj.Integration.Method)
                 {
                 case Integration::Method::Angular:
@@ -839,13 +854,9 @@ namespace Limnova
             // Subtract elapsed time from all object timers
             TObjectId object = m_UpdateNext;
             while (object != Null) {
-#ifdef LV_DEBUG 
-                std::cout << "(" << object << ", " << numUpdates[object] << ") ";
-#endif
                 m_Objects[object].Integration.UpdateTimer -= dT;
                 object = m_Objects[object].Integration.UpdateNext;
             }
-            std::cout << std::endl; // debug
         }
 
 

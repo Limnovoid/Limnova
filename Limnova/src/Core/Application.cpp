@@ -68,12 +68,12 @@ namespace Limnova
         {
             LV_PROFILE_SCOPE("RunLoop");
 
-            // TODO : custom time class and game time tracking
+            // TODO : game time tracking
+
             auto newTime = std::chrono::steady_clock::now();
             std::chrono::duration<double> dTchrono = newTime - m_Time;
             Timestep dT = dTchrono.count();
-            if (dT > Timestep::kDefaultTimestep)
-            {
+            if (dT > Timestep::kDefaultTimestep) {
                 dT = Timestep::kDefaultTimestep;
             }
             m_Time = newTime;
@@ -81,13 +81,10 @@ namespace Limnova
             // Update layers
             if (!m_Minimized)
             {
-                {
-                    LV_PROFILE_SCOPE("LayerStack Update");
+                LV_PROFILE_SCOPE("LayerStack Update");
 
-                    for (Layer* layer : m_LayerStack)
-                    {
-                        layer->OnUpdate(dT);
-                    }
+                for (Layer* layer : m_LayerStack) {
+                    layer->OnUpdate(dT);
                 }
             }
 
@@ -95,8 +92,7 @@ namespace Limnova
                 LV_PROFILE_SCOPE("LayerStack OnImGuiRender");
 
                 m_ImGuiLayer->Begin();
-                for (Layer* layer : m_LayerStack)
-                {
+                for (Layer* layer : m_LayerStack) {
                     layer->OnImGuiRender();
                 }
                 m_ImGuiLayer->End();
@@ -105,8 +101,7 @@ namespace Limnova
             m_Window->OnUpdate();
         }
 
-        for (Layer* layer : m_LayerStack)
-        {
+        for (Layer* layer : m_LayerStack) {
             layer->OnDetach();
         }
     }
@@ -128,12 +123,8 @@ namespace Limnova
         dispatcher.Dispatch<WindowCloseEvent>(LV_BIND_EVENT_FN(Application::OnWindowClose));
         dispatcher.Dispatch<WindowResizeEvent>(LV_BIND_EVENT_FN(Application::OnWindowResize));
 
-        for (auto it = m_LayerStack.rbegin(); it != m_LayerStack.rend(); it++)
-        {
-            if (e.Handled)
-            {
-                break;
-            }
+        for (auto it = m_LayerStack.rbegin(); it != m_LayerStack.rend(); it++) {
+            if (e.Handled) break;
             (*it)->OnEvent(e);
         }
     }
@@ -150,8 +141,7 @@ namespace Limnova
     {
         LV_PROFILE_FUNCTION();
 
-        if (e.GetWidth() == 0 || e.GetHeight() == 0)
-        {
+        if (e.GetWidth() == 0 || e.GetHeight() == 0) {
             m_Minimized = true;
             return true;
         }

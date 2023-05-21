@@ -33,6 +33,12 @@ namespace Limnova
     BigFloat WrapBf(BigFloat x, const BigFloat& lowerBound, const BigFloat& upperBound);
     double Wrap(double x, double lowerBound, double upperBound);
     float Wrapf(float x, float lowerBound, float upperBound);
+    inline int Wrapi(int x, int lowerBound, int upperBound) {
+        int range = upperBound - lowerBound;
+        if (x < lowerBound) x += range;
+        else if (x >= upperBound) x -= range;
+        return x;
+    }
 
     uint32_t Factorial(uint32_t x);
 
