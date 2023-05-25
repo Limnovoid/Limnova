@@ -444,16 +444,14 @@ namespace Limnova
 
     void OrbitalScene::OnOrbitalComponentConstruct(entt::registry&, entt::entity entity)
     {
-        auto[orbital, hierarchy, transform] = m_Registry.get<OrbitalComponent, HierarchyComponent, TransformComponent>(entity);
+        auto[orbital, hierarchy, transform] = GetComponents<OrbitalComponent, HierarchyComponent, TransformComponent>(entity);
 
         /* Parent of an orbital entity must also be orbital */
-        auto id = m_Registry.get<IDComponent>(entity).ID;
-        if (HasComponent<OrbitalComponent>(m_Entities[hierarchy.Parent]))
-        {
+        auto id = GetComponent<IDComponent>(entity).ID;
+        if (HasComponent<OrbitalComponent>(m_Entities[hierarchy.Parent])) {
             orbital.PhysicsObjectId = m_Physics.Create(id, GetComponent<OrbitalComponent>(m_Entities[hierarchy.Parent]).PhysicsObjectId, 0.0, transform.GetPosition());
         }
-        else
-        {
+        else {
             /* Default to the root entity, which is guaranteed to be orbital in OrbitalScene */
             HierarchyDisconnect(entity);
             HierarchyConnect(entity, m_Entities[m_Root]);

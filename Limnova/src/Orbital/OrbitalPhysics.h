@@ -48,6 +48,8 @@ namespace Limnova
         static constexpr float kDefaultLocalSpaceRadius = 0.1f;
         static constexpr float kLocalSpaceEscapeRadius = 1.01f;
 
+        static constexpr float kEccentricityEpsilon = 1e-4f;
+
         static constexpr float kMaxLocalSpaceRadius = 0.2f;
         static constexpr float kMinLocalSpaceRadius = 0.01f;
         static constexpr float kEpsLocalSpaceRadius = 1e-6f;
@@ -539,7 +541,7 @@ namespace Limnova
             elems.H = sqrt(H2);
             elems.PerifocalNormal = Hvec / elems.H;
 
-            /* Loss of precision due to casting is acceptable: semi-latus recturm is on the order of 1 in all common cases, due to distance parameterisation */
+            /* Loss of precision due to casting is acceptable: semi-latus rectum is on the order of 1 in all common cases, due to distance parameterisation */
             elems.P = (float)(H2 / elems.Grav);
             elems.VConstant = elems.Grav / elems.H;
 
@@ -548,7 +550,6 @@ namespace Limnova
             Vector3 Evec = (Vector3)(state.Velocity.Cross(Hvec) / elems.Grav) - posDir;
             elems.E = sqrtf(Evec.SqrMagnitude());
             float e2 = powf(elems.E, 2.f), e2term;
-            static constexpr float kEccentricityEpsilon = 1e-4f;
             if (elems.E < kEccentricityEpsilon)
             {
                 // Circular
@@ -576,10 +577,11 @@ namespace Limnova
                     elems.Type = OrbitType::Hyperbola;
                     e2term = e2 - 1.f;
                 }
+                e2term += std::numeric_limits<float>::epsilon(); /* guarantees e2term > 0 */
             }
 
             // Dimensions
-            elems.SemiMajor = elems.P / (e2term);
+            elems.SemiMajor = elems.P / e2term;
             elems.SemiMinor = elems.SemiMajor * sqrtf(e2term);
 
             elems.C = elems.P / (1.f + elems.E);
@@ -587,10 +589,9 @@ namespace Limnova
 
             elems.T = PI2 * (double)(elems.SemiMajor * elems.SemiMinor) / elems.H;
 
-            elems.TrueAnomaly = AngleBetweenUnitVectorsSafe(elems.PerifocalX, posDir);
+            elems.TrueAnomaly = AngleBetweenUnitVectors(elems.PerifocalX, posDir);
             // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
-            if (posDir.Dot(elems.PerifocalY) < 0.f)
-            {
+            if (posDir.Dot(elems.PerifocalY) < 0.f) {
                 // Velocity is in the negative X-axis of the perifocal frame
                 elems.TrueAnomaly = PI2f - elems.TrueAnomaly;
             }
@@ -603,7 +604,7 @@ namespace Limnova
             if (elems.N.Dot(kReferenceY) < 0.f) {
                 elems.Omega = PI2f - elems.Omega;
             }
-            elems.ArgPeriapsis = AngleBetweenUnitVectorsSafe(elems.N, elems.PerifocalX);
+            elems.ArgPeriapsis = AngleBetweenUnitVectors(elems.N, elems.PerifocalX);
             if (elems.N.Dot(elems.PerifocalY) > 0.f) {
                 elems.ArgPeriapsis = PI2f - elems.ArgPeriapsis;
             }
@@ -614,6 +615,7 @@ namespace Limnova
 
             // Integration
             obj.Integration.Method = Integration::Method::Angular;
+            //obj.Integration.Method = Integration::Method::Linear;
         }
 
 
@@ -768,17 +770,27 @@ namespace Limnova
 #ifdef LV_DEBUG
         struct Stats
         {
-            std::vector<size_t> NumObjectUpdates;
+            size_t NumObjectUpdates = 0;
+            std::chrono::duration<double> LastOrbitDuration = std::chrono::duration<double>::min();
+            double LastOrbitDurationError = 0;
         };
-        Stats m_Stats;
-        Stats const& GetStats() { return m_Stats; }
+        std::vector<Stats> m_Stats;
+        std::vector<Stats> const& GetStats() { return m_Stats; }
 #endif
 
 
         void OnUpdate(Timestep dT)
         {
-#ifdef LV_DEBUG 
-            m_Stats.NumObjectUpdates.assign(m_Objects.size(), 0);
+#ifdef LV_DEBUG
+            //m_Stats.NumObjectUpdates.assign(m_Stats.NumObjectUpdates.size(), 0);
+            //m_Stats.NumObjectUpdates.resize(m_Objects.size(), 0);
+            //m_Stats.DurationsOfLastOrbits.resize(m_Objects.size(), std::chrono::duration<double>::min());
+            static std::vector<std::chrono::steady_clock::time_point> timesOfLastPeriapsePassage = { };
+            timesOfLastPeriapsePassage.resize(m_Objects.size(), std::chrono::steady_clock::time_point::min());
+            for (Stats& stats : m_Stats) {
+                stats.NumObjectUpdates = 0;
+            }
+            m_Stats.resize(m_Objects.size(), Stats());
 #endif
 
             double minObjDT = dT / 20.0;
@@ -786,13 +798,14 @@ namespace Limnova
             // Update all objects with timers less than 0
             while (m_Objects[m_UpdateNext].Integration.UpdateTimer < 0.0)
             {
-#ifdef LV_DEBUG 
-                m_Stats.NumObjectUpdates[m_UpdateNext] += 1;
-#endif
-
                 auto& obj = m_Objects[m_UpdateNext];
                 auto& elems = m_Elements[m_UpdateNext];
                 bool isDynamic = m_Dynamics.Has(m_UpdateNext);
+
+#ifdef LV_DEBUG // debug object pre-update
+                m_Stats[m_UpdateNext].NumObjectUpdates += 1;
+                float oldTA = elems.TrueAnomaly;
+#endif
 
                 double objDT = std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
                 //double objDT = sqrt(obj.State.Velocity.SqrMagnitude());
@@ -807,7 +820,7 @@ namespace Limnova
                 case Integration::Method::Angular:
                 {
                     /* Integrate true anomaly:
-                    * dTheta/dT = h / r^2
+                    * dTrueAnomaly / dT = h / r^2
                     * */
                     elems.TrueAnomaly += (float)(objDT * elems.H) / r2;
                     elems.TrueAnomaly = Wrapf(elems.TrueAnomaly, 0.f, PI2f);
@@ -832,10 +845,16 @@ namespace Limnova
                     bool needsRecompute = false;
                     if (isDynamic) {
                         newAcceleration += m_Dynamics[m_UpdateNext].ContAcceleration;
-                        needsRecompute = m_Dynamics[m_UpdateNext].ContAcceleration.IsZero();
+                        needsRecompute = !m_Dynamics[m_UpdateNext].ContAcceleration.IsZero();
                     }
                     obj.State.Velocity += 0.5 * (obj.State.Acceleration + newAcceleration) * objDT;
                     obj.State.Acceleration = newAcceleration;
+
+                    Vector3 posDir = obj.State.Position.Normalized();
+                    elems.TrueAnomaly = AngleBetweenUnitVectors(elems.PerifocalX, posDir);
+                    if (posDir.Dot(elems.PerifocalY) < 0.f) {
+                        elems.TrueAnomaly = PI2f - elems.TrueAnomaly;
+                    }
 
                     if (needsRecompute) {
                         ComputeElements(m_UpdateNext);
@@ -848,6 +867,18 @@ namespace Limnova
 
                 obj.Integration.PrevDT = objDT;
                 obj.Integration.UpdateTimer += objDT;
+
+#ifdef LV_DEBUG // debug object post-update
+                if (elems.TrueAnomaly < oldTA) {
+                    auto timeOfPeriapsePassage = std::chrono::steady_clock::now();
+                    if (timesOfLastPeriapsePassage[m_UpdateNext] != std::chrono::steady_clock::time_point::min()) {
+                        m_Stats[m_UpdateNext].LastOrbitDuration = timeOfPeriapsePassage - timesOfLastPeriapsePassage[m_UpdateNext];
+                        m_Stats[m_UpdateNext].LastOrbitDurationError = (elems.T - m_Stats[m_UpdateNext].LastOrbitDuration.count()) / elems.T;
+                    }
+                    timesOfLastPeriapsePassage[m_UpdateNext] = timeOfPeriapsePassage;
+                }
+#endif
+
                 UpdateQueueSortFront();
             }
 
@@ -900,6 +931,16 @@ namespace Limnova
         bool Has(TObjectId object)
         {
             return object < m_Objects.size() && m_EmptyObjects.find(object) == m_EmptyObjects.end();
+        }
+
+        /// <summary>
+        /// Returns the user object associated with a given physics object.
+        /// </summary>
+        /// <param name="object">The ID of the physics object in question.</param>
+        /// <returns>The user ID associated with the physics object.</returns>
+        TUserId GetUser(TObjectId object)
+        {
+            return m_Objects[object].UserId;
         }
 
 

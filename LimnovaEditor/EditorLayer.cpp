@@ -477,14 +477,43 @@ namespace Limnova
             static int offset = 0;
             static constexpr int kPlotSpan = 12;
             static std::vector<std::array<float, kPlotSpan>> objectUpdates;
-            objectUpdates.resize(orbitalStats.NumObjectUpdates.size());
-            for (size_t object = 1; object < orbitalStats.NumObjectUpdates.size(); object++) {
-                objectUpdates[object][offset] = (float)orbitalStats.NumObjectUpdates[object];
-
-                std::ostringstream title; title << object;
-                ImGui::PlotLines(title.str().c_str(), objectUpdates[object].data(), kPlotSpan, offset, 0, 0.f, 20.f, ImVec2{ ImGui::GetContentRegionAvail().x - 20, 60});
+            objectUpdates.resize(orbitalStats.size());
+            bool expanded = ImGui::TreeNode("Object update counts");
+            for (size_t object = 1; object < orbitalStats.size(); object++) {
+                objectUpdates[object][offset] = (float)orbitalStats[object].NumObjectUpdates;
+                if (expanded) {
+                    std::ostringstream title; title << object;
+                    ImGui::PlotLines(title.str().c_str(), objectUpdates[object].data(), kPlotSpan, offset, 0, 0.f, 20.f, ImVec2{ ImGui::GetContentRegionAvail().x - 20, 60 });
+                }
             }
             offset = Wrapi(++offset, 0, kPlotSpan);
+            if (expanded) ImGui::TreePop();
+        }
+
+        { // Object orbit durations
+            static constexpr int kPlotSpan = 12;
+            static std::vector<std::array<float, kPlotSpan>> durationErrors;
+            durationErrors.resize(orbitalStats.size(), { 0.0 });
+            static std::vector<size_t> offsets;
+            offsets.resize(orbitalStats.size());
+
+            bool expanded = ImGui::TreeNode("Orbit duration errors");
+            for (size_t object = 1; object < orbitalStats.size(); object++)
+            {
+                Entity entity = m_ActiveScene->GetEntity(m_ActiveScene->GetPhysicsObjectUser(object));
+                auto& elems = entity.GetComponent<OrbitalComponent>().GetElements();
+                if (orbitalStats[object].LastOrbitDurationError != durationErrors[object][offsets[object]])
+                {
+                    durationErrors[object][offsets[object]] = (float)orbitalStats[object].LastOrbitDurationError;
+                    offsets[object] = Wrapi(++offsets[object], 0, kPlotSpan);
+                }
+
+                if (expanded) {
+                    std::ostringstream title; title << (uint32_t)entity;
+                    ImGui::PlotLines(title.str().c_str(), durationErrors[object].data(), kPlotSpan, offsets[object], 0, -1.f, 1.f, ImVec2{ImGui::GetContentRegionAvail().x - 20, 60});
+                }
+            }
+            if (expanded) ImGui::TreePop();
         }
 
         ImGui::End();

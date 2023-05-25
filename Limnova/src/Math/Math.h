@@ -20,7 +20,7 @@ namespace Limnova
     static constexpr float kParallelDotProductLimit = 1.f - 1e-5f; /* Maximum permissible magnitude of the dot product of two non-parallel unit vectors */
 
 
-    // Basic number operations /////////////
+    // Basic numerical operations /////////////
 
     inline double Radians(double degrees) { return degrees * PI / 180.0; }
     inline float Radiansf(float degrees) { return degrees * PIf / 180.f; }
@@ -33,6 +33,7 @@ namespace Limnova
     BigFloat WrapBf(BigFloat x, const BigFloat& lowerBound, const BigFloat& upperBound);
     double Wrap(double x, double lowerBound, double upperBound);
     float Wrapf(float x, float lowerBound, float upperBound);
+
     inline int Wrapi(int x, int lowerBound, int upperBound) {
         int range = upperBound - lowerBound;
         if (x < lowerBound) x += range;
@@ -83,10 +84,10 @@ namespace Limnova
     Quaternion Rotation(const Vector3& start, const Vector3& end);
 
     /// <summary>
-    /// Handles floating point error which can result in a dot product being greater than 1 for parallel or near-parallel unit vectors
+    /// Returns the angle (radians) between two unit vectors.
+    /// Created specifically to handle floating point error which can result in a dot product being greater than 1 for parallel or near-parallel unit vectors.
     /// </summary>
-    inline float AngleBetweenUnitVectorsSafe(const Vector3& u0, const Vector3& u1)
-    {
+    inline float AngleBetweenUnitVectors(const Vector3& u0, const Vector3& u1) {
         return acosf(std::min(1.f, u0.Dot(u1)));
     }
 

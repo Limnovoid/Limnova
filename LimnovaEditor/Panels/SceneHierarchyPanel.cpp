@@ -105,7 +105,7 @@ namespace Limnova
             }
         }
 
-        std::ostringstream oss; oss << (uint64_t)entity.GetUUID();
+        std::ostringstream oss; oss << (uint32_t)entity << ", " << (uint64_t)entity.GetUUID();
         LimnGui::HelpMarker(oss.str());
 
         if (expanded)
