@@ -21,13 +21,13 @@
 #include <src/Math/glm.h>
 #include <src/Math/Math.h>
 
-#include <src/Orbital/OrbitalPhysics.h>
-#include <src/Orbital/OrbitalScene.h>
-
 #include <src/Scene/Scene.h>
 #include <src/Scene/Entity.h>
 #include <src/Scene/Components.h>
 #include <src/Scene/Script.h>
+
+#include <src/Orbital/OrbitalPhysics.h>
+#include <src/Orbital/OrbitalScene.h>
 
 // Renderer ------------
 #include <src/Renderer/Renderer.h>

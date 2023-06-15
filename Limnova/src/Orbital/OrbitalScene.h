@@ -42,7 +42,7 @@ namespace Limnova
         void OnStopRuntime() override;
 
 #ifdef LV_DEBUG
-        std::vector<Physics::Stats> const& GetPhysicsStats() { return m_Physics.GetStats(); }
+        Physics::Stats const& GetPhysicsStats() { return m_Physics.GetStats(); }
 #endif
         UUID GetPhysicsObjectUser(Physics::TObjectId physicsObjectId) { return m_Physics.GetUser(physicsObjectId); }
     private:
