@@ -411,6 +411,8 @@ namespace Limnova
         {
             auto& orbital = entity.GetComponent<OrbitalComponent>();
 
+            ImGui::Text("Object ID: %d", (Physics::TObjectId)orbital);
+
             LimnGui::ColorEdit3("UI Color", orbital.UIColor);
 
             switch (orbital.GetValidity())
@@ -502,12 +504,13 @@ namespace Limnova
             // Velocity
             if (entity != m_Scene->GetRoot())
             {
-                Vector3 velocity = orbital.GetVelocity();
-                LimnGui::InputConfig<float> config;
-                config.Speed = 0.0001f;
-                config.Precision = 4;
+                Vector3d velocity = orbital.GetVelocity();
+                LimnGui::InputConfig<double> config;
+                config.Speed = 0.0001;
+                config.FastSpeed = 0.01;
+                config.Precision = 8;
                 config.ResetValue = 0.f;
-                if (LimnGui::DragVec3("Velocity", velocity, config)) {
+                if (LimnGui::InputVec3d("Velocity", velocity, config)) {
                     orbital.SetVelocity(velocity);
                 }
 
@@ -834,10 +837,12 @@ namespace Limnova
         float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
         ImVec2 ButtonSize = { lineHeight + 3.f, lineHeight };
 
-        std::ostringstream formatting;
-        formatting << "%." << config.Precision << "f";
-
-        //float oldValue, newValue; /* for ratio locking */
+        std::string formatStr;
+        {
+            std::ostringstream formatting;
+            formatting << "%." << config.Precision << "f";
+            formatStr = formatting.str();
+        }
 
         // X
         ImGui::PushStyleColor(ImGuiCol_Button,          ImVec4{ 1.f, 0.2f, 0.3f, 0.7f });
@@ -851,10 +856,8 @@ namespace Limnova
         ImGui::PopFont();
         ImGui::PopStyleColor(3);
         ImGui::SameLine();
-        //oldValue = newValue = values.x;
-        if (ImGui::DragFloat("##X", &values.x, config.Speed, config.Min, config.Max, formatting.str().c_str(), ImGuiSliderFlags_AlwaysClamp)) {
+        if (ImGui::DragFloat("##X", &values.x, config.Speed, config.Min, config.Max, formatStr.c_str(), ImGuiSliderFlags_AlwaysClamp)) {
             valueChanged = true;
-            //values = oldValue == 0.f ? Vector3{ newValue } : values * newValue / oldValue; /* ratio locking */
         }
         ImGui::PopItemWidth();
         ImGui::SameLine();
@@ -871,7 +874,7 @@ namespace Limnova
         ImGui::PopFont();
         ImGui::PopStyleColor(3);
         ImGui::SameLine();
-        if (ImGui::DragFloat("##Y", &values.y, config.Speed, config.Min, config.Max, formatting.str().c_str(), ImGuiSliderFlags_AlwaysClamp)) {
+        if (ImGui::DragFloat("##Y", &values.y, config.Speed, config.Min, config.Max, formatStr.c_str(), ImGuiSliderFlags_AlwaysClamp)) {
             valueChanged = true;
         }
         ImGui::PopItemWidth();
@@ -889,10 +892,97 @@ namespace Limnova
         ImGui::PopFont();
         ImGui::PopStyleColor(3);
         ImGui::SameLine();
-        if (ImGui::DragFloat("##Z", &values.z, config.Speed, config.Min, config.Max, formatting.str().c_str(), ImGuiSliderFlags_AlwaysClamp)) {
+        if (ImGui::DragFloat("##Z", &values.z, config.Speed, config.Min, config.Max, formatStr.c_str(), ImGuiSliderFlags_AlwaysClamp)) {
             valueChanged = true;
         }
         ImGui::PopItemWidth();
+
+        ImGui::PopStyleVar();
+        ImGui::Columns(1);
+        ImGui::PopID();
+        return valueChanged;
+    }
+
+
+    bool LimnGui::InputVec3d(const std::string& label, Vector3d& values, const InputConfig<double>& config, float columnWidth)
+    {
+        bool valueChanged = false;
+
+        ImGuiIO& io = ImGui::GetIO();
+        auto* boldFont = io.Fonts->Fonts[ImGuiLayer::FontIndex::Bold];
+
+        ImGui::PushID(label.c_str());
+
+        ImGui::Columns(2);
+        ImGui::SetColumnWidth(0, columnWidth);
+        ImGui::Text(label.c_str());
+        ImGui::NextColumn();
+
+        //ImGui::PushMultiItemsWidths(3, ImGui::CalcItemWidth());
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 0, 0 });
+
+        float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
+        ImVec2 ButtonSize = { lineHeight + 3.f, lineHeight };
+
+        std::string formatStr;
+        {
+            std::ostringstream formatting;
+            formatting << "%." << config.Precision << "f";
+            formatStr = formatting.str();
+        }
+
+        // X
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 1.f, 0.2f, 0.3f, 0.7f });
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 1.f, 0.2f, 0.3f, 1.f });
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 1.f, 0.2f, 0.3f, 0.4f });
+        ImGui::PushFont(boldFont);
+        if (ImGui::Button("X", ButtonSize)) {
+            values.x = config.ResetValue;
+            valueChanged = true;
+        }
+        ImGui::PopFont();
+        ImGui::PopStyleColor(3);
+        ImGui::SameLine();
+        if (ImGui::InputDouble("##X", &values.x, config.Speed, config.FastSpeed, formatStr.c_str())) {
+            valueChanged = true;
+        }
+        //ImGui::PopItemWidth();
+        //ImGui::SameLine();
+
+        // Y
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.2f, 1.f, 0.3f, 0.7f });
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.2f, 1.f, 0.3f, 1.f });
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.2f, 1.f, 0.3f, 0.7f });
+        ImGui::PushFont(boldFont);
+        if (ImGui::Button("Y", ButtonSize)) {
+            values.y = config.ResetValue;
+            valueChanged = true;
+        }
+        ImGui::PopFont();
+        ImGui::PopStyleColor(3);
+        ImGui::SameLine();
+        if (ImGui::InputDouble("##Y", &values.y, config.Speed, config.FastSpeed, formatStr.c_str())) {
+            valueChanged = true;
+        }
+        //ImGui::PopItemWidth();
+        //ImGui::SameLine();
+
+        // Z
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.2f, 0.3f, 1.f, 0.7f });
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.2f, 0.3f, 1.f, 1.f });
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.2f, 0.3f, 1.f, 0.7f });
+        ImGui::PushFont(boldFont);
+        if (ImGui::Button("Z", ButtonSize)) {
+            values.z = config.ResetValue;
+            valueChanged = true;
+        }
+        ImGui::PopFont();
+        ImGui::PopStyleColor(3);
+        ImGui::SameLine();
+        if (ImGui::InputDouble("##Z", &values.z, config.Speed, config.FastSpeed, formatStr.c_str())) {
+            valueChanged = true;
+        }
+        //ImGui::PopItemWidth();
 
         ImGui::PopStyleVar();
         ImGui::Columns(1);

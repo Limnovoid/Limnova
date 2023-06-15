@@ -35,16 +35,6 @@ namespace Limnova
     }
 
 
-    float Wrapf(float x, float lowerBound, float upperBound)
-    {
-        float eps = std::numeric_limits<float>::epsilon() * x;
-        float range = upperBound - lowerBound;
-        if (x < lowerBound + eps) x += range;
-        else if (x > upperBound - eps) x -= range;
-        return x;
-    }
-
-
     uint32_t Factorial(uint32_t x)
     {
         switch (x)

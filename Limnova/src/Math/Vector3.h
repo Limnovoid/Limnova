@@ -46,7 +46,7 @@ namespace Limnova
         constexpr TVector3() : x(0), y(0), z(0) {}
         constexpr TVector3(T v) : x(v), y(v), z(v) {}
         constexpr TVector3(T x, T y, T z) : x(x), y(y), z(z) {}
-        constexpr TVector3(Vector2& vec2, T z) : x(vec2.x), y(vec2.y), z(z) {}
+        constexpr TVector3(TVector2<T>& vec2, T z) : x(vec2.x), y(vec2.y), z(z) {}
         constexpr TVector3(glm::tvec3<T>& glmv) : x(glmv.x), y(glmv.y), z(glmv.z) {}
 
         template<typename S>
@@ -163,6 +163,8 @@ namespace Limnova
         template<typename T>
         friend bool operator!=(const TVector3<T>& lhs, const TVector3<T>& rhs);
     public:
+        template<typename S>
+        operator TVector3<S>() const { return TVector3<S>((S)x, (S)y, (S)z); }
         operator glm::tvec3<T>() const { return glm::tvec3<T>(x, y, z); }
     public:
         inline glm::tvec3<T> glm_vec3() const { return glm::tvec3<T>(x, y, z); }

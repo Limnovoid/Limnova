@@ -331,6 +331,8 @@ namespace Limnova
 
         bool IsDynamic() const { return Physics->IsDynamic(PhysicsObjectId); }
         void SetDynamic(bool isDynamic = true) { Physics->SetDynamic(PhysicsObjectId, isDynamic); }
+
+        operator Physics::TObjectId() const { return PhysicsObjectId; }
     };
 
 }

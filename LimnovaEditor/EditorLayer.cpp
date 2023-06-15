@@ -52,6 +52,10 @@ namespace Limnova
             }
         }
 
+    #ifdef LV_DEBUG
+        for (int i = 0; i < kUpdateDurationPlotSpan; i++) m_PhysicsUpdateDurations[i] = 0.f;
+    #endif
+
     #ifdef EXCLUDE_SETUP
         auto camera = m_ActiveScene->CreateEntity("Camera");
         {
@@ -472,45 +476,65 @@ namespace Limnova
 #if defined(LV_DEBUG) && defined(LV_EDITOR_USE_ORBITAL)
         ImGui::Begin("OrbitalPhysics Statistics");
         auto& orbitalStats = m_ActiveScene->GetPhysicsStats();
+        {
+            bool update = m_SceneState == SceneState::Play || m_SceneState == SceneState::Simulate;
+
+            static float updateDurationMax = 0.f;
+            if (update) m_PhysicsUpdateDurations[m_PhysicsUpdateDurationsOffset] = (float)orbitalStats.UpdateTime.count();
+            updateDurationMax = std::max(updateDurationMax, m_PhysicsUpdateDurations[m_PhysicsUpdateDurationsOffset]);
+            if (ImGui::TreeNode("OnUpdate() duration")) {
+                ImGui::PlotLines("##OnUpdateDuration", m_PhysicsUpdateDurations.data(), kUpdateDurationPlotSpan, m_PhysicsUpdateDurationsOffset, 0, 0.f, updateDurationMax, ImVec2{ImGui::GetContentRegionAvail().x - 20, 60});
+                ImGui::Text("Max: %f", updateDurationMax);
+
+                static constexpr int kRollingAverageSpan = 60;
+                float rollingAverage = m_PhysicsUpdateDurations[m_PhysicsUpdateDurationsOffset];
+                for (int i = 1; i < kRollingAverageSpan; i++) {
+                    rollingAverage += m_PhysicsUpdateDurations[Wrapi(m_PhysicsUpdateDurationsOffset - i, 0, kUpdateDurationPlotSpan)];
+                }
+                rollingAverage /= (float)kRollingAverageSpan;
+                ImGui::Text("Rolling avg.: %f (across %d samples)", rollingAverage, kRollingAverageSpan);
+
+                ImGui::TreePop();
+            }
+            if (update) m_PhysicsUpdateDurationsOffset = Wrapi(++m_PhysicsUpdateDurationsOffset, kUpdateDurationPlotSpan);
+        }
+
+        auto& objStats = orbitalStats.ObjStats;
 
         { // Object update counts
-            static int offset = 0;
-            static constexpr int kPlotSpan = 12;
-            static std::vector<std::array<float, kPlotSpan>> objectUpdates;
-            objectUpdates.resize(orbitalStats.size());
+            m_ResizeInit(m_ObjectUpdates, objStats.size(), 0.f);
             bool expanded = ImGui::TreeNode("Object update counts");
-            for (size_t object = 1; object < orbitalStats.size(); object++) {
-                objectUpdates[object][offset] = (float)orbitalStats[object].NumObjectUpdates;
+            for (size_t object = 1; object < objStats.size(); object++) {
+                m_ObjectUpdates[object][m_ObjectUpdatesOffset] = (float)objStats[object].NumObjectUpdates;
                 if (expanded) {
                     std::ostringstream title; title << object;
-                    ImGui::PlotLines(title.str().c_str(), objectUpdates[object].data(), kPlotSpan, offset, 0, 0.f, 20.f, ImVec2{ ImGui::GetContentRegionAvail().x - 20, 60 });
+                    ImGui::PlotLines(title.str().c_str(), m_ObjectUpdates[object].data(), kObjPlotSpan, m_ObjectUpdatesOffset, 0, 0.f, 20.f, ImVec2{ ImGui::GetContentRegionAvail().x - 20, 60 });
                 }
             }
-            offset = Wrapi(++offset, 0, kPlotSpan);
+            m_ObjectUpdatesOffset = Wrapi(++m_ObjectUpdatesOffset, kObjPlotSpan);
             if (expanded) ImGui::TreePop();
         }
 
         { // Object orbit durations
-            static constexpr int kPlotSpan = 12;
-            static std::vector<std::array<float, kPlotSpan>> durationErrors;
-            durationErrors.resize(orbitalStats.size(), { 0.0 });
-            static std::vector<size_t> offsets;
-            offsets.resize(orbitalStats.size());
+            m_ResizeInit(m_DurationErrors, objStats.size(), 0.f);
+            m_DurationErrorsOffsets.resize(objStats.size(), kObjPlotSpan); /* initialize offsets to max so that we can increment before assignment of new value */
 
             bool expanded = ImGui::TreeNode("Orbit duration errors");
-            for (size_t object = 1; object < orbitalStats.size(); object++)
+            for (size_t object = 1; object < objStats.size(); object++)
             {
                 Entity entity = m_ActiveScene->GetEntity(m_ActiveScene->GetPhysicsObjectUser(object));
                 auto& elems = entity.GetComponent<OrbitalComponent>().GetElements();
-                if (orbitalStats[object].LastOrbitDurationError != durationErrors[object][offsets[object]])
-                {
-                    durationErrors[object][offsets[object]] = (float)orbitalStats[object].LastOrbitDurationError;
-                    offsets[object] = Wrapi(++offsets[object], 0, kPlotSpan);
+                int offset = m_DurationErrorsOffsets[object];
+                float error = (float)objStats[object].LastOrbitDurationError;
+                bool errorUpdated = error != m_DurationErrors[object][offset];
+                if (errorUpdated) {
+                    offset = Wrapi(offset + 1, kObjPlotSpan);
+                    m_DurationErrors[object][offset] = error;
+                    m_DurationErrorsOffsets[object] = offset;
                 }
-
                 if (expanded) {
                     std::ostringstream title; title << (uint32_t)entity;
-                    ImGui::PlotLines(title.str().c_str(), durationErrors[object].data(), kPlotSpan, offsets[object], 0, -1.f, 1.f, ImVec2{ImGui::GetContentRegionAvail().x - 20, 60});
+                    ImGui::PlotLines(title.str().c_str(), m_DurationErrors[object].data(), kObjPlotSpan, offset, 0, -1.f, 1.f, ImVec2{ImGui::GetContentRegionAvail().x - 20, 60});
                 }
             }
             if (expanded) ImGui::TreePop();
@@ -811,6 +835,15 @@ namespace Limnova
 
 #ifdef LV_EDITOR_USE_ORBITAL
         m_ActiveScene = OrbitalScene::Copy(m_EditorScene);
+    #ifdef LV_DEBUG
+        size_t numObjs = m_ActiveScene->GetPhysicsStats().ObjStats.size();
+        m_ObjectUpdates.clear();
+        m_ResizeInit(m_ObjectUpdates, numObjs, 0.f);
+        m_DurationErrors.clear();
+        m_ResizeInit(m_DurationErrors, numObjs, 0.f);
+        m_DurationErrorsOffsets.clear();
+        m_DurationErrorsOffsets.resize(numObjs, 0);
+    #endif
 #else
         m_ActiveScene = Scene::Copy(m_EditorScene);
 #endif

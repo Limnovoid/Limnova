@@ -16,8 +16,9 @@ namespace Limnova
 
     // Constants ///////////////////////////
 
-    static constexpr float kDotProductEpsilon = 1e-5f; /* Minimum permissible magnitude of the dot product of two non-perpendicular unit vectors */
-    static constexpr float kParallelDotProductLimit = 1.f - 1e-5f; /* Maximum permissible magnitude of the dot product of two non-parallel unit vectors */
+    constexpr float kEps = std::numeric_limits<float>::epsilon(); /* std::numeric_limits<float>::epsilon() */
+    constexpr float kDotProductEpsilon = 1e-5f; /* Minimum permissible magnitude of the dot product of two non-perpendicular unit vectors */
+    constexpr float kParallelDotProductLimit = 1.f - 1e-5f; /* Maximum permissible magnitude of the dot product of two non-parallel unit vectors */
 
 
     // Basic numerical operations /////////////
@@ -32,8 +33,35 @@ namespace Limnova
 
     BigFloat WrapBf(BigFloat x, const BigFloat& lowerBound, const BigFloat& upperBound);
     double Wrap(double x, double lowerBound, double upperBound);
-    float Wrapf(float x, float lowerBound, float upperBound);
+    
+    inline float Wrapf(float x, float lowerBound, float upperBound)
+    {
+        float range = upperBound - lowerBound;
+        if (x < lowerBound - lowerBound * kEps) x += range;
+        else if (x > upperBound - upperBound * kEps) x -= range;
+        return x;
+    }
 
+    /// <summary>
+    /// Wraps 'x' in the range [0, upperBound).
+    /// </summary>
+    inline float Wrapf(float x, float upperBound)
+    {
+        if (x > upperBound - upperBound * kEps) x -= upperBound;
+        return x;
+    }
+
+    /// <summary>
+    /// Wraps 'x' in the range [0, upperBound).
+    /// </summary>
+    inline int Wrapi(int x, int upperBound) {
+        if (x >= upperBound) x -= upperBound;
+        return x;
+    }
+
+    /// <summary>
+    /// Wraps 'x' in the range [lowerBound, upperBound).
+    /// </summary>
     inline int Wrapi(int x, int lowerBound, int upperBound) {
         int range = upperBound - lowerBound;
         if (x < lowerBound) x += range;

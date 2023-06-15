@@ -73,6 +73,28 @@ namespace Limnova
 
         int m_ActiveGizmo = -1; /* from ImGuizmo::OPERATION */
         float m_SnapTranslate = 0.5f, m_SnapRotate = 45.f, m_SnapScale = 0.5f;
+
+#if defined(LV_DEBUG) && defined(LV_EDITOR_USE_ORBITAL)
+    private:
+        static constexpr int kUpdateDurationPlotSpan = 360;
+        std::array<float, kUpdateDurationPlotSpan> m_PhysicsUpdateDurations;
+        int m_PhysicsUpdateDurationsOffset = 0;
+
+        static constexpr int kObjPlotSpan = 12;
+        typedef std::vector<std::array<float, kObjPlotSpan>> TObjDataMatrix;
+        TObjDataMatrix m_ObjectUpdates;
+        int m_ObjectUpdatesOffset = 0;
+        TObjDataMatrix m_DurationErrors;
+        std::vector<size_t> m_DurationErrorsOffsets = {};
+
+        std::function<void(TObjDataMatrix&, size_t, float)> m_ResizeInit = [this](TObjDataMatrix& data, size_t size, float val) {
+            size_t i = data.size();
+            data.resize(size);
+            for (; i < size; i++) {
+                for (size_t j = 0; j < kObjPlotSpan; j++) data[i][j] = val;
+            }
+        };
+#endif
     };
 
 }
