@@ -428,6 +428,9 @@ namespace Limnova
                     Renderer2D::DrawCircle(primaryPosition + dynamics.EntryPoint, 0.01f, entryPointColor, 1.f, 0.f, (int)secondary);
                 }
             }*/
+            if (m_Physics.IsIntegrationLinear(orbital.PhysicsObjectId)) {
+                Renderer2D::DrawDashedLine(transform.GetPosition(), primaryPosition, { 1.f, 0.3f, 0.2f, m_OrbitAlpha }, m_OrbitThickness, 2.f, 2.f, editorPickingId);
+            }
         }
 
         // TODO : draw tertiaries as point lights orbiting secondaries

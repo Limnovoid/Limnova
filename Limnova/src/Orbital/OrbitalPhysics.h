@@ -58,6 +58,7 @@ namespace Limnova
         static constexpr double kMinUpdateDistanced = (double)kMinUpdateDistance;
         static constexpr int kMaxUpdatesPerObjectPerFrame = 20;
         static constexpr double kMinDT = 1.0 / (60.0 * kMaxUpdatesPerObjectPerFrame);
+        static constexpr float kMinUpdateTrueAnomaly = 1e-5f;
 
     private:
         using TAttrId = uint32_t;
@@ -178,8 +179,9 @@ namespace Limnova
             };
             double PrevDT = 0.0;
             double UpdateTimer = 0.0;
+            float DeltaTrueAnomaly = 0.f;
             TObjectId UpdateNext = Null;
-            Method Method = Method::Linear; /* safest option as Angular makes assumptions about the suitability of orbit solution */
+            Method Method = Method::Angular; /* set to Angular by default in TryComputeAttributes() anyway */
         };
 
         struct Object
@@ -612,19 +614,6 @@ namespace Limnova
                 Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis)
                 * Quaternion(elems.N, elems.I)
                 * Quaternion(kReferenceNormal, elems.Omega);
-
-            // Integration
-            // TODO: choose method based on elements
-            if (true) {
-                obj.Integration.Method = Integration::Method::Angular;
-            }
-            else {
-                obj.Integration.Method = Integration::Method::Linear;
-                obj.State.Acceleration = -(Vector3d)posDir * elems.Grav / (double)obj.State.Position.SqrMagnitude();
-                if (m_Dynamics.Has(object)) {
-                    obj.State.Acceleration += m_Dynamics[object].ContAcceleration;
-                }
-            }
         }
 
 
@@ -641,6 +630,9 @@ namespace Limnova
 
                 if (m_Objects[object].Validity == Validity::Valid) {
                     UpdateQueuePushFront(object);
+
+                    // TODO : handle cases where dynamic acceleration is non-zero
+                    m_Objects[object].Integration.Method = Integration::Method::Angular;
                 }
             }
         }
@@ -805,7 +797,8 @@ namespace Limnova
             m_Stats.ObjStats.resize(m_Objects.size(), ObjStats());
 #endif
 
-            double minObjDT = dT / 20.0;
+            static constexpr float kMaxObjectUpdates = 20.f; /* TODO : choose number based on reasoning/testing */
+            double minObjDT = dT / kMaxObjectUpdates;
 
             // Update all objects with timers less than 0
             while (m_Objects[m_UpdateNext].Integration.UpdateTimer < 0.0)
@@ -819,9 +812,7 @@ namespace Limnova
                 float prevTrueAnomaly = elems.TrueAnomaly;
 #endif
 
-                double objDT = std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
-
-                float r2 = obj.State.Position.SqrMagnitude();
+                double objDT = obj.Integration.PrevDT;
 
                 // Motion integration
                 switch (obj.Integration.Method)
@@ -831,12 +822,7 @@ namespace Limnova
                     /* Integrate true anomaly:
                     * dTrueAnomaly / dT = h / r^2
                     * */
-                    float deltaTrueAnomaly = (float)(objDT * elems.H) / r2;
-
-                    static constexpr float kMinUpdateTrueAnomaly = 1e-5f;
-                    if (false /*deltaTrueAnomaly < kMinUpdateTrueAnomaly*/) {
-                        LV_CORE_ASSERT(false, "Untested!");
-
+                    if (obj.Integration.DeltaTrueAnomaly < kMinUpdateTrueAnomaly) {
                         Vector3 posDir = obj.State.Position.Normalized();
                         obj.State.Acceleration = -(Vector3d)posDir * elems.Grav / (double)obj.State.Position.SqrMagnitude();
                         if (m_Dynamics.Has(m_UpdateNext)) {
@@ -847,7 +833,7 @@ namespace Limnova
                         // NOTE: switch falls through to case Integration::Method::Linear
                     }
                     else {
-                        elems.TrueAnomaly += deltaTrueAnomaly;
+                        elems.TrueAnomaly += obj.Integration.DeltaTrueAnomaly;
                         elems.TrueAnomaly = Wrapf(elems.TrueAnomaly, 0.f, PI2f);
 
                         // Compute new state
@@ -856,6 +842,9 @@ namespace Limnova
                         float r = elems.P / (1.f + elems.E * cosT); /* orbit equation: r = h^2 / mu * 1 / (1 + e * cos(trueAnomaly)) */
                         obj.State.Position = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
                         obj.State.Velocity = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
+
+                        objDT = std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
+                        obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / (r * r);
                         break;
                     }
                     // NOTE: break is conditional on purpose!
@@ -868,6 +857,7 @@ namespace Limnova
                     * v1 = v0 + 0.5 * (a0 + a1) * dT
                     * */
                     obj.State.Position += (Vector3)(obj.State.Velocity * objDT) + 0.5f * (Vector3)(obj.State.Acceleration * objDT * objDT);
+                    float r2 = obj.State.Position.SqrMagnitude();
                     Vector3d newAcceleration = - (Vector3d)obj.State.Position * elems.Grav / (double)(r2 * sqrtf(r2));
                     bool isDynamicallyAccelerating = false;
                     if (isDynamic) {
@@ -914,6 +904,13 @@ namespace Limnova
                             elems.TrueAnomaly = std::max(trueAnomaly, elems.TrueAnomaly);
                         }
 #endif
+                    }
+
+                    // Recheck integration method choice
+                    objDT = std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
+                    obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / obj.State.Position.SqrMagnitude();
+                    if (obj.Integration.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
+                        obj.Integration.Method = Integration::Method::Angular;
                     }
                     break;
                 }
@@ -1263,15 +1260,12 @@ namespace Limnova
         void SetDynamic(TObjectId object, bool isDynamic)
         {
             LV_CORE_ASSERT(object != m_RootObject, "Cannot set root object dynamics!");
-            if (isDynamic)
-            {
+            if (isDynamic) {
                 m_Dynamics.GetOrAdd(object);
             }
-            else
-            {
+            else {
                 m_Dynamics.TryRemove(object);
             }
-
             TryComputeAttributes(object);
         }
 
@@ -1288,6 +1282,8 @@ namespace Limnova
 
         void SetContinuousAcceleration(TObjectId object, Vector3d const& acceleration)
         {
+            // TODO : test if calling from the editor in edit mode (while the simulation is not running) does anything bad !!
+
             LV_CORE_ASSERT(m_Dynamics.Has(object), "Attempted to set dynamic acceleration on a non-dynamic orbiter!");
 
             auto& state = m_Objects[object].State;
@@ -1302,16 +1298,20 @@ namespace Limnova
             TryComputeAttributes(object);
         }
 
-
         void SetContinuousThrust(TObjectId object, Vector3d const& force)
         {
             SetContinuousAcceleration(object, force / m_Objects[object].State.Mass);
         }
 
-
         void ApplyInstantAcceleration(TObjectId object, Vector3d const& acceleration)
         {
+            LV_CORE_ASSERT(false, "Not implemented!");
+        }
 
+
+        bool IsIntegrationLinear(TObjectId object)
+        {
+            return m_Objects[object].Integration.Method == Integration::Method::Linear;
         }
 
     };
