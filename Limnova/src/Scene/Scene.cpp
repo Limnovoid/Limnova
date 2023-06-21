@@ -194,11 +194,11 @@ namespace Limnova
             size_t end = entities.size();
             size_t idx = end - numAdded;
             numAdded = 0;
-            for (; idx < end; idx++)
-            {
+            while (idx < end) {
                 auto children = GetChildren(entities[idx]);
                 entities.insert(entities.end(), children.begin(), children.end());
                 numAdded += children.size();
+                idx++;
             }
         } while (numAdded > 0);
         return entities;

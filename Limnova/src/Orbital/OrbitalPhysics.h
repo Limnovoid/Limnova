@@ -300,10 +300,12 @@ namespace Limnova
             obj.Parent = parent;
             if (ls.FirstChild == Null) {
                 ls.FirstChild = object;
+                obj.PrevSibling = obj.NextSibling = object;
             }
             else {
                 // Connect to siblings
                 auto& next = m_Objects[ls.FirstChild];
+                /*
                 if (next.PrevSibling == Null) {
                     // Only one sibling
                     obj.PrevSibling = obj.NextSibling = ls.FirstChild;
@@ -318,7 +320,14 @@ namespace Limnova
 
                     next.PrevSibling = object;
                     prev.NextSibling = object;
-                }
+                }*/
+                auto& prev = m_Objects[next.PrevSibling];
+
+                obj.NextSibling = ls.FirstChild;
+                obj.PrevSibling = next.PrevSibling;
+
+                next.PrevSibling = object;
+                prev.NextSibling = object;
             }
         }
 
@@ -330,30 +339,32 @@ namespace Limnova
 
             // Disconnect from parent
             if (ls.FirstChild == object) {
-                ls.FirstChild = obj.NextSibling; /* No need to check if this entity has siblings - if not, NextSibling is the Null entity */
+                ls.FirstChild = obj.NextSibling == object ? Null : obj.NextSibling;
             }
             obj.Parent = Null;
 
             // Disconnect from siblings
-            if (obj.NextSibling != Null)
+            if (obj.NextSibling != object)
             {
                 auto& next = m_Objects[obj.NextSibling];
-                if (obj.NextSibling == obj.PrevSibling)
-                {
-                    // Only one sibling
-                    next.NextSibling = next.PrevSibling = Null;
-                }
-                else
-                {
-                    // More than one sibling
-                    auto& prev = m_Objects[obj.PrevSibling];
+                //if (obj.NextSibling == obj.PrevSibling)
+                //{
+                //    // Only one sibling
+                //    next.NextSibling = next.PrevSibling = Null;
+                //}
+                //else
+                //{
+                //    // More than one sibling
+                //    auto& prev = m_Objects[obj.PrevSibling];
 
-                    next.PrevSibling = obj.PrevSibling;
-                    prev.NextSibling = obj.NextSibling;
-                }
-
-                obj.NextSibling = obj.PrevSibling = Null;
+                //    next.PrevSibling = obj.PrevSibling;
+                //    prev.NextSibling = obj.NextSibling;
+                //}
+                auto& prev = m_Objects[obj.PrevSibling];
+                next.PrevSibling = obj.PrevSibling;
+                prev.NextSibling = obj.NextSibling;
             }
+            obj.NextSibling = obj.PrevSibling = Null;
         }
 
 
@@ -773,6 +784,46 @@ namespace Limnova
             m_Objects[queueItem].Integration.UpdateNext = object;
             integ.UpdateNext = queueNext;
         }
+
+
+        /// <summary>
+        /// Appends children of 'object' to 'children'.
+        /// </summary>
+        /// <returns>Number of children</returns>
+        size_t GetObjectChildren(std::vector<TObjectId>& children, TObjectId object)
+        {
+            size_t numChildren = 0;
+            TObjectId first = m_LocalSpaces.Has(object) ? m_LocalSpaces.Get(object).FirstChild : Null;
+            if (first != Null) {
+                TObjectId child = first;
+                do {
+                    numChildren++;
+                    children.push_back(child);
+                    child = m_Objects[child].NextSibling;
+                    LV_CORE_ASSERT(child != Null, "Sibling circular-linked list is broken!");
+                } while (child != first);
+            }
+            return numChildren;
+        }
+
+
+        /// <summary>
+        /// Performs a breadth-first search of the entire tree beginning at 'root' and appends results to 'tree'.
+        /// Does NOT append 'root' to 'tree'.
+        /// </summary>
+        void GetObjectTree(std::vector<TObjectId>& tree, TObjectId root)
+        {
+            size_t numAdded = GetObjectChildren(tree, root);
+            do {
+                size_t end = tree.size();
+                size_t idx = end - numAdded;
+                numAdded = 0;
+                while (idx < end) {
+                    numAdded += GetObjectChildren(tree, tree[idx]);
+                    idx++;
+                }
+            } while (numAdded > 0);
+        }
     public:
         /*** Usage ***/
 
@@ -972,7 +1023,12 @@ namespace Limnova
         {
             m_LocalSpaces[m_RootObject].MetersPerRadius = meters;
 
-            // TODO - recompute all object elements
+            std::vector<TObjectId> tree = {};
+            GetObjectTree(tree, m_RootObject);
+            for (auto obj : tree) {
+                // TODO : preserve orbit shape ?
+                TryComputeAttributes(obj);
+            }
         }
 
         double GetRootScaling()
@@ -1124,21 +1180,15 @@ namespace Limnova
         std::vector<TUserId> GetChildren(TObjectId object)
         {
             std::vector<TUserId> children;
-
-            TObjectId first = Null;
-            /*if (object == m_RootObject) {
-                first = m_LocalSpaces.Get(m_RootObject).FirstChild;
+            TObjectId first = m_LocalSpaces.Has(object) ? m_LocalSpaces.Get(object).FirstChild : Null;
+            if (first != Null) {
+                TObjectId child = first;
+                do {
+                    children.push_back(m_Objects[child].UserId);
+                    child = m_Objects[child].NextSibling;
+                    LV_CORE_ASSERT(child != Null, "Sibling circular-linked list is broken!");
+                } while (child != first);
             }
-            else */if (m_LocalSpaces.Has(object)) {
-                first = m_LocalSpaces.Get(object).FirstChild;
-            }
-            TObjectId child = first;
-            do {
-                if (child == Null) break;
-                children.push_back(m_Objects[child].UserId);
-                child = m_Objects[child].NextSibling;
-            } while (child != first);
-
             return children;
         }
 
@@ -1263,15 +1313,12 @@ namespace Limnova
         void SetDynamic(TObjectId object, bool isDynamic)
         {
             LV_CORE_ASSERT(object != m_RootObject, "Cannot set root object dynamics!");
-            if (isDynamic)
-            {
+            if (isDynamic) {
                 m_Dynamics.GetOrAdd(object);
             }
-            else
-            {
+            else {
                 m_Dynamics.TryRemove(object);
             }
-
             TryComputeAttributes(object);
         }
 
