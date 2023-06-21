@@ -640,20 +640,20 @@ namespace Limnova
                 if (m_Objects[object].Validity == Validity::Valid) {
                     UpdateQueuePushFront(object);
 
-                    // TODO : handle cases where dynamic acceleration is non-zero
                     auto& obj = m_Objects[object];
                     obj.Integration.PrevDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude())); //std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), kDefaultMinDT);
                     float posMag2 = obj.State.Position.SqrMagnitude();
                     obj.Integration.DeltaTrueAnomaly = (float)(obj.Integration.PrevDT * m_Elements[object].H) / posMag2;
 
+                    // TODO : handle cases where dynamic acceleration is non-zero, e.g, bool isDynamicallyAccelerating = m_Dynamics.Has(object) && !m_Dynamics[object].ContAcceleration.IsZero()
                     if (obj.Integration.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
                         obj.Integration.Method = Integration::Method::Angular;
                     }
                     else {
                         Vector3 posDir = obj.State.Position / sqrtf(posMag2);
                         obj.State.Acceleration = -(Vector3d)posDir * m_Elements[object].Grav / (double)posMag2;
-                        if (m_Dynamics.Has(m_UpdateNext)) {
-                            obj.State.Acceleration += m_Dynamics[m_UpdateNext].ContAcceleration;
+                        if (m_Dynamics.Has(object)) {
+                            obj.State.Acceleration += m_Dynamics[object].ContAcceleration;
                         }
                         obj.Integration.Method = Integration::Method::Linear;
                     }
@@ -919,9 +919,12 @@ namespace Limnova
 
                     // Recheck integration method choice
                     objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT); //std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
-                    obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / obj.State.Position.SqrMagnitude();
-                    if (obj.Integration.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
-                        obj.Integration.Method = Integration::Method::Angular;
+                    if (!isDynamicallyAccelerating)
+                    {
+                        obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / obj.State.Position.SqrMagnitude();
+                        if (obj.Integration.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
+                            obj.Integration.Method = Integration::Method::Angular;
+                        }
                     }
 
                     break;
