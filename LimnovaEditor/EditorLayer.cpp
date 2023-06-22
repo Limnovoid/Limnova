@@ -517,7 +517,7 @@ namespace Limnova
 
         { // Object orbit durations
             m_ResizeInit(m_DurationErrors, objStats.size(), 0.f);
-            m_DurationErrorsOffsets.resize(objStats.size(), kObjPlotSpan); /* initialize offsets to max so that we can increment before assignment of new value */
+            m_DurationErrorsOffsets.resize(objStats.size(), kObjPlotSpan - 1); /* initialize offsets to max so that we can increment before assignment of new value */
 
             bool expanded = ImGui::TreeNode("Orbit duration errors");
             for (size_t object = 1; object < objStats.size(); object++)
