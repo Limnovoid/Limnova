@@ -396,8 +396,9 @@ namespace Limnova
 
         bool ValidParent(TObjectId object)
         {
+            if (object == m_RootObject) return true;
             if (m_LocalSpaces[m_RootObject].MetersPerRadius > 0.0) {
-                return m_LocalSpaces.Has(m_Objects[object].Parent) || m_Objects[object].Parent == m_RootObject || object == m_RootObject;
+                return m_Objects[m_Objects[object].Parent].Validity == Validity::Valid;
             }
             LV_WARN("OrbitalPhysics root scaling has not been set!");
             return false;
@@ -824,6 +825,19 @@ namespace Limnova
                 }
             } while (numAdded > 0);
         }
+
+
+        void TreeTryComputeAttributes(TObjectId object)
+        {
+            std::vector<TObjectId> tree = {};
+            GetObjectTree(tree, object);
+            for (auto obj : tree) {
+                // TODO : preserve orbit shape ?
+                if (ComputeStateValidity(obj)) {
+                    TryComputeAttributes(obj);
+                }
+            }
+        }
     public:
         /*** Usage ***/
 
@@ -1027,8 +1041,11 @@ namespace Limnova
             GetObjectTree(tree, m_RootObject);
             for (auto obj : tree) {
                 // TODO : preserve orbit shape ?
-                TryComputeAttributes(obj);
+                if (ComputeStateValidity(obj)) {
+                    TryComputeAttributes(obj);
+                }
             }
+            TreeTryComputeAttributes(m_RootObject);
         }
 
         double GetRootScaling()
