@@ -1177,7 +1177,7 @@ namespace Limnova
             m_Objects[object].Parent = parent;
             ComputeStateValidity(object);
             TryComputeAttributes(object);
-            // TODO : update satellites ?
+            TreeCascadeAttributeChanges(object);
         }
 
         TUserId GetParent(TObjectId object)
@@ -1217,9 +1217,7 @@ namespace Limnova
                 && radius > kMinLocalSpaceRadius - kEpsLocalSpaceRadius)
             {
                 m_LocalSpaces.Get(object).Radius = radius;
-
-                // TODO : update child positions
-
+                TreeCascadeAttributeChanges(object);
                 return true;
             }
             LV_CORE_ASSERT(!m_LocalSpaces[object].Influencing, "Local-space radius of influencing entities cannot be manually set (must be set equal to radius of influence)!");
@@ -1238,7 +1236,7 @@ namespace Limnova
             m_Objects[object].State.Mass = mass;
             ComputeStateValidity(object);
             TryComputeAttributes(object); /* NOTE: this should be redundant as orbital motion is independent of orbiter mass, but do it anyway just for consistency */
-            // TODO : update satellites ?
+            TreeCascadeAttributeChanges(object);
         }
 
         double GetMass(TObjectId object)
@@ -1258,7 +1256,7 @@ namespace Limnova
             m_Objects[object].State.Position = position;
             ComputeStateValidity(object);
             TryComputeAttributes(object);
-            // TODO : update satellites ?
+            TreeCascadeAttributeChanges(object);
         }
 
         Vector3 const& GetPosition(TObjectId object)
@@ -1277,7 +1275,7 @@ namespace Limnova
 
             m_Objects[object].State.Velocity = velocity;
             TryComputeAttributes(object);
-            // TODO : update satellites ?
+            TreeCascadeAttributeChanges(object);
         }
 
         Vector3d const& GetVelocity(TObjectId object)
