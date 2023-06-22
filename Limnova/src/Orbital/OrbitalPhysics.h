@@ -827,7 +827,7 @@ namespace Limnova
         }
 
 
-        void TreeTryComputeAttributes(TObjectId object)
+        void TreeCascadeAttributeChanges(TObjectId object)
         {
             std::vector<TObjectId> tree = {};
             GetObjectTree(tree, object);
@@ -1036,16 +1036,7 @@ namespace Limnova
         void SetRootScaling(double meters)
         {
             m_LocalSpaces[m_RootObject].MetersPerRadius = meters;
-
-            std::vector<TObjectId> tree = {};
-            GetObjectTree(tree, m_RootObject);
-            for (auto obj : tree) {
-                // TODO : preserve orbit shape ?
-                if (ComputeStateValidity(obj)) {
-                    TryComputeAttributes(obj);
-                }
-            }
-            TreeTryComputeAttributes(m_RootObject);
+            TreeCascadeAttributeChanges(m_RootObject);
         }
 
         double GetRootScaling()
