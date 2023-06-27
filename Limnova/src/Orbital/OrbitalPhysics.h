@@ -300,10 +300,12 @@ namespace Limnova
             obj.Parent = parent;
             if (ls.FirstChild == Null) {
                 ls.FirstChild = object;
+                obj.PrevSibling = obj.NextSibling = object;
             }
             else {
                 // Connect to siblings
                 auto& next = m_Objects[ls.FirstChild];
+                /*
                 if (next.PrevSibling == Null) {
                     // Only one sibling
                     obj.PrevSibling = obj.NextSibling = ls.FirstChild;
@@ -318,7 +320,14 @@ namespace Limnova
 
                     next.PrevSibling = object;
                     prev.NextSibling = object;
-                }
+                }*/
+                auto& prev = m_Objects[next.PrevSibling];
+
+                obj.NextSibling = ls.FirstChild;
+                obj.PrevSibling = next.PrevSibling;
+
+                next.PrevSibling = object;
+                prev.NextSibling = object;
             }
         }
 
@@ -330,30 +339,32 @@ namespace Limnova
 
             // Disconnect from parent
             if (ls.FirstChild == object) {
-                ls.FirstChild = obj.NextSibling; /* No need to check if this entity has siblings - if not, NextSibling is the Null entity */
+                ls.FirstChild = obj.NextSibling == object ? Null : obj.NextSibling;
             }
             obj.Parent = Null;
 
             // Disconnect from siblings
-            if (obj.NextSibling != Null)
+            if (obj.NextSibling != object)
             {
                 auto& next = m_Objects[obj.NextSibling];
-                if (obj.NextSibling == obj.PrevSibling)
-                {
-                    // Only one sibling
-                    next.NextSibling = next.PrevSibling = Null;
-                }
-                else
-                {
-                    // More than one sibling
-                    auto& prev = m_Objects[obj.PrevSibling];
+                //if (obj.NextSibling == obj.PrevSibling)
+                //{
+                //    // Only one sibling
+                //    next.NextSibling = next.PrevSibling = Null;
+                //}
+                //else
+                //{
+                //    // More than one sibling
+                //    auto& prev = m_Objects[obj.PrevSibling];
 
-                    next.PrevSibling = obj.PrevSibling;
-                    prev.NextSibling = obj.NextSibling;
-                }
-
-                obj.NextSibling = obj.PrevSibling = Null;
+                //    next.PrevSibling = obj.PrevSibling;
+                //    prev.NextSibling = obj.NextSibling;
+                //}
+                auto& prev = m_Objects[obj.PrevSibling];
+                next.PrevSibling = obj.PrevSibling;
+                prev.NextSibling = obj.NextSibling;
             }
+            obj.NextSibling = obj.PrevSibling = Null;
         }
 
 
@@ -385,8 +396,9 @@ namespace Limnova
 
         bool ValidParent(TObjectId object)
         {
+            if (object == m_RootObject) return true;
             if (m_LocalSpaces[m_RootObject].MetersPerRadius > 0.0) {
-                return m_LocalSpaces.Has(m_Objects[object].Parent) || m_Objects[object].Parent == m_RootObject || object == m_RootObject;
+                return m_Objects[m_Objects[object].Parent].Validity == Validity::Valid;
             }
             LV_WARN("OrbitalPhysics root scaling has not been set!");
             return false;
@@ -773,6 +785,59 @@ namespace Limnova
             m_Objects[queueItem].Integration.UpdateNext = object;
             integ.UpdateNext = queueNext;
         }
+
+
+        /// <summary>
+        /// Appends children of 'object' to 'children'.
+        /// </summary>
+        /// <returns>Number of children</returns>
+        size_t GetObjectChildren(std::vector<TObjectId>& children, TObjectId object)
+        {
+            size_t numChildren = 0;
+            TObjectId first = m_LocalSpaces.Has(object) ? m_LocalSpaces.Get(object).FirstChild : Null;
+            if (first != Null) {
+                TObjectId child = first;
+                do {
+                    numChildren++;
+                    children.push_back(child);
+                    child = m_Objects[child].NextSibling;
+                    LV_CORE_ASSERT(child != Null, "Sibling circular-linked list is broken!");
+                } while (child != first);
+            }
+            return numChildren;
+        }
+
+
+        /// <summary>
+        /// Performs a breadth-first search of the entire tree beginning at 'root' and appends results to 'tree'.
+        /// Does NOT append 'root' to 'tree'.
+        /// </summary>
+        void GetObjectTree(std::vector<TObjectId>& tree, TObjectId root)
+        {
+            size_t numAdded = GetObjectChildren(tree, root);
+            do {
+                size_t end = tree.size();
+                size_t idx = end - numAdded;
+                numAdded = 0;
+                while (idx < end) {
+                    numAdded += GetObjectChildren(tree, tree[idx]);
+                    idx++;
+                }
+            } while (numAdded > 0);
+        }
+
+
+        void TreeCascadeAttributeChanges(TObjectId object)
+        {
+            std::vector<TObjectId> tree = {};
+            GetObjectTree(tree, object);
+            for (auto obj : tree) {
+                // TODO : preserve orbit shape ?
+                if (ComputeStateValidity(obj)) {
+                    TryComputeAttributes(obj);
+                }
+            }
+        }
     public:
         /*** Usage ***/
 
@@ -971,8 +1036,7 @@ namespace Limnova
         void SetRootScaling(double meters)
         {
             m_LocalSpaces[m_RootObject].MetersPerRadius = meters;
-
-            // TODO - recompute all object elements
+            TreeCascadeAttributeChanges(m_RootObject);
         }
 
         double GetRootScaling()
@@ -1113,7 +1177,7 @@ namespace Limnova
             m_Objects[object].Parent = parent;
             ComputeStateValidity(object);
             TryComputeAttributes(object);
-            // TODO : update satellites ?
+            TreeCascadeAttributeChanges(object);
         }
 
         TUserId GetParent(TObjectId object)
@@ -1124,21 +1188,15 @@ namespace Limnova
         std::vector<TUserId> GetChildren(TObjectId object)
         {
             std::vector<TUserId> children;
-
-            TObjectId first = Null;
-            /*if (object == m_RootObject) {
-                first = m_LocalSpaces.Get(m_RootObject).FirstChild;
+            TObjectId first = m_LocalSpaces.Has(object) ? m_LocalSpaces.Get(object).FirstChild : Null;
+            if (first != Null) {
+                TObjectId child = first;
+                do {
+                    children.push_back(m_Objects[child].UserId);
+                    child = m_Objects[child].NextSibling;
+                    LV_CORE_ASSERT(child != Null, "Sibling circular-linked list is broken!");
+                } while (child != first);
             }
-            else */if (m_LocalSpaces.Has(object)) {
-                first = m_LocalSpaces.Get(object).FirstChild;
-            }
-            TObjectId child = first;
-            do {
-                if (child == Null) break;
-                children.push_back(m_Objects[child].UserId);
-                child = m_Objects[child].NextSibling;
-            } while (child != first);
-
             return children;
         }
 
@@ -1159,9 +1217,7 @@ namespace Limnova
                 && radius > kMinLocalSpaceRadius - kEpsLocalSpaceRadius)
             {
                 m_LocalSpaces.Get(object).Radius = radius;
-
-                // TODO : update child positions
-
+                TreeCascadeAttributeChanges(object);
                 return true;
             }
             LV_CORE_ASSERT(!m_LocalSpaces[object].Influencing, "Local-space radius of influencing entities cannot be manually set (must be set equal to radius of influence)!");
@@ -1180,7 +1236,7 @@ namespace Limnova
             m_Objects[object].State.Mass = mass;
             ComputeStateValidity(object);
             TryComputeAttributes(object); /* NOTE: this should be redundant as orbital motion is independent of orbiter mass, but do it anyway just for consistency */
-            // TODO : update satellites ?
+            TreeCascadeAttributeChanges(object);
         }
 
         double GetMass(TObjectId object)
@@ -1200,7 +1256,7 @@ namespace Limnova
             m_Objects[object].State.Position = position;
             ComputeStateValidity(object);
             TryComputeAttributes(object);
-            // TODO : update satellites ?
+            TreeCascadeAttributeChanges(object);
         }
 
         Vector3 const& GetPosition(TObjectId object)
@@ -1219,7 +1275,7 @@ namespace Limnova
 
             m_Objects[object].State.Velocity = velocity;
             TryComputeAttributes(object);
-            // TODO : update satellites ?
+            TreeCascadeAttributeChanges(object);
         }
 
         Vector3d const& GetVelocity(TObjectId object)
@@ -1263,15 +1319,12 @@ namespace Limnova
         void SetDynamic(TObjectId object, bool isDynamic)
         {
             LV_CORE_ASSERT(object != m_RootObject, "Cannot set root object dynamics!");
-            if (isDynamic)
-            {
+            if (isDynamic) {
                 m_Dynamics.GetOrAdd(object);
             }
-            else
-            {
+            else {
                 m_Dynamics.TryRemove(object);
             }
-
             TryComputeAttributes(object);
         }
 

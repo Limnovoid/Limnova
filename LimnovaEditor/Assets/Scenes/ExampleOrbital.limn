@@ -62,10 +62,10 @@ Entities:
       ShowMajorMinorAxes: false
       ShowNormal: false
       Dynamic: false
-      Mass: 100000
+      Mass: 130000
       Position: [0.899999976, 0, 0]
       Velocity: [0, 0, -0.027232130077066794]
-      LocalSpaceRadius: 0.00899999961
+      LocalSpaceRadius: 0.0099958526
   - Entity: 16493328850430951057
     TagComponent:
       Tag: Player Ship
@@ -114,5 +114,5 @@ Entities:
       Dynamic: true
       Mass: 9.9999999999999998e-13
       Position: [-0.372700006, 0, 0]
-      Velocity: [0, -0, 0.085000000894069672]
+      Velocity: [0, 0, 0.095000000894069667]
       LocalSpaceRadius: 0.0199999996
