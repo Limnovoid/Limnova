@@ -926,7 +926,7 @@ namespace Limnova
                     }
                     else {
                         elems.TrueAnomaly += obj.Integration.DeltaTrueAnomaly;
-                        elems.TrueAnomaly = Wrapf(elems.TrueAnomaly, 0.f, PI2f);
+                        elems.TrueAnomaly = Wrapf(elems.TrueAnomaly, PI2f);
 
                         // Compute new state
                         float sinT = sinf(elems.TrueAnomaly);
@@ -939,7 +939,7 @@ namespace Limnova
                         obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / (r * r);
                         break;
                     }
-                    // NOTE: break is conditional on purpose!
+                    // NOTE: case break is conditional on purpose!
                 }
                 case Integration::Method::Linear:
                 {
@@ -976,14 +976,11 @@ namespace Limnova
                         // Not dynamically accelerating, so we ensure true anomaly does not decrease:
                         float dTrueAnomaly = newTrueAnomaly - elems.TrueAnomaly;
                         if (dTrueAnomaly < -PIf) {
-                            // True anomaly has wrapped around at periapsis in the forwards direction
-                            elems.TrueAnomaly = newTrueAnomaly;
+                            elems.TrueAnomaly = newTrueAnomaly; /* True anomaly has wrapped around at periapsis in the forwards direction */
                         }
                         else if (!(dTrueAnomaly > PIf)) {
-                            // True anomaly has NOT wrapped at periapsis in the backwards direction (we can safely take the larger value)
-                            elems.TrueAnomaly = std::max(newTrueAnomaly, elems.TrueAnomaly);
-                        }
-                        // else, true anomaly has wrapped backwards at periapsis, so we keep the old value
+                            elems.TrueAnomaly = std::max(newTrueAnomaly, elems.TrueAnomaly); /* True anomaly has NOT wrapped at periapsis in the backwards direction(we can safely take the larger value) */
+                        } /* else, true anomaly has wrapped backwards at periapsis so we discard the new value */
                     }
 
                     // Recheck integration method choice
@@ -1011,17 +1008,16 @@ namespace Limnova
                 }
 #endif
 
-                //obj.Integration.PrevDT = objDT; /* unnecessary if objDT is a reference */
                 obj.Integration.UpdateTimer += objDT;
                 UpdateQueueSortFront();
             }
 
             // Subtract elapsed time from all object timers
             TObjectId object = m_UpdateNext;
-            while (object != Null) {
+            do { 
                 m_Objects[object].Integration.UpdateTimer -= dT;
                 object = m_Objects[object].Integration.UpdateNext;
-            }
+            } while (object != Null);
 
 #ifdef LV_DEBUG // debug post-update
             m_Stats.UpdateTime = std::chrono::steady_clock::now() - updateStart;
@@ -1356,7 +1352,7 @@ namespace Limnova
 
         void SetContinuousAcceleration(TObjectId object, Vector3d const& acceleration, double dT = 1.0 / 60.0)
         {
-            // TODO : test if calling from the editor in edit mode (while the simulation is not running) does anything bad !!
+            // TODO : test if calling this function before the simulation is run (e.g, from the editor in edit mode) does anything bad !!
 
             LV_CORE_ASSERT(m_Dynamics.Has(object), "Attempted to set dynamic acceleration on a non-dynamic orbiter!");
 
