@@ -45,6 +45,10 @@ namespace Limnova
         static constexpr Vector3 kReferenceNormal   = { 0.f, 1.f, 0.f };
 
         static constexpr double kGravitational = 6.6743e-11;
+
+
+        // Simulation tuning parameters ////////
+        // TODO : choose numbers based on reasoning/testing
         static constexpr float kDefaultLocalSpaceRadius = 0.1f;
         static constexpr float kLocalSpaceEscapeRadius = 1.01f;
 
@@ -54,12 +58,12 @@ namespace Limnova
         static constexpr float kMinLocalSpaceRadius = 0.01f;
         static constexpr float kEpsLocalSpaceRadius = 1e-6f;
 
-        static constexpr float kMaxObjectUpdates = 20.f; /* TODO : choose number based on reasoning/testing */
+        static constexpr float kMaxObjectUpdates = 20.f;
         static constexpr double kDefaultMinDT = 1.0 / (60.0 * kMaxObjectUpdates);
         static constexpr float kMinUpdateDistance = 1e-5f;
         static constexpr double kMinUpdateDistanced = (double)kMinUpdateDistance;
         static constexpr float kMinUpdateTrueAnomaly = 1e-5f;
-
+        ////////////////////////////////////////
     private:
         using TAttrId = uint32_t;
 
