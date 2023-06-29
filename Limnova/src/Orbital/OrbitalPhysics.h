@@ -128,21 +128,21 @@ namespace Limnova
             TAttrId GetEmpty()
             {
                 TAttrId emptyAttr;
-                if (m_Empties.empty())
-                {
+                if (m_Empties.empty()) {
                     emptyAttr = m_Attributes.size();
                     m_Attributes.emplace_back();
-                    return emptyAttr;
                 }
-                auto it = m_Empties.begin();
-                emptyAttr = *it;
-                m_Empties.erase(it);
+                else {
+                    auto it = m_Empties.begin();
+                    emptyAttr = *it;
+                    m_Empties.erase(it);
+                }
                 return emptyAttr;
             }
 
-            void Recycle(TAttrId attributes)
+            void Recycle(TAttrId attribute)
             {
-                m_Empties.insert(attributes);
+                m_Empties.insert(attribute);
             }
         };
 
