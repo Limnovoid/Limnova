@@ -1007,11 +1007,15 @@ namespace Limnova
                         // - reparent
                         // - recompute attributes
 
-                        Object& oldParentObj = m_Objects[obj.Parent];
+                        auto& localspace = m_LocalSpaces[m_UpdateNext];
+                        auto& oldParentObj = m_Objects[obj.Parent];
 
                         float rescalingFactor = m_LocalSpaces[obj.Parent].Radius;
                         obj.State.Position = (obj.State.Position * rescalingFactor) + oldParentObj.State.Position;
                         obj.State.Velocity = (obj.State.Velocity * (double)rescalingFactor) + oldParentObj.State.Velocity;
+                        if (!localspace.Influencing) {
+                            localspace.Radius *= rescalingFactor; /* preserves absolute radius of local space */
+                        }
 
                         ChangeParentAtRuntime(m_UpdateNext, oldParentObj.Parent, obj.UserId, m_Objects[oldParentObj.Parent].UserId);
 
