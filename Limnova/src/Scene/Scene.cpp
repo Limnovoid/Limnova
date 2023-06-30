@@ -465,6 +465,11 @@ namespace Limnova
     }
 
 
+    /// <summary>
+    /// Attach an entity (and its children) to the hierarchy tree as a child of the specified parent.
+    /// </summary>
+    /// <param name="entity"></param>
+    /// <param name="parent"></param>
     void Scene::HierarchyConnect(entt::entity entity, entt::entity parent)
     {
         auto& id = GetComponent<IDComponent>(entity);
@@ -505,6 +510,10 @@ namespace Limnova
     }
 
 
+    /// <summary>
+    /// Disconnect an entity (and its children) from the entity hierarchy tree.
+    /// Entity's children remain attached to this entity.
+    /// </summary>
     void Scene::HierarchyDisconnect(entt::entity entity)
     {
         auto& id = GetComponent<IDComponent>(entity);

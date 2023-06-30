@@ -57,7 +57,7 @@ Entities:
       Fade: 0.00499999989
     OrbitalComponent:
       LocalScale: [0.100000001, 0.100000001, 0.100000001]
-      UIColor: [1, 1, 1]
+      UIColor: [0.894117653, 0.784313738, 0.352941185]
       Albedo: 0
       ShowMajorMinorAxes: false
       ShowNormal: false
@@ -89,7 +89,7 @@ Entities:
       Dynamic: true
       Mass: 9.9999999999999998e-13
       Position: [-0.400000006, 0, 0]
-      Velocity: [0, -0, 0.12960000336170197]
+      Velocity: [0, -0, 0.20960000336170204]
       LocalSpaceRadius: 0.0199999996
   - Entity: 14024371942760489055
     TagComponent:

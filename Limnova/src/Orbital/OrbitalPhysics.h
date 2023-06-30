@@ -266,6 +266,8 @@ namespace Limnova
 
         TObjectId m_UpdateNext = Null;
 
+        std::function<void(TUserId, TUserId)> m_ParentChangedCallback;
+
         /*** Resource helpers ***/
     private:
         TObjectId GetEmptyObject()
@@ -829,6 +831,18 @@ namespace Limnova
                 }
             }
         }
+
+
+        void ChangeParentAtRuntime(TObjectId object, TObjectId newParent, TUserId objectUser, TUserId newParentUser)
+        {
+            DetachObject(object);
+            AttachObject(object, newParent);
+
+            if (m_ParentChangedCallback) {
+                m_ParentChangedCallback(objectUser, newParentUser);
+            }
+        }
+
     public:
         /*** Usage ***/
 
@@ -989,8 +1003,8 @@ namespace Limnova
                         LV_CORE_ASSERT(obj.Parent != m_RootObject, "Cannot escape root local space!");
 
                         // TODO:
-                        // - reparent
                         // - transform position and velocity to be relative to new local space
+                        // - reparent
                         // - recompute attributes
 
                         Object& oldParentObj = m_Objects[obj.Parent];
@@ -999,23 +1013,20 @@ namespace Limnova
                         obj.State.Position = (obj.State.Position * rescalingFactor) + oldParentObj.State.Position;
                         obj.State.Velocity = (obj.State.Velocity * (double)rescalingFactor) + oldParentObj.State.Velocity;
 
-                        { /* scoped to indicate that these function calls affect the referenced object 'obj' */
-                            TObjectId newParent = oldParentObj.Parent;
-                            DetachObject(m_UpdateNext);
-                            AttachObject(m_UpdateNext, newParent);
-                        }
+                        ChangeParentAtRuntime(m_UpdateNext, oldParentObj.Parent, obj.UserId, m_Objects[oldParentObj.Parent].UserId);
 
                         ComputeElements(m_UpdateNext);
                         ComputeDynamics(m_UpdateNext);
                         ComputeInfluence(m_UpdateNext);
                         LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Invalid dynamics after escape!");
 
-                        objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()));
+                        objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
                         float posMag2 = obj.State.Position.SqrMagnitude();
                         obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / posMag2;
 
                         // TODO : handle cases where dynamic acceleration is non-zero, e.g, bool isDynamicallyAccelerating = m_Dynamics.Has(object) && !m_Dynamics[object].ContAcceleration.IsZero()
                         if (obj.Integration.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
+                            LV_CORE_ASSERT(dynamics.ContAcceleration.IsZero(), "Dynamic acceleration not handled!");
                             obj.Integration.Method = Integration::Method::Angular;
                         }
                         else {
@@ -1041,6 +1052,13 @@ namespace Limnova
 #ifdef LV_DEBUG // debug post-update
             m_Stats.UpdateTime = std::chrono::steady_clock::now() - updateStart;
 #endif
+        }
+
+
+        void SetParentChangedCallback(std::function<void(TUserId, TUserId)> callback = {})
+        {
+            m_ParentChangedCallback = callback;
+            if (!callback) LV_WARN("Callback function 'ParentChangedCallback' set to empty function!");
         }
 
 

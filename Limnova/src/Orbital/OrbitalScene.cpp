@@ -11,7 +11,7 @@ namespace Limnova
     OrbitalScene::OrbitalScene()
         : Scene()
     {
-        // Orbital setup
+        // Orbital scene setup
         /* NOTE : root MUST be assigned before signal setup - the root's OrbitalComponent should NOT create
          * a new object in OrbitalPhysics */
         auto& oc = AddComponent<OrbitalComponent>(m_Entities.at(m_Root));
@@ -25,9 +25,16 @@ namespace Limnova
 
         m_ViewPrimary = m_Root;
 
-        // Signals
+        // Entt signals
         m_Registry.on_construct<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentConstruct>(this);
         m_Registry.on_destroy<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentDestruct>(this);
+
+        // Physics callbacks
+        m_Physics.SetParentChangedCallback( [&](UUID objectId, UUID newParentId) {
+            entt::entity objectEnttId = m_Entities.at(objectId);
+            HierarchyDisconnect(objectEnttId);
+            HierarchyConnect(objectEnttId, m_Entities.at(newParentId));
+        });
     }
 
 
