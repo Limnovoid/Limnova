@@ -266,6 +266,8 @@ namespace Limnova
 
         TObjectId m_UpdateNext = Null;
 
+        std::function<void(TUserId, TUserId)> m_ParentChangedCallback;
+
         /*** Resource helpers ***/
     private:
         TObjectId GetEmptyObject()
@@ -311,22 +313,6 @@ namespace Limnova
             else {
                 // Connect to siblings
                 auto& next = m_Objects[ls.FirstChild];
-                /*
-                if (next.PrevSibling == Null) {
-                    // Only one sibling
-                    obj.PrevSibling = obj.NextSibling = ls.FirstChild;
-                    next.PrevSibling = next.NextSibling = object;
-                }
-                else {
-                    // More than one sibling
-                    auto& prev = m_Objects[next.PrevSibling];
-
-                    obj.NextSibling = ls.FirstChild;
-                    obj.PrevSibling = next.PrevSibling;
-
-                    next.PrevSibling = object;
-                    prev.NextSibling = object;
-                }*/
                 auto& prev = m_Objects[next.PrevSibling];
 
                 obj.NextSibling = ls.FirstChild;
@@ -353,19 +339,6 @@ namespace Limnova
             if (obj.NextSibling != object)
             {
                 auto& next = m_Objects[obj.NextSibling];
-                //if (obj.NextSibling == obj.PrevSibling)
-                //{
-                //    // Only one sibling
-                //    next.NextSibling = next.PrevSibling = Null;
-                //}
-                //else
-                //{
-                //    // More than one sibling
-                //    auto& prev = m_Objects[obj.PrevSibling];
-
-                //    next.PrevSibling = obj.PrevSibling;
-                //    prev.NextSibling = obj.NextSibling;
-                //}
                 auto& prev = m_Objects[obj.PrevSibling];
                 next.PrevSibling = obj.PrevSibling;
                 prev.NextSibling = obj.NextSibling;
@@ -650,14 +623,14 @@ namespace Limnova
                 m_Objects[object].Validity == Validity::InvalidPath))
             {
                 ComputeElements(object);
-                ComputeDynamics(object); /* If orbiter is not dynamic, sets Validity to InvalidPath if dynamic events are found */
+                ComputeDynamics(object); /* sets Validity to InvalidPath if dynamic events are found and orbiter is not dynamic */
                 ComputeInfluence(object);
 
                 if (m_Objects[object].Validity == Validity::Valid) {
                     UpdateQueuePushFront(object);
 
                     auto& obj = m_Objects[object];
-                    obj.Integration.PrevDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude())); //std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), kDefaultMinDT);
+                    obj.Integration.PrevDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()));
                     float posMag2 = obj.State.Position.SqrMagnitude();
                     obj.Integration.DeltaTrueAnomaly = (float)(obj.Integration.PrevDT * m_Elements[object].H) / posMag2;
 
@@ -858,6 +831,18 @@ namespace Limnova
                 }
             }
         }
+
+
+        void ChangeParentAtRuntime(TObjectId object, TObjectId newParent, TUserId objectUser, TUserId newParentUser)
+        {
+            DetachObject(object);
+            AttachObject(object, newParent);
+
+            if (m_ParentChangedCallback) {
+                m_ParentChangedCallback(objectUser, newParentUser);
+            }
+        }
+
     public:
         /*** Usage ***/
 
@@ -950,7 +935,7 @@ namespace Limnova
                     * */
                     obj.State.Position += (Vector3)(obj.State.Velocity * objDT) + 0.5f * (Vector3)(obj.State.Acceleration * objDT * objDT);
                     float r2 = obj.State.Position.SqrMagnitude();
-                    Vector3d newAcceleration = - (Vector3d)obj.State.Position * elems.Grav / (double)(r2 * sqrtf(r2));
+                    Vector3d newAcceleration = -(Vector3d)obj.State.Position * elems.Grav / (double)(r2 * sqrtf(r2));
                     bool isDynamicallyAccelerating = false;
                     if (isDynamic) {
                         newAcceleration += m_Dynamics[m_UpdateNext].ContAcceleration;
@@ -1008,6 +993,55 @@ namespace Limnova
                 }
 #endif
 
+                // Test for orbit events
+                if (isDynamic) {
+                    auto& dynamics = m_Dynamics[m_UpdateNext];
+
+                    float escapeTrueAnomaly = dynamics.EscapeTrueAnomaly;
+                    if (escapeTrueAnomaly > 0.f && elems.TrueAnomaly < PIf && elems.TrueAnomaly > escapeTrueAnomaly) {
+                        LV_CORE_ASSERT(sqrtf(obj.State.Position.SqrMagnitude()) > kLocalSpaceEscapeRadius, "False positive on escape test!");
+                        LV_CORE_ASSERT(obj.Parent != m_RootObject, "Cannot escape root local space!");
+
+                        // TODO:
+                        // - transform position and velocity to be relative to new local space
+                        // - reparent
+                        // - recompute attributes
+
+                        auto& localspace = m_LocalSpaces[m_UpdateNext];
+                        auto& oldParentObj = m_Objects[obj.Parent];
+
+                        float rescalingFactor = m_LocalSpaces[obj.Parent].Radius;
+                        obj.State.Position = (obj.State.Position * rescalingFactor) + oldParentObj.State.Position;
+                        obj.State.Velocity = (obj.State.Velocity * (double)rescalingFactor) + oldParentObj.State.Velocity;
+                        if (!localspace.Influencing) {
+                            localspace.Radius *= rescalingFactor; /* preserves absolute radius of local space */
+                        }
+
+                        ChangeParentAtRuntime(m_UpdateNext, oldParentObj.Parent, obj.UserId, m_Objects[oldParentObj.Parent].UserId);
+
+                        ComputeElements(m_UpdateNext);
+                        ComputeDynamics(m_UpdateNext);
+                        ComputeInfluence(m_UpdateNext);
+                        LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Invalid dynamics after escape!");
+
+                        objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
+                        float posMag2 = obj.State.Position.SqrMagnitude();
+                        obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / posMag2;
+
+                        // TODO : handle cases where dynamic acceleration is non-zero, e.g, bool isDynamicallyAccelerating = m_Dynamics.Has(object) && !m_Dynamics[object].ContAcceleration.IsZero()
+                        if (obj.Integration.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
+                            LV_CORE_ASSERT(dynamics.ContAcceleration.IsZero(), "Dynamic acceleration not handled!");
+                            obj.Integration.Method = Integration::Method::Angular;
+                        }
+                        else {
+                            Vector3 posDir = obj.State.Position / sqrtf(posMag2);
+                            obj.State.Acceleration = -(Vector3d)posDir * elems.Grav / (double)posMag2;
+                            obj.State.Acceleration += dynamics.ContAcceleration;
+                            obj.Integration.Method = Integration::Method::Linear;
+                        }
+                    }
+                }
+
                 obj.Integration.UpdateTimer += objDT;
                 UpdateQueueSortFront();
             }
@@ -1022,6 +1056,13 @@ namespace Limnova
 #ifdef LV_DEBUG // debug post-update
             m_Stats.UpdateTime = std::chrono::steady_clock::now() - updateStart;
 #endif
+        }
+
+
+        void SetParentChangedCallback(std::function<void(TUserId, TUserId)> callback = {})
+        {
+            m_ParentChangedCallback = callback;
+            if (!callback) LV_WARN("Callback function 'ParentChangedCallback' set to empty function!");
         }
 
 
@@ -1185,7 +1226,10 @@ namespace Limnova
         void SetParent(TObjectId object, TObjectId parent)
         {
             LV_CORE_ASSERT(object != parent && Has(parent), "Invalid parent ID!");
-            m_Objects[object].Parent = parent;
+
+            DetachObject(object);
+            AttachObject(object, parent);
+
             ComputeStateValidity(object);
             TryComputeAttributes(object);
             TreeCascadeAttributeChanges(object);
