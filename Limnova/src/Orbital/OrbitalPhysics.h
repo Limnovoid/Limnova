@@ -264,7 +264,7 @@ namespace Limnova
         AttributeStorage<LocalSpace> m_LocalSpaces;
         AttributeStorage<Dynamics> m_Dynamics;
 
-        TObjectId m_UpdateNext = Null;
+        TObjectId m_UpdateQueueFront = Null;
 
         std::function<void(TUserId, TUserId)> m_ParentChangedCallback;
 
@@ -362,12 +362,10 @@ namespace Limnova
             static constexpr double kMaxCOG = 1e-4; /* Maximum offset for shared centre of gravity */
 
             bool hasValidMass = m_Objects[object].State.Mass > 0.0;
-            if (object == m_RootObject)
-            {
+            if (object == m_RootObject) {
                 // TODO - min/max root mass ?
             }
-            else
-            {
+            else {
                 hasValidMass = hasValidMass && kMaxCOG > m_Objects[object].State.Mass / (m_Objects[object].State.Mass + m_Objects[m_Objects[object].Parent].State.Mass);
             }
             return hasValidMass;
@@ -428,16 +426,14 @@ namespace Limnova
              * so the order of ROI is determined by (m / M)^0.4 */
             static constexpr double kMinimumMassFactor = 1e-4;
             double massFactor = pow(m_Objects[object].State.Mass / m_Objects[parent].State.Mass, 0.4);
-            if (massFactor > kMinimumMassFactor)
-            {
+            if (massFactor > kMinimumMassFactor) {
                 ls.Influencing = true;
                 ls.Radius = m_Elements[object].SemiMajor * massFactor;
                 ls.MetersPerRadius = m_LocalSpaces[parent].MetersPerRadius * ls.Radius;
             }
             /* If already non-influencing, local-space radius may have been set by the user:
              * only reset it to default radius if this is not the case */
-            else if (ls.Influencing)
-            {
+            else if (ls.Influencing) {
                 ls.Influencing = false;
                 ls.Radius = kDefaultLocalSpaceRadius;
                 ls.MetersPerRadius = m_LocalSpaces[parent].MetersPerRadius * ls.Radius;
@@ -466,8 +462,7 @@ namespace Limnova
             obj.Validity = Validity::Valid;
             if (m_Dynamics.Has(object))
             {
-                if (escapesLocalSpace && obj.Parent == m_RootObject)
-                {
+                if (escapesLocalSpace && obj.Parent == m_RootObject) {
                     LV_WARN("Orbit path cannot exit the simulation space!");
                     obj.Validity = Validity::InvalidPath;
                     return;
@@ -626,7 +621,8 @@ namespace Limnova
                 ComputeDynamics(object); /* sets Validity to InvalidPath if dynamic events are found and orbiter is not dynamic */
                 ComputeInfluence(object);
 
-                if (m_Objects[object].Validity == Validity::Valid) {
+                if (m_Objects[object].Validity == Validity::Valid)
+                {
                     UpdateQueuePushFront(object);
 
                     auto& obj = m_Objects[object];
@@ -679,14 +675,12 @@ namespace Limnova
             Vector3 rDir = position / rMag;
 
             float rDotNormal = rDir.Dot(kReferenceNormal);
-            if (abs(rDotNormal) > kParallelDotProductLimit)
-            {
+            if (abs(rDotNormal) > kParallelDotProductLimit) {
                 /* Handle cases where the normal and position are parallel:
                  * counter-clockwise around the reference Y-axis, whether above or below the plane */
                 vDir = rDotNormal > 0.f ? (Vector3d)(-kReferenceX) : (Vector3d)kReferenceX;
             }
-            else
-            {
+            else {
                 vDir = (Vector3d)kReferenceNormal.Cross(rDir).Normalized();
             }
             return vDir * CircularOrbitSpeed(primary, rMag);
@@ -695,13 +689,13 @@ namespace Limnova
 
         void UpdateQueuePushFront(TObjectId object)
         {
-            if (m_UpdateNext == Null) {
-                m_UpdateNext = object;
+            if (m_UpdateQueueFront == Null) {
+                m_UpdateQueueFront = object;
                 m_Objects[object].Integration.UpdateNext = Null;
                 return;
             }
-            m_Objects[object].Integration.UpdateNext = m_UpdateNext;
-            m_UpdateNext = object;
+            m_Objects[object].Integration.UpdateNext = m_UpdateQueueFront;
+            m_UpdateQueueFront = object;
         }
 
         /// <summary>
@@ -711,14 +705,14 @@ namespace Limnova
         /// </summary>
         void UpdateQueueRemove(TObjectId object)
         {
-            LV_CORE_ASSERT(m_UpdateNext != Null, "Attempting to remove item from empty queue!");
-            if (m_UpdateNext == object) {
-                m_UpdateNext = m_Objects[object].Integration.UpdateNext;
+            LV_CORE_ASSERT(m_UpdateQueueFront != Null, "Attempting to remove item from empty queue!");
+            if (m_UpdateQueueFront == object) {
+                m_UpdateQueueFront = m_Objects[object].Integration.UpdateNext;
                 m_Objects[object].Integration.UpdateNext = Null;
                 return;
             }
-            TObjectId queueItem = m_UpdateNext,
-                queueNext = m_Objects[m_UpdateNext].Integration.UpdateNext;
+            TObjectId queueItem = m_UpdateQueueFront,
+                queueNext = m_Objects[m_UpdateQueueFront].Integration.UpdateNext;
             while (queueNext != object) {
                 LV_CORE_ASSERT(queueNext != Null, "UpdateQueueRemove() could not find the given object in the update queue!");
                 queueItem = queueNext;
@@ -734,14 +728,14 @@ namespace Limnova
         /// <returns>True if object was found and removed, false otherwise.</returns>
         bool UpdateQueueSafeRemove(TObjectId object)
         {
-            if (m_UpdateNext == Null) return false;
-            if (m_UpdateNext == object) {
-                m_UpdateNext = m_Objects[object].Integration.UpdateNext;
+            if (m_UpdateQueueFront == Null) return false;
+            if (m_UpdateQueueFront == object) {
+                m_UpdateQueueFront = m_Objects[object].Integration.UpdateNext;
                 m_Objects[object].Integration.UpdateNext = Null;
                 return true;
             }
-            TObjectId queueItem = m_UpdateNext,
-                queueNext = m_Objects[m_UpdateNext].Integration.UpdateNext;
+            TObjectId queueItem = m_UpdateQueueFront,
+                queueNext = m_Objects[m_UpdateQueueFront].Integration.UpdateNext;
             while (queueNext != Null) {
                 if (queueNext == object) {
                     m_Objects[queueItem].Integration.UpdateNext = m_Objects[queueNext].Integration.UpdateNext;
@@ -759,15 +753,15 @@ namespace Limnova
         /// </summary>
         void UpdateQueueSortFront()
         {
-            LV_CORE_ASSERT(m_UpdateNext != Null, "Attempting to sort empty queue!");
+            LV_CORE_ASSERT(m_UpdateQueueFront != Null, "Attempting to sort empty queue!");
 
-            TObjectId object = m_UpdateNext;
+            TObjectId object = m_UpdateQueueFront;
             auto& integ = m_Objects[object].Integration;
 
             TObjectId queueItem = integ.UpdateNext;
             if (queueItem == Null) return;
             if (integ.UpdateTimer < m_Objects[queueItem].Integration.UpdateTimer) return;
-            m_UpdateNext = queueItem;
+            m_UpdateQueueFront = queueItem;
 
             TObjectId queueNext = m_Objects[queueItem].Integration.UpdateNext;
             while (queueNext != Null) {
@@ -878,14 +872,14 @@ namespace Limnova
             double minObjDT = dT / kMaxObjectUpdates;
 
             // Update all objects with timers less than 0
-            while (m_Objects[m_UpdateNext].Integration.UpdateTimer < 0.0)
+            while (m_Objects[m_UpdateQueueFront].Integration.UpdateTimer < 0.0)
             {
-                auto& obj = m_Objects[m_UpdateNext];
-                auto& elems = m_Elements[m_UpdateNext];
-                bool isDynamic = m_Dynamics.Has(m_UpdateNext);
+                auto& obj = m_Objects[m_UpdateQueueFront];
+                auto& elems = m_Elements[m_UpdateQueueFront];
+                bool isDynamic = m_Dynamics.Has(m_UpdateQueueFront);
 
 #ifdef LV_DEBUG // debug object pre-update
-                m_Stats.ObjStats[m_UpdateNext].NumObjectUpdates += 1;
+                m_Stats.ObjStats[m_UpdateQueueFront].NumObjectUpdates += 1;
                 float prevTrueAnomaly = elems.TrueAnomaly;
 #endif
 
@@ -903,7 +897,7 @@ namespace Limnova
                         Vector3 posDir = obj.State.Position.Normalized();
                         obj.State.Acceleration = -(Vector3d)posDir * elems.Grav / (double)obj.State.Position.SqrMagnitude();
                         if (isDynamic) {
-                            obj.State.Acceleration += m_Dynamics[m_UpdateNext].ContAcceleration;
+                            obj.State.Acceleration += m_Dynamics[m_UpdateQueueFront].ContAcceleration;
                         }
                         obj.Integration.Method = Integration::Method::Linear;
                         LV_CORE_TRACE("Object (UserId={0}) switched from angular to linear integration!", obj.UserId);
@@ -938,16 +932,16 @@ namespace Limnova
                     Vector3d newAcceleration = -(Vector3d)obj.State.Position * elems.Grav / (double)(r2 * sqrtf(r2));
                     bool isDynamicallyAccelerating = false;
                     if (isDynamic) {
-                        newAcceleration += m_Dynamics[m_UpdateNext].ContAcceleration;
-                        isDynamicallyAccelerating = !m_Dynamics[m_UpdateNext].ContAcceleration.IsZero();
+                        newAcceleration += m_Dynamics[m_UpdateQueueFront].ContAcceleration;
+                        isDynamicallyAccelerating = !m_Dynamics[m_UpdateQueueFront].ContAcceleration.IsZero();
                     }
                     obj.State.Velocity += 0.5 * (obj.State.Acceleration + newAcceleration) * objDT;
                     obj.State.Acceleration = newAcceleration;
 
                     if (isDynamicallyAccelerating) {
-                        ComputeElements(m_UpdateNext);
-                        ComputeDynamics(m_UpdateNext);
-                        ComputeInfluence(m_UpdateNext);
+                        ComputeElements(m_UpdateQueueFront);
+                        ComputeDynamics(m_UpdateQueueFront);
+                        ComputeInfluence(m_UpdateQueueFront);
                     }
                     else {
                         // Update true anomaly with new position vector
@@ -985,29 +979,24 @@ namespace Limnova
 #ifdef LV_DEBUG // debug object post-update
                 if (elems.TrueAnomaly < prevTrueAnomaly) {
                     auto timeOfPeriapsePassage = std::chrono::steady_clock::now();
-                    if (timesOfLastPeriapsePassage[m_UpdateNext] != std::chrono::steady_clock::time_point::min()) {
-                        m_Stats.ObjStats[m_UpdateNext].LastOrbitDuration = timeOfPeriapsePassage - timesOfLastPeriapsePassage[m_UpdateNext];
-                        m_Stats.ObjStats[m_UpdateNext].LastOrbitDurationError = (elems.T - m_Stats.ObjStats[m_UpdateNext].LastOrbitDuration.count()) / elems.T;
+                    if (timesOfLastPeriapsePassage[m_UpdateQueueFront] != std::chrono::steady_clock::time_point::min()) {
+                        m_Stats.ObjStats[m_UpdateQueueFront].LastOrbitDuration = timeOfPeriapsePassage - timesOfLastPeriapsePassage[m_UpdateQueueFront];
+                        m_Stats.ObjStats[m_UpdateQueueFront].LastOrbitDurationError = (elems.T - m_Stats.ObjStats[m_UpdateQueueFront].LastOrbitDuration.count()) / elems.T;
                     }
-                    timesOfLastPeriapsePassage[m_UpdateNext] = timeOfPeriapsePassage;
+                    timesOfLastPeriapsePassage[m_UpdateQueueFront] = timeOfPeriapsePassage;
                 }
 #endif
 
                 // Test for orbit events
                 if (isDynamic) {
-                    auto& dynamics = m_Dynamics[m_UpdateNext];
+                    auto& dynamics = m_Dynamics[m_UpdateQueueFront];
 
                     float escapeTrueAnomaly = dynamics.EscapeTrueAnomaly;
                     if (escapeTrueAnomaly > 0.f && elems.TrueAnomaly < PIf && elems.TrueAnomaly > escapeTrueAnomaly) {
                         LV_CORE_ASSERT(sqrtf(obj.State.Position.SqrMagnitude()) > kLocalSpaceEscapeRadius, "False positive on escape test!");
                         LV_CORE_ASSERT(obj.Parent != m_RootObject, "Cannot escape root local space!");
 
-                        // TODO:
-                        // - transform position and velocity to be relative to new local space
-                        // - reparent
-                        // - recompute attributes
-
-                        auto& localspace = m_LocalSpaces[m_UpdateNext];
+                        auto& localspace = m_LocalSpaces[m_UpdateQueueFront];
                         auto& oldParentObj = m_Objects[obj.Parent];
 
                         float rescalingFactor = m_LocalSpaces[obj.Parent].Radius;
@@ -1017,11 +1006,11 @@ namespace Limnova
                             localspace.Radius *= rescalingFactor; /* preserves absolute radius of local space */
                         }
 
-                        ChangeParentAtRuntime(m_UpdateNext, oldParentObj.Parent, obj.UserId, m_Objects[oldParentObj.Parent].UserId);
+                        ChangeParentAtRuntime(m_UpdateQueueFront, oldParentObj.Parent, obj.UserId, m_Objects[oldParentObj.Parent].UserId);
 
-                        ComputeElements(m_UpdateNext);
-                        ComputeDynamics(m_UpdateNext);
-                        ComputeInfluence(m_UpdateNext);
+                        ComputeElements(m_UpdateQueueFront);
+                        ComputeDynamics(m_UpdateQueueFront);
+                        ComputeInfluence(m_UpdateQueueFront);
                         LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Invalid dynamics after escape!");
 
                         objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
@@ -1047,7 +1036,7 @@ namespace Limnova
             }
 
             // Subtract elapsed time from all object timers
-            TObjectId object = m_UpdateNext;
+            TObjectId object = m_UpdateQueueFront;
             do { 
                 m_Objects[object].Integration.UpdateTimer -= dT;
                 object = m_Objects[object].Integration.UpdateNext;
@@ -1302,8 +1291,7 @@ namespace Limnova
 
         void SetPosition(TObjectId object, Vector3 const& position)
         {
-            if (object == m_RootObject)
-            {
+            if (object == m_RootObject) {
                 LV_ERROR("Cannot set position of OrbitalPhysics root object!");
                 return;
             }
@@ -1322,8 +1310,7 @@ namespace Limnova
 
         void SetVelocity(TObjectId object, Vector3d const& velocity)
         {
-            if (object == m_RootObject)
-            {
+            if (object == m_RootObject) {
                 LV_WARN("Cannot set velocity of OrbitalPhysics root object!");
                 return;
             }
@@ -1342,7 +1329,7 @@ namespace Limnova
         /// Returns velocity for a circular counter-clockwise orbit around the object's current primary, given its current mass and position.
         /// </summary>
         /// <param name="object">Physics object ID</param>
-        Vector3d GetDefaultOrbitVelocity(TObjectId object)
+        Vector3d GetCircularOrbitVelocity(TObjectId object)
         {
             /* Keep the orbital plane as flat (close to the reference plane) as possible:
              * derive velocity direction as the cross product of reference normal and normalized position */
@@ -1351,14 +1338,12 @@ namespace Limnova
             Vector3 rDir = m_Objects[object].State.Position / rMag;
 
             float rDotNormal = rDir.Dot(kReferenceNormal);
-            if (abs(rDotNormal) > kParallelDotProductLimit)
-            {
+            if (abs(rDotNormal) > kParallelDotProductLimit) {
                 /* Handle cases where the normal and position are parallel:
                  * counter-clockwise around the reference Y-axis, whether above or below the plane */
                 vDir = rDotNormal > 0.f ? -kReferenceX : kReferenceX;
             }
-            else
-            {
+            else {
                 vDir = (Vector3d)kReferenceNormal.Cross(rDir).Normalized();
             }
             return vDir * CircularOrbitSpeed(m_Objects[object].Parent, rMag);

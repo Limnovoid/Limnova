@@ -317,7 +317,7 @@ namespace Limnova
 
         void SetCircular(bool reverse = false)
         {
-            auto v = Physics->GetDefaultOrbitVelocity(PhysicsObjectId);
+            Vector3d v = Physics->GetCircularOrbitVelocity(PhysicsObjectId);
             if (reverse) v = -v;
             Physics->SetVelocity(PhysicsObjectId, v);
         }
