@@ -623,7 +623,7 @@ namespace Limnova
                 m_Objects[object].Validity == Validity::InvalidPath))
             {
                 ComputeElements(object);
-                ComputeDynamics(object); /* If orbiter is not dynamic, sets Validity to InvalidPath if dynamic events are found */
+                ComputeDynamics(object); /* sets Validity to InvalidPath if dynamic events are found and orbiter is not dynamic */
                 ComputeInfluence(object);
 
                 if (m_Objects[object].Validity == Validity::Valid) {
