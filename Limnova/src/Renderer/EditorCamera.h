@@ -19,24 +19,26 @@ namespace Limnova
         void OnUpdate(Timestep dT);
         void OnEvent(Event& e);
 
-        void SetAspect(const float aspect) { m_AspectRatio = aspect; m_NeedSetProjection = true; }
+        inline void SetAspect(const float aspect) { m_AspectRatio = aspect; m_NeedSetProjection = true; }
 
-        void SetControl(bool viewportHovered, bool viewportFocused, bool entitySelected)
+        inline void SetControl(bool viewportHovered, bool viewportFocused, bool entitySelected)
         {
             m_IsViewportHovered = viewportHovered;
             m_IsViewportFocused = viewportFocused;
             m_IsEntitySelected = entitySelected;
         }
 
-        void SetAzimuth(float azimuth) { m_Azimuth = azimuth; }
-        void SetElevation(float elevation) { m_Elevation = elevation; }
-        void SetDistance(float distance) { m_FocusDistance = distance; UpdateProportionalScrollRate(); }
+        inline void SetAzimuth(float azimuth) { m_Azimuth = azimuth; }
+        inline void SetElevation(float elevation) { m_Elevation = elevation; }
+        inline void SetFocus(Vector3 const& focusPoint) { m_FocusPoint = focusPoint; }
+        inline void SetDistance(float distance) { m_FocusDistance = distance; UpdateProportionalScrollRate(); }
 
-        float GetDistance() { return m_FocusDistance; }
-        const Quaternion& GetOrientation() { return m_Orientation; }
+        inline Vector3 const& GetFocus() { return m_FocusPoint; }
+        inline float GetDistance() { return m_FocusDistance; }
+        inline const Quaternion& GetOrientation() { return m_Orientation; }
 
-        Camera& GetCamera() { return m_Camera; }
-        const Camera& GetCamera() const { return m_Camera; }
+        inline Camera& GetCamera() { return m_Camera; }
+        inline const Camera& GetCamera() const { return m_Camera; }
     private:
         bool OnMouseButtonPressed(MouseButtonPressedEvent& e);
         bool OnMouseButtonReleased(MouseButtonReleasedEvent& e);
