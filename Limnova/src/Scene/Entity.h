@@ -15,7 +15,7 @@ namespace Limnova
     {
     public:
         Entity() = default;
-        Entity(const Entity& other) = default;
+        Entity(const Entity&) = default;
         Entity(entt::entity id, Scene* scene)
             : m_EnttId(id), m_Scene(scene) {}
 

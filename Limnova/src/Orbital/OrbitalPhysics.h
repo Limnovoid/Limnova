@@ -24,10 +24,15 @@ namespace Limnova
     public:
         OrbitalPhysics()
         {
-            m_Objects[m_RootObject].Validity = Validity::InvalidMass; /* Object::Validity is initialised to InvalidParent but that is meaningless for the root object (which cannot be parented) */
-            auto& rootspace = m_LocalSpaces.Add(m_RootObject);
-            rootspace.Radius = 1.f;
-            rootspace.Influencing = true;
+            m_Tree.New(); /* kRootObjId (0) */
+            m_Tree.New(); /* kRootLspId (1) */
+
+            auto& rootObj = m_Objects.Add(kRootObjId);
+            rootObj.Validity = Validity::InvalidMass; /* Object::Validity is initialised to InvalidParent but that is meaningless for the root object (which cannot be parented) */
+            
+            auto& rootLsp = m_LSpaces.Add(kRootLspId);
+            rootLsp.Radius = 1.f;
+            rootLsp.Influencing = true;
         }
         OrbitalPhysics(const OrbitalPhysics&) = default;
         ~OrbitalPhysics()
@@ -64,65 +69,233 @@ namespace Limnova
         static constexpr double kMinUpdateDistanced = (double)kMinUpdateDistance;
         static constexpr float kMinUpdateTrueAnomaly = 1e-5f;
         ////////////////////////////////////////
+
+
+        /*** Object tree ***/
+    private:
+        using TNodeId = uint32_t;
+
+        static constexpr TNodeId NNull = std::numeric_limits<TNodeId>::max();
+
+        struct Node
+        {
+            TNodeId Parent = NNull;
+            TNodeId NextSibling = NNull;
+            TNodeId PrevSibling = NNull;
+            TNodeId FirstChild = NNull;
+        };
+
+        class Tree
+        {
+            std::vector<Node> m_Nodes;
+            std::vector<int> m_Heights;
+            std::unordered_set<TNodeId> m_Empties;
+        public:
+            Tree() = default;
+            Tree(const Tree&) = default;
+
+            bool Has(TNodeId nodeId)
+            {
+                return nodeId < m_Nodes.size() && !m_Empties.contains(nodeId);
+            }
+
+            TNodeId New()
+            {
+                TNodeId nodeId = GetEmpty();
+                if (m_Nodes.size() > 0) {
+                    Attach(nodeId, 0);
+                    m_Heights[nodeId] = 1;
+                }
+                else m_Heights[nodeId] = 0;
+                return nodeId;
+            }
+
+            TNodeId New(TNodeId parentId)
+            {
+                LV_CORE_ASSERT(Has(parentId), "Invalid parent ID!");
+
+                TNodeId node = GetEmpty();
+                Attach(node, parentId);
+                return node;
+            }
+
+            Node const& Get(TNodeId nodeId)
+            {
+                LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
+                return m_Nodes[nodeId];
+            }
+
+            int Height(TNodeId nodeId)
+            {
+                LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
+                return m_Heights[nodeId];
+            }
+
+            void Remove(TNodeId nodeId)
+            {
+                if (nodeId == 0) Clear();
+                else RecycleSubtree(nodeId);
+            }
+
+            void Clear()
+            {
+                m_Nodes.clear();
+                m_Heights.clear();
+                m_Empties.clear();
+            }
+        public:
+            Node const& operator[](TNodeId nodeId)
+            {
+                LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
+                return m_Nodes[nodeId];
+            }
+        private:
+            TNodeId GetEmpty()
+            {
+                TNodeId emptyId;
+                if (m_Empties.empty()) {
+                    emptyId = m_Nodes.size();
+                    m_Nodes.emplace_back();
+                    m_Heights.push_back(-1);
+                }
+                else {
+                    auto it = m_Empties.begin();
+                    emptyId = *it;
+                    m_Empties.erase(it);
+                }
+                return emptyId;
+            }
+
+            void Recycle(TNodeId nodeId)
+            {
+                LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
+                m_Nodes[nodeId] = Node();
+                m_Heights[nodeId] = -1;
+                m_Empties.insert(nodeId);
+            }
+
+            void RecycleSubtree(TNodeId rootId)
+            {
+                LV_CORE_ASSERT(Has(rootId), "Invalid root node ID!");
+                TNodeId firstId = m_Nodes[rootId].FirstChild;
+                if (firstId != NNull) {
+                    TNodeId childId = firstId;
+                    do {
+                        childId = m_Nodes[childId].NextSibling;
+                        RecycleSubtree(m_Nodes[childId].PrevSibling);
+                    } while (childId != firstId);
+                }
+                Recycle(rootId);
+            }
+
+            void Attach(TNodeId nodeId, TNodeId parentId)
+            {
+                auto& node = m_Nodes.Get(nodeId);
+                auto& parent = m_Nodes.Get(parentId);
+
+                // Connect to parent
+                node.Parent = parentId;
+                if (parent.FirstChild == NNull) {
+                    parent.FirstChild = nodeId;
+                    node.PrevSibling = node.NextSibling = nodeId;
+                }
+                else {
+                    // Connect to siblings
+                    auto& next = m_Nodes[parent.FirstChild];
+                    auto& prev = m_Nodes[next.PrevSibling];
+
+                    node.NextSibling = parent.FirstChild;
+                    node.PrevSibling = next.PrevSibling;
+
+                    next.PrevSibling = nodeId;
+                    prev.NextSibling = nodeId;
+                }
+
+                m_Heights[nodeId] = m_Heights[parentId] + 1;
+            }
+
+            void Detach(TNodeId nodeId)
+            {
+                auto& node = m_Nodes.Get(nodeId);
+                auto& parent = m_Nodes.Get(node.Parent);
+
+                // Disconnect from parent
+                if (parent.FirstChild == nodeId) {
+                    parent.FirstChild = node.NextSibling == nodeId ? NNull : node.NextSibling;
+                }
+                node.Parent = NNull;
+
+                // Disconnect from siblings
+                if (node.NextSibling != nodeId)
+                {
+                    auto& next = m_Objects[node.NextSibling];
+                    auto& prev = m_Objects[node.PrevSibling];
+                    next.PrevSibling = node.PrevSibling;
+                    prev.NextSibling = node.NextSibling;
+                }
+                node.NextSibling = node.PrevSibling = NNull;
+
+                m_Heights[nodeId] = -1;
+            }
+        };
+
     private:
         using TAttrId = uint32_t;
 
-        template<typename Attr>
+        template<typename TAttr>
         class AttributeStorage
         {
-        private:
-            std::vector<Attr> m_Attributes;
+            std::vector<TAttr> m_Attributes;
             std::unordered_set<TAttrId> m_Empties;
-            std::unordered_map<TObjectId, TAttrId> m_ObjectToAttr;
+            std::unordered_map<TNodeId, TAttrId> m_NodeToAttr;
         public:
             AttributeStorage() = default;
             AttributeStorage(const AttributeStorage&) = default;
 
-            bool Has(TObjectId object)
+            bool Has(TNodeId nodeId)
             {
-                return m_ObjectToAttr.find(object) != m_ObjectToAttr.end();
+                return m_NodeToAttr.contains(nodeId);
             }
 
-            Attr& Add(TObjectId object)
+            TAttr& Add(TNodeId nodeId)
             {
-                LV_CORE_ASSERT(m_ObjectToAttr.find(object) == m_ObjectToAttr.end(), "Object already has attribute!");
+                LV_CORE_ASSERT(!m_NodeToAttr.contains(nodeId), "Node already has attribute!");
                 TAttrId attr = GetEmpty();
-                m_ObjectToAttr[object] = attr;
+                m_NodeToAttr[nodeId] = attr;
                 return m_Attributes[attr];
             }
 
-            Attr& Get(TObjectId object)
+            TAttr& Get(TNodeId nodeId)
             {
-                LV_CORE_ASSERT(m_ObjectToAttr.find(object) != m_ObjectToAttr.end(), "Object is missing requested attribute!");
-                return m_Attributes[m_ObjectToAttr[object]];
+                LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node is missing requested attribute!");
+                return m_Attributes[m_NodeToAttr[nodeId]];
             }
 
-            Attr& GetOrAdd(TObjectId object)
+            TAttr& GetOrAdd(TNodeId nodeId)
             {
-                return m_ObjectToAttr.find(object) == m_ObjectToAttr.end() ?
-                    Add(object) : Get(object);
+                return m_NodeToAttr.contains(nodeId) ?
+                    Add(nodeId) : Get(nodeId);
             }
 
-            void Remove(TObjectId object)
+            void Remove(TNodeId nodeId)
             {
-                LV_CORE_ASSERT(m_ObjectToAttr.find(object) != m_ObjectToAttr.end(), "Object does not have the attribute to remove!");
-                Recycle(m_ObjectToAttr[object]);
-                m_ObjectToAttr.erase(object);
+                LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node does not have the attribute to remove!");
+                Recycle(m_NodeToAttr[nodeId]);
+                m_NodeToAttr.erase(nodeId);
             }
 
-            void TryRemove(TObjectId object)
+            void TryRemove(TNodeId nodeId)
             {
-                if (m_ObjectToAttr.find(object) != m_ObjectToAttr.end())
-                {
-                    Recycle(m_ObjectToAttr[object]);
-                    m_ObjectToAttr.erase(object);
+                if (m_NodeToAttr.contains(nodeId)) {
+                    Recycle(m_NodeToAttr[nodeId]);
+                    m_NodeToAttr.erase(nodeId);
                 }
             }
         public:
-            Attr& operator[](TObjectId object)
+            TAttr& operator[](TNodeId nodeId)
             {
-                LV_CORE_ASSERT(m_ObjectToAttr.find(object) != m_ObjectToAttr.end(), "Object is missing requested attribute!");
-                return m_Attributes[m_ObjectToAttr[object]];
+                LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node is missing requested attribute!");
+                return m_Attributes[m_NodeToAttr[nodeId]];
             }
         private:
             TAttrId GetEmpty()
@@ -140,13 +313,14 @@ namespace Limnova
                 return emptyAttr;
             }
 
-            void Recycle(TAttrId attribute)
+            void Recycle(TAttrId attributeId)
             {
-                m_Empties.insert(attribute);
+                m_Empties.insert(attributeId);
             }
         };
 
-        /*** Enums ***/
+
+        /*** Member objects ***/
     public:
         enum class Validity
         {
@@ -163,8 +337,6 @@ namespace Limnova
             Ellipse   = 1,
             Hyperbola = 2
         };
-
-        /*** Objects ***/
     private:
         struct State
         {
@@ -181,30 +353,110 @@ namespace Limnova
                 Angular = 0,
                 Linear = 1
             };
+
             double PrevDT = 0.0;
             double UpdateTimer = 0.0;
             float DeltaTrueAnomaly = 0.f;
-            TObjectId UpdateNext = Null;
+
+            TNodeId UpdateNext = Null;
             Method Method = Method::Angular; /* set to Angular by default in TryComputeAttributes() anyway */
         };
 
+
+        /*** Attribute objects ***/
+    private:
         struct Object
         {
             TUserId UserId = TUserId();
-
-            TObjectId Parent = Null;
-            TObjectId PrevSibling = Null, NextSibling = Null;
 
             Validity Validity = Validity::InvalidParent;
             State State;
             Integration Integration;
 
+            TNodeId Influence = Null; /* Local space node representing this object's sphere of influence: Null if object is not influencing */
+
             Object() = default;
             Object(TUserId userId) : UserId(userId) {}
         };
 
+        class LocalSpace
+        {
+        public:
+            float Radius = 0.f; /* Measured in parent's influence */
+            float MetersPerRadius = 0.f;
 
-        /*** Attributes ***/
+            TNodeId PrimaryLsp = Null;
+            bool Influencing = false; /* True if the parent object is the local dominant source of gravity, i.e, this LSP is less than or equal to the parent's influence LSP */
+        };
+
+        class LSpaceNode;
+        class ObjectNode;
+        {
+            TNodeId m_NodeId;
+        public:
+            ObjectNode() = delete;
+            ObjectNode(ObjectNode const&) = default;
+            ObjectNode(TNodeId nodeId) : m_NodeId(nodeId) {
+                LV_CORE_ASSERT(m_Tree.Has(nodeId), "Invalid ID!");
+                LV_CORE_ASSERT(!IsLocalSpace(nodeId), "Class is for object nodes only!");
+            }
+
+            TNodeId Id() { return m_NodeId; }
+            Node& Node() { return m_Tree[m_NodeId]; }
+            Object& Object() { return m_Objects[m_NodeId]; }
+            bool IsRoot() { return m_NodeId == kRootObjId; }
+
+            LSpaceNode Parent() { return LSpaceNode{ m_Tree[m_NodeId].Parent }; }
+            ObjectNode Grandparent() { return ObjectNode{ m_Tree[m_Tree[m_NodeId].Parent].Parent }; }
+
+            LSpaceNode GetPrimaryLsp() { return LSpaceNode{ m_LSpaces[m_Tree[m_NodeId].Parent].PrimaryLsp }; }
+            ObjectNode GetPrimaryObj() { return ObjectNode{ m_Tree[m_LSpaces[m_Tree[m_NodeId].Parent].PrimaryLsp].Parent }; }
+
+            Vector3 GetLocalPositionFromPrimary()
+            {
+                return m_Objects[m_NodeId].State.Position + LSpaceNode(m_Tree[m_NodeId].Parent).GetLocalOffsetFromPrimary();
+            }
+        public:
+            operator TNodeId() const { return m_NodeId; }
+        public:
+            bool operator==(ObjectNode const& rhs) const { return this->m_NodeId == rhs.m_NodeId; }
+        };
+
+        class LSpaceNode
+        {
+            TNodeId m_NodeId;
+        public:
+            ObjectNode() = delete;
+            ObjectNode(TNodeId nodeId) : m_NodeId(nodeId) {
+                LV_CORE_ASSERT(m_Tree.Has(nodeId), "Invalid ID!");
+                LV_CORE_ASSERT(IsLocalSpace(nodeId), "Class is for local space nodes only!");
+            }
+
+            TNodeId Id() { return m_NodeId; }
+            Node& Node() { return m_Tree[m_NodeId]; }
+            LocalSpace& LSpace() { return m_LSpaces[m_NodeId]; }
+            bool IsRoot() { return m_NodeId == kRootLspId; }
+
+            LSpaceNode New(ObjectNode parent) { return m_Tree.New(parent.Id()); }
+            ObjectNode Parent() { return ObjectNode{ m_Tree[m_NodeId].Parent }; }
+            LocalSpace Grandparent() { return LocalSpace{ m_Tree[m_Tree[m_NodeId].Parent].Parent }; }
+
+            ObjectNode GetPrimaryObj() { return ObjectNode{ m_Tree[m_LSpaces[m_NodeId].PrimaryLsp].Parent }; }
+
+            Vector3 GetLocalOffsetFromPrimary() { return GetLocalOffsetFromPrimary(m_NodeId, m_LSpaces[m_NodeId].Primary); }
+        public:
+            bool operator==(ObjectNode const& rhs) { return this->m_NodeId == rhs.m_NodeId; }
+        private:
+            Vector3 GetLocalOffsetFromPrimary(TNodeId lspId, TNodeId primaryLspId)
+            {
+                LV_CORE_ASSERT(IsLocalSpace(lspId) && IsLocalSpace(primaryLspId), "Invalid IDs!");
+                if (lspId == primaryLspId) return { 0 };
+
+                TNodeId lspParentObjId = m_Tree[lspId].Parent;
+                return (m_Objects[lspParentObjId].State.Position + GetLocalPositionFromPrimary(m_Tree[lspParentObjId].Parent, primaryLspId))
+                    / m_LSpaces[lspId].Radius;
+            }
+        };
     public:
         struct Elements
         {
@@ -242,210 +494,156 @@ namespace Limnova
 
             Vector3d ContAcceleration = { 0.0 }; /* Acceleration assumed to be constant between timesteps */
         };
-    private:
-        struct LocalSpace
-        {
-            float Radius = 0.f; /* Measured in parent's influence */
-            float MetersPerRadius = 0.f;
-
-            bool Influencing = false;
-
-            TObjectId FirstChild = Null;
-        };
 
 
         /*** Simulation resources ***/
     private:
-        TObjectId m_RootObject = 0;
-        std::vector<Object> m_Objects = { Object() }; /* Initialised with root object */
-        std::unordered_set<TObjectId> m_EmptyObjects;
+        Tree m_Tree;
+        static constexpr TNodeId kRootObjId = 0;
+        static constexpr TNodeId kRootLspId = 1;
 
+        ObjectNode m_RootObjNode = { kRootObjId };
+        LSpaceNode m_RootLspNode = { kRootLspId };
+
+        AttributeStorage<Object> m_Objects;
+        AttributeStorage<LocalSpace> m_LSpaces;
         AttributeStorage<Elements> m_Elements;
-        AttributeStorage<LocalSpace> m_LocalSpaces;
         AttributeStorage<Dynamics> m_Dynamics;
 
-        TObjectId m_UpdateQueueFront = Null;
+        TNodeId m_UpdateQueueFront = NNull;
 
         std::function<void(TUserId, TUserId)> m_ParentChangedCallback;
 
-        /*** Resource helpers ***/
+        /*** Node helpers ***/
     private:
-        TObjectId GetEmptyObject()
+        bool IsLocalSpace(TNodeId nodeId)
         {
-            TObjectId emptyObject;
-            if (m_EmptyObjects.empty())
-            {
-                emptyObject = m_Objects.size();
-                m_Objects.emplace_back();
-                return emptyObject;
-            }
-            auto it = m_EmptyObjects.begin();
-            emptyObject = *it;
-            m_EmptyObjects.erase(it);
-            return emptyObject;
+            return m_Tree.Height(nodeId) % 2;
         }
 
-        void RecycleObject(TObjectId object)
+        TNodeId GetGrandparentId(TNodeId nodeId)
         {
-            LV_CORE_ASSERT(object != 0, "Cannot recycle the root object!");
-            m_Objects[object].UserId = TUserId();
-            m_Objects[object].Parent = Null;
-            m_Objects[object].PrevSibling = Null;
-            m_Objects[object].NextSibling = Null;
-            m_Objects[object].Validity = Validity::InvalidParent;
-            m_Objects[object].State = State();
-            m_Objects[object].Integration = Integration();
-            m_EmptyObjects.insert(object);
+            LV_CORE_ASSERT(m_Tree.Height(nodeId) > 1, "Node does not have a grandparent!");
+            return m_Tree[m_Tree[nodeId].Parent].Parent;
         }
-
-        // Inserts object into object hierarchy
-        void AttachObject(TObjectId object, TObjectId parent)
-        {
-            auto& obj = m_Objects[object];
-            auto& ls = m_LocalSpaces.Get(parent);
-
-            // Connect to parent
-            obj.Parent = parent;
-            if (ls.FirstChild == Null) {
-                ls.FirstChild = object;
-                obj.PrevSibling = obj.NextSibling = object;
-            }
-            else {
-                // Connect to siblings
-                auto& next = m_Objects[ls.FirstChild];
-                auto& prev = m_Objects[next.PrevSibling];
-
-                obj.NextSibling = ls.FirstChild;
-                obj.PrevSibling = next.PrevSibling;
-
-                next.PrevSibling = object;
-                prev.NextSibling = object;
-            }
-        }
-
-        // Removes object from object hierarchy
-        void DetachObject(TObjectId object)
-        {
-            auto& obj = m_Objects[object];
-            auto& ls = m_LocalSpaces.Get(obj.Parent);
-
-            // Disconnect from parent
-            if (ls.FirstChild == object) {
-                ls.FirstChild = obj.NextSibling == object ? Null : obj.NextSibling;
-            }
-            obj.Parent = Null;
-
-            // Disconnect from siblings
-            if (obj.NextSibling != object)
-            {
-                auto& next = m_Objects[obj.NextSibling];
-                auto& prev = m_Objects[obj.PrevSibling];
-                next.PrevSibling = obj.PrevSibling;
-                prev.NextSibling = obj.NextSibling;
-            }
-            obj.NextSibling = obj.PrevSibling = Null;
-        }
-
 
         /*** Simulation helpers ***/
-
-        bool ValidPosition(TObjectId object)
+    private:
+        bool ValidPosition(ObjectNode objNode)
         {
             static constexpr float kEscapeDistanceSqr = kLocalSpaceEscapeRadius * kLocalSpaceEscapeRadius;
 
-            return m_Objects[object].State.Position.SqrMagnitude() < kEscapeDistanceSqr;
+            return objNode.Object().State.Position.SqrMagnitude() < kEscapeDistanceSqr;
                 /* TODO - check for influence overlaps */;
         }
 
-        bool ValidMass(TObjectId object)
+        bool ValidMass(ObjectNode objNode)
         {
             static constexpr double kMaxCOG = 1e-4; /* Maximum offset for shared centre of gravity */
 
-            bool hasValidMass = m_Objects[object].State.Mass > 0.0;
-            if (object == m_RootObject) {
+            auto& obj = objNode.Object();
+            bool hasValidMass = obj.State.Mass > 0.0;
+            if (objNode.IsRoot()) {
                 // TODO - min/max root mass ?
             }
             else {
-                hasValidMass = hasValidMass && kMaxCOG > m_Objects[object].State.Mass / (m_Objects[object].State.Mass + m_Objects[m_Objects[object].Parent].State.Mass);
+                hasValidMass = hasValidMass && kMaxCOG > obj.State.Mass / (obj.State.Mass + objNode.GetPrimaryObj().Object().State.Mass);
             }
             return hasValidMass;
         }
 
-        bool ValidParent(TObjectId object)
+        bool ValidParent(ObjectNode objNode)
         {
-            if (object == m_RootObject) return true;
-            if (m_LocalSpaces[m_RootObject].MetersPerRadius > 0.0) {
-                return m_Objects[m_Objects[object].Parent].Validity == Validity::Valid;
+            if (objNode.IsRoot()) return true;
+            if (m_RootLspNode.LSpace().MetersPerRadius > 0.0) {
+                return objNode.Grandparent().Object().Validity == Validity::Valid;
             }
             LV_WARN("OrbitalPhysics root scaling has not been set!");
             return false;
         }
 
-        bool ComputeStateValidity(TObjectId object)
+        bool ComputeStateValidity(ObjectNode objNode)
         {
             // TODO : #ifdef LV_DEBUG ??? is validity needed in release?
 
             Validity validity = Validity::Valid;
-            if (!ValidParent(object)) {
+            if (!ValidParent(objNode)) {
                 validity = Validity::InvalidParent;
             }
-            else if (!ValidMass(object)) {
+            else if (!ValidMass(objNode)) {
                 validity = Validity::InvalidMass;
             }
-            else if (!ValidPosition(object)) {
+            else if (!ValidPosition(objNode)) {
                 validity = Validity::InvalidPosition;
             }
             /* Currently ignores velocity - no invalid velocities */
 
-            m_Objects[object].Validity = validity;
+            objNode.Object().Validity = validity;
             return validity == Validity::Valid;
         }
 
-        inline float OrbitEquation(TObjectId object, float trueAnomaly)
+        inline float OrbitEquation(ObjectNode objNode, float trueAnomaly)
         {
-            return m_Elements[object].P / (1.f + m_Elements[object].E * cosf(trueAnomaly));
+            return m_Elements[objNode.Id()].P / (1.f + m_Elements[objNode.Id()].E * cosf(trueAnomaly));
         }
 
-        Vector3 ObjectPositionAtTrueAnomaly(TObjectId object, float trueAnomaly)
+        Vector3 ObjectPositionAtTrueAnomaly(ObjectNode objNode, float trueAnomaly)
         {
-            float radiusAtTrueAnomaly = OrbitEquation(object, trueAnomaly);
-            Vector3 directionAtTrueAnomaly = cosf(trueAnomaly) * m_Elements[object].PerifocalX
-                + sinf(trueAnomaly) * m_Elements[object].PerifocalY;
-            return radiusAtTrueAnomaly * directionAtTrueAnomaly;
+            float radiusAtTrueAnomaly = OrbitEquation(objNode, trueAnomaly);
+            Vector3 directionAtTrueAnomaly = cosf(trueAnomaly) * m_Elements[objNode.Id()].PerifocalX
+                + sinf(trueAnomaly) * m_Elements[objNode.Id()].PerifocalY;
+            Vector3 positionFromPrimary = radiusAtTrueAnomaly * directionAtTrueAnomaly;
+            return positionFromPrimary - objNode.Parent().GetLocalOffsetFromPrimary();
         }
 
-        void ComputeInfluence(TObjectId object)
+        void ComputeInfluence(ObjectNode objNode)
         {
-            LV_CORE_ASSERT(object != m_RootObject, "Cannot compute influence of root object!");
+            LV_CORE_ASSERT(!objNode.IsRoot(), "Cannot compute influence of root object!");
 
-            auto& ls = m_LocalSpaces[object];
-            TObjectId parent = m_Objects[object].Parent;
+            Object& obj = objNode.Object();
 
             /* Radius of influence = a(m / M)^0.4
              * Semi-major axis must be in the order of 1,
              * so the order of ROI is determined by (m / M)^0.4 */
-            static constexpr double kMinimumMassFactor = 1e-4;
-            double massFactor = pow(m_Objects[object].State.Mass / m_Objects[parent].State.Mass, 0.4);
+            static constexpr double kMinimumMassFactor = 1e-4; // TODO : test for optimal values
+            double massFactor = pow(obj.State.Mass / m_Objects[GetPrimaryId(nodeId)].State.Mass, 0.4);
             if (massFactor > kMinimumMassFactor) {
-                ls.Influencing = true;
-                ls.Radius = m_Elements[object].SemiMajor * massFactor;
-                ls.MetersPerRadius = m_LocalSpaces[parent].MetersPerRadius * ls.Radius;
+                TNodeId lspId = obj.Influence == NNull ? m_Tree.New(nodeId) : obj.Influence;
+                obj.Influence = lspId;
+
+                LocalSpace& lsp = m_LSpaces[lspId];
+                lsp.Influencing = true;
+
+                TNodeId primaryId = GetGrandparentId(lspId);
+                while (!m_LSpaces[primaryId].Influencing) {
+                    LV_CORE_ASSERT(m_Tree.Height(primaryId) > 1, "This local space does not have a grandparent!");
+                    primaryId = GetGrandparentId(primaryId);
+                }
+                lsp.Primary = primaryId;
+
+                lsp.Radius = m_Elements[nodeId].SemiMajor * massFactor;
+                lsp.MetersPerRadius = m_LSpaces[GetGrandparentId(nodeId)].MetersPerRadius * lsp.Radius;
             }
-            /* If already non-influencing, local-space radius may have been set by the user:
-             * only reset it to default radius if this is not the case */
-            else if (ls.Influencing) {
-                ls.Influencing = false;
-                ls.Radius = kDefaultLocalSpaceRadius;
-                ls.MetersPerRadius = m_LocalSpaces[parent].MetersPerRadius * ls.Radius;
+            else if (obj.Influence != NNull) {
+                // Object was previously influencing - delete influence local space
+                Node& lspNode = m_Tree[obj.Influence];
+                if (lspNode.FirstChild == NNull) {
+                    m_LSpaces.Remove(obj.Influence);
+                }
+                else {
+                    m_LSpaces[obj.Influence].Influencing = false;
+                    LV_CORE_ASSERT(false, "TODO: re-primary children to this object's primary!");
+                }
+                obj.Influence = NNull;
             }
         }
 
-        void ComputeDynamics(TObjectId object)
+        void ComputeDynamics(TNodeId nodeId)
         {
-            LV_CORE_ASSERT(object != m_RootObject, "Cannot compute dynamics on root object!");
+            LV_CORE_ASSERT(nodeId != kRootObjId, "Cannot compute dynamics on root object!");
 
-            auto& obj = m_Objects[object];
-            auto& elems = m_Elements[object];
+            auto& obj = m_Objects[nodeId];
+            auto& elems = m_Elements[nodeId];
 
             float apoapsisRadius = elems.P / (1.f - elems.E);
             bool escapesLocalSpace = elems.Type == OrbitType::Hyperbola || apoapsisRadius > kLocalSpaceEscapeRadius;
@@ -460,9 +658,9 @@ namespace Limnova
                 "Cannot compute dynamics on object with invalid parent, mass, or position!");
 
             obj.Validity = Validity::Valid;
-            if (m_Dynamics.Has(object))
+            if (m_Dynamics.Has(nodeId))
             {
-                if (escapesLocalSpace && obj.Parent == m_RootObject) {
+                if (escapesLocalSpace && GetGrandparentId(nodeId) == kRootObjId) {
                     LV_WARN("Orbit path cannot exit the simulation space!");
                     obj.Validity = Validity::InvalidPath;
                     return;
@@ -482,7 +680,8 @@ namespace Limnova
                 return;
             }
 
-            auto& dynamics = m_Dynamics.Get(object);
+            // NOTE : above ELSE block always returns, so 'm_Dynamics.Get(nodeId)' is guaranteed to work here
+            auto& dynamics = m_Dynamics.Get(nodeId);
 
             dynamics.EscapeTrueAnomaly = escapeTrueAnomaly;
 
@@ -509,20 +708,23 @@ namespace Limnova
             }
         }
 
-        void ComputeElements(TObjectId object)
+        void ComputeElements(TNodeId nodeId)
         {
-            LV_CORE_ASSERT(object != m_RootObject, "Cannot compute elements on root object!");
+            LV_CORE_ASSERT(nodeId != kRootObjId, "Cannot compute elements on root object!");
 
-            auto& obj = m_Objects[object];
-            auto& state = obj.State;
-            auto& elems = m_Elements.Get(object);
+            auto& node = m_Tree[nodeId];
+            auto& lsp = m_LSpace[node.Parent];
+            auto& obj = m_Objects[nodeId];
+            auto& elems = m_Elements.Get(nodeId);
 
             LV_CORE_ASSERT(obj.Validity == Validity::Valid || obj.Validity == Validity::InvalidPath,
                 "Cannot compute elements on an object with invalid parent, mass, or position!");
 
-            elems.Grav = kGravitational * m_Objects[obj.Parent].State.Mass * pow(m_LocalSpaces.Get(obj.Parent).MetersPerRadius, -3.0);
+            elems.Grav = kGravitational * m_Objects[lsp.Primary].State.Mass * pow(lsp.MetersPerRadius, -3.0);
 
-            Vector3d Hvec = Vector3d(state.Position).Cross(state.Velocity);
+            Vector3 positionFromPrimary = GetObjectPositionFromPrimary(nodeId);
+
+            Vector3d Hvec = Vector3d(positionFromPrimary).Cross(obj.State.Velocity);
             double H2 = Hvec.SqrMagnitude();
             elems.H = sqrt(H2);
             elems.PerifocalNormal = (Vector3)(Hvec / elems.H);
@@ -532,8 +734,8 @@ namespace Limnova
             elems.VConstant = elems.Grav / elems.H;
 
             /* Loss of precision due to casting is acceptable: result of vector division (V x H / Grav) is on the order of 1 */
-            Vector3 posDir = state.Position.Normalized();
-            Vector3 Evec = (Vector3)(state.Velocity.Cross(Hvec) / elems.Grav) - posDir;
+            Vector3 posDir = positionFromPrimary.Normalized();
+            Vector3 Evec = (Vector3)(obj.State.Velocity.Cross(Hvec) / elems.Grav) - posDir;
             elems.E = sqrtf(Evec.SqrMagnitude());
             float e2 = powf(elems.E, 2.f), e2term;
             if (elems.E < kEccentricityEpsilon)
@@ -614,7 +816,7 @@ namespace Limnova
         {
             UpdateQueueSafeRemove(object);
 
-            if (object != m_RootObject && (m_Objects[object].Validity == Validity::Valid ||
+            if (object != kRootObjId && (m_Objects[object].Validity == Validity::Valid ||
                 m_Objects[object].Validity == Validity::InvalidPath))
             {
                 ComputeElements(object);
@@ -627,7 +829,8 @@ namespace Limnova
 
                     auto& obj = m_Objects[object];
                     obj.Integration.PrevDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()));
-                    float posMag2 = obj.State.Position.SqrMagnitude();
+                    Vector3 positionFromPrimary = GetObjectPositionFromPrimary(nodeId);
+                    float posMag2 = positionFromPrimary.SqrMagnitude();
                     obj.Integration.DeltaTrueAnomaly = (float)(obj.Integration.PrevDT * m_Elements[object].H) / posMag2;
 
                     // TODO : handle cases where dynamic acceleration is non-zero, e.g, bool isDynamicallyAccelerating = m_Dynamics.Has(object) && !m_Dynamics[object].ContAcceleration.IsZero()
@@ -635,7 +838,7 @@ namespace Limnova
                         obj.Integration.Method = Integration::Method::Angular;
                     }
                     else {
-                        Vector3 posDir = obj.State.Position / sqrtf(posMag2);
+                        Vector3 posDir = positionFromPrimary / sqrtf(posMag2);
                         obj.State.Acceleration = -(Vector3d)posDir * m_Elements[object].Grav / (double)posMag2;
                         if (m_Dynamics.Has(object)) {
                             obj.State.Acceleration += m_Dynamics[object].ContAcceleration;
@@ -894,8 +1097,10 @@ namespace Limnova
                     * dTrueAnomaly / dT = h / r^2
                     * */
                     if (obj.Integration.DeltaTrueAnomaly < kMinUpdateTrueAnomaly) {
-                        Vector3 posDir = obj.State.Position.Normalized();
-                        obj.State.Acceleration = -(Vector3d)posDir * elems.Grav / (double)obj.State.Position.SqrMagnitude();
+                        Vector3 positionFromPrimary = GetObjectPositionFromPrimary(nodeId);
+                        float posMag2 = positionFromPrimary.SqrMagnitude();
+                        Vector3 posDir = positionFromPrimary / sqrtf(posMag2);
+                        obj.State.Acceleration = -(Vector3d)posDir * elems.Grav / (double)posMag2;
                         if (isDynamic) {
                             obj.State.Acceleration += m_Dynamics[m_UpdateQueueFront].ContAcceleration;
                         }
@@ -911,7 +1116,9 @@ namespace Limnova
                         float sinT = sinf(elems.TrueAnomaly);
                         float cosT = cosf(elems.TrueAnomaly);
                         float r = elems.P / (1.f + elems.E * cosT); /* orbit equation: r = h^2 / mu * 1 / (1 + e * cos(trueAnomaly)) */
-                        obj.State.Position = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
+
+                        Vector3 positionFromPrimary = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
+                        obj.State.Position = GetOrbitalPositionFromParent(positionFromPrimary);
                         obj.State.Velocity = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
 
                         objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
@@ -928,8 +1135,9 @@ namespace Limnova
                     * v1 = v0 + 0.5 * (a0 + a1) * dT
                     * */
                     obj.State.Position += (Vector3)(obj.State.Velocity * objDT) + 0.5f * (Vector3)(obj.State.Acceleration * objDT * objDT);
-                    float r2 = obj.State.Position.SqrMagnitude();
-                    Vector3d newAcceleration = -(Vector3d)obj.State.Position * elems.Grav / (double)(r2 * sqrtf(r2));
+                    Vector3 positionFromPrimary = GetObjectPositionFromPrimary(nodeId);
+                    float r2 = positionFromPrimary.SqrMagnitude();
+                    Vector3d newAcceleration = -(Vector3d)positionFromPrimary * elems.Grav / (double)(r2 * sqrtf(r2));
                     bool isDynamicallyAccelerating = false;
                     if (isDynamic) {
                         newAcceleration += m_Dynamics[m_UpdateQueueFront].ContAcceleration;
@@ -946,7 +1154,7 @@ namespace Limnova
                     else {
                         // Update true anomaly with new position vector
                         // Code taken from ComputeElements():
-                        Vector3 posDir = obj.State.Position.Normalized();
+                        Vector3 posDir = positionFromPrimary.Normalized();
                         float newTrueAnomaly = AngleBetweenUnitVectors(elems.PerifocalX, posDir);
                         if (posDir.Dot(elems.PerifocalY) < 0.f) {
                             newTrueAnomaly = PI2f - newTrueAnomaly;
@@ -966,7 +1174,7 @@ namespace Limnova
                     objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT); //std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
                     if (!isDynamicallyAccelerating)
                     {
-                        obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / obj.State.Position.SqrMagnitude();
+                        obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / positionFromPrimary.SqrMagnitude();
                         if (obj.Integration.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
                             obj.Integration.Method = Integration::Method::Angular;
                         }
@@ -994,7 +1202,7 @@ namespace Limnova
                     float escapeTrueAnomaly = dynamics.EscapeTrueAnomaly;
                     if (escapeTrueAnomaly > 0.f && elems.TrueAnomaly < PIf && elems.TrueAnomaly > escapeTrueAnomaly) {
                         LV_CORE_ASSERT(sqrtf(obj.State.Position.SqrMagnitude()) > kLocalSpaceEscapeRadius, "False positive on escape test!");
-                        LV_CORE_ASSERT(obj.Parent != m_RootObject, "Cannot escape root local space!");
+                        LV_CORE_ASSERT(obj.Parent != kRootObjId, "Cannot escape root local space!");
 
                         auto& localspace = m_LocalSpaces[m_UpdateQueueFront];
                         auto& oldParentObj = m_Objects[obj.Parent];
@@ -1064,8 +1272,8 @@ namespace Limnova
         /// <typeparam name="TUserId">ID of the user-object to be associated with the root physics object</typeparam>
         TObjectId AssignRoot(TUserId userRootId)
         {
-            m_Objects[m_RootObject].UserId = userRootId;
-            return m_RootObject;
+            m_Objects[kRootObjId].UserId = userRootId;
+            return kRootObjId;
         }
 
         /// <summary>
@@ -1076,13 +1284,13 @@ namespace Limnova
         /// <param name="meters"></param>
         void SetRootScaling(double meters)
         {
-            m_LocalSpaces[m_RootObject].MetersPerRadius = meters;
-            TreeCascadeAttributeChanges(m_RootObject);
+            m_LocalSpaces[kRootObjId].MetersPerRadius = meters;
+            TreeCascadeAttributeChanges(kRootObjId);
         }
 
         double GetRootScaling()
         {
-            return m_LocalSpaces[m_RootObject].MetersPerRadius;
+            return m_LocalSpaces[kRootObjId].MetersPerRadius;
         }
 
 
@@ -1168,7 +1376,7 @@ namespace Limnova
         /// <returns>ID of the created physics object</returns>
         TObjectId Create(TUserId userId, bool dynamic = false)
         {
-            return Create(userId, m_RootObject, 0.0, { 0.f }, { 0.0 }, dynamic);
+            return Create(userId, kRootObjId, 0.0, { 0.f }, { 0.0 }, dynamic);
         }
 
         /// <summary>
@@ -1291,7 +1499,7 @@ namespace Limnova
 
         void SetPosition(TObjectId object, Vector3 const& position)
         {
-            if (object == m_RootObject) {
+            if (object == kRootObjId) {
                 LV_ERROR("Cannot set position of OrbitalPhysics root object!");
                 return;
             }
@@ -1310,7 +1518,7 @@ namespace Limnova
 
         void SetVelocity(TObjectId object, Vector3d const& velocity)
         {
-            if (object == m_RootObject) {
+            if (object == kRootObjId) {
                 LV_WARN("Cannot set velocity of OrbitalPhysics root object!");
                 return;
             }
@@ -1358,7 +1566,7 @@ namespace Limnova
 
         void SetDynamic(TObjectId object, bool isDynamic)
         {
-            LV_CORE_ASSERT(object != m_RootObject, "Cannot set root object dynamics!");
+            LV_CORE_ASSERT(object != kRootObjId, "Cannot set root object dynamics!");
             if (isDynamic) {
                 m_Dynamics.GetOrAdd(object);
             }
