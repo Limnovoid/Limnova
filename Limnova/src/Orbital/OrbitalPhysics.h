@@ -143,6 +143,43 @@ namespace Limnova
                 m_Heights.clear();
                 m_Empties.clear();
             }
+
+            void Move(TNodeId nodeId, TNodeId newParentId)
+            {
+                Detach(nodeId);
+                Attach(nodeId, newParentId);
+            }
+
+            void GetChildren(TNodeId nodeId, std::vector<TNodeId>& children)
+            {
+                LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
+                size_t numChildren = 0;
+                TNodeId first = m_Nodes[nodeId].FirstChild;
+                if (first != NNull) {
+                    TNodeId child = first;
+                    do {
+                        numChildren++;
+                        children.push_back(child);
+                        child = m_Nodes[child].NextSibling;
+                        LV_CORE_ASSERT(child != NNull, "Sibling circular-linked list is broken!");
+                    } while (child != first);
+                }
+                return numChildren;
+            }
+
+            void GetSubtree(TNodeId rootNodeId, std::vector<TNodeId>& subtree)
+            {
+                size_t numAdded = GetChildren(rootNodeId, subtree);
+                do {
+                    size_t end = subtree.size();
+                    size_t idx = end - numAdded;
+                    numAdded = 0;
+                    while (idx < end) {
+                        numAdded += GetChildren(subtree[idx], subtree);
+                        idx++;
+                    }
+                } while (numAdded > 0);
+            }
         public:
             Node const& operator[](TNodeId nodeId)
             {
@@ -358,13 +395,16 @@ namespace Limnova
             double UpdateTimer = 0.0;
             float DeltaTrueAnomaly = 0.f;
 
-            TNodeId UpdateNext = Null;
+            ObjectNode UpdateNext = { NNull };
             Method Method = Method::Angular; /* set to Angular by default in TryComputeAttributes() anyway */
         };
 
 
         /*** Attribute objects ***/
     private:
+        class ObjectNode;
+        class LSpaceNode;
+
         struct Object
         {
             TUserId UserId = TUserId();
@@ -373,7 +413,7 @@ namespace Limnova
             State State;
             Integration Integration;
 
-            TNodeId Influence = NNull; /* Local space node representing this object's sphere of influence: Null if object is not influencing */
+            LSpaceNode Influence = LSpaceNode::NNull; /* Local space node representing this object's sphere of influence: Null if object is not influencing */
 
             Object() = default;
             Object(TUserId userId) : UserId(userId) {}
@@ -385,7 +425,7 @@ namespace Limnova
             float Radius = 0.f; /* Measured in parent's influence */
             float MetersPerRadius = 0.f;
 
-            TNodeId PrimaryLsp = NNull;
+            LSpaceNode Primary = LSpaceNode::NNull;
             bool Influencing = false; /* True if the parent object is the local dominant source of gravity, i.e, this LSP is less than or equal to the parent's influence LSP */
         };
 
@@ -429,8 +469,12 @@ namespace Limnova
 
         /*** Node wrappers ***/
     private:
-        class LSpaceNode;
-        class ObjectNode;
+        bool IsLocalSpace(TNodeId nodeId)
+        {
+            return m_Tree.Height(nodeId) % 2; /* 0 -> object, 1 -> local space */
+        }
+
+        class ObjectNode
         {
             TNodeId m_NodeId;
         public:
@@ -442,7 +486,9 @@ namespace Limnova
                 LV_CORE_ASSERT(m_Objects.Has(nodeId), "Object node must have an Object attribute!");
             }
 
+            static ObjectNode NNull = { NNull };
             bool IsNull() { return m_NodeId == NNull; }
+
             TNodeId Id() { return m_NodeId; }
             Node& Node() { return m_Tree[m_NodeId]; }
             bool IsRoot() { return m_NodeId == kRootObjId; }
@@ -470,17 +516,37 @@ namespace Limnova
             LSpaceNode Parent() { return LSpaceNode{ m_Tree[m_NodeId].Parent }; }
             ObjectNode Grandparent() { return ObjectNode{ m_Tree[m_Tree[m_NodeId].Parent].Parent }; }
 
-            LSpaceNode PrimaryLsp() { return LSpaceNode{ m_LSpaces[m_Tree[m_NodeId].Parent].PrimaryLsp }; }
-            ObjectNode PrimaryObj() { return ObjectNode{ m_Tree[m_LSpaces[m_Tree[m_NodeId].Parent].PrimaryLsp].Parent }; }
+            LSpaceNode PrimaryLsp() { return m_LSpaces[m_Tree[m_NodeId].Parent].PrimaryLsp; }
+            ObjectNode PrimaryObj() { return m_LSpaces[m_Tree[m_NodeId].Parent].PrimaryLsp.Parent(); }
+
+            bool IsInfluencing() { return m_Objects[m_NodeId].Influence != NNull; }
+            LSpaceNode InfluenceLsp() { return m_Objects[m_NodeId].Influence; }
 
             Vector3 LocalPositionFromPrimary()
             {
                 return m_Objects[m_NodeId].State.Position + LSpaceNode(m_Tree[m_NodeId].Parent).LocalOffsetFromPrimary();
             }
+
+            size_t GetLocalSpaces(std::vector<LSpaceNode>& lspNodes)
+            {
+                size_t numChildren = 0;
+                TNodeId first = m_Tree[m_NodeId].FirstChild;
+                if (first != NNull) {
+                    TNodeId child = first;
+                    do {
+                        numChildren++;
+                        lspNodes.emplace_back(child);
+                        child = m_Tree[child].NextSibling;
+                        LV_CORE_ASSERT(child != NNull, "Sibling linked-list is broken!");
+                    } while (child != first);
+                }
+                return numChildren;
+            }
         public:
             operator TNodeId() const { return m_NodeId; }
         public:
             bool operator==(ObjectNode const& rhs) const { return this->m_NodeId == rhs.m_NodeId; }
+            bool operator!=(ObjectNode const& rhs) const { return this->m_NodeId != rhs.m_NodeId; }
         };
 
         class LSpaceNode
@@ -494,6 +560,9 @@ namespace Limnova
                 LV_CORE_ASSERT(m_Tree.Height(nodeId) % 2 == 1, "Class is for local space nodes only!");
                 LV_CORE_ASSERT(m_LSPaces.Has(nodeId), "Local space node must have a LocalSpace attribute!");
             }
+
+            static LSpaceNode NNull = { NNull };
+            bool IsNull() { return m_NodeId == NNull; }
 
             TNodeId Id() { return m_NodeId; }
             Node& Node() { return m_Tree[m_NodeId]; }
@@ -517,10 +586,35 @@ namespace Limnova
             ObjectNode Parent() { return ObjectNode{ m_Tree[m_NodeId].Parent }; }
             LSpaceNode Grandparent() { return LSpaceNode{ m_Tree[m_Tree[m_NodeId].Parent].Parent }; }
 
-            LSpaceNode PrimaryLsp() { return LSpaceNode{ m_LSpaces[m_NodeId].PrimaryLsp }; }
-            ObjectNode PrimaryObj() { return ObjectNode{ m_Tree[m_LSpaces[m_NodeId].PrimaryLsp].Parent }; }
+            LSpaceNode PrimaryLsp() { return m_LSpaces[m_NodeId].Primary; }
+            ObjectNode PrimaryObj() { return m_LSpaces[m_NodeId].Primary.Parent(); }
 
-            Vector3 LocalOffsetFromPrimary() { return LocalOffsetFromPrimary(m_NodeId, m_LSpaces[m_NodeId].Primary); }
+            size_t GetLocalObjects(std::vector<ObjectNode>& objNodes)
+            {
+                size_t numChildren = 0;
+                TNodeId first = m_Tree[m_NodeId].FirstChild;
+                if (first != NNull) {
+                    TNodeId child = first;
+                    do {
+                        numChildren++;
+                        objNodes.emplace_back(child);
+                        child = m_Tree[child].NextSibling;
+                        LV_CORE_ASSERT(child != NNull, "Sibling linked-list is broken!");
+                    } while (child != first);
+                }
+                return numChildren;
+            }
+
+            LSpaceNode NextHigherLSpace()
+            {
+                return LSpaceNode{ m_Tree[m_NodeId].PrevSibling == NNull
+                    ? m_Tree[m_Tree[m_NodeId].Parent].Parent
+                    : m_Tree[m_NodeId].PrevSibling };
+            }
+
+            Vector3 LocalOffsetFromPrimary() { return LocalOffsetFromPrimary(m_NodeId, m_LSpaces[m_NodeId].Primary.Id()); }
+
+            bool IsHighestLSpaceOnObject() { return m_NodeId == m_Tree[m_Tree[m_NodeId].Parent].FirstChild; }
         public:
             bool operator==(ObjectNode const& rhs) { return this->m_NodeId == rhs.m_NodeId; }
         private:
@@ -551,7 +645,7 @@ namespace Limnova
 
         ObjectNode m_UpdateQueueFront = { NNull };
 
-        std::function<void(TUserId, TUserId)> m_ParentChangedCallback;
+        std::function<void(TUserId)> m_LSpaceChangedCallback;
 
         /*** Simulation helpers ***/
     private:
@@ -917,7 +1011,7 @@ namespace Limnova
         {
             if (m_UpdateQueueFront.IsNull()) {
                 m_UpdateQueueFront = objNode;
-                objNode.Object().Integration.UpdateNext = NNull;
+                objNode.Object().Integration.UpdateNext = ObjectNode::NNull;
             }
             else {
                 objNode.Object().Integration.UpdateNext = m_UpdateQueueFront;
@@ -930,47 +1024,47 @@ namespace Limnova
         /// Attempting to remove an object which is not in the queue will result in an array out-of-bounds error caused by executing 'm_Objects[Null]'.
         /// See also: UpdateQueueSafeRemove().
         /// </summary>
-        void UpdateQueueRemove(TObjectId object)
+        void UpdateQueueRemove(ObjectNode objNode)
         {
-            LV_CORE_ASSERT(m_UpdateQueueFront != Null, "Attempting to remove item from empty queue!");
-            if (m_UpdateQueueFront == object) {
-                m_UpdateQueueFront = m_Objects[object].Integration.UpdateNext;
-                m_Objects[object].Integration.UpdateNext = Null;
+            LV_CORE_ASSERT(!m_UpdateQueueFront.IsNull(), "Attempting to remove item from empty queue!");
+            if (m_UpdateQueueFront == objNode) {
+                m_UpdateQueueFront = objNode.Object().Integration.UpdateNext;
+                objNode.Object().Integration.UpdateNext = ObjectNode::NNull;
                 return;
             }
-            TObjectId queueItem = m_UpdateQueueFront,
-                queueNext = m_Objects[m_UpdateQueueFront].Integration.UpdateNext;
-            while (queueNext != object) {
-                LV_CORE_ASSERT(queueNext != Null, "UpdateQueueRemove() could not find the given object in the update queue!");
+            ObjectNode queueItem = m_UpdateQueueFront,
+                queueNext = m_UpdateQueueFront.Object().Integration.UpdateNext;
+            while (queueNext != objNode) {
+                LV_CORE_ASSERT(!queueNext.IsNull(), "UpdateQueueRemove() could not find the given object in the update queue!");
                 queueItem = queueNext;
-                queueNext = m_Objects[queueNext].Integration.UpdateNext;
+                queueNext = queueNext.Object().Integration.UpdateNext;
             }
-            m_Objects[queueItem].Integration.UpdateNext = m_Objects[object].Integration.UpdateNext;
-            m_Objects[object].Integration.UpdateNext = Null;
+            queueItem.Object().Integration.UpdateNext = objNode.Object().Integration.UpdateNext;
+            objNode.Object().Integration.UpdateNext = ObjectNode::NNull;
         }
 
         /// <summary>
         /// Removes the given object from the update queue, if it exists in the update queue.
         /// </summary>
         /// <returns>True if object was found and removed, false otherwise.</returns>
-        bool UpdateQueueSafeRemove(TObjectId object)
+        bool UpdateQueueSafeRemove(ObjectNode objNode)
         {
-            if (m_UpdateQueueFront == Null) return false;
-            if (m_UpdateQueueFront == object) {
-                m_UpdateQueueFront = m_Objects[object].Integration.UpdateNext;
-                m_Objects[object].Integration.UpdateNext = Null;
+            if (m_UpdateQueueFront.IsNull()) return false;
+            if (m_UpdateQueueFront == objNode) {
+                m_UpdateQueueFront = objNode.Object().Integration.UpdateNext;
+                objNode.Object().Integration.UpdateNext = ObjectNode::NNull;
                 return true;
             }
-            TObjectId queueItem = m_UpdateQueueFront,
-                queueNext = m_Objects[m_UpdateQueueFront].Integration.UpdateNext;
-            while (queueNext != Null) {
-                if (queueNext == object) {
-                    m_Objects[queueItem].Integration.UpdateNext = m_Objects[queueNext].Integration.UpdateNext;
-                    m_Objects[object].Integration.UpdateNext = Null;
+            ObjectNode queueItem = m_UpdateQueueFront,
+                queueNext = m_UpdateQueueFront.Object().Integration.UpdateNext;
+            while (!queueNext.IsNull()) {
+                if (queueNext == objNode) {
+                    queueItem.Object().Integration.UpdateNext = objNode.Object().Integration.UpdateNext;
+                    objNode.Object().Integration.UpdateNext = ObjectNode::NNull;
                     return true;
                 }
                 queueItem = queueNext;
-                queueNext = m_Objects[queueNext].Integration.UpdateNext;
+                queueNext = queueNext.Object().Integration.UpdateNext;
             }
             return false;
         }
@@ -980,87 +1074,49 @@ namespace Limnova
         /// </summary>
         void UpdateQueueSortFront()
         {
-            LV_CORE_ASSERT(m_UpdateQueueFront != Null, "Attempting to sort empty queue!");
+            LV_CORE_ASSERT(!m_UpdateQueueFront.IsNull(), "Attempting to sort empty queue!");
 
-            TObjectId object = m_UpdateQueueFront;
-            auto& integ = m_Objects[object].Integration;
+            ObjectNode objNode = m_UpdateQueueFront;
+            auto& integ = objNode.Object().Integration;
 
-            TObjectId queueItem = integ.UpdateNext;
-            if (queueItem == Null) return;
-            if (integ.UpdateTimer < m_Objects[queueItem].Integration.UpdateTimer) return;
+            ObjectNode queueItem = integ.UpdateNext;
+            if (queueItem.IsNull()) return;
+            if (integ.UpdateTimer < queueItem.Object().Integration.UpdateTimer) return;
             m_UpdateQueueFront = queueItem;
 
-            TObjectId queueNext = m_Objects[queueItem].Integration.UpdateNext;
-            while (queueNext != Null) {
-                if (integ.UpdateTimer < m_Objects[queueNext].Integration.UpdateTimer) break;
+            ObjectNode queueNext = queueItem.Object().Integration.UpdateNext;
+            while (!queueNext.IsNull()) {
+                if (integ.UpdateTimer < queueNext.Object().Integration.UpdateTimer) break;
                 queueItem = queueNext;
-                queueNext = m_Objects[queueNext].Integration.UpdateNext;
+                queueNext = queueNext.Object().Integration.UpdateNext;
             }
-            m_Objects[queueItem].Integration.UpdateNext = object;
+            queueItem.Object().Integration.UpdateNext = objNode;
             integ.UpdateNext = queueNext;
         }
 
 
-        /// <summary>
-        /// Appends children of 'object' to 'children'.
-        /// </summary>
-        /// <returns>Number of children</returns>
-        size_t GetObjectChildren(std::vector<TObjectId>& children, TObjectId object)
+        void SubtreeCascadeAttributeChanges(TNodeId rootNodeId)
         {
-            size_t numChildren = 0;
-            TObjectId first = m_LocalSpaces.Has(object) ? m_LocalSpaces.Get(object).FirstChild : Null;
-            if (first != Null) {
-                TObjectId child = first;
-                do {
-                    numChildren++;
-                    children.push_back(child);
-                    child = m_Objects[child].NextSibling;
-                    LV_CORE_ASSERT(child != Null, "Sibling circular-linked list is broken!");
-                } while (child != first);
-            }
-            return numChildren;
-        }
+            std::vector<TNodeId> tree = {};
+            m_Tree.GetSubtree(tree, rootNodeId);
+            for (auto nodeId : tree) {
+                if (IsLocalSpace(nodeId)) continue;
 
-
-        /// <summary>
-        /// Performs a breadth-first search of the entire tree beginning at 'root' and appends results to 'tree'.
-        /// Does NOT append 'root' to 'tree'.
-        /// </summary>
-        void GetObjectTree(std::vector<TObjectId>& tree, TObjectId root)
-        {
-            size_t numAdded = GetObjectChildren(tree, root);
-            do {
-                size_t end = tree.size();
-                size_t idx = end - numAdded;
-                numAdded = 0;
-                while (idx < end) {
-                    numAdded += GetObjectChildren(tree, tree[idx]);
-                    idx++;
-                }
-            } while (numAdded > 0);
-        }
-
-
-        void TreeCascadeAttributeChanges(TObjectId object)
-        {
-            std::vector<TObjectId> tree = {};
-            GetObjectTree(tree, object);
-            for (auto obj : tree) {
-                // TODO : preserve orbit shape ?
-                if (ComputeStateValidity(obj)) {
-                    TryComputeAttributes(obj);
+                // TODO : preserve orbit shapes ?
+                ObjectNode subObjNode{ nodeId };
+                if (ComputeStateValidity(subObjNode)) {
+                    TryComputeAttributes(subObjNode);
                 }
             }
         }
 
 
-        void ChangeParentAtRuntime(TObjectId object, TObjectId newParent, TUserId objectUser, TUserId newParentUser)
+        void ChangeLSpaceAtRuntime(ObjectNode objNode, LSpaceNode newLSpace)
         {
-            DetachObject(object);
-            AttachObject(object, newParent);
+            m_Tree.Move(objNode.Id(), newLSpace.Id());
 
-            if (m_ParentChangedCallback) {
-                m_ParentChangedCallback(objectUser, newParentUser);
+            if (m_LSpaceChangedCallback) {
+                m_LSpaceChangedCallback(objNode.Object().UserId);
             }
         }
 
@@ -1087,27 +1143,27 @@ namespace Limnova
         void OnUpdate(Timestep dT)
         {
 #ifdef LV_DEBUG // debug pre-update
-            std::chrono::steady_clock::time_point updateStart = std::chrono::steady_clock::now();
+            /*std::chrono::steady_clock::time_point updateStart = std::chrono::steady_clock::now();
             static std::vector<std::chrono::steady_clock::time_point> timesOfLastPeriapsePassage = { };
             timesOfLastPeriapsePassage.resize(m_Objects.size(), std::chrono::steady_clock::time_point::min());
             for (ObjStats& stats : m_Stats.ObjStats) {
                 stats.NumObjectUpdates = 0;
             }
-            m_Stats.ObjStats.resize(m_Objects.size(), ObjStats());
+            m_Stats.ObjStats.resize(m_Objects.size(), ObjStats());*/
 #endif
 
             double minObjDT = dT / kMaxObjectUpdates;
 
             // Update all objects with timers less than 0
-            while (m_Objects[m_UpdateQueueFront].Integration.UpdateTimer < 0.0)
+            while (m_UpdateQueueFront.Object().Integration.UpdateTimer < 0.0)
             {
-                auto& obj = m_Objects[m_UpdateQueueFront];
-                auto& elems = m_Elements[m_UpdateQueueFront];
-                bool isDynamic = m_Dynamics.Has(m_UpdateQueueFront);
+                auto& obj = m_UpdateQueueFront.Object();
+                auto& elems = m_UpdateQueueFront.Elements();
+                bool isDynamic = m_UpdateQueueFront.IsDynamic();
 
 #ifdef LV_DEBUG // debug object pre-update
-                m_Stats.ObjStats[m_UpdateQueueFront].NumObjectUpdates += 1;
-                float prevTrueAnomaly = elems.TrueAnomaly;
+                /*m_Stats.ObjStats[m_UpdateQueueFront].NumObjectUpdates += 1;
+                float prevTrueAnomaly = elems.TrueAnomaly;*/
 #endif
 
                 double& objDT = obj.Integration.PrevDT;
@@ -1121,12 +1177,12 @@ namespace Limnova
                     * dTrueAnomaly / dT = h / r^2
                     * */
                     if (obj.Integration.DeltaTrueAnomaly < kMinUpdateTrueAnomaly) {
-                        Vector3 positionFromPrimary = GetObjectPositionFromPrimary(nodeId);
+                        Vector3 positionFromPrimary = m_UpdateQueueFront.LocalPositionFromPrimary();
                         float posMag2 = positionFromPrimary.SqrMagnitude();
                         Vector3 posDir = positionFromPrimary / sqrtf(posMag2);
                         obj.State.Acceleration = -(Vector3d)posDir * elems.Grav / (double)posMag2;
                         if (isDynamic) {
-                            obj.State.Acceleration += m_Dynamics[m_UpdateQueueFront].ContAcceleration;
+                            obj.State.Acceleration += m_UpdateQueueFront.Dynamics().ContAcceleration;
                         }
                         obj.Integration.Method = Integration::Method::Linear;
                         LV_CORE_TRACE("Object (UserId={0}) switched from angular to linear integration!", obj.UserId);
@@ -1142,7 +1198,7 @@ namespace Limnova
                         float r = elems.P / (1.f + elems.E * cosT); /* orbit equation: r = h^2 / mu * 1 / (1 + e * cos(trueAnomaly)) */
 
                         Vector3 positionFromPrimary = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
-                        obj.State.Position = GetOrbitalPositionFromParent(positionFromPrimary);
+                        obj.State.Position = positionFromPrimary - m_UpdateQueueFront.Parent().LocalOffsetFromPrimary();
                         obj.State.Velocity = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
 
                         objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
@@ -1159,13 +1215,13 @@ namespace Limnova
                     * v1 = v0 + 0.5 * (a0 + a1) * dT
                     * */
                     obj.State.Position += (Vector3)(obj.State.Velocity * objDT) + 0.5f * (Vector3)(obj.State.Acceleration * objDT * objDT);
-                    Vector3 positionFromPrimary = GetObjectPositionFromPrimary(nodeId);
+                    Vector3 positionFromPrimary = m_UpdateQueueFront.LocalPositionFromPrimary();
                     float r2 = positionFromPrimary.SqrMagnitude();
                     Vector3d newAcceleration = -(Vector3d)positionFromPrimary * elems.Grav / (double)(r2 * sqrtf(r2));
                     bool isDynamicallyAccelerating = false;
                     if (isDynamic) {
-                        newAcceleration += m_Dynamics[m_UpdateQueueFront].ContAcceleration;
-                        isDynamicallyAccelerating = !m_Dynamics[m_UpdateQueueFront].ContAcceleration.IsZero();
+                        newAcceleration += m_UpdateQueueFront.Dynamics().ContAcceleration;
+                        isDynamicallyAccelerating = !m_UpdateQueueFront.Dynamics().ContAcceleration.IsZero();
                     }
                     obj.State.Velocity += 0.5 * (obj.State.Acceleration + newAcceleration) * objDT;
                     obj.State.Acceleration = newAcceleration;
@@ -1209,36 +1265,48 @@ namespace Limnova
                 }
 
 #ifdef LV_DEBUG // debug object post-update
-                if (elems.TrueAnomaly < prevTrueAnomaly) {
+                /*if (elems.TrueAnomaly < prevTrueAnomaly) {
                     auto timeOfPeriapsePassage = std::chrono::steady_clock::now();
                     if (timesOfLastPeriapsePassage[m_UpdateQueueFront] != std::chrono::steady_clock::time_point::min()) {
                         m_Stats.ObjStats[m_UpdateQueueFront].LastOrbitDuration = timeOfPeriapsePassage - timesOfLastPeriapsePassage[m_UpdateQueueFront];
                         m_Stats.ObjStats[m_UpdateQueueFront].LastOrbitDurationError = (elems.T - m_Stats.ObjStats[m_UpdateQueueFront].LastOrbitDuration.count()) / elems.T;
                     }
                     timesOfLastPeriapsePassage[m_UpdateQueueFront] = timeOfPeriapsePassage;
-                }
+                }*/
 #endif
 
                 // Test for orbit events
                 if (isDynamic) {
-                    auto& dynamics = m_Dynamics[m_UpdateQueueFront];
+                    auto& dynamics = m_UpdateQueueFront.Dynamics();
 
                     float escapeTrueAnomaly = dynamics.EscapeTrueAnomaly;
                     if (escapeTrueAnomaly > 0.f && elems.TrueAnomaly < PIf && elems.TrueAnomaly > escapeTrueAnomaly) {
                         LV_CORE_ASSERT(sqrtf(obj.State.Position.SqrMagnitude()) > kLocalSpaceEscapeRadius, "False positive on escape test!");
-                        LV_CORE_ASSERT(obj.Parent != kRootObjId, "Cannot escape root local space!");
+                        LV_CORE_ASSERT(!m_UpdateQueueFront.Parent().IsRoot(), "Cannot escape root local space!");
 
-                        auto& localspace = m_LocalSpaces[m_UpdateQueueFront];
-                        auto& oldParentObj = m_Objects[obj.Parent];
+                        LSpaceNode oldLspNode = m_UpdateQueueFront.Parent();
+                        LSpaceNode newLspNode = oldLspNode.NextHigherLSpace();
 
-                        float rescalingFactor = m_LocalSpaces[obj.Parent].Radius;
-                        obj.State.Position = (obj.State.Position * rescalingFactor) + oldParentObj.State.Position;
-                        obj.State.Velocity = (obj.State.Velocity * (double)rescalingFactor) + oldParentObj.State.Velocity;
-                        if (!localspace.Influencing) {
-                            localspace.Radius *= rescalingFactor; /* preserves absolute radius of local space */
+                        float rescalingFactor = 1.f; // m_LocalSpaces[obj.Parent].Radius;
+                        if (oldLspNode.IsHighestLSpaceOnObject()) {
+                            rescalingFactor = oldLspNode.LSpace().Radius;
+                            obj.State.Position = (obj.State.Position * rescalingFactor) + oldParentObj.State.Position;
+                            obj.State.Velocity = (obj.State.Velocity * (double)rescalingFactor) + oldParentObj.State.Velocity;
+                        }
+                        else {
+                            rescalingFactor = oldLspNode.LSpace().Radius / newLspNode.LSpace().Radius;
+                            obj.State.Position = obj.State.Position * rescalingFactor;
+                            obj.State.Velocity = obj.State.Velocity * (double)rescalingFactor;
                         }
 
-                        ChangeParentAtRuntime(m_UpdateQueueFront, oldParentObj.Parent, obj.UserId, m_Objects[oldParentObj.Parent].UserId);
+                        std::vector<LSpaceNode> localSpaces = {};
+                        size_t numLsps = m_UpdateQueueFront.GetLocalSpaces(localSpaces);
+                        for (size_t i = 0; i < numLsps; i++) {
+                            if (localSpaces[i].LSpace().Influencing) break;
+                            localSpaces[i].LSpace().Radius *= rescalingFactor; /* preserves absolute radius of local space */
+                        }
+
+                        ChangeLSpaceAtRuntime(m_UpdateQueueFront, newLspNode);
 
                         ComputeElements(m_UpdateQueueFront);
                         ComputeDynamics(m_UpdateQueueFront);
@@ -1246,7 +1314,8 @@ namespace Limnova
                         LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Invalid dynamics after escape!");
 
                         objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
-                        float posMag2 = obj.State.Position.SqrMagnitude();
+                        Vector3 positionFromPrimary = m_UpdateQueueFront.LocalPositionFromPrimary();
+                        float posMag2 = positionFromPrimary.SqrMagnitude();
                         obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / posMag2;
 
                         // TODO : handle cases where dynamic acceleration is non-zero, e.g, bool isDynamicallyAccelerating = m_Dynamics.Has(object) && !m_Dynamics[object].ContAcceleration.IsZero()
@@ -1255,7 +1324,7 @@ namespace Limnova
                             obj.Integration.Method = Integration::Method::Angular;
                         }
                         else {
-                            Vector3 posDir = obj.State.Position / sqrtf(posMag2);
+                            Vector3 posDir = positionFromPrimary / sqrtf(posMag2);
                             obj.State.Acceleration = -(Vector3d)posDir * elems.Grav / (double)posMag2;
                             obj.State.Acceleration += dynamics.ContAcceleration;
                             obj.Integration.Method = Integration::Method::Linear;
@@ -1268,22 +1337,22 @@ namespace Limnova
             }
 
             // Subtract elapsed time from all object timers
-            TObjectId object = m_UpdateQueueFront;
+            ObjectNode objNode = m_UpdateQueueFront;
             do { 
-                m_Objects[object].Integration.UpdateTimer -= dT;
-                object = m_Objects[object].Integration.UpdateNext;
-            } while (object != Null);
+                objNode.Object().Integration.UpdateTimer -= dT;
+                objNode = objNode.Object().Integration.UpdateNext;
+            } while (!objNode.IsNull());
 
 #ifdef LV_DEBUG // debug post-update
-            m_Stats.UpdateTime = std::chrono::steady_clock::now() - updateStart;
+            //m_Stats.UpdateTime = std::chrono::steady_clock::now() - updateStart;
 #endif
         }
 
 
-        void SetParentChangedCallback(std::function<void(TUserId, TUserId)> callback = {})
+        void SetLSpaceChangedCallback(std::function<void(TUserId)> callback = {})
         {
-            m_ParentChangedCallback = callback;
-            if (!callback) LV_WARN("Callback function 'ParentChangedCallback' set to empty function!");
+            m_LSpaceChangedCallback = callback;
+            if (!callback) LV_WARN("Callback function 'LSpaceChangedCallback' set to empty function!");
         }
 
 
@@ -1296,8 +1365,8 @@ namespace Limnova
         /// <typeparam name="TUserId">ID of the user-object to be associated with the root physics object</typeparam>
         TObjectId AssignRoot(TUserId userRootId)
         {
-            m_Objects[kRootObjId].UserId = userRootId;
-            return kRootObjId;
+            m_RootObjNode.Object().UserId = userRootId;
+            return m_RootObjNode.Id();
         }
 
         /// <summary>
@@ -1308,13 +1377,13 @@ namespace Limnova
         /// <param name="meters"></param>
         void SetRootScaling(double meters)
         {
-            m_LocalSpaces[kRootObjId].MetersPerRadius = meters;
-            TreeCascadeAttributeChanges(kRootObjId);
+            m_RootLspNode.LSpace().MetersPerRadius = meters;
+            SubtreeCascadeAttributeChanges(m_RootLspNode.Id());
         }
 
         double GetRootScaling()
         {
-            return m_LocalSpaces[kRootObjId].MetersPerRadius;
+            return m_RootLspNode.LSpace().MetersPerRadius;
         }
 
 
@@ -1323,19 +1392,9 @@ namespace Limnova
         /// </summary>
         /// <param name="object">ID of physics object in question</param>
         /// <returns>True if ID is that of a physics object which has been created and not yet destroyed, false otherwise.</returns>
-        bool Has(TObjectId object)
+        bool Has(TNodeId nodeId)
         {
-            return object < m_Objects.size() && m_EmptyObjects.find(object) == m_EmptyObjects.end();
-        }
-
-        /// <summary>
-        /// Returns the user object associated with a given physics object.
-        /// </summary>
-        /// <param name="object">The ID of the physics object in question.</param>
-        /// <returns>The user ID associated with the physics object.</returns>
-        TUserId GetUser(TObjectId object)
-        {
-            return m_Objects[object].UserId;
+            return m_Tree.Has(nodeId);
         }
 
 
