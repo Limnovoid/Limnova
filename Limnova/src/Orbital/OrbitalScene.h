@@ -7,10 +7,6 @@
 
 namespace Limnova
 {
-
-    using Physics = OrbitalPhysics<UUID>;
-
-
     class OrbitalScene : public Scene
     {
     public:
@@ -42,9 +38,8 @@ namespace Limnova
         void OnStopRuntime() override;
 
 #ifdef LV_DEBUG
-        Physics::Stats const& GetPhysicsStats() { return m_Physics.GetStats(); }
+        //OrbitalPhysics::Stats const& GetPhysicsStats() { return m_Physics.GetStats(); }
 #endif
-        UUID GetPhysicsObjectUser(Physics::TObjectId physicsObjectId) { return m_Physics.GetUser(physicsObjectId); }
     private:
         void UpdateOrbitalScene();
         void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, float cameraDistance);
@@ -71,7 +66,8 @@ namespace Limnova
         float m_PerifocalAxisThickness = 0.006f;
         float m_PerifocalAxisArrowSize = 0.024f;
     private:
-        Physics m_Physics;
+        OrbitalPhysics::Context m_Physics;
+        std::map<OrbitalPhysics::TNodeId, entt::entity> m_PhysicsToEnttIds;
         UUID m_ViewPrimary;
 
         Quaternion m_OrbitalReferenceFrameOrientation; /* Orientation of the orbital physics system's reference frame relative to the scene frame */

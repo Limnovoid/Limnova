@@ -14,9 +14,7 @@ namespace Limnova
         // Orbital scene setup
         /* NOTE : root MUST be assigned before signal setup - the root's OrbitalComponent should NOT create
          * a new object in OrbitalPhysics */
-        auto& oc = AddComponent<OrbitalComponent>(m_Entities.at(m_Root));
-        oc.PhysicsObjectId = m_Physics.AssignRoot(m_Root);
-        oc.Physics = &m_Physics;
+        AddComponent<OrbitalComponent>(m_Entities.at(m_Root));
 
         m_OrbitalReferenceFrameOrientation = Quaternion(Vector3::Left(), PIover2f);
         m_OrbitalReferenceX = m_OrbitalReferenceFrameOrientation.RotateVector(Vector3::X());
@@ -30,11 +28,11 @@ namespace Limnova
         m_Registry.on_destroy<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentDestruct>(this);
 
         // Physics callbacks
-        m_Physics.SetParentChangedCallback( [&](UUID objectId, UUID newParentId) {
-            entt::entity objectEnttId = m_Entities.at(objectId);
+        m_Physics.m_LSpaceChangedCallback = { [&](OrbitalPhysics::ObjectNode objNode) {
+            entt::entity objectEnttId = m_PhysicsToEnttIds[objNode.Id()];
             HierarchyDisconnect(objectEnttId);
-            HierarchyConnect(objectEnttId, m_Entities.at(newParentId));
-        });
+            HierarchyConnect(objectEnttId, m_PhysicsToEnttIds[objNode.ParentObj().Id()]);
+        } };
     }
 
 
@@ -471,7 +469,7 @@ namespace Limnova
             orbital.PhysicsObjectId = m_Physics.Create(id); /* Primary defaults to root physics object which corresponds to the root entity */
             m_Physics.SetPosition(orbital.PhysicsObjectId, transform.GetPosition());
         }
-        orbital.Physics = &m_Physics;
+        orbital.Ctx = &m_Physics;
         orbital.LocalScale = transform.GetScale();
     }
 

@@ -276,63 +276,32 @@ namespace Limnova
     };
 
 
-    using Physics = OrbitalPhysics<UUID>;
     struct OrbitalComponent
     {
         //LV_REFLECT(OrbitalComponent);
 
-        friend class OrbitalScene;
-    private:
-        Physics::TObjectId PhysicsObjectId = Physics::Null;
-        Physics* Physics = nullptr;
-    public:
+        OrbitalPhysics::ObjectNode Object = {};
+
         Vector3 LocalScale = { 1.f };
         Vector3 UIColor = { 1.f };
         float Albedo; /* Surface reflectivity of orbital object - determines object's brightness as a star-like object when viewed from far away */
 
         bool ShowMajorMinorAxes = false;
         bool ShowNormal = false;
-
+    public:
         OrbitalComponent() = default;
         //OrbitalComponent(const OrbitalComponent&) = default;
         //OrbitalComponent(const OrbitalPhysics<entt::entity>::TObjectId& physicsObjectId)
         //    : PhysicsObjectId(physicsObjectId) {}
 
-        Physics::Validity GetValidity() { return Physics->GetValidity(PhysicsObjectId); }
-
-        bool IsInfluencing() { return Physics->IsInfluencing(PhysicsObjectId); }
-        void SetLocalSpaceRadius(float radius)
-        {
-            float oldRadius = Physics->GetLocalSpaceRadius(PhysicsObjectId);
-            if (Physics->SetLocalSpaceRadius(PhysicsObjectId, radius))
-            {
-                LocalScale *= oldRadius / radius;
-            }
-        }
-        float GetLocalSpaceRadius() { return Physics->GetLocalSpaceRadius(PhysicsObjectId); }
-
-        void SetMass(double mass) { Physics->SetMass(PhysicsObjectId, mass); }
-        void SetPosition(const Vector3& position) { Physics->SetPosition(PhysicsObjectId, position); }
-        void SetVelocity(const Vector3d& velocity) { Physics->SetVelocity(PhysicsObjectId, velocity); }
-
         void SetCircular(bool reverse = false)
         {
-            Vector3d v = Physics->GetCircularOrbitVelocity(PhysicsObjectId);
+            Vector3d v = Object.CircularOrbitVelocity();
             if (reverse) v = -v;
-            Physics->SetVelocity(PhysicsObjectId, v);
+            Object.SetVelocity(v);
         }
 
-        double GetMass() { return Physics->GetMass(PhysicsObjectId); }
-        Vector3 GetPosition() { return Physics->GetPosition(PhysicsObjectId); }
-        Vector3d GetVelocity() { return Physics->GetVelocity(PhysicsObjectId); }
-
-        const Physics::Elements& GetElements() const { return Physics->GetElements(PhysicsObjectId); }
-        const Physics::Dynamics& GetDynamics() const { return Physics->GetDynamics(PhysicsObjectId); }
-
-        bool IsDynamic() const { return Physics->IsDynamic(PhysicsObjectId); }
-        void SetDynamic(bool isDynamic = true) { Physics->SetDynamic(PhysicsObjectId, isDynamic); }
-
-        operator Physics::TObjectId() const { return PhysicsObjectId; }
+        operator OrbitalPhysics::ObjectNode() const { return Object; }
     };
 
 }
