@@ -38,16 +38,17 @@ namespace Limnova
             T Min = 0;
             T Max = 0;
             uint32_t Precision = 3;
+            bool ReadOnly = false;
         };
 
         bool Checkbox(const std::string& label, bool& value, float columnWidth = 100.f);
+        bool InputInt(const std::string& label, int& value, const InputConfig<int>& config, float columnWidth = 100.f);
         bool InputScientific(const std::string& label, double& value, float columnWidth = 100.f);
         bool DragFloat(const std::string& label, float& value, const InputConfig<float>& config, float columnWidth = 100.f);
         bool DragVec3(const std::string& label, Vector3& values, const InputConfig<float>& config, float columnWidth = 100.f);
         bool InputVec3d(const std::string& label, Vector3d& values, const InputConfig<double>& config, float columnWidth = 100.f);
         bool ColorEdit(const std::string& label, Vector4& values, float columnWidth = 100.f);
         bool ColorEdit3(const std::string& label, Vector3& values, float columnWidth = 100.f);
-
     }
 
 }

@@ -473,7 +473,8 @@ namespace Limnova
         ImGui::Text("Indices:       %d", stats.GetNumIndices());
         ImGui::End(); // Renderer2D Statistics
 
-#if defined(LV_DEBUG) && defined(LV_EDITOR_USE_ORBITAL)
+
+#if defined(LV_DEBUG) && defined(LV_EDITOR_USE_ORBITAL) && defined(TEMP_EXCLUDE)
         ImGui::Begin("OrbitalPhysics Statistics");
         auto& orbitalStats = m_ActiveScene->GetPhysicsStats();
         {
@@ -835,7 +836,7 @@ namespace Limnova
 
 #ifdef LV_EDITOR_USE_ORBITAL
         m_ActiveScene = OrbitalScene::Copy(m_EditorScene);
-    #ifdef LV_DEBUG
+    #if defined(LV_DEBUG) && defined(TEMP_EXCLUDE)
         size_t numObjs = m_ActiveScene->GetPhysicsStats().ObjStats.size();
         m_ObjectUpdates.clear();
         m_ResizeInit(m_ObjectUpdates, numObjs, 0.f);

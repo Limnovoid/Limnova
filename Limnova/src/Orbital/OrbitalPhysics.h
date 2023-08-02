@@ -22,14 +22,14 @@ namespace Limnova
 
         // Simulation tuning parameters ////////
         // TODO : choose numbers based on reasoning/testing
-        static constexpr float kDefaultLocalSpaceRadius = 0.1f;
+        static constexpr float kDefaultLSpaceRadius = 0.1f;
         static constexpr float kLocalSpaceEscapeRadius = 1.01f;
 
         static constexpr float kEccentricityEpsilon = 1e-4f;
 
-        static constexpr float kMaxLocalSpaceRadius = 0.2f;
-        static constexpr float kMinLocalSpaceRadius = 0.01f;
-        static constexpr float kEpsLocalSpaceRadius = 1e-6f;
+        static constexpr float kMaxLSpaceRadius = 0.2f;
+        static constexpr float kMinLSpaceRadius = 0.01f;
+        static constexpr float kEpsLSpaceRadius = 1e-6f;
 
         static constexpr float kMaxObjectUpdates = 20.f;
         static constexpr double kDefaultMinDT = 1.0 / (60.0 * kMaxObjectUpdates);
@@ -155,6 +155,20 @@ namespace Limnova
                     sizeSubtree += numAdded;
                 } while (numAdded > 0);
                 return sizeSubtree;
+            }
+
+            TNodeId GetParent(TNodeId nodeId)
+            {
+                LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
+                LV_CORE_ASSERT(m_Heights[nodeId] > 0, "Cannot get parent of root node!");
+                return m_Nodes[nodeId].Parent;
+            }
+
+            TNodeId GetGrandparent(TNodeId nodeId)
+            {
+                LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
+                LV_CORE_ASSERT(m_Heights[nodeId] > 1, "Node height is too low - node does not have a grandparent!");
+                return m_Nodes[nodeId].Parent;
             }
         public:
             Node const& operator[](TNodeId nodeId) const
@@ -397,11 +411,11 @@ namespace Limnova
             OrbitalPhysics::Elements const& GetElements() const { return m_Ctx->m_Elements[m_NodeId]; }
             OrbitalPhysics::Dynamics const& GetDynamics() const { return m_Ctx->m_Dynamics[m_NodeId]; }
 
-            LSpaceNode ParentLsp() const { return LSpaceNode{ m_Ctx->m_Tree[m_NodeId].Parent }; }
-            ObjectNode ParentObj() const { return ObjectNode{ m_Ctx->m_Tree[m_Ctx->m_Tree[m_NodeId].Parent].Parent }; }
+            LSpaceNode ParentLsp() const { return LSpaceNode{ m_Ctx->m_Tree.GetParent(m_NodeId) }; }
+            ObjectNode ParentObj() const { return ObjectNode{ m_Ctx->m_Tree.GetGrandparent(m_NodeId) }; }
 
-            LSpaceNode PrimaryLsp() const { return m_Ctx->m_LSpaces[m_Ctx->m_Tree[m_NodeId].Parent].Primary; }
-            ObjectNode PrimaryObj() const { return m_Ctx->m_LSpaces[m_Ctx->m_Tree[m_NodeId].Parent].Primary.ParentObj(); }
+            LSpaceNode PrimaryLsp() const { return m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetParent(m_NodeId)].Primary; }
+            ObjectNode PrimaryObj() const { return m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetParent(m_NodeId)].Primary.ParentObj(); }
             LSpaceNode InfluenceLsp() const { return m_Ctx->m_Objects[m_NodeId].Influence; }
 
 
@@ -525,13 +539,13 @@ namespace Limnova
             static constexpr LSpaceNode NNull() { return {}; }
             bool IsNull() const { return m_NodeId == OrbitalPhysics::NNull; }
             bool IsRoot() const { return m_NodeId == kRootLspId; }
-            bool IsHighestLSpaceOnObject() const { return m_NodeId == m_Ctx->m_Tree[m_Ctx->m_Tree[m_NodeId].Parent].FirstChild; }
+            bool IsHighestLSpaceOnObject() const { return m_NodeId == m_Ctx->m_Tree[m_Ctx->m_Tree.GetParent(m_NodeId)].FirstChild; }
             bool Influencing() const { return m_Ctx->m_LSpaces[m_NodeId].Influencing; }
 
             LocalSpace const& GetLSpace() const { return m_Ctx->m_LSpaces[m_NodeId]; }
 
-            ObjectNode ParentObj() const { return ObjectNode{ m_Ctx->m_Tree[m_NodeId].Parent }; }
-            LSpaceNode ParentLsp() const { return LSpaceNode{ m_Ctx->m_Tree[m_Ctx->m_Tree[m_NodeId].Parent].Parent }; }
+            ObjectNode ParentObj() const { return ObjectNode{ m_Ctx->m_Tree.GetParent(m_NodeId) }; }
+            LSpaceNode ParentLsp() const { return LSpaceNode{ m_Ctx->m_Tree.GetGrandparent(m_NodeId) }; }
 
             LSpaceNode PrimaryLsp() const { return m_Ctx->m_LSpaces[m_NodeId].Primary; }
             ObjectNode PrimaryObj() const { return m_Ctx->m_LSpaces[m_NodeId].Primary.ParentObj(); }
@@ -555,7 +569,7 @@ namespace Limnova
             LSpaceNode NextHigherLSpace() const
             {
                 return LSpaceNode{ m_Ctx->m_Tree[m_NodeId].PrevSibling == OrbitalPhysics::NNull
-                    ? m_Ctx->m_Tree[m_Ctx->m_Tree[m_NodeId].Parent].Parent
+                    ? m_Ctx->m_Tree.GetGrandparent(m_NodeId)
                     : m_Ctx->m_Tree[m_NodeId].PrevSibling };
             }
 
@@ -564,22 +578,35 @@ namespace Limnova
                 return LocalOffsetFromPrimary(m_NodeId, m_Ctx->m_LSpaces[m_NodeId].Primary.Id());
             }
 
+            void SetRadius(float radius) const
+            {
+                LV_CORE_ASSERT(!m_Ctx->m_LSpaces[m_NodeId].Influencing, "Cannot set radius of influencing local spaces!");
+                LV_CORE_ASSERT(m_NodeId != kRootLspId, "Cannot set radius of root local space! (See OrbitalPhysics::SetRootSpaceScaling())");
+                LV_CORE_ASSERT(radius < kMaxLSpaceRadius + kEpsLSpaceRadius &&
+                    radius > kMinLSpaceRadius - kEpsLSpaceRadius, "Attempted to set invalid radius!");
+
+                m_Ctx->m_LSpaces[m_NodeId].Radius = radius;
+                m_Ctx->m_LSpaces[m_NodeId].MetersPerRadius = (double)radius * (Height() == 1
+                    ? GetRootLSpaceNode().LSpace().MetersPerRadius
+                    : m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetGrandparent(m_NodeId)].MetersPerRadius);
+                SubtreeCascadeAttributeChanges(m_NodeId);
+            }
+
             /// <summary>
             /// Sets local space radius of object to given radius if the change is valid.
             /// </summary>
             /// <returns>True if successfully changed, false otherwise</returns>
-            bool SetLocalSpaceRadius(LSpaceNode lspNode, float radius) const
+            bool TrySetRadius(float radius) const
             {
                 if (!m_Ctx->m_LSpaces[m_NodeId].Influencing &&
-                    radius < kMaxLocalSpaceRadius + kEpsLocalSpaceRadius &&
-                    radius > kMinLocalSpaceRadius - kEpsLocalSpaceRadius)
+                    radius < kMaxLSpaceRadius + kEpsLSpaceRadius &&
+                    radius > kMinLSpaceRadius - kEpsLSpaceRadius)
                 {
-                    m_Ctx->m_LSpaces[m_NodeId].Radius = radius;
-                    SubtreeCascadeAttributeChanges(m_NodeId);
+                    SetRadius(radius);
                     return true;
                 }
                 LV_CORE_ASSERT(!m_Ctx->m_LSpaces[m_NodeId].Influencing, "Local-space radius of influencing entities cannot be manually set (must be set equal to radius of influence)!");
-                LV_CORE_WARN("Attempted to set invalid local-space radius ({0}): must be in the range [{1}, {2}]", radius, kMinLocalSpaceRadius, kMaxLocalSpaceRadius);
+                LV_CORE_WARN("Attempted to set invalid local-space radius ({0}): must be in the range [{1}, {2}]", radius, kMinLSpaceRadius, kMaxLSpaceRadius);
                 return false;
             }
         private:
@@ -663,7 +690,7 @@ namespace Limnova
         {
         public:
             float Radius = 0.f; /* Measured in parent's influence */
-            float MetersPerRadius = 0.f;
+            double MetersPerRadius = 0.f;
 
             LSpaceNode Primary = {};
             bool Influencing = false; /* True if the parent object is the local dominant source of gravity, i.e, this LSP is less than or equal to the parent's influence LSP */
@@ -797,9 +824,11 @@ namespace Limnova
             {
                 m_Tree.New(); /* kRootObjId (0) */
                 m_Tree.New(); /* kRootLspId (1) */
+                LV_CORE_ASSERT(m_Tree.Has(kRootObjId), "Context failed to create root object node!");
+                LV_CORE_ASSERT(m_Tree.Has(kRootLspId), "Context failed to create root local space node!");
 
                 auto& rootObj = m_Objects.Add(kRootObjId);
-                rootObj.Validity = Validity::InvalidMass; /* Object::Validity is initialised to InvalidParent but that is meaningless for the root object (which cannot be parented) */
+                rootObj.Validity = Validity::InvalidMass; /* Object::Validity is by default initialised to InvalidParent, but that is meaningless for the root object (which cannot be parented) */
 
                 auto& rootLsp = m_LSpaces.Add(kRootLspId);
                 rootLsp.Radius = 1.f;
@@ -913,7 +942,7 @@ namespace Limnova
                 lsp.Primary = lspNode; /* an influencing local space must be its own primary */
 
                 lsp.Radius = objNode.Elements().SemiMajor * massFactor;
-                lsp.MetersPerRadius = objNode.ParentLsp().LSpace().MetersPerRadius * lsp.Radius;
+                lsp.MetersPerRadius = objNode.ParentLsp().LSpace().MetersPerRadius * (double)lsp.Radius;
                 SubtreeCascadeAttributeChanges(lspNode.Id());
 
                 // TODO : handle non-influencing sibling LSpaces!
@@ -1501,6 +1530,7 @@ namespace Limnova
 #endif
         }
 
+
         static ObjectNode GetRootObjectNode()
         {
             return { kRootObjId };
@@ -1512,20 +1542,15 @@ namespace Limnova
         }
 
         /// <summary>
-        /// Sets scaling of root orbital space.
-        /// Scaling is in meters per simulation length-unit.
-        /// E.g, position vector with magnitude 1 in the root orbital space has a simulated magnitude equal to the root scaling.
+        /// Sets scaling of the root local space.
+        /// Scaling is measured in meters per unit-radius of the root local space.
+        /// E.g, a distance with length 1 in the root orbital space has a simulated length equal to the root scaling.
         /// </summary>
         /// <param name="meters"></param>
-        static void SetRootScaling(double meters)
+        static void SetRootSpaceScaling(double meters)
         {
             LSpaceNode(kRootLspId).LSpace().MetersPerRadius = meters;
             SubtreeCascadeAttributeChanges(kRootLspId);
-        }
-
-        static double GetRootScaling()
-        {
-            return LSpaceNode(kRootLspId).LSpace().MetersPerRadius;
         }
 
 
@@ -1632,6 +1657,14 @@ namespace Limnova
             }
 
             RemoveObjectNode(objNode);
+        }
+
+
+        static LSpaceNode AddLocalSpace(ObjectNode objNode, float radius = kDefaultLSpaceRadius)
+        {
+            LSpaceNode newLspNode = NewLSpaceNode(objNode);
+            newLspNode.SetRadius(radius);
+            return newLspNode;
         }
 
 

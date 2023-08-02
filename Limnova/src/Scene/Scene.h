@@ -22,13 +22,14 @@ namespace Limnova
         ~Scene() = default;
 
         static Ref<Scene> Copy(Ref<Scene> scene);
+        static void Copy(Ref<Scene> src, Ref<Scene> dst);
 
+        virtual Entity CreateEntityFromUUID(UUID uuid, const std::string& name = std::string(), UUID parent = UUID::Null);
         Entity CreateEntity(const std::string& name = std::string());
         Entity CreateEntityAsChild(Entity parent, const std::string& name = std::string());
-        Entity CreateEntityFromUUID(UUID uuid, const std::string& name = std::string(), UUID parent = UUID::Null);
+        virtual Entity DuplicateEntity(Entity entity);
         void DestroyEntity(Entity entity);
 
-        virtual Entity DuplicateEntity(Entity entity);
 
         Entity GetEntity(UUID uuid);
 
@@ -48,12 +49,12 @@ namespace Limnova
         Entity GetActiveCamera();
         void OnWindowChangeAspect(float aspect);
 
-    protected:
+    private:
         virtual void SetRootId(UUID id); /* for serializing */
     public:
         Entity GetRoot();
 
-        void SetParent(Entity entity, Entity newParent);
+        virtual void SetParent(Entity entity, Entity newParent);
         Entity GetParent(Entity entity);
         std::vector<Entity> GetChildren(Entity entity);
         std::vector<Entity> GetTree(Entity root);

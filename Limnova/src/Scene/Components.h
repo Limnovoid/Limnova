@@ -276,13 +276,23 @@ namespace Limnova
     };
 
 
+    struct OrbitalHierarchyComponent
+    {
+        int LocalSpaceRelativeToParent = -1; /* -1 if in the same local space as the parent, otherwise equal to the (non-zero) index of the local space in the parent's array (OrbitalComponent::LocalSpaces) which it belongs to */
+        Vector3d AbsoluteScale = { 1.f }; /* Entity's scale independent of local space scaling - Entity's Transform scale is set to AbsoluteScale / LocalSpace.MetersPerRadius */
+
+        OrbitalHierarchyComponent() = default;
+        OrbitalHierarchyComponent(const OrbitalHierarchyComponent&) = default;
+    };
+
+
     struct OrbitalComponent
     {
         //LV_REFLECT(OrbitalComponent);
 
         OrbitalPhysics::ObjectNode Object = {};
+        std::vector<OrbitalPhysics::LSpaceNode> LocalSpaces = {};
 
-        Vector3 LocalScale = { 1.f };
         Vector3 UIColor = { 1.f };
         float Albedo; /* Surface reflectivity of orbital object - determines object's brightness as a star-like object when viewed from far away */
 

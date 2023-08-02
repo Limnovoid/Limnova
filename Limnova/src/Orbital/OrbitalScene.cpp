@@ -21,7 +21,8 @@ namespace Limnova
         m_OrbitalReferenceY = m_OrbitalReferenceFrameOrientation.RotateVector(Vector3::Y());
         m_OrbitalReferenceNormal = m_OrbitalReferenceFrameOrientation.RotateVector(Vector3::Z());
 
-        m_ViewPrimary = m_Root;
+        m_TrackingEntity = m_Root;
+        m_ViewSpaceRelativeToTrackedEntity = 0; /* root local space (first local space owned by root object) */
 
         // Entt signals
         m_Registry.on_construct<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentConstruct>(this);
@@ -40,65 +41,17 @@ namespace Limnova
     {
         Ref<OrbitalScene> newScene = CreateRef<OrbitalScene>();
 
-        // Replicate scene hierarchy
-        newScene->SetRootId(scene->m_Root);
-        newScene->m_ViewportAspectRatio = scene->m_ViewportAspectRatio;
-        newScene->m_ActiveCamera = scene->m_ActiveCamera;
+        // Copy base Scene
+        Scene::Copy(scene, newScene);
 
-        auto& srcRegistry = scene->m_Registry;
-        auto& dstRegistry = newScene->m_Registry;
-        auto idView = srcRegistry.view<IDComponent>();
-        for (auto e : idView)
-        {
-            UUID uuid = srcRegistry.get<IDComponent>(e).ID;
-            if (uuid == scene->m_Root) continue; /* root is already created so we skip it here */
+        // Copy OrbitalPhysics
+        newScene->m_Physics = scene->m_Physics;
+        /* Suspend OrbitalComponent dependencies while copying, to avoid creating unnecessary physics objects */
+        newScene->m_Registry.on_construct<OrbitalComponent>().disconnect<&OrbitalScene::OnOrbitalComponentConstruct>(newScene.get());
+        newScene->CopyAllOfComponent<OrbitalComponent>(scene->m_Registry);
+        newScene->m_Registry.on_construct<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentConstruct>(newScene.get());
 
-            const std::string& name = srcRegistry.get<TagComponent>(e).Tag;
-            newScene->CreateEntityFromUUID(uuid, name);
-        }
-
-        newScene->CopyAllOfComponent<TransformComponent>(scene->m_Registry);
-        newScene->CopyAllOfComponent<HierarchyComponent>(scene->m_Registry);
-        newScene->CopyAllOfComponent<CameraComponent>(scene->m_Registry);
-        newScene->CopyAllOfComponent<NativeScriptComponent>(scene->m_Registry);
-        newScene->CopyAllOfComponent<SpriteRendererComponent>(scene->m_Registry);
-        newScene->CopyAllOfComponent<BillboardSpriteRendererComponent>(scene->m_Registry);
-        newScene->CopyAllOfComponent<CircleRendererComponent>(scene->m_Registry);
-        newScene->CopyAllOfComponent<BillboardCircleRendererComponent>(scene->m_Registry);
-        newScene->CopyAllOfComponent<EllipseRendererComponent>(scene->m_Registry);
-
-        // Replicate scene physics state
-        newScene->SetRootScaling(scene->GetRootScaling());
-        auto& srcRootOrbital = scene->GetComponent<OrbitalComponent>(scene->m_Entities.at(scene->m_Root));
-        auto& dstRootOrbital = newScene->GetComponent<OrbitalComponent>(newScene->m_Entities.at(newScene->m_Root));
-        dstRootOrbital.SetMass(srcRootOrbital.GetMass());
-        dstRootOrbital.LocalScale = srcRootOrbital.LocalScale;
-
-        /* can't use CopyAllOfComponent() for OrbitalComponents because they are hierarchy-dependent - they have to be copied breadth-first from the root */
-        auto orbitalEntities = scene->GetSatellites(scene->GetRoot());
-        for (auto e : orbitalEntities) {
-            auto& srcOc = e.GetComponent<OrbitalComponent>();
-            auto& dstOc = newScene->GetEntity(e.GetUUID()).AddComponent<OrbitalComponent>();
-
-            dstOc.SetDynamic(srcOc.IsDynamic());
-            dstOc.SetMass(srcOc.GetMass());
-            dstOc.SetPosition(srcOc.GetPosition());
-            dstOc.SetVelocity(srcOc.GetVelocity());
-            if (!srcOc.IsInfluencing()) {
-                dstOc.SetLocalSpaceRadius(srcOc.GetLocalSpaceRadius());
-            }
-
-            dstOc.Albedo = srcOc.Albedo;
-            dstOc.UIColor = srcOc.UIColor;
-            dstOc.LocalScale = srcOc.LocalScale;
-            dstOc.ShowMajorMinorAxes = srcOc.ShowMajorMinorAxes;
-            dstOc.ShowNormal = srcOc.ShowNormal;
-
-            LV_CORE_ASSERT((dstOc.GetPosition() - srcOc.GetPosition()).SqrMagnitude() < 1e-5f, "Failed to adequately replicate position!");
-            LV_CORE_ASSERT(dstOc.GetElements().E - srcOc.GetElements().E < 1e-5f, "Failed to adequately replicate orbit shape!");
-        }
-
-        // Copy scene settings
+        // Copy OrbitalScene settings
         newScene->m_LocalSpaceColor = scene->m_LocalSpaceColor;
         newScene->m_LocalSpaceThickness = scene->m_LocalSpaceThickness;
         newScene->m_LocalSpaceFade = scene->m_LocalSpaceFade;
@@ -114,7 +67,7 @@ namespace Limnova
         newScene->m_PerifocalAxisThickness = scene->m_PerifocalAxisThickness;
         newScene->m_PerifocalAxisArrowSize = scene->m_PerifocalAxisArrowSize;
 
-        newScene->m_ViewPrimary = scene->m_ViewPrimary;
+        newScene->m_TrackingEntity = scene->m_TrackingEntity;
 
         newScene->m_OrbitalReferenceFrameOrientation = scene->m_OrbitalReferenceFrameOrientation;
         newScene->m_OrbitalReferenceX = scene->m_OrbitalReferenceX;
@@ -125,12 +78,21 @@ namespace Limnova
     }
 
 
+    Entity OrbitalScene::CreateEntityFromUUID(UUID uuid, const std::string& name, UUID parent)
+    {
+        LV_CORE_ASSERT(false, "Just checking this actually gets called");
+        Entity newEntity = Scene::CreateEntityFromUUID(uuid, name, parent);
+        AddComponent<OrbitalHierarchyComponent>(newEntity.m_EnttId).LocalSpaceRelativeToParent = -1;
+        return newEntity;
+    }
+
+
     Entity OrbitalScene::DuplicateEntity(Entity entity)
     {
         Entity newEntity = CreateEntityAsChild(GetParent(entity), entity.GetName() + " (copy)");
 
         CopyComponentIfExists<TransformComponent>(newEntity.m_EnttId, entity.m_EnttId);
-        /* DO NOT copy HierarchyComponent - the original's and duplicate's sibling relationships are necessarily different and should be handled by CreateEntity() */
+        /* DO NOT copy HierarchyComponent - sibling relationships must be different and should be handled by CreateEntity() */
         CopyComponentIfExists<CameraComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<NativeScriptComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<SpriteRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
@@ -138,102 +100,161 @@ namespace Limnova
         CopyComponentIfExists<CircleRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<BillboardCircleRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<EllipseRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        CopyComponentIfExists<OrbitalHierarchyComponent>(newEntity.m_EnttId, entity.m_EnttId);
 
-        auto& srcOc = entity.GetComponent<OrbitalComponent>();
+        if (entity.HasComponent<OrbitalComponent>()) {
+            auto& srcOc = entity.GetComponent<OrbitalComponent>();
+            auto& dstOc = newEntity.AddComponent<OrbitalComponent>();
 
-        if (newEntity.HasComponent<OrbitalComponent>()) {
-            newEntity.RemoveComponent<OrbitalComponent>();
+            dstOc.Object.SetDynamic(srcOc.Object.IsDynamic());
+            dstOc.Object.SetMass(srcOc.Object.GetObj().State.Mass);
+            dstOc.Object.SetPosition(srcOc.Object.GetObj().State.Position);
+            dstOc.Object.SetVelocity(srcOc.Object.GetObj().State.Velocity);
+
+            for (auto srcLsp : srcOc.LocalSpaces) {
+                if (srcLsp.Influencing()) continue; /* influencing LSPs are handled by OrbitalPhysics */
+                auto newLsp = OrbitalPhysics::AddLocalSpace(dstOc.Object);
+                newLsp.SetRadius(srcLsp.GetLSpace().Radius);
+            }
+
+            dstOc.Albedo = srcOc.Albedo;
+            dstOc.UIColor = srcOc.UIColor;
+            dstOc.ShowMajorMinorAxes = srcOc.ShowMajorMinorAxes;
+            dstOc.ShowNormal = srcOc.ShowNormal;
+
+            LV_CORE_ASSERT((dstOc.Object.GetObj().State.Position - srcOc.Object.GetObj().State.Position).SqrMagnitude() < 1e-5f, "Failed to adequately replicate position!");
+            LV_CORE_ASSERT(dstOc.Object.GetElements().E - srcOc.Object.GetElements().E < 1e-5f, "Failed to adequately replicate orbit shape!");
+            LV_CORE_ASSERT(dstOc.Object.GetDynamics().EscapeTrueAnomaly - srcOc.Object.GetDynamics().EscapeTrueAnomaly < 1e-5f, "Failed to adequately replicate dynamics!");
         }
-        auto& dstOc = newEntity.AddComponent<OrbitalComponent>();
-
-        dstOc.SetDynamic(srcOc.IsDynamic());
-        dstOc.SetMass(srcOc.GetMass());
-        dstOc.SetPosition(srcOc.GetPosition());
-        dstOc.SetVelocity(srcOc.GetVelocity());
-        if (!srcOc.IsInfluencing()) {
-            dstOc.SetLocalSpaceRadius(srcOc.GetLocalSpaceRadius());
-        }
-
-        dstOc.Albedo = srcOc.Albedo;
-        dstOc.UIColor = srcOc.UIColor;
-        dstOc.LocalScale = srcOc.LocalScale;
-        dstOc.ShowMajorMinorAxes = srcOc.ShowMajorMinorAxes;
-        dstOc.ShowNormal = srcOc.ShowNormal;
-
-        LV_CORE_ASSERT((dstOc.GetPosition() - srcOc.GetPosition()).SqrMagnitude() < 1e-5f, "Failed to adequately replicate position!");
-        LV_CORE_ASSERT(dstOc.GetElements().E - srcOc.GetElements().E < 1e-5f, "Failed to adequately replicate orbit shape!");
-        LV_CORE_ASSERT(dstOc.GetDynamics().EscapeTrueAnomaly - srcOc.GetDynamics().EscapeTrueAnomaly < 1e-5f, "Failed to adequately replicate dynamics!");
-
         return newEntity;
-    }
-
-
-    void OrbitalScene::SetRootId(UUID id)
-    {
-        Scene::SetRootId(id);
-        m_Physics.AssignRoot(id); /* no need to save physics object ID again - it is saved to the root's OrbitalComponent in the OrbitalScene constructor, and SetRootId() preserves the components of the root object */
     }
 
 
     void OrbitalScene::SetRootScaling(double meters)
     {
-        m_Physics.SetRootScaling(meters);
+        OrbitalPhysics::SetRootSpaceScaling(meters);
     }
 
 
     double OrbitalScene::GetRootScaling()
     {
-        return m_Physics.GetRootScaling();
+        return OrbitalPhysics::GetRootLSpaceNode().GetLSpace().MetersPerRadius;
     }
 
 
-    void OrbitalScene::SetViewPrimary(Entity primary)
+    void OrbitalScene::SetTrackingEntity(Entity primary)
     {
-        if (primary.GetUUID() == m_ViewPrimary) return;
+        if (primary.GetUUID() == m_TrackingEntity) return;
 
-        m_ViewPrimary = primary.GetUUID();
+        m_TrackingEntity = primary.GetUUID();
+
+        // TODO : update relative view space index to keep the view space the same
 
         // TODO : update transforms to be correctly scaled for the viewed scaling space in the editor (no updates outside playtime) ?
+    }
+
+    void OrbitalScene::SetRelativeViewSpace(int viewSpaceRelativeToTrackingEntity)
+    {
+        LV_CORE_ASSERT(false, "TODO: OrbitalScene::SetRelativeViewSpace()");
     }
 
 
     Entity OrbitalScene::GetViewPrimary()
     {
-        return Entity{ m_Entities[m_ViewPrimary], this };
+        return Entity{ m_Entities[m_TrackingEntity], this };
     }
 
 
     void OrbitalScene::SetParent(Entity entity, Entity parent)
     {
+        SetParentAndLocalSpace(entity, parent, -1);
+    }
+
+    void OrbitalScene::SetParentAndLocalSpace(Entity entity, Entity parent, int localSpaceRelativeToParent)
+    {
+        LV_ASSERT(entity.GetUUID() != m_Root, "Cannot set local space of root object!");
+        LV_ASSERT(localSpaceRelativeToParent >= -1, "Invalid localSpaceRelativeToParent!");
+        LV_ASSERT(localSpaceRelativeToParent == -1 || (parent.HasComponent<OrbitalComponent>()
+            && localSpaceRelativeToParent < parent.GetComponent<OrbitalComponent>().LocalSpaces.size()),
+            "Given localSpaceRelativeToParent is out of bounds!");
+
         if (entity.HasComponent<OrbitalComponent>())
         {
-            if (!parent.HasComponent<OrbitalComponent>()) {
-                LV_WARN("Cannot parent orbital entity to a non-orbital entity!");
-                return;
-            }
+            LV_ASSERT(parent.HasComponent<OrbitalComponent>(), "Cannot parent orbital entity to a non-orbital entity!");
 
             // Update physics system to reflect new parentage
-            m_Physics.SetParent(entity.GetComponent<OrbitalComponent>().PhysicsObjectId,
-                parent.GetComponent<OrbitalComponent>().PhysicsObjectId);
+            auto& oc = entity.GetComponent<OrbitalComponent>();
+            auto& parentOc = parent.GetComponent<OrbitalComponent>();
+
+            OrbitalPhysics::LSpaceNode newLsp;
+            if (localSpaceRelativeToParent == -1) {
+                newLsp = parentOc.Object.IsRoot() ? OrbitalPhysics::GetRootLSpaceNode() : parentOc.Object.ParentLsp();
+            }
+            else {
+                newLsp = parentOc.LocalSpaces[localSpaceRelativeToParent];
+            }
+            oc.Object.SetLocalSpace(newLsp);
         }
         Scene::SetParent(entity, parent);
+        entity.GetComponent<OrbitalHierarchyComponent>().LocalSpaceRelativeToParent = localSpaceRelativeToParent;
+    }
+
+    void OrbitalScene::SetLocalSpace(Entity entity, int localSpaceRelativeToParent)
+    {
+        LV_ASSERT(localSpaceRelativeToParent >= -1, "Invalid localSpaceRelativeToParent!");
+        LV_ASSERT(entity.GetUUID() != m_Root, "Cannot set local space of root object!");
+
+        Entity parent = entity.GetParent();
+        LV_ASSERT(parent.HasComponent<OrbitalComponent>(),
+            "Cannot set local space of an object which is parented to a non-orbital object - the parent does not have local spaces!");
+
+        auto& oc = entity.GetComponent<OrbitalComponent>();
+        auto& parentOc = parent.GetComponent<OrbitalComponent>();
+
+        OrbitalPhysics::LSpaceNode newLsp;
+        if (localSpaceRelativeToParent == -1) {
+            newLsp = parentOc.Object.IsRoot() ? OrbitalPhysics::GetRootLSpaceNode() : parentOc.Object.ParentLsp();
+        }
+        else {
+            LV_ASSERT(localSpaceRelativeToParent < parentOc.LocalSpaces.size(), "Given localSpaceRelativeToParent is out of bounds!");
+            newLsp = parentOc.LocalSpaces[localSpaceRelativeToParent];
+        }
+        oc.Object.SetLocalSpace(newLsp);
+    }
+
+    OrbitalPhysics::LSpaceNode OrbitalScene::GetLocalSpace(Entity entity)
+    {
+        return GetEntityLSpace(entity.m_EnttId);
     }
 
 
+    /// <summary>
+    /// Returns vector containing all orbital entities in local spaces belonging to the given entity, sorted in descending order of local spaces.
+    /// </summary>
     std::vector<Entity> OrbitalScene::GetSecondaries(Entity entity)
     {
-        auto entityIds = m_Physics.GetChildren(m_Registry.get<OrbitalComponent>(entity.m_EnttId).PhysicsObjectId);
-        std::vector<Entity> secondaries(entityIds.size());
-        for (uint32_t i = 0; i < entityIds.size(); i++)
+        LV_ASSERT(entity.HasComponent<OrbitalComponent>(), "Cannot get secondaries of a non-orbital component!");
+
+        std::vector<Entity> secondaries;
+        for (auto lsp : entity.GetComponent<OrbitalComponent>().LocalSpaces)
         {
-            secondaries[i] = Entity{ m_Entities[entityIds[i]], this };
+            std::vector<OrbitalPhysics::ObjectNode> objNodes;
+            lsp.GetLocalObjects(objNodes);
+            for (auto objNode : objNodes) {
+                secondaries.push_back({ m_PhysicsToEnttIds[objNode.Id()], this });
+            }
         }
         return secondaries;
     }
 
-
+    /// <summary>
+    /// Returns vector containing all orbital entities in local spaces belonging to or descended from the given primary. sprted in descending order of local spaces.
+    /// E.g, contains entities in the primary's local spaces, then the entities in the local spaces of those entities, and so on.
+    /// </summary>
     std::vector<Entity> OrbitalScene::GetSatellites(Entity primary)
     {
+        LV_ASSERT(primary.HasComponent<OrbitalComponent>(), "Cannot get satellites of a non-orbital component!");
+
         std::vector<Entity> satellites = GetSecondaries(primary);
         size_t numAdded = satellites.size();
         do {
@@ -261,7 +282,7 @@ namespace Limnova
     {
         Scene::OnUpdateRuntime(dT);
 
-        m_Physics.OnUpdate(dT);
+        OrbitalPhysics::OnUpdate(dT);
 
         UpdateOrbitalScene();
     }
@@ -275,31 +296,56 @@ namespace Limnova
 
     void OrbitalScene::UpdateOrbitalScene()
     {
-        // Update orbital entity transforms
-        auto view = m_Registry.view<OrbitalComponent>();
-        for (auto entity : view)
-        {
-            auto [idc, tc, oc, hc] = m_Registry.get<IDComponent, TransformComponent, OrbitalComponent, HierarchyComponent>(entity);
-
-            if (idc.ID == m_ViewPrimary)
-            {
-                // View primary
-                tc.SetScale(oc.LocalScale);
-                tc.SetPosition({ 0.f });
-            }
-            else if (hc.Parent == m_ViewPrimary)
-            {
-                // View secondary
-                tc.SetScale(oc.LocalScale * oc.GetLocalSpaceRadius());
-                tc.SetPosition(oc.GetPosition());
-            }
-            else
-            {
-                // Not in view
-                tc.SetScale({ 0.f });
-                tc.SetPosition({ 0.f });
-            }
+        auto tcView = m_Registry.view<OrbitalComponent>();
+        for (auto entity : tcView) {
+            auto& tc = m_Registry.get<TransformComponent>(entity);
+            tc.SetScale({ 0.f });
         }
+
+        auto& lsp = m_ViewLSpace.GetLSpace();
+
+        auto viewParent = m_ViewLSpace.ParentObj();
+        {
+            auto [tc, ohc] = GetComponents<TransformComponent, OrbitalHierarchyComponent>(m_PhysicsToEnttIds[viewParent.Id()]);
+            tc.SetScale((Vector3)(ohc.AbsoluteScale / lsp.MetersPerRadius));
+            tc.SetPosition({ 0.f });
+        }
+
+        std::vector<OrbitalPhysics::ObjectNode> viewObjs;
+        m_ViewLSpace.GetLocalObjects(viewObjs);
+        for (auto viewObj : viewObjs)
+        {
+            auto [tc, ohc, oc] = GetComponents<TransformComponent, OrbitalHierarchyComponent, OrbitalComponent>(m_PhysicsToEnttIds[viewObj.Id()]);
+            tc.SetScale((Vector3)(ohc.AbsoluteScale / lsp.MetersPerRadius));
+            tc.SetPosition(oc.Object.GetObj().State.Position);
+        }
+
+
+        // Update orbital entity transforms
+        //auto view = m_Registry.view<OrbitalComponent>();
+        //for (auto entity : view)
+        //{
+        //    auto [idc, tc, oc, hc, ohc] = m_Registry.get<IDComponent, TransformComponent, OrbitalComponent, HierarchyComponent, OrbitalHierarchyComponent>(entity);
+
+        //    if (idc.ID == m_TrackingEntity)
+        //    {
+        //        // View primary
+        //        tc.SetScale(oc.AbsoluteScale);
+        //        tc.SetPosition({ 0.f });
+        //    }
+        //    else if (hc.Parent == m_TrackingEntity)
+        //    {
+        //        // View secondary
+        //        tc.SetScale(oc.LocalScale * oc.GetLocalSpaceRadius());
+        //        tc.SetPosition(oc.GetPosition());
+        //    }
+        //    else
+        //    {
+        //        // Not in view
+        //        tc.SetScale({ 0.f });
+        //        tc.SetPosition({ 0.f });
+        //    }
+        //}
 
         // TODO : place non-orbital children (down to hierarchy leaves):
         //      : a non-orbital entity cannot have orbital children so it is
@@ -340,60 +386,64 @@ namespace Limnova
         Renderer2D::BeginScene(camera);
 
         // Render orbital visuals
-        auto primary = m_Entities[m_ViewPrimary];
-        Vector3 primaryPosition = GetComponent<TransformComponent>(primary).GetPosition();
+        auto& lsp = m_ViewLSpace.GetLSpace();
+        auto viewParentObjNode = m_ViewLSpace.ParentObj();
+        std::vector<OrbitalPhysics::ObjectNode> viewObjs;
+        m_ViewLSpace.GetLocalObjects(viewObjs);
 
-        if (m_ShowReferenceAxes)
-        {
+        Vector3 viewCenter = GetComponent<TransformComponent>(m_PhysicsToEnttIds[viewParentObjNode.Id()]).GetPosition();
+        if (m_ShowReferenceAxes) {
             // X
-            Renderer2D::DrawDashedArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceX * m_ReferenceAxisLength),
+            Renderer2D::DrawDashedArrow(viewCenter, viewCenter + (m_OrbitalReferenceX * m_ReferenceAxisLength),
                 m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize, 4.f, 2.f);
             // Y
-            Renderer2D::DrawDashedArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceY * m_ReferenceAxisLength),
+            Renderer2D::DrawDashedArrow(viewCenter, viewCenter + (m_OrbitalReferenceY * m_ReferenceAxisLength),
                 m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize, 4.f, 2.f);
             // Normal
-            Renderer2D::DrawDashedArrow(primaryPosition, primaryPosition + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
+            Renderer2D::DrawDashedArrow(viewCenter, viewCenter + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
                 m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize, 4.f, 2.f);
         }
 
         float orbitDrawingThickness = m_OrbitThickness * cameraDistance;
 
-        auto secondaries = m_Physics.GetChildren(GetComponent<OrbitalComponent>(primary).PhysicsObjectId);
-        for (auto secondary : secondaries)
+        for (auto viewObjNode : viewObjs)
         {
-            auto entity = m_Entities[secondary];
+            auto entity = m_PhysicsToEnttIds[viewObjNode.Id()];
             int editorPickingId = (int)(entity);
-            auto& transform = GetComponent<TransformComponent>(entity);
-            auto& orbital = GetComponent<OrbitalComponent>(entity);
-            if (orbital.GetValidity() != Physics::Validity::Valid) continue;
-            const auto& elems = orbital.GetElements();
+            auto [tc, oc] = GetComponents<TransformComponent, OrbitalComponent>(entity);
+            auto& object = oc.Object.GetObj();
+            auto& elems = oc.Object.GetElements();
+
+            if (object.Validity != OrbitalPhysics::Validity::Valid) continue;
 
             // TODO - point light/brightness from OrbitalComponent::Albedo
 
             // Orbit path
-            Vector3 orbitCenter = primaryPosition + (elems.PerifocalX * elems.C);
-            Vector4 uiColor = Vector4{ orbital.UIColor, 0.4f };
+            Vector3 posFromPrimary = oc.Object.LocalPositionFromPrimary();
+            Vector3 orbitCenter = tc.GetPosition() - posFromPrimary + (elems.PerifocalX * elems.C);
+            Vector4 uiColor = Vector4{ oc.UIColor, 0.4f };
             {
                 switch (elems.Type)
                 {
-                case Physics::OrbitType::Circle:
-                case Physics::OrbitType::Ellipse:
-                    Renderer2D::DrawOrbitalEllipse(orbitCenter, elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation, orbital,
+                case OrbitalPhysics::OrbitType::Circle:
+                case OrbitalPhysics::OrbitType::Ellipse:
+                    Renderer2D::DrawOrbitalEllipse(orbitCenter, elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation, oc,
                         uiColor, orbitDrawingThickness, m_OrbitFade, editorPickingId);
                     break;
-                case Physics::OrbitType::Hyperbola:
-                    Renderer2D::DrawOrbitalHyperbola(orbitCenter, elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation, orbital,
+                case OrbitalPhysics::OrbitType::Hyperbola:
+                    Renderer2D::DrawOrbitalHyperbola(orbitCenter, elems.PerifocalOrientation * m_OrbitalReferenceFrameOrientation, oc,
                         uiColor, orbitDrawingThickness, m_OrbitFade, editorPickingId);
                     break;
                 }
             }
 
-            // Local space
+            // Local spaces
+            for (auto lspNode : oc.LocalSpaces)
             {
-                Matrix4 lsTransform = glm::translate(glm::mat4(1.f), (glm::vec3)(transform.GetPosition()));
+                Matrix4 lsTransform = glm::translate(glm::mat4(1.f), (glm::vec3)(tc.GetPosition()));
                 lsTransform = lsTransform * Matrix4(cameraOrientation);
 
-                float lsRadius = orbital.GetLocalSpaceRadius();
+                float lsRadius = lspNode.GetLSpace().Radius;
                 lsTransform = glm::scale((glm::mat4)lsTransform, glm::vec3(lsRadius));
 
                 float lsThickness = m_LocalSpaceThickness * cameraDistance / lsRadius;
@@ -401,7 +451,7 @@ namespace Limnova
             }
 
             // Perifocal frame
-            if (orbital.ShowMajorMinorAxes)
+            if (oc.ShowMajorMinorAxes)
             {
                 // Semi-major axis
                 Renderer2D::DrawArrow(orbitCenter, orbitCenter + elems.PerifocalX * elems.SemiMajor,
@@ -414,9 +464,9 @@ namespace Limnova
                 Renderer2D::DrawDashedLine(orbitCenter, orbitCenter - elems.PerifocalY * elems.SemiMinor,
                     uiColor, m_PerifocalAxisThickness, 4.f, 2.f, editorPickingId);
             }
-            if (orbital.ShowNormal)
+            if (oc.ShowNormal)
             {
-                Renderer2D::DrawArrow(orbitCenter, orbitCenter + elems.PerifocalNormal * 0.5f * elems.SemiMinor,
+                Renderer2D::DrawArrow(tc.GetPosition(), tc.GetPosition() + elems.PerifocalNormal * 0.5f * elems.SemiMinor,
                     uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, editorPickingId);
             }
 
@@ -452,31 +502,55 @@ namespace Limnova
     }
 
 
-    void OrbitalScene::OnOrbitalComponentConstruct(entt::registry&, entt::entity entity)
+    OrbitalPhysics::LSpaceNode OrbitalScene::GetEntityLSpace(entt::entity entity)
     {
-        auto[orbital, hierarchy, transform] = GetComponents<OrbitalComponent, HierarchyComponent, TransformComponent>(entity);
-
-        /* Parent of an orbital entity must also be orbital */
-        auto id = GetComponent<IDComponent>(entity).ID;
-        if (HasComponent<OrbitalComponent>(m_Entities[hierarchy.Parent])) {
-            orbital.PhysicsObjectId = m_Physics.Create(id, GetComponent<OrbitalComponent>(m_Entities[hierarchy.Parent]).PhysicsObjectId, 0.0, transform.GetPosition());
+        auto [hc, ohc] = GetComponents<HierarchyComponent, OrbitalHierarchyComponent>(entity);
+        if (ohc.LocalSpaceRelativeToParent == -1) {
+            return hc.Parent == m_Root ? OrbitalPhysics::GetRootLSpaceNode() : GetEntityLSpace(m_Entities[hc.Parent]);
         }
         else {
-            /* Default to the root entity, which is guaranteed to be orbital in OrbitalScene */
-            HierarchyDisconnect(entity);
-            HierarchyConnect(entity, m_Entities[m_Root]);
-
-            orbital.PhysicsObjectId = m_Physics.Create(id); /* Primary defaults to root physics object which corresponds to the root entity */
-            m_Physics.SetPosition(orbital.PhysicsObjectId, transform.GetPosition());
+            LV_CORE_ASSERT(HasComponent<OrbitalComponent>(m_Entities[hc.Parent]), "Invalid LocalSpaceRelativeToParent!");
+            auto& parentOc = GetComponent<OrbitalComponent>(m_Entities[hc.Parent]);
+            LV_CORE_ASSERT(ohc.LocalSpaceRelativeToParent < parentOc.LocalSpaces.size(), "Invalid LocalSpaceRelativeToParent!");
+            return parentOc.LocalSpaces[ohc.LocalSpaceRelativeToParent];
         }
-        orbital.Ctx = &m_Physics;
-        orbital.LocalScale = transform.GetScale();
+    }
+
+
+    void OrbitalScene::OnOrbitalComponentConstruct(entt::registry&, entt::entity entity)
+    {
+        auto[oc, hc, tc, ohc] = GetComponents<OrbitalComponent, HierarchyComponent, TransformComponent, OrbitalHierarchyComponent>(entity);
+
+        /* Parent of an orbital entity must also be orbital */
+        OrbitalPhysics::LSpaceNode localSpace = GetEntityLSpace(entity);
+        {
+            entt::entity parent = m_PhysicsToEnttIds[localSpace.ParentObj().Id()];
+            if (parent != m_Entities[hc.Parent]) {
+                HierarchyDisconnect(entity);
+                HierarchyConnect(entity, parent);
+            }
+        }
+        oc.Object = OrbitalPhysics::Create(localSpace, 0.0, tc.GetPosition());
+
+        //if (HasComponent<OrbitalComponent>(m_Entities[hc.Parent])) {
+        //    oc.Object = OrbitalPhysics::Create(GetComponent<OrbitalComponent>(
+        //        m_Entities[hc.Parent]).LocalSpaces[ohc.LocalSpaceRelativeToParent],
+        //        0.0, tc.GetPosition());
+        //}
+        //else {
+        //    /* Default to the root entity, which is guaranteed to be orbital in OrbitalScene */
+        //    HierarchyDisconnect(entity);
+        //    HierarchyConnect(entity, m_Entities[m_Root]);
+
+        //    oc.Object = OrbitalPhysics::Create(); /* Primary defaults to root physics object which corresponds to the root entity */
+        //    oc.Object.SetPosition(tc.GetPosition());
+        //}
     }
 
 
     void OrbitalScene::OnOrbitalComponentDestruct(entt::registry&, entt::entity entity)
     {
-        m_Physics.Destroy(m_Registry.get<OrbitalComponent>(entity).PhysicsObjectId);
+        OrbitalPhysics::Destroy(GetComponent<OrbitalComponent>(entity).Object);
     }
 
 }
