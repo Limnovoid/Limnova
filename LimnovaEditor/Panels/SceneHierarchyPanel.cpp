@@ -480,7 +480,7 @@ namespace Limnova
                 for (size_t l = 0; l < orbital.LocalSpaces.size(); l++)
                 {
                     auto lspNode = orbital.LocalSpaces[l];
-                    bool isInfluencing = lspNode.Influencing();
+                    bool isInfluencing = lspNode.IsInfluencing();
                     if (isInfluencing) { ImGui::Text("Influencing"); }
                     else { ImGui::Text("Non-influencing"); }
 
@@ -802,7 +802,7 @@ namespace Limnova
     }
 
 
-    bool LimnGui::InputInt(const std::string& label, int& value, const InputConfig<int>& config, float columnWidth = 100.f)
+    bool LimnGui::InputInt(const std::string& label, int& value, const InputConfig<int>& config, float columnWidth)
     {
         ImGui::PushID(label.c_str());
 

@@ -43,7 +43,7 @@ namespace Limnova
     public:
         using TNodeId = uint32_t;
 
-        static constexpr TNodeId NNull = std::numeric_limits<TNodeId>::max();
+        static constexpr TNodeId NNull = ::std::numeric_limits<TNodeId>::max();
     private:
         struct Node
         {
@@ -297,7 +297,7 @@ namespace Limnova
                 return m_Attributes[attr];
             }
 
-            TAttr& Get(TNodeId nodeId) const
+            TAttr& Get(TNodeId nodeId)
             {
                 LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node is missing requested attribute!");
                 return m_Attributes[m_NodeToAttr[nodeId]];
@@ -324,10 +324,10 @@ namespace Limnova
                 }
             }
         public:
-            TAttr& operator[](TNodeId nodeId) const
+            TAttr& operator[](TNodeId nodeId)
             {
                 LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node is missing requested attribute!");
-                return m_Attributes[m_NodeToAttr[nodeId]];
+                return m_Attributes[m_NodeToAttr.at(nodeId)];
             }
         private:
             TAttrId GetEmpty()
@@ -347,6 +347,7 @@ namespace Limnova
 
             void Recycle(TAttrId attributeId)
             {
+                m_Attributes[attributeId] = TAttr();
                 m_Empties.insert(attributeId);
             }
         };
@@ -502,6 +503,14 @@ namespace Limnova
                 ComputeStateValidity(*this);
                 TryComputeAttributes(*this);
             }
+
+
+            LSpaceNode AddLocalSpace(float radius = kDefaultLSpaceRadius)
+            {
+                LSpaceNode newLspNode = NewLSpaceNode(*this);
+                newLspNode.SetRadius(radius);
+                return newLspNode;
+            }
         private:
             operator TNodeId() const { return m_NodeId; }
         public:
@@ -540,7 +549,8 @@ namespace Limnova
             bool IsNull() const { return m_NodeId == OrbitalPhysics::NNull; }
             bool IsRoot() const { return m_NodeId == kRootLspId; }
             bool IsHighestLSpaceOnObject() const { return m_NodeId == m_Ctx->m_Tree[m_Ctx->m_Tree.GetParent(m_NodeId)].FirstChild; }
-            bool Influencing() const { return m_Ctx->m_LSpaces[m_NodeId].Influencing; }
+            bool IsInfluencing() const { return m_Ctx->m_LSpaces[m_NodeId].Influencing; } /* True if the parent object is the local dominant source of gravity, i.e, this LSP is less than or equal to the parent's influence LSP */
+            bool IsSphereOfInfluence() const { return m_NodeId == ParentObj().Object().Influence.m_NodeId; } /* True if this local space represents the parent object's sphere of influence */
 
             LocalSpace const& GetLSpace() const { return m_Ctx->m_LSpaces[m_NodeId]; }
 
@@ -1657,14 +1667,6 @@ namespace Limnova
             }
 
             RemoveObjectNode(objNode);
-        }
-
-
-        static LSpaceNode AddLocalSpace(ObjectNode objNode, float radius = kDefaultLSpaceRadius)
-        {
-            LSpaceNode newLspNode = NewLSpaceNode(objNode);
-            newLspNode.SetRadius(radius);
-            return newLspNode;
         }
 
 

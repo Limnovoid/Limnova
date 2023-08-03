@@ -211,6 +211,7 @@ namespace Limnova
         out << YAML::BeginMap; // Entity
         out << YAML::Key << "Entity" << YAML::Value << (uint64_t)(entity.GetUUID());
 
+        bool isRootEntity;
         if (entity.HasComponent<TagComponent>())
         {
             out << YAML::Key << "TagComponent";
@@ -220,6 +221,8 @@ namespace Limnova
             out << YAML::Key << "Tag" << YAML::Value << tag.Tag;
 
             out << YAML::EndMap; // TagComponent
+
+            isRootEntity = tag.Tag == "Root";
         }
 
         if (entity.HasComponent<HierarchyComponent>())
@@ -340,23 +343,45 @@ namespace Limnova
             out << YAML::EndMap; // EllipseRendererComponent
         }
 
+        if (entity.HasComponent<OrbitalHierarchyComponent>())
+        {
+            out << YAML::Key << "OrbitalHierarchyComponent";
+            out << YAML::BeginMap; // OrbitalHierarchyComponent
+
+            auto& ohc = entity.GetComponent<OrbitalHierarchyComponent>();
+            out << YAML::Key << "AbsoluteScale" << YAML::Value << ohc.AbsoluteScale;
+            out << YAML::Key << "LocalSpace"    << YAML::Value << ohc.LocalSpaceRelativeToParent;
+
+            out << YAML::EndMap; // OrbitalHierarchyComponent
+        }
+
         if (entity.HasComponent<OrbitalComponent>())
         {
             out << YAML::Key << "OrbitalComponent";
             out << YAML::BeginMap; // OrbitalComponent
 
             auto& orbital = entity.GetComponent<OrbitalComponent>();
-            out << YAML::Key << "LocalScale"            << YAML::Value << orbital.LocalScale;
             out << YAML::Key << "UIColor"               << YAML::Value << orbital.UIColor;
             out << YAML::Key << "Albedo"                << YAML::Value << orbital.Albedo;
             out << YAML::Key << "ShowMajorMinorAxes"    << YAML::Value << orbital.ShowMajorMinorAxes;
             out << YAML::Key << "ShowNormal"            << YAML::Value << orbital.ShowNormal;
 
-            out << YAML::Key << "Dynamic"               << YAML::Value << orbital.IsDynamic();
-            out << YAML::Key << "Mass"                  << YAML::Value << orbital.GetMass();
-            out << YAML::Key << "Position"              << YAML::Value << orbital.GetPosition();
-            out << YAML::Key << "Velocity"              << YAML::Value << orbital.GetVelocity();
-            out << YAML::Key << "LocalSpaceRadius"      << YAML::Value << orbital.GetLocalSpaceRadius();
+            out << YAML::Key << "Mass"                  << YAML::Value << orbital.Object.GetObj().State.Mass;
+            if (!isRootEntity) {
+                out << YAML::Key << "Dynamic" << YAML::Value << orbital.Object.IsDynamic();
+                out << YAML::Key << "Position" << YAML::Value << orbital.Object.GetObj().State.Position;
+                out << YAML::Key << "Velocity" << YAML::Value << orbital.Object.GetObj().State.Velocity;
+            }
+
+            out << YAML::Key << "LocalSpaceRadii" << YAML::BeginSeq;
+            for (auto lspNode : orbital.LocalSpaces)
+            {
+                if (isRootEntity && lspNode.IsRoot()) continue; /* no entry for root local space - root objects are created by Context constructor so we don't want to duplicate them in deserialisation! */
+                if (!lspNode.IsSphereOfInfluence()) {
+                    out << lspNode.GetLSpace().Radius;
+                }
+            }
+            out << YAML::EndSeq;
 
             out << YAML::EndMap; // OrbitalComponent
         }
@@ -380,8 +405,10 @@ namespace Limnova
             parentId = hcNode["Parent"].as<uint64_t>();
         }
 
+        bool isRootEntity = name == "Root";
+
         Entity entity;
-        if (name == "Root") {
+        if (isRootEntity) {
             entity = scene->GetRoot();
             scene->SetRootId(uuid);
         }
@@ -461,33 +488,36 @@ namespace Limnova
             erc.Fade        = ercNode["Fade"].as<float>();
         }
 
+        if (auto ohcNode = entityNode["OrbitalHierarchyComponent"])
+        {
+            auto& ohc = entity.GetComponent<OrbitalHierarchyComponent>();
+
+            ohc.AbsoluteScale               = ohcNode["AbsoluteScale"].as<Vector3d>();
+            ohc.LocalSpaceRelativeToParent  = ohcNode["LocalSpace"].as<int>();
+        }
+
         if (auto oNode = entityNode["OrbitalComponent"])
         {
-            bool isRoot = name == "Root";
-
-            auto& oc = isRoot
+            auto& oc = isRootEntity
                 ? entity.GetComponent<OrbitalComponent>()
                 : entity.AddComponent<OrbitalComponent>();
 
-            oc.SetMass(             oNode["Mass"].as<double>());
-            if (!isRoot) {
-                oc.SetDynamic(      oNode["Dynamic"].as<bool>());
-                oc.SetPosition(     oNode["Position"].as<Vector3>());
-                oc.SetVelocity(     oNode["Velocity"].as<Vector3d>());
-                if (!oc.IsInfluencing()) {
-                    oc.SetLocalSpaceRadius(oNode["LocalSpaceRadius"].as<float>());
-                }
-                else {
-                    LV_CORE_ASSERT(abs(oNode["LocalSpaceRadius"].as<float>() - oc.GetLocalSpaceRadius()) < 1e-5f,
-                        "Computed radius of influence does not match previously stored value!");
-                }
+            oc.Object.SetMass(             oNode["Mass"].as<double>());
+            if (!isRootEntity) {
+                oc.Object.SetDynamic(      oNode["Dynamic"].as<bool>());
+                oc.Object.SetPosition(     oNode["Position"].as<Vector3>());
+                oc.Object.SetVelocity(     oNode["Velocity"].as<Vector3d>());
             }
 
-            oc.LocalScale = oNode["LocalScale"].as<Vector3>();
-            oc.UIColor = oNode["UIColor"].as<Vector3>();
-            oc.Albedo = oNode["Albedo"].as<float>();
+            auto localSpaceRadiiNode = entityNode["LocalSpaceRadii"];
+            for (size_t i = 0; i < localSpaceRadiiNode.size(); i++) {
+                oc.Object.AddLocalSpace(localSpaceRadiiNode[i].as<float>());
+            }
+
+            oc.UIColor      = oNode["UIColor"].as<Vector3>();
+            oc.Albedo       = oNode["Albedo"].as<float>();
             oc.ShowMajorMinorAxes = oNode["ShowMajorMinorAxes"].as<bool>();
-            oc.ShowNormal = oNode["ShowNormal"].as<bool>();
+            oc.ShowNormal   = oNode["ShowNormal"].as<bool>();
         }
 
     }
@@ -729,7 +759,8 @@ namespace Limnova
         out << YAML::Key << "PerifocalAxisThickness"    << YAML::Value << scene->m_PerifocalAxisThickness;
         out << YAML::Key << "PerifocalAxisArrowSize"    << YAML::Value << scene->m_PerifocalAxisArrowSize;
 
-        out << YAML::Key << "ViewPrimary"               << YAML::Value << (uint64_t)(scene->m_ViewPrimary);
+        out << YAML::Key << "TrackingEntity"            << YAML::Value << (uint64_t)(scene->m_TrackingEntity);
+        out << YAML::Key << "ViewSpace"                 << YAML::Value << scene->m_ViewSpaceRelativeToTrackedEntity;
 
         out << YAML::Key << "RootScaling"               << YAML::Value << scene->GetRootScaling();
 
@@ -787,7 +818,11 @@ namespace Limnova
         scene->m_PerifocalAxisThickness     = data["PerifocalAxisThickness"].as<float>();
         scene->m_PerifocalAxisArrowSize     = data["PerifocalAxisArrowSize"].as<float>();
 
-        scene->m_ViewPrimary                = data["ViewPrimary"].as<uint64_t>();
+        scene->m_TrackingEntity             = data["TrackingEntity"].as<uint64_t>();
+        scene->m_ViewSpaceRelativeToTrackedEntity = data["ViewSpace"].as<int>();
+
+        // Physics
+        scene->m_Physics = OrbitalPhysics::Context(); /* reset physics context */
 
         scene->SetRootScaling(              data["RootScaling"].as<double>());
 

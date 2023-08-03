@@ -112,9 +112,8 @@ namespace Limnova
             dstOc.Object.SetVelocity(srcOc.Object.GetObj().State.Velocity);
 
             for (auto srcLsp : srcOc.LocalSpaces) {
-                if (srcLsp.Influencing()) continue; /* influencing LSPs are handled by OrbitalPhysics */
-                auto newLsp = OrbitalPhysics::AddLocalSpace(dstOc.Object);
-                newLsp.SetRadius(srcLsp.GetLSpace().Radius);
+                if (srcLsp.IsSphereOfInfluence()) continue; /* influencing LSPs are handled by OrbitalPhysics */
+                dstOc.Object.AddLocalSpace(srcLsp.GetLSpace().Radius);
             }
 
             dstOc.Albedo = srcOc.Albedo;
