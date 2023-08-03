@@ -75,11 +75,8 @@ namespace Limnova
             TNodeId New()
             {
                 TNodeId nodeId = GetEmpty();
-                if (m_Nodes.size() > 0) {
-                    Attach(nodeId, 0);
-                    m_Heights[nodeId] = 1;
-                }
-                else m_Heights[nodeId] = 0;
+                if (nodeId == 0) { m_Heights[nodeId] = 0; }
+                else { Attach(nodeId, 0); }
                 return nodeId;
             }
 
@@ -106,8 +103,8 @@ namespace Limnova
 
             void Remove(TNodeId nodeId)
             {
-                if (nodeId == 0) Clear();
-                else RecycleSubtree(nodeId);
+                if (nodeId == 0) { Clear(); }
+                else { RecycleSubtree(nodeId); }
             }
 
             void Clear()
@@ -386,7 +383,7 @@ namespace Limnova
                     LV_CORE_ASSERT(m_Ctx->m_Tree.Has(nodeId), "Invalid ID!");
                     LV_CORE_ASSERT(m_Ctx->m_Tree.Height(nodeId) % 2 == 0, "Class is for object nodes only!");
                     LV_CORE_ASSERT(m_Ctx->m_Objects.Has(nodeId), "Object node must have an Object attribute!");
-                    LV_CORE_ASSERT(m_Ctx->m_Elements.Has(nodeId), "Object node must have an Elements attribute!");
+                    LV_CORE_ASSERT(m_Ctx->m_Elements.Has(nodeId) || nodeId == kRootObjId, "Object node must have an Elements attribute!");
                 }
             }
 
@@ -509,6 +506,7 @@ namespace Limnova
             {
                 LSpaceNode newLspNode = NewLSpaceNode(*this);
                 newLspNode.SetRadius(radius);
+                LV_CORE_ASSERT(false, "TODO: set Primary");
                 return newLspNode;
             }
         private:
@@ -842,23 +840,23 @@ namespace Limnova
 
                 auto& rootLsp = m_LSpaces.Add(kRootLspId);
                 rootLsp.Radius = 1.f;
+                rootLsp.Primary.m_NodeId = kRootLspId; /* an influencing lsp is its own primary */
                 rootLsp.Influencing = true;
             }
-            Context(Context const&) = default;
+            Context(Context const& other) = default;
             ~Context()
             {
                 // Estimating maximum object allocation for optimising vectors -> arrays
                 LV_CORE_INFO("OrbitalPhysics final tree size: {0} ({1} objects, {2} local spaces)",
                     m_Tree.Size(), m_Objects.Size(), m_LSpaces.Size());
             }
-
         public:
             std::function<void(ObjectNode)> m_LSpaceChangedCallback;
         };
 
         static void SetContext(Context* ctx) { m_Ctx = ctx; }
     private:
-        static Context* m_Ctx;
+        inline static Context* m_Ctx = nullptr;
 
         static constexpr TNodeId kRootObjId = 0;
         static constexpr TNodeId kRootLspId = 1;
@@ -1606,7 +1604,7 @@ namespace Limnova
         /// </summary>
         /// <param name="userId">ID of the user-object to be associated with the created physics object</param>
         /// <returns>ID of the created physics object</returns>
-        static ObjectNode Create(LSpaceNode lspNode, bool mass, Vector3 const& position, bool dynamic = false)
+        static ObjectNode Create(LSpaceNode lspNode, double mass, Vector3 const& position, bool dynamic = false)
         {
             LV_CORE_ASSERT(!lspNode.IsNull(), "Invalid local space!");
 

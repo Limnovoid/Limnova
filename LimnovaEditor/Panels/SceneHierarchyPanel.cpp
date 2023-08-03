@@ -325,33 +325,6 @@ namespace Limnova
             }
         });
 
-        ComponentInspector<OrbitalHierarchyComponent>(entity, "Orbital Hierarchy", false, [&]()
-        {
-            auto& orbitalhc = entity.GetComponent<OrbitalHierarchyComponent>();
-
-            // Relative local space
-            ImGui::BeginDisabled(!entity.GetParent().HasComponent<OrbitalComponent>());
-            {
-                LimnGui::InputConfig<int> config;
-                config.Speed = 1;
-                config.FastSpeed = 1; /* number of local spaces belonging to parent will almost always be on the order of 1 */
-                int value = orbitalhc.LocalSpaceRelativeToParent;
-                if (LimnGui::InputInt("Relative Local Space", value, config))
-                {
-                    orbitalhc.LocalSpaceRelativeToParent = std::clamp<int>(value,
-                        -1, entity.GetParent().GetComponent<OrbitalComponent>().LocalSpaces.size() - 1);
-                }
-            }
-            ImGui::EndDisabled();
-
-            // Absolute scale
-            {
-                LimnGui::InputConfig<double> config;
-                config.ReadOnly = true;
-                LimnGui::InputVec3d("Absolute Scale", orbitalhc.AbsoluteScale, config);
-            }
-        });
-
         ComponentInspector<CameraComponent>(entity, "Camera", true, [&]()
         {
             auto& camera = entity.GetComponent<CameraComponent>();
@@ -431,6 +404,39 @@ namespace Limnova
                     if (LimnGui::DragFloat("Far", perspFar, config)) {
                         camera.SetPerspectiveClip(perspNear, perspFar);
                     }
+                }
+            }
+        });
+
+        ComponentInspector<OrbitalHierarchyComponent>(entity, "Orbital Hierarchy", false, [&]()
+        {
+            auto& orbitalhc = entity.GetComponent<OrbitalHierarchyComponent>();
+
+            // Relative local space
+            if (entity != m_Scene->GetRoot())
+            {
+                ImGui::BeginDisabled(!entity.GetParent().HasComponent<OrbitalComponent>());
+
+                LimnGui::InputConfig<int> config;
+                config.Speed = 1;
+                config.FastSpeed = 1; /* number of local spaces belonging to parent will almost always be on the order of 1 */
+                int value = orbitalhc.LocalSpaceRelativeToParent;
+                if (LimnGui::InputInt("Relative Local Space", value, config))
+                {
+                    orbitalhc.LocalSpaceRelativeToParent = std::clamp<int>(value,
+                        -1, entity.GetParent().GetComponent<OrbitalComponent>().LocalSpaces.size() - 1);
+                }
+
+                ImGui::EndDisabled();
+            }
+
+            // Absolute scale
+            {
+                LimnGui::InputConfig<double> config;
+                if (LimnGui::InputVec3d("Absolute Scale", orbitalhc.AbsoluteScale, config))
+                {
+                    double lspAbsRadius = ((OrbitalScene*)m_Scene)->GetLocalSpace(entity).GetLSpace().MetersPerRadius;
+                    entity.GetComponent<TransformComponent>().SetScale((Vector3)(orbitalhc.AbsoluteScale * lspAbsRadius));
                 }
             }
         });
@@ -971,7 +977,7 @@ namespace Limnova
             formatStr = formatting.str();
         }
 
-        ImGuiInputTextFlags flags;
+        ImGuiInputTextFlags flags = 0;
         if (config.ReadOnly) flags |= ImGuiInputTextFlags_ReadOnly;
 
         // X

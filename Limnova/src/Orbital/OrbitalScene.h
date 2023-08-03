@@ -19,6 +19,8 @@ namespace Limnova
         Entity CreateEntityFromUUID(UUID uuid, const std::string& name = std::string(), UUID parent = UUID::Null) override;
         Entity DuplicateEntity(Entity entity) override;
     public:
+        void PhysicsUseContext();
+
         void SetRootScaling(double meters);
         double GetRootScaling();
 

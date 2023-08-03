@@ -12,9 +12,15 @@ namespace Limnova
         : Scene()
     {
         // Orbital scene setup
+        OrbitalPhysics::SetContext(&m_Physics);
+
         /* NOTE : root MUST be assigned before signal setup - the root's OrbitalComponent should NOT create
          * a new object in OrbitalPhysics */
-        AddComponent<OrbitalComponent>(m_Entities.at(m_Root));
+        auto& rootOc = AddComponent<OrbitalComponent>(m_Entities.at(m_Root));
+        rootOc.Object = OrbitalPhysics::GetRootObjectNode();
+        rootOc.LocalSpaces.push_back(OrbitalPhysics::GetRootLSpaceNode());
+
+        AddComponent<OrbitalHierarchyComponent>(m_Entities.at(m_Root)).LocalSpaceRelativeToParent = -1;
 
         m_OrbitalReferenceFrameOrientation = Quaternion(Vector3::Left(), PIover2f);
         m_OrbitalReferenceX = m_OrbitalReferenceFrameOrientation.RotateVector(Vector3::X());
@@ -23,6 +29,8 @@ namespace Limnova
 
         m_TrackingEntity = m_Root;
         m_ViewSpaceRelativeToTrackedEntity = 0; /* root local space (first local space owned by root object) */
+        m_ViewLSpace = OrbitalPhysics::GetRootLSpaceNode();
+        m_ViewObject = OrbitalPhysics::GetRootObjectNode();
 
         // Entt signals
         m_Registry.on_construct<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentConstruct>(this);
@@ -80,7 +88,6 @@ namespace Limnova
 
     Entity OrbitalScene::CreateEntityFromUUID(UUID uuid, const std::string& name, UUID parent)
     {
-        LV_CORE_ASSERT(false, "Just checking this actually gets called");
         Entity newEntity = Scene::CreateEntityFromUUID(uuid, name, parent);
         AddComponent<OrbitalHierarchyComponent>(newEntity.m_EnttId).LocalSpaceRelativeToParent = -1;
         return newEntity;
@@ -126,6 +133,12 @@ namespace Limnova
             LV_CORE_ASSERT(dstOc.Object.GetDynamics().EscapeTrueAnomaly - srcOc.Object.GetDynamics().EscapeTrueAnomaly < 1e-5f, "Failed to adequately replicate dynamics!");
         }
         return newEntity;
+    }
+
+
+    void OrbitalScene::PhysicsUseContext()
+    {
+        OrbitalPhysics::SetContext(&m_Physics);
     }
 
 
@@ -503,9 +516,11 @@ namespace Limnova
 
     OrbitalPhysics::LSpaceNode OrbitalScene::GetEntityLSpace(entt::entity entity)
     {
+        if (entity == m_Entities[m_Root]) return OrbitalPhysics::GetRootLSpaceNode();
+
         auto [hc, ohc] = GetComponents<HierarchyComponent, OrbitalHierarchyComponent>(entity);
         if (ohc.LocalSpaceRelativeToParent == -1) {
-            return hc.Parent == m_Root ? OrbitalPhysics::GetRootLSpaceNode() : GetEntityLSpace(m_Entities[hc.Parent]);
+            return GetEntityLSpace(m_Entities[hc.Parent]);
         }
         else {
             LV_CORE_ASSERT(HasComponent<OrbitalComponent>(m_Entities[hc.Parent]), "Invalid LocalSpaceRelativeToParent!");

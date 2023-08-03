@@ -823,6 +823,7 @@ namespace Limnova
 
         // Physics
         scene->m_Physics = OrbitalPhysics::Context(); /* reset physics context */
+        scene->PhysicsUseContext();
 
         scene->SetRootScaling(              data["RootScaling"].as<double>());
 
