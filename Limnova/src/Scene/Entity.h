@@ -88,6 +88,7 @@ namespace Limnova
         friend class Scene;
         friend class OrbitalScene;
         friend class NativeScript;
+        friend class SceneSerializer;
     };
 
 }

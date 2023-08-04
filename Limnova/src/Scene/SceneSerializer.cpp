@@ -508,16 +508,21 @@ namespace Limnova
                 oc.Object.SetPosition(     oNode["Position"].as<Vector3>());
                 oc.Object.SetVelocity(     oNode["Velocity"].as<Vector3d>());
             }
-
             auto localSpaceRadiiNode = entityNode["LocalSpaceRadii"];
             for (size_t i = 0; i < localSpaceRadiiNode.size(); i++) {
                 oc.Object.AddLocalSpace(localSpaceRadiiNode[i].as<float>());
             }
+            if (isRootEntity) { oc.LocalSpaces.clear(); }
+            oc.Object.GetLocalSpaces(oc.LocalSpaces);
 
             oc.UIColor      = oNode["UIColor"].as<Vector3>();
             oc.Albedo       = oNode["Albedo"].as<float>();
             oc.ShowMajorMinorAxes = oNode["ShowMajorMinorAxes"].as<bool>();
             oc.ShowNormal   = oNode["ShowNormal"].as<bool>();
+
+            if (!isRootEntity) {
+                ((OrbitalScene*)scene)->m_PhysicsToEnttIds.insert({ oc.Object.Id(), entity.m_EnttId });
+            }
         }
 
     }
@@ -747,6 +752,7 @@ namespace Limnova
         out << YAML::Key << "LocalSpaceColor"           << YAML::Value << scene->m_LocalSpaceColor;
         out << YAML::Key << "LocalSpaceThickness"       << YAML::Value << scene->m_LocalSpaceThickness;
         out << YAML::Key << "LocalSpaceFade"            << YAML::Value << scene->m_LocalSpaceFade;
+        out << YAML::Key << "ShowViewSpace"             << YAML::Value << scene->m_ShowViewSpace;
         out << YAML::Key << "OrbitThickness"            << YAML::Value << scene->m_OrbitThickness;
         out << YAML::Key << "OrbitFade"                 << YAML::Value << scene->m_OrbitFade;
         out << YAML::Key << "OrbitAlpha"                << YAML::Value << scene->m_OrbitAlpha;
@@ -806,6 +812,7 @@ namespace Limnova
         scene->m_LocalSpaceColor            = data["LocalSpaceColor"].as<Vector4>();
         scene->m_LocalSpaceThickness        = data["LocalSpaceThickness"].as<float>();
         scene->m_LocalSpaceFade             = data["LocalSpaceFade"].as<float>();
+        scene->m_ShowViewSpace              = data["ShowViewSpace"].as<bool>();
         scene->m_OrbitThickness             = data["OrbitThickness"].as<float>();
         scene->m_OrbitFade                  = data["OrbitFade"].as<float>();
         scene->m_OrbitAlpha                 = data["OrbitAlpha"].as<float>();

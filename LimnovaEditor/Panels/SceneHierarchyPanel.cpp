@@ -483,14 +483,21 @@ namespace Limnova
             // Local spaces
             if (ImGui::TreeNode("Local Spaces"))
             {
+                // TODO: button to add local space
+
                 for (size_t l = 0; l < orbital.LocalSpaces.size(); l++)
                 {
+                    ImGui::BeginGroup();
+
+                    ImGui::Text("%d", l);
+                    ImGui::SameLine();
+
                     auto lspNode = orbital.LocalSpaces[l];
-                    bool isInfluencing = lspNode.IsInfluencing();
-                    if (isInfluencing) { ImGui::Text("Influencing"); }
+                    bool isSoi = lspNode.IsSphereOfInfluence();
+                    if (isSoi) { ImGui::Text("Influencing"); }
                     else { ImGui::Text("Non-influencing"); }
 
-                    ImGui::BeginDisabled(isInfluencing);
+                    ImGui::BeginDisabled(isSoi);
 
                     float localSpaceRadius = lspNode.GetLSpace().Radius;
                     LimnGui::InputConfig<float> config;
@@ -500,17 +507,50 @@ namespace Limnova
                     config.Max = 2.f;
                     if (LimnGui::DragFloat("Radius", localSpaceRadius, config, 100.f)) {
                         lspNode.SetRadius(localSpaceRadius);
+
+                        orbital.LocalSpaces.clear();
+                        orbital.Object.GetLocalSpaces(orbital.LocalSpaces); /* ordering may change */
                     }
 
                     ImGui::EndDisabled();
+
+                    ImGui::EndGroup();
+                    {
+                        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+                        {
+                            ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
+                            ((OrbitalScene*)m_Scene)->SetRelativeViewSpace(l);
+                        }
+                        if (ImGui::BeginPopupContextItem("localSpacePopup"))
+                        {
+                            if (ImGui::MenuItem("View")) {
+                                ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
+                                ((OrbitalScene*)m_Scene)->SetRelativeViewSpace(l);
+                            }
+                            if (ImGui::MenuItem("Remove")) {
+                                LV_CORE_ASSERT(false, "TODO!");
+                            }
+                            ImGui::EndPopup();
+                        }
+                    }
                 }
                 ImGui::TreePop();
             }
 
+            ImGui::Separator();
+
             // Mass
             double mass = obj.State.Mass;
-            if (LimnGui::InputScientific("Mass", mass)) {
+            if (LimnGui::InputScientific("Mass", mass))
+            {
+                bool wasInfluencing = orbital.Object.IsInfluencing();
+
                 orbital.Object.SetMass(mass);
+
+                if (orbital.Object.IsInfluencing() != wasInfluencing) {
+                    orbital.LocalSpaces.clear();
+                    orbital.Object.GetLocalSpaces(orbital.LocalSpaces);
+                }
             }
 
             ImGui::EndDisabled();

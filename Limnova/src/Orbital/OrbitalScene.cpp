@@ -19,6 +19,7 @@ namespace Limnova
         auto& rootOc = AddComponent<OrbitalComponent>(m_Entities.at(m_Root));
         rootOc.Object = OrbitalPhysics::GetRootObjectNode();
         rootOc.LocalSpaces.push_back(OrbitalPhysics::GetRootLSpaceNode());
+        m_PhysicsToEnttIds.insert({ rootOc.Object.Id(), m_Entities.at(m_Root) });
 
         AddComponent<OrbitalHierarchyComponent>(m_Entities.at(m_Root)).LocalSpaceRelativeToParent = -1;
 
@@ -30,7 +31,6 @@ namespace Limnova
         m_TrackingEntity = m_Root;
         m_ViewSpaceRelativeToTrackedEntity = 0; /* root local space (first local space owned by root object) */
         m_ViewLSpace = OrbitalPhysics::GetRootLSpaceNode();
-        m_ViewObject = OrbitalPhysics::GetRootObjectNode();
 
         // Entt signals
         m_Registry.on_construct<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentConstruct>(this);
@@ -38,9 +38,9 @@ namespace Limnova
 
         // Physics callbacks
         m_Physics.m_LSpaceChangedCallback = { [&](OrbitalPhysics::ObjectNode objNode) {
-            entt::entity objectEnttId = m_PhysicsToEnttIds[objNode.Id()];
+            entt::entity objectEnttId = m_PhysicsToEnttIds.at(objNode.Id());
             HierarchyDisconnect(objectEnttId);
-            HierarchyConnect(objectEnttId, m_PhysicsToEnttIds[objNode.ParentObj().Id()]);
+            HierarchyConnect(objectEnttId, m_PhysicsToEnttIds.at(objNode.ParentObj().Id()));
         } };
     }
 
@@ -54,10 +54,17 @@ namespace Limnova
 
         // Copy OrbitalPhysics
         newScene->m_Physics = scene->m_Physics;
+        newScene->PhysicsUseContext();
         /* Suspend OrbitalComponent dependencies while copying, to avoid creating unnecessary physics objects */
         newScene->m_Registry.on_construct<OrbitalComponent>().disconnect<&OrbitalScene::OnOrbitalComponentConstruct>(newScene.get());
         newScene->CopyAllOfComponent<OrbitalComponent>(scene->m_Registry);
         newScene->m_Registry.on_construct<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentConstruct>(newScene.get());
+
+        // Repopulate m_PhysicsToEnttIds (entt IDs are not persistent across Scene::Copy())
+        newScene->m_PhysicsToEnttIds.clear();
+        newScene->m_Registry.view<OrbitalComponent>().each([&](auto entity, auto& oc) {
+            newScene->m_PhysicsToEnttIds.insert({ oc.Object.Id(), entity});
+        });
 
         // Copy OrbitalScene settings
         newScene->m_LocalSpaceColor = scene->m_LocalSpaceColor;
@@ -154,20 +161,33 @@ namespace Limnova
     }
 
 
-    void OrbitalScene::SetTrackingEntity(Entity primary)
+    void OrbitalScene::SetTrackingEntity(Entity entity)
     {
-        if (primary.GetUUID() == m_TrackingEntity) return;
+        if (entity.GetUUID() == m_TrackingEntity) return;
 
-        m_TrackingEntity = primary.GetUUID();
+        m_TrackingEntity = entity.GetUUID();
+
+        m_ViewSpaceRelativeToTrackedEntity = -1;
+        m_ViewLSpace = GetEntityLSpace(entity.m_EnttId);
 
         // TODO : update relative view space index to keep the view space the same
-
-        // TODO : update transforms to be correctly scaled for the viewed scaling space in the editor (no updates outside playtime) ?
     }
 
-    void OrbitalScene::SetRelativeViewSpace(int viewSpaceRelativeToTrackingEntity)
+    void OrbitalScene::SetRelativeViewSpace(int relativeViewSpaceIndex)
     {
-        LV_CORE_ASSERT(false, "TODO: OrbitalScene::SetRelativeViewSpace()");
+        if (relativeViewSpaceIndex < 0) {
+            m_ViewLSpace = GetEntityLSpace(m_Entities.at(m_TrackingEntity));
+            while (relativeViewSpaceIndex < -1) {
+                LV_CORE_ASSERT(!m_ViewLSpace.IsRoot(), "Local space relative index is out of bounds!");
+                m_ViewLSpace = m_ViewLSpace.NextHigherLSpace();
+                relativeViewSpaceIndex++;
+            }
+        }
+        else {
+            LV_CORE_ASSERT(relativeViewSpaceIndex < GetComponent<OrbitalComponent>(m_Entities.at(m_TrackingEntity)).LocalSpaces.size(), "Local space relative index is out of bounds!");
+            m_ViewLSpace = GetComponent<OrbitalComponent>(m_Entities.at(m_TrackingEntity)).LocalSpaces[relativeViewSpaceIndex];
+        }
+        m_ViewSpaceRelativeToTrackedEntity = relativeViewSpaceIndex;
     }
 
 
@@ -253,7 +273,7 @@ namespace Limnova
             std::vector<OrbitalPhysics::ObjectNode> objNodes;
             lsp.GetLocalObjects(objNodes);
             for (auto objNode : objNodes) {
-                secondaries.push_back({ m_PhysicsToEnttIds[objNode.Id()], this });
+                secondaries.push_back({ m_PhysicsToEnttIds.at(objNode.Id()), this });
             }
         }
         return secondaries;
@@ -318,7 +338,7 @@ namespace Limnova
 
         auto viewParent = m_ViewLSpace.ParentObj();
         {
-            auto [tc, ohc] = GetComponents<TransformComponent, OrbitalHierarchyComponent>(m_PhysicsToEnttIds[viewParent.Id()]);
+            auto [tc, ohc] = GetComponents<TransformComponent, OrbitalHierarchyComponent>(m_PhysicsToEnttIds.at(viewParent.Id()));
             tc.SetScale((Vector3)(ohc.AbsoluteScale / lsp.MetersPerRadius));
             tc.SetPosition({ 0.f });
         }
@@ -327,37 +347,10 @@ namespace Limnova
         m_ViewLSpace.GetLocalObjects(viewObjs);
         for (auto viewObj : viewObjs)
         {
-            auto [tc, ohc, oc] = GetComponents<TransformComponent, OrbitalHierarchyComponent, OrbitalComponent>(m_PhysicsToEnttIds[viewObj.Id()]);
+            auto [tc, ohc, oc] = GetComponents<TransformComponent, OrbitalHierarchyComponent, OrbitalComponent>(m_PhysicsToEnttIds.at(viewObj.Id()));
             tc.SetScale((Vector3)(ohc.AbsoluteScale / lsp.MetersPerRadius));
             tc.SetPosition(oc.Object.GetObj().State.Position);
         }
-
-
-        // Update orbital entity transforms
-        //auto view = m_Registry.view<OrbitalComponent>();
-        //for (auto entity : view)
-        //{
-        //    auto [idc, tc, oc, hc, ohc] = m_Registry.get<IDComponent, TransformComponent, OrbitalComponent, HierarchyComponent, OrbitalHierarchyComponent>(entity);
-
-        //    if (idc.ID == m_TrackingEntity)
-        //    {
-        //        // View primary
-        //        tc.SetScale(oc.AbsoluteScale);
-        //        tc.SetPosition({ 0.f });
-        //    }
-        //    else if (hc.Parent == m_TrackingEntity)
-        //    {
-        //        // View secondary
-        //        tc.SetScale(oc.LocalScale * oc.GetLocalSpaceRadius());
-        //        tc.SetPosition(oc.GetPosition());
-        //    }
-        //    else
-        //    {
-        //        // Not in view
-        //        tc.SetScale({ 0.f });
-        //        tc.SetPosition({ 0.f });
-        //    }
-        //}
 
         // TODO : place non-orbital children (down to hierarchy leaves):
         //      : a non-orbital entity cannot have orbital children so it is
@@ -403,7 +396,7 @@ namespace Limnova
         std::vector<OrbitalPhysics::ObjectNode> viewObjs;
         m_ViewLSpace.GetLocalObjects(viewObjs);
 
-        Vector3 viewCenter = GetComponent<TransformComponent>(m_PhysicsToEnttIds[viewParentObjNode.Id()]).GetPosition();
+        Vector3 viewCenter = GetComponent<TransformComponent>(m_PhysicsToEnttIds.at(viewParentObjNode.Id())).GetPosition();
         if (m_ShowReferenceAxes) {
             // X
             Renderer2D::DrawDashedArrow(viewCenter, viewCenter + (m_OrbitalReferenceX * m_ReferenceAxisLength),
@@ -415,12 +408,20 @@ namespace Limnova
             Renderer2D::DrawDashedArrow(viewCenter, viewCenter + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
                 m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize, 4.f, 2.f);
         }
+        if (m_ShowViewSpace)
+        {
+            Matrix4 viewSpaceTransf = glm::translate(glm::mat4(1.f), (glm::vec3)(viewCenter));
+            viewSpaceTransf = viewSpaceTransf * Quaternion(Vector3::X(), -PIover2f);
+            viewSpaceTransf = glm::scale((glm::mat4)viewSpaceTransf, glm::vec3(2.f));
+            float lsThickness = m_LocalSpaceThickness * cameraDistance;
+            Renderer2D::DrawCircle(viewSpaceTransf, m_LocalSpaceColor, lsThickness, 0);
+        }
 
         float orbitDrawingThickness = m_OrbitThickness * cameraDistance;
 
         for (auto viewObjNode : viewObjs)
         {
-            auto entity = m_PhysicsToEnttIds[viewObjNode.Id()];
+            auto entity = m_PhysicsToEnttIds.at(viewObjNode.Id());
             int editorPickingId = (int)(entity);
             auto [tc, oc] = GetComponents<TransformComponent, OrbitalComponent>(entity);
             auto& object = oc.Object.GetObj();
@@ -538,27 +539,14 @@ namespace Limnova
         /* Parent of an orbital entity must also be orbital */
         OrbitalPhysics::LSpaceNode localSpace = GetEntityLSpace(entity);
         {
-            entt::entity parent = m_PhysicsToEnttIds[localSpace.ParentObj().Id()];
+            entt::entity parent = m_PhysicsToEnttIds.at(localSpace.ParentObj().Id());
             if (parent != m_Entities[hc.Parent]) {
                 HierarchyDisconnect(entity);
                 HierarchyConnect(entity, parent);
             }
         }
         oc.Object = OrbitalPhysics::Create(localSpace, 0.0, tc.GetPosition());
-
-        //if (HasComponent<OrbitalComponent>(m_Entities[hc.Parent])) {
-        //    oc.Object = OrbitalPhysics::Create(GetComponent<OrbitalComponent>(
-        //        m_Entities[hc.Parent]).LocalSpaces[ohc.LocalSpaceRelativeToParent],
-        //        0.0, tc.GetPosition());
-        //}
-        //else {
-        //    /* Default to the root entity, which is guaranteed to be orbital in OrbitalScene */
-        //    HierarchyDisconnect(entity);
-        //    HierarchyConnect(entity, m_Entities[m_Root]);
-
-        //    oc.Object = OrbitalPhysics::Create(); /* Primary defaults to root physics object which corresponds to the root entity */
-        //    oc.Object.SetPosition(tc.GetPosition());
-        //}
+        m_PhysicsToEnttIds.insert({ oc.Object.Id(), entity });
     }
 
 

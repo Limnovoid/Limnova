@@ -2,6 +2,7 @@ OrbitalScene: Untitled
 LocalSpaceColor: [1, 1, 1, 0.300000012]
 LocalSpaceThickness: 0.00300000003
 LocalSpaceFade: 0.00600000005
+ShowViewSpace: true
 OrbitThickness: 0.00600000005
 OrbitFade: 0
 OrbitAlpha: 0.400000006
@@ -11,8 +12,8 @@ ReferenceAxisColor: [1, 1, 1, 0.200000003]
 ReferenceAxisLength: 0.400000006
 ReferenceAxisThickness: 0.00600000005
 ReferenceAxisArrowSize: 0.0240000002
-PerifocalAxisThickness: 0.00600000005
-PerifocalAxisArrowSize: 0.0240000002
+PerifocalAxisThickness: 0.00100000005
+PerifocalAxisArrowSize: 0.00499999989
 TrackingEntity: 3991604775407627372
 ViewSpace: 0
 RootScaling: 1
@@ -51,11 +52,22 @@ Entities:
       Position: [0.5, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0.00999999978, 0.00999999978, 0.00999999978]
+      Scale: [0.00100000005, 0.00100000005, 0.00100000005]
     BillboardCircleRendererComponent:
-      Color: [1, 0, 1, 1]
+      Color: [0, 0.729857922, 1, 1]
       Thickness: 1
       Fade: 0.00499999989
     OrbitalHierarchyComponent:
-      AbsoluteScale: [0.0099999997764825821, 0.0099999997764825821, 0.0099999997764825821]
+      AbsoluteScale: [0.001, 0.001, 0.001]
       LocalSpace: -1
+    OrbitalComponent:
+      UIColor: [0, 0.729857922, 1]
+      Albedo: 0
+      ShowMajorMinorAxes: false
+      ShowNormal: true
+      Mass: 0.0001
+      Dynamic: false
+      Position: [0.5, 0, 0]
+      Velocity: [0, 0, -1.1553614153155712e-05]
+      LocalSpaceRadii:
+        []

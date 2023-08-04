@@ -58,6 +58,7 @@ namespace Limnova
         Vector4 m_LocalSpaceColor = { 1.f, 1.f, 1.f, 0.3f };
         float m_LocalSpaceThickness = 0.003f;
         float m_LocalSpaceFade = 0.006f;
+        bool m_ShowViewSpace = true;
 
         float m_OrbitThickness = 0.006f;
         float m_OrbitFade = 0.f;
@@ -79,7 +80,6 @@ namespace Limnova
         UUID m_TrackingEntity;
         int m_ViewSpaceRelativeToTrackedEntity;
         OrbitalPhysics::LSpaceNode m_ViewLSpace;
-        OrbitalPhysics::ObjectNode m_ViewObject;
 
         Quaternion m_OrbitalReferenceFrameOrientation; /* Orientation of the orbital physics system's reference frame relative to the scene frame */
         Vector3 m_OrbitalReferenceX, m_OrbitalReferenceY, m_OrbitalReferenceNormal;

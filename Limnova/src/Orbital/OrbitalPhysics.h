@@ -165,7 +165,7 @@ namespace Limnova
             {
                 LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
                 LV_CORE_ASSERT(m_Heights[nodeId] > 1, "Node height is too low - node does not have a grandparent!");
-                return m_Nodes[nodeId].Parent;
+                return m_Nodes[m_Nodes[nodeId].Parent].Parent;
             }
         public:
             Node const& operator[](TNodeId nodeId) const

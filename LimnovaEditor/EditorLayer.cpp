@@ -422,6 +422,7 @@ namespace Limnova
             }
         }
 
+        ImGui::Checkbox("Show view space boundary", &m_ActiveScene->m_ShowViewSpace);
 
         ImGui::Checkbox("Show reference axes", &m_ActiveScene->m_ShowReferenceAxes);
         ImGui::BeginDisabled(!m_ActiveScene->m_ShowReferenceAxes);
