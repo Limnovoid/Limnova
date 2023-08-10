@@ -55,6 +55,7 @@ namespace Limnova
         void OnOrbitalComponentUpdate(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
     public:
+        Vector4 m_InfluencingSpaceColor = { 1.f, 0.9f, 0.3f, 0.3f };
         Vector4 m_LocalSpaceColor = { 1.f, 1.f, 1.f, 0.3f };
         float m_LocalSpaceThickness = 0.003f;
         float m_LocalSpaceFade = 0.006f;

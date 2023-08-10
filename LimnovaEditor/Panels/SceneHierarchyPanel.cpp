@@ -462,6 +462,12 @@ namespace Limnova
 
             if (entity != m_Scene->GetRoot())
             {
+                switch (obj.Integration.Method)
+                {
+                case OrbitalPhysics::Integration::Method::Angular:  ImGui::Text("Integration: Angular");    break;
+                case OrbitalPhysics::Integration::Method::Linear:   ImGui::Text("Integration: Linear");     break;
+                }
+
                 bool isDynamic = orbital.Object.IsDynamic();
                 if (LimnGui::Checkbox("Dynamic", isDynamic)) {
                     orbital.Object.SetDynamic(isDynamic);
@@ -476,14 +482,15 @@ namespace Limnova
             }
 
             ImGui::Separator();
-            ImGui::BeginDisabled(!(isOrbitalViewPrimary || isOrbitalViewSecondary));
 
-            ImGui::Separator();
+            ImGui::BeginDisabled(!(isOrbitalViewPrimary || isOrbitalViewSecondary));
 
             // Local spaces
             if (ImGui::TreeNode("Local Spaces"))
             {
-                // TODO: button to add local space
+                bool lspacesChanged = false;
+
+                ImGui::Separator();
 
                 for (size_t l = 0; l < orbital.LocalSpaces.size(); l++)
                 {
@@ -505,11 +512,10 @@ namespace Limnova
                     config.Precision = 4;
                     config.Min = 0.01f;
                     config.Max = 2.f;
+                    config.WidgetId = l;
                     if (LimnGui::DragFloat("Radius", localSpaceRadius, config, 100.f)) {
                         lspNode.SetRadius(localSpaceRadius);
-
-                        orbital.LocalSpaces.clear();
-                        orbital.Object.GetLocalSpaces(orbital.LocalSpaces); /* ordering may change */
+                        lspacesChanged = true;
                     }
 
                     ImGui::EndDisabled();
@@ -528,13 +534,29 @@ namespace Limnova
                                 ((OrbitalScene*)m_Scene)->SetRelativeViewSpace(l);
                             }
                             if (ImGui::MenuItem("Remove")) {
-                                LV_CORE_ASSERT(false, "TODO!");
+                                OrbitalPhysics::CollapseLocalSpace(orbital.LocalSpaces[l]);
+                                lspacesChanged = true;
                             }
                             ImGui::EndPopup();
                         }
                     }
+
+                    ImGui::Separator();
                 }
+
+                if (ImGui::Button("Add")) {
+                    float radius = orbital.LocalSpaces.size() == 0 ? 0.1f
+                        : orbital.LocalSpaces.back().GetLSpace().Radius * 0.8f;
+                    orbital.Object.AddLocalSpace(radius);
+                    lspacesChanged = true;
+                }
+
                 ImGui::TreePop();
+
+                if (lspacesChanged) {
+                    orbital.LocalSpaces.clear();
+                    orbital.Object.GetLocalSpaces(orbital.LocalSpaces); /* ordering may change */
+                }
             }
 
             ImGui::Separator();
@@ -850,7 +872,9 @@ namespace Limnova
 
     bool LimnGui::InputInt(const std::string& label, int& value, const InputConfig<int>& config, float columnWidth)
     {
-        ImGui::PushID(label.c_str());
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
 
         ImGui::Columns(2);
         ImGui::SetColumnWidth(0, columnWidth);
@@ -886,7 +910,9 @@ namespace Limnova
 
     bool LimnGui::DragFloat(const std::string& label, float& value, const InputConfig<float>& config, float columnWidth)
     {
-        ImGui::PushID(label.c_str());
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
 
         ImGui::Columns(2);
         ImGui::SetColumnWidth(0, columnWidth);
@@ -910,7 +936,9 @@ namespace Limnova
         ImGuiIO& io = ImGui::GetIO();
         auto* boldFont = io.Fonts->Fonts[ImGuiLayer::FontIndex::Bold];
 
-        ImGui::PushID(label.c_str());
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
 
         ImGui::Columns(2);
         ImGui::SetColumnWidth(0, columnWidth);
@@ -997,7 +1025,9 @@ namespace Limnova
         ImGuiIO& io = ImGui::GetIO();
         auto* boldFont = io.Fonts->Fonts[ImGuiLayer::FontIndex::Bold];
 
-        ImGui::PushID(label.c_str());
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
 
         ImGui::Columns(2);
         ImGui::SetColumnWidth(0, columnWidth);

@@ -39,6 +39,7 @@ namespace Limnova
             T Max = 0;
             uint32_t Precision = 3;
             bool ReadOnly = false;
+            size_t WidgetId = 0;
         };
 
         bool Checkbox(const std::string& label, bool& value, float columnWidth = 100.f);

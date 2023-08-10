@@ -31,11 +31,11 @@ namespace Limnova
         static constexpr float kMinLSpaceRadius = 0.01f;
         static constexpr float kEpsLSpaceRadius = 1e-6f;
 
-        static constexpr float kMaxObjectUpdates = 20.f;
-        static constexpr double kDefaultMinDT = 1.0 / (60.0 * kMaxObjectUpdates);
-        static constexpr float kMinUpdateDistance = 1e-5f;
-        static constexpr double kMinUpdateDistanced = (double)kMinUpdateDistance;
-        static constexpr float kMinUpdateTrueAnomaly = 1e-5f;
+        static constexpr float kMaxObjectUpdates = 20.f; /* highest number of updates each object is allowed before the total number of updates (across all objects) in a single frame becomes too high (resulting in unacceptable FPS drops) */
+        static constexpr double kDefaultMinDT = 1.0 / (60.0 * kMaxObjectUpdates); /* above constraint expressed as a maximum delta time for a single integration step */
+        static constexpr float kMaxUpdateDistance = 1e-6f; /* largest delta position we can allow before integration step becomes too visible (for when object DT is much greater than frame DT) */
+        static constexpr double kMaxUpdateDistanced = (double)kMaxUpdateDistance;
+        static constexpr double kMinUpdateTrueAnomaly = ::std::numeric_limits<float>::epsilon() * 1e2f; //1e-6f; /* smallest delta true anomaly we can allow before precision error becomes unacceptable for long-term angular integration */
         ////////////////////////////////////////
 
 
@@ -120,11 +120,43 @@ namespace Limnova
                 Attach(nodeId, newParentId);
             }
 
+            void SwapWithPrevSibling(TNodeId nodeId)
+            {
+                LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
+                LV_CORE_ASSERT(Has(m_Nodes[nodeId].PrevSibling), "Invalid node ID!");
+                auto& node = m_Nodes[nodeId];
+                auto& prev = m_Nodes[node.PrevSibling];
+                prev.NextSibling = node.NextSibling;
+                node.NextSibling = node.PrevSibling;
+                node.PrevSibling = prev.PrevSibling;
+                prev.PrevSibling = nodeId;
+            }
+
+            void SwapWithNextSibling(TNodeId nodeId)
+            {
+                LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
+                LV_CORE_ASSERT(Has(m_Nodes[nodeId].NextSibling), "Invalid node ID!");
+                auto& node = m_Nodes[nodeId];
+                auto& next = m_Nodes[node.NextSibling];
+                next.PrevSibling = node.PrevSibling;
+                node.PrevSibling = node.NextSibling;
+                node.NextSibling = next.NextSibling;
+                next.NextSibling = nodeId;
+            }
+
             size_t GetChildren(TNodeId nodeId, std::vector<TNodeId>& children) const
             {
                 LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
                 size_t numChildren = 0;
-                TNodeId first = m_Nodes[nodeId].FirstChild;
+
+                TNodeId child = m_Nodes[nodeId].FirstChild;
+                while (child != NNull) {
+                    numChildren++;
+                    children.push_back(child);
+                    child = m_Nodes[child].NextSibling;
+                }
+
+                /*TNodeId first = m_Nodes[nodeId].FirstChild;
                 if (first != NNull) {
                     TNodeId child = first;
                     do {
@@ -133,7 +165,7 @@ namespace Limnova
                         child = m_Nodes[child].NextSibling;
                         LV_CORE_ASSERT(child != NNull, "Sibling circular-linked list is broken!");
                     } while (child != first);
-                }
+                }*/
                 return numChildren;
             }
 
@@ -201,14 +233,20 @@ namespace Limnova
             void RecycleSubtree(TNodeId rootId)
             {
                 LV_CORE_ASSERT(Has(rootId), "Invalid root node ID!");
-                TNodeId firstId = m_Nodes[rootId].FirstChild;
+                TNodeId childId = m_Nodes[rootId].FirstChild;
+                while (childId != NNull) {
+                    childId = m_Nodes[childId].NextSibling;
+                    RecycleSubtree(m_Nodes[childId].PrevSibling);
+                }
+
+                /*TNodeId firstId = m_Nodes[rootId].FirstChild;
                 if (firstId != NNull) {
                     TNodeId childId = firstId;
                     do {
                         childId = m_Nodes[childId].NextSibling;
                         RecycleSubtree(m_Nodes[childId].PrevSibling);
                     } while (childId != firstId);
-                }
+                }*/
                 Recycle(rootId);
             }
 
@@ -219,21 +257,28 @@ namespace Limnova
 
                 // Connect to parent
                 node.Parent = parentId;
-                if (parent.FirstChild == NNull) {
-                    parent.FirstChild = nodeId;
-                    node.PrevSibling = node.NextSibling = nodeId;
-                }
-                else {
+                if (parent.FirstChild != NNull) {
                     // Connect to siblings
-                    auto& next = m_Nodes[parent.FirstChild];
-                    auto& prev = m_Nodes[next.PrevSibling];
-
                     node.NextSibling = parent.FirstChild;
-                    node.PrevSibling = next.PrevSibling;
-
-                    next.PrevSibling = nodeId;
-                    prev.NextSibling = nodeId;
+                    m_Nodes[parent.FirstChild].PrevSibling = nodeId;
                 }
+                parent.FirstChild = nodeId;
+
+                //if (parent.FirstChild == NNull) {
+                //    parent.FirstChild = nodeId;
+                //    node.PrevSibling = node.NextSibling = nodeId;
+                //}
+                //else {
+                //    // Connect to siblings
+                //    auto& next = m_Nodes[parent.FirstChild];
+                //    auto& prev = m_Nodes[next.PrevSibling];
+
+                //    node.NextSibling = parent.FirstChild;
+                //    node.PrevSibling = next.PrevSibling;
+
+                //    next.PrevSibling = nodeId;
+                //    prev.NextSibling = nodeId;
+                //}
 
                 m_Heights[nodeId] = m_Heights[parentId] + 1;
             }
@@ -245,19 +290,33 @@ namespace Limnova
 
                 // Disconnect from parent
                 if (parent.FirstChild == nodeId) {
-                    parent.FirstChild = node.NextSibling == nodeId ? NNull : node.NextSibling;
+                    parent.FirstChild = node.NextSibling;
                 }
                 node.Parent = NNull;
 
                 // Disconnect from siblings
-                if (node.NextSibling != nodeId)
-                {
-                    auto& next = m_Nodes[node.NextSibling];
-                    auto& prev = m_Nodes[node.PrevSibling];
-                    next.PrevSibling = node.PrevSibling;
-                    prev.NextSibling = node.NextSibling;
+                if (node.NextSibling != NNull) {
+                    m_Nodes[node.NextSibling].PrevSibling = node.PrevSibling;
+                }
+                if (node.PrevSibling != NNull) {
+                    m_Nodes[node.PrevSibling].NextSibling = node.NextSibling;
                 }
                 node.NextSibling = node.PrevSibling = NNull;
+
+                //if (parent.FirstChild == nodeId) {
+                //    parent.FirstChild = node.NextSibling == nodeId ? NNull : node.NextSibling;
+                //}
+                //node.Parent = NNull;
+
+                //// Disconnect from siblings
+                //if (node.NextSibling != nodeId)
+                //{
+                //    auto& next = m_Nodes[node.NextSibling];
+                //    auto& prev = m_Nodes[node.PrevSibling];
+                //    next.PrevSibling = node.PrevSibling;
+                //    prev.NextSibling = node.NextSibling;
+                //}
+                //node.NextSibling = node.PrevSibling = NNull;
 
                 m_Heights[nodeId] = -1;
             }
@@ -297,7 +356,7 @@ namespace Limnova
             TAttr& Get(TNodeId nodeId)
             {
                 LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node is missing requested attribute!");
-                return m_Attributes[m_NodeToAttr[nodeId]];
+                return m_Attributes.at(m_NodeToAttr.at(nodeId));
             }
 
             TAttr& GetOrAdd(TNodeId nodeId)
@@ -309,14 +368,14 @@ namespace Limnova
             void Remove(TNodeId nodeId)
             {
                 LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node does not have the attribute to remove!");
-                Recycle(m_NodeToAttr[nodeId]);
+                Recycle(m_NodeToAttr.at(nodeId));
                 m_NodeToAttr.erase(nodeId);
             }
 
             void TryRemove(TNodeId nodeId)
             {
                 if (m_NodeToAttr.contains(nodeId)) {
-                    Recycle(m_NodeToAttr[nodeId]);
+                    Recycle(m_NodeToAttr.at(nodeId));
                     m_NodeToAttr.erase(nodeId);
                 }
             }
@@ -324,7 +383,7 @@ namespace Limnova
             TAttr& operator[](TNodeId nodeId)
             {
                 LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node is missing requested attribute!");
-                return m_Attributes[m_NodeToAttr.at(nodeId)];
+                return m_Attributes.at(m_NodeToAttr.at(nodeId));
             }
         private:
             TAttrId GetEmpty()
@@ -364,10 +423,11 @@ namespace Limnova
     private:
         class LSpaceNode;
 
-        class Object;
-        class LocalSpace;
-        class Elements;
-        class Dynamics;
+        struct Object;
+        struct LocalSpace;
+        struct Elements;
+        struct Dynamics;
+        struct Integration;
     public:
         class ObjectNode
         {
@@ -416,7 +476,6 @@ namespace Limnova
             ObjectNode PrimaryObj() const { return m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetParent(m_NodeId)].Primary.ParentObj(); }
             LSpaceNode InfluenceLsp() const { return m_Ctx->m_Objects[m_NodeId].Influence; }
 
-
             Vector3 LocalPositionFromPrimary() const
             {
                 return m_Ctx->m_Objects[m_NodeId].State.Position +
@@ -426,15 +485,11 @@ namespace Limnova
             size_t GetLocalSpaces(::std::vector<LSpaceNode>& lspNodes) const
             {
                 size_t numChildren = 0;
-                TNodeId first = m_Ctx->m_Tree[m_NodeId].FirstChild;
-                if (first != OrbitalPhysics::NNull) {
-                    TNodeId child = first;
-                    do {
-                        numChildren++;
-                        lspNodes.emplace_back(child);
-                        child = m_Ctx->m_Tree[child].NextSibling;
-                        LV_CORE_ASSERT(child != OrbitalPhysics::NNull, "Sibling linked-list is broken!");
-                    } while (child != first);
+                TNodeId child = m_Ctx->m_Tree[m_NodeId].FirstChild;
+                while (child != OrbitalPhysics::NNull) {
+                    numChildren++;
+                    lspNodes.emplace_back(child);
+                    child = m_Ctx->m_Tree[child].NextSibling;
                 }
                 return numChildren;
             }
@@ -504,10 +559,7 @@ namespace Limnova
 
             LSpaceNode AddLocalSpace(float radius = kDefaultLSpaceRadius)
             {
-                LSpaceNode newLspNode = NewLSpaceNode(*this);
-                newLspNode.SetRadius(radius);
-                LV_CORE_ASSERT(false, "TODO: set Primary");
-                return newLspNode;
+                return NewLSpaceNode(*this, radius);
             }
         private:
             operator TNodeId() const { return m_NodeId; }
@@ -561,15 +613,11 @@ namespace Limnova
             size_t GetLocalObjects(std::vector<ObjectNode>& objNodes) const
             {
                 size_t numChildren = 0;
-                TNodeId first = m_Ctx->m_Tree[m_NodeId].FirstChild;
-                if (first != OrbitalPhysics::NNull) {
-                    TNodeId child = first;
-                    do {
-                        numChildren++;
-                        objNodes.emplace_back(child);
-                        child = m_Ctx->m_Tree[child].NextSibling;
-                        LV_CORE_ASSERT(child != OrbitalPhysics::NNull, "Sibling linked-list is broken!");
-                    } while (child != first);
+                TNodeId child = m_Ctx->m_Tree[m_NodeId].FirstChild;
+                while (child != OrbitalPhysics::NNull) {
+                    numChildren++;
+                    objNodes.emplace_back(child);
+                    child = m_Ctx->m_Tree[child].NextSibling;
                 }
                 return numChildren;
             }
@@ -583,21 +631,13 @@ namespace Limnova
 
             Vector3 LocalOffsetFromPrimary() const
             {
-                return LocalOffsetFromPrimary(m_NodeId, m_Ctx->m_LSpaces[m_NodeId].Primary.Id());
+                return LocalOffsetFromPrimary(m_NodeId, m_Ctx->m_LSpaces[m_NodeId].Primary.m_NodeId);
             }
 
             void SetRadius(float radius) const
             {
-                LV_CORE_ASSERT(!m_Ctx->m_LSpaces[m_NodeId].Influencing, "Cannot set radius of influencing local spaces!");
-                LV_CORE_ASSERT(m_NodeId != kRootLspId, "Cannot set radius of root local space! (See OrbitalPhysics::SetRootSpaceScaling())");
-                LV_CORE_ASSERT(radius < kMaxLSpaceRadius + kEpsLSpaceRadius &&
-                    radius > kMinLSpaceRadius - kEpsLSpaceRadius, "Attempted to set invalid radius!");
-
-                m_Ctx->m_LSpaces[m_NodeId].Radius = radius;
-                m_Ctx->m_LSpaces[m_NodeId].MetersPerRadius = (double)radius * (Height() == 1
-                    ? GetRootLSpaceNode().LSpace().MetersPerRadius
-                    : m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetGrandparent(m_NodeId)].MetersPerRadius);
-                SubtreeCascadeAttributeChanges(m_NodeId);
+                LV_CORE_ASSERT(!IsSphereOfInfluence(), "Cannot set radius of sphere of influence!");
+                SetRadiusImpl(radius);
             }
 
             /// <summary>
@@ -610,7 +650,7 @@ namespace Limnova
                     radius < kMaxLSpaceRadius + kEpsLSpaceRadius &&
                     radius > kMinLSpaceRadius - kEpsLSpaceRadius)
                 {
-                    SetRadius(radius);
+                    SetRadiusImpl(radius);
                     return true;
                 }
                 LV_CORE_ASSERT(!m_Ctx->m_LSpaces[m_NodeId].Influencing, "Local-space radius of influencing entities cannot be manually set (must be set equal to radius of influence)!");
@@ -632,6 +672,91 @@ namespace Limnova
                 return (m_Ctx->m_Objects[lspParentObjId].State.Position +
                     LocalOffsetFromPrimary(m_Ctx->m_Tree[lspParentObjId].Parent, primaryLspId))
                     / m_Ctx->m_LSpaces[lspId].Radius;
+            }
+
+            /// <summary>
+            /// Internal function allows setting radius on sphere of influence
+            /// </summary>
+            void SetRadiusImpl(float radius) const
+            {
+                auto& node = m_Ctx->m_Tree[m_NodeId];
+                auto& lsp = m_Ctx->m_LSpaces[m_NodeId];
+
+                LV_CORE_ASSERT(m_NodeId != kRootLspId, "Cannot set radius of root local space! (See OrbitalPhysics::SetRootSpaceScaling())");
+                LV_CORE_ASSERT(radius < kMaxLSpaceRadius + kEpsLSpaceRadius &&
+                    radius > kMinLSpaceRadius - kEpsLSpaceRadius, "Attempted to set invalid radius!");
+
+                float rescaleFactor = lsp.Radius / radius;
+
+                // Update local space dimensions
+                lsp.Radius = radius;
+                lsp.MetersPerRadius = (double)radius * (Height() == 1
+                    ? GetRootLSpaceNode().LSpace().MetersPerRadius
+                    : m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetGrandparent(m_NodeId)].MetersPerRadius);
+
+                // Move child objects to next-higher/-lower space as necessary
+                std::vector<ObjectNode> childObjs = {};
+                GetLocalObjects(childObjs);
+
+                LSpaceNode prevLspNode = { node.PrevSibling };
+                bool promoteAll = !prevLspNode.IsNull() && radius > prevLspNode.LSpace().Radius;
+
+                for (auto objNode : childObjs) {
+                    objNode.Object().State.Position *= rescaleFactor;
+                    objNode.Object().State.Velocity *= rescaleFactor;
+
+                    if (promoteAll ||
+                        sqrtf(objNode.Object().State.Position.SqrMagnitude()) > kLocalSpaceEscapeRadius)
+                    {
+                        PromoteObjectNode(objNode); /* "promoting" still works because we haven't yet re-sorted the local space amongst its siblings */
+                    }
+                    else {
+                        ComputeStateValidity(objNode);
+                        TryComputeAttributes(objNode);
+                        SubtreeCascadeAttributeChanges(objNode.Id());
+                    }
+                }
+
+                // Resort the local space in its sibling linked-list
+                if (rescaleFactor < 1.f) {
+                    // Radius increased: sort node left-wards
+                    while (!prevLspNode.IsNull()) {
+                        if (radius > prevLspNode.LSpace().Radius) {
+                            m_Ctx->m_Tree.SwapWithPrevSibling(m_NodeId);
+                            prevLspNode = { node.PrevSibling };
+                        }
+                        else break;
+                    }
+                }
+                else {
+                    // Radius decreased: sort node right-wards
+                    LSpaceNode nextLspNode = { node.NextSibling };
+                    while (!nextLspNode.IsNull()) {
+                        if (radius < nextLspNode.LSpace().Radius) {
+                            m_Ctx->m_Tree.SwapWithNextSibling(m_NodeId);
+                            nextLspNode = { node.NextSibling };
+                        }
+                        else break;
+                    }
+                }
+
+                // Adopt any child objects from the new next-higher local space
+                LSpaceNode nextHigherSpace = NextHigherLSpace();
+                childObjs.clear();
+                nextHigherSpace.GetLocalObjects(childObjs);
+                bool nextHigherIsSibling = nextHigherSpace.m_NodeId == node.PrevSibling;
+                float radiusInPrev = lsp.Radius / nextHigherSpace.LSpace().Radius;
+                Vector3 const& lspPos = ParentObj().Object().State.Position;
+                for (auto objNode : childObjs)
+                {
+                    if ((nextHigherIsSibling && sqrtf(objNode.Object().State.Position.SqrMagnitude()) < radiusInPrev) ||
+                        (!nextHigherIsSibling && sqrtf((objNode.Object().State.Position - lspPos).SqrMagnitude()) < lsp.Radius))
+                    {
+                        // TODO : capture object
+                    }
+                }
+
+                SubtreeCascadeAttributeChanges(m_NodeId);
             }
         };
 
@@ -664,7 +789,6 @@ namespace Limnova
             Vector3d Acceleration = { 0.0 };
         };
 
-    private:
         struct Integration
         {
             enum class Method {
@@ -672,12 +796,15 @@ namespace Limnova
                 Linear = 1
             };
 
+            Method Method = Method::Angular; /* set to Angular by default in TryComputeAttributes() anyway */
+        private:
+            friend class OrbitalPhysics;
+
             double PrevDT = 0.0;
             double UpdateTimer = 0.0;
             float DeltaTrueAnomaly = 0.f;
 
             ObjectNode UpdateNext = {};
-            Method Method = Method::Angular; /* set to Angular by default in TryComputeAttributes() anyway */
         };
 
         /*** Attributes ***/
@@ -686,15 +813,12 @@ namespace Limnova
         {
             Validity Validity = Validity::InvalidParent;
             State State;
-            LSpaceNode Influence = {}; /* Local space node representing this object's sphere of influence: Null if object is not influencing */
-
-        private:
-            friend class OrbitalPhysics;
-
             Integration Integration;
+
+            LSpaceNode Influence = {}; /* Local space node representing this object's sphere of influence: Null if object is not influencing */
         };
 
-        class LocalSpace
+        struct LocalSpace
         {
         public:
             float Radius = 0.f; /* Measured in parent's influence */
@@ -759,16 +883,30 @@ namespace Limnova
             m_Ctx->m_Tree.Remove(objNode.Id());
         }
 
+        static void RescaleLocalSpaces(ObjectNode objNode, float rescalingFactor)
+        {
+            double const& parentLspMetersPerRadius = objNode.ParentLsp().LSpace().MetersPerRadius;
+            std::vector<LSpaceNode> lspNodes = {};
+            objNode.GetLocalSpaces(lspNodes);
+            for (auto lspNode : lspNodes)
+            {
+                auto& lsp = lspNode.LSpace();
+                lsp.Radius *= rescalingFactor;
+                lsp.MetersPerRadius = parentLspMetersPerRadius * (double)lsp.Radius;
+            }
+        }
+
         /// <summary>
-        /// Moves object from its current local space to the next higher local space, recomputing relative position to preserve absolute position.
+        /// Moves object from its current local space to the next-higher local space, recomputing relative position to preserve absolute position.
         /// </summary>
         static void PromoteObjectNode(ObjectNode objNode)
         {
             LSpaceNode oldLspNode = objNode.ParentLsp();
+            LV_CORE_ASSERT(!oldLspNode.IsRoot(), "Cannot promote objects in the root local space!");
             LSpaceNode newLspNode = oldLspNode.NextHigherLSpace();
 
+            float rescalingFactor;
             Object& obj = objNode.Object();
-            float rescalingFactor = 1.f;
             if (oldLspNode.IsHighestLSpaceOnObject()) {
                 rescalingFactor = oldLspNode.LSpace().Radius;
                 obj.State.Position = (obj.State.Position * rescalingFactor) + oldLspNode.ParentObj().Object().State.Position;
@@ -780,27 +918,62 @@ namespace Limnova
                 obj.State.Velocity = obj.State.Velocity * (double)rescalingFactor;
             }
 
-            // TODO : rescale non-influencing local spaces ?
-            // 
-            //std::vector<LSpaceNode> localSpaces = {};
-            //size_t numLsps = m_UpdateQueueFront.GetLocalSpaces(localSpaces);
-            //for (size_t i = 0; i < numLsps; i++) {
-            //    if (localSpaces[i].LSpace().Influencing) break;
-            //    localSpaces[i].LSpace().Radius *= rescalingFactor; /* preserves absolute radius of local space */
-            //}
-
             m_Ctx->m_Tree.Move(objNode.Id(), newLspNode.Id());
+
+            RescaleLocalSpaces(objNode, rescalingFactor);
 
             ComputeStateValidity(objNode);
             TryComputeAttributes(objNode);
             SubtreeCascadeAttributeChanges(objNode.Id());
         }
 
-        static LSpaceNode NewLSpaceNode(ObjectNode parentNode)
+        /// <summary>
+        /// Moves object to a lower local space which is attached to another object in the same current local space.
+        /// </summary>
+        static void DemoteObjectNode(LSpaceNode newLspNode, ObjectNode objNode)
         {
-            TNodeId newNodeId = m_Ctx->m_Tree.New(parentNode.Id());
-            m_Ctx->m_LSpaces.Add(newNodeId);
-            return LSpaceNode{ newNodeId };
+            LV_CORE_ASSERT(newLspNode.ParentLsp() == objNode.ParentLsp(), "The given local space is not in the same local space as the given object!");
+
+            float rescalingFactor = 1.f / newLspNode.LSpace().Radius;
+
+            auto const& parentObj = newLspNode.ParentObj().Object();
+            auto& obj = objNode.Object();
+            obj.State.Position = (obj.State.Position - parentObj.State.Position) * rescalingFactor;
+            obj.State.Velocity = (obj.State.Velocity - parentObj.State.Velocity) * rescalingFactor;
+
+            m_Ctx->m_Tree.Move(objNode.Id(), newLspNode.Id());
+
+            RescaleLocalSpaces(objNode, rescalingFactor);
+        }
+
+        /// <summary>
+        /// Moves object to the next-lower local space attached to the same object as the current local space.
+        /// </summary>
+        /// <param name="objNode"></param>
+        static void DemoteObjectNode(ObjectNode objNode)
+        {
+            LSpaceNode lspNode = objNode.ParentLsp();
+            LSpaceNode newLspNode = { lspNode.Node().NextSibling };
+            LV_CORE_ASSERT(!newLspNode.IsNull(), "There is no next-lower local space!");
+
+            float rescalingFactor = lspNode.LSpace().Radius / newLspNode.LSpace().Radius;
+
+            auto& obj = objNode.Object();
+            obj.State.Position *= rescalingFactor;
+            obj.State.Velocity *= rescalingFactor;
+
+            m_Ctx->m_Tree.Move(objNode.Id(), newLspNode.Id());
+
+            RescaleLocalSpaces(objNode, rescalingFactor);
+        }
+
+        static LSpaceNode NewLSpaceNode(ObjectNode parentNode, float radius = kDefaultLSpaceRadius)
+        {
+            TNodeId newLspNodeId = { m_Ctx->m_Tree.New(parentNode.Id()) };
+            m_Ctx->m_LSpaces.Add(newLspNodeId);
+            LSpaceNode newLspNode = { newLspNodeId };
+            newLspNode.SetRadius(radius);
+            return newLspNode;
         }
 
         static void RemoveLSpaceNode(LSpaceNode lspNode)
@@ -941,39 +1114,26 @@ namespace Limnova
              * so the order of ROI is determined by (m / M)^0.4 */
             static constexpr double kMinimumMassFactor = 1e-4; // TODO : test for optimal values
             double massFactor = pow(obj.State.Mass / objNode.PrimaryObj().Object().State.Mass, 0.4);
-            if (massFactor > kMinimumMassFactor) {
-                LSpaceNode lspNode = obj.Influence.IsNull() ? NewLSpaceNode(objNode) : (LSpaceNode)obj.Influence;
-                obj.Influence = lspNode;
+            if (massFactor > kMinimumMassFactor)
+            {
+                float radiusOfInfluence = objNode.Elements().SemiMajor * (float)massFactor;
+                if (obj.Influence.IsNull())
+                {
+                    LSpaceNode lspNode = NewLSpaceNode(objNode, radiusOfInfluence);
+                    LocalSpace& lsp = lspNode.LSpace();
+                    lsp.Influencing = true;
+                    lsp.Primary = lspNode; /* an influencing local space must be its own primary */
 
-                LocalSpace& lsp = lspNode.LSpace();
-                lsp.Influencing = true;
-                lsp.Primary = lspNode; /* an influencing local space must be its own primary */
-
-                lsp.Radius = objNode.Elements().SemiMajor * massFactor;
-                lsp.MetersPerRadius = objNode.ParentLsp().LSpace().MetersPerRadius * (double)lsp.Radius;
-                SubtreeCascadeAttributeChanges(lspNode.Id());
-
-                // TODO : handle non-influencing sibling LSpaces!
+                    obj.Influence = lspNode;
+                }
+                else {
+                    obj.Influence.SetRadiusImpl(radiusOfInfluence);
+                }
             }
             else if (!obj.Influence.IsNull()) {
-                // Object was previously influencing
-                RemoveLSpaceNode(obj.Influence);
-
-                // TODO : handle sibling LSpaces!
-
-                /* LSpaceNode subInflNode = inflNode;
-                if (inflNode.Node().FirstChild == NNull) {
-                    subInflNode = LSpaceNode{ inflNode.Node().NextSibling };
-                    RemoveLSpaceNode(inflNode);
-                }
-                while (!subInflNode.IsNull()) {
-                    subInflNode.LSpace().Influencing = false;
-                    subInflNode.Primary = objNode.PrimaryLsp();
-                    SubtreeCascadeAttributeChanges(subInflNode.Id());
-                    subInflNode = LSpaceNode{ subInflNode.Node().NextSibling };
-                }*/
-
-                obj.Influence = LSpaceNode::NNull();
+                // Object was previously influencing - remove old sphere of influence
+                CollapseLocalSpace(obj.Influence);
+                obj.Influence = { NNull };
             }
         }
 
@@ -1146,7 +1306,7 @@ namespace Limnova
         inline static double ComputeObjDT(double velocityMagnitude, double minDT = kDefaultMinDT)
         {
             if (velocityMagnitude > 0) {
-                return std::max(kMinUpdateDistanced / velocityMagnitude, minDT);
+                return std::max(kMaxUpdateDistanced / velocityMagnitude, minDT);
             }
             return minDT;
         }
@@ -1459,7 +1619,7 @@ namespace Limnova
                     }
 
                     // Recheck integration method choice
-                    objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT); //std::max(kMinUpdateDistanced / sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
+                    objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
                     if (!isDynamicallyAccelerating)
                     {
                         obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / positionFromPrimary.SqrMagnitude();
@@ -1665,6 +1825,21 @@ namespace Limnova
             }
 
             RemoveObjectNode(objNode);
+        }
+
+        /// <summary>
+        /// Deletes a local space, moving any objects within to the next higher local space such that their absolute positions/velocities are preserved.
+        /// </summary>
+        /// <param name="lspNode"></param>
+        static void CollapseLocalSpace(LSpaceNode lspNode)
+        {
+            std::vector<ObjectNode> localObjs = {};
+            lspNode.GetLocalObjects(localObjs);
+            for (auto objNode : localObjs) {
+                PromoteObjectNode(objNode);
+            }
+            LV_CORE_ASSERT(m_Ctx->m_Tree[lspNode.m_NodeId].FirstChild == OrbitalPhysics::NNull, "Failed to remove all children!");
+            RemoveLSpaceNode(lspNode);
         }
 
 

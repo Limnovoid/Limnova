@@ -837,6 +837,7 @@ namespace Limnova
 
 #ifdef LV_EDITOR_USE_ORBITAL
         m_ActiveScene = OrbitalScene::Copy(m_EditorScene);
+
     #if defined(LV_DEBUG) && defined(TEMP_EXCLUDE)
         size_t numObjs = m_ActiveScene->GetPhysicsStats().ObjStats.size();
         m_ObjectUpdates.clear();
@@ -862,7 +863,9 @@ namespace Limnova
         m_ActiveScene->OnStopRuntime();
 
         m_ActiveScene = m_EditorScene;
+
         m_SceneHierarchyPanel.SetContext(m_EditorScene.get());
+        m_EditorScene->PhysicsUseContext();
     }
 
 

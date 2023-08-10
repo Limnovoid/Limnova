@@ -55,6 +55,9 @@ namespace Limnova
         // Copy OrbitalPhysics
         newScene->m_Physics = scene->m_Physics;
         newScene->PhysicsUseContext();
+
+        newScene->CopyAllOfComponent<OrbitalHierarchyComponent>(scene->m_Registry);
+
         /* Suspend OrbitalComponent dependencies while copying, to avoid creating unnecessary physics objects */
         newScene->m_Registry.on_construct<OrbitalComponent>().disconnect<&OrbitalScene::OnOrbitalComponentConstruct>(newScene.get());
         newScene->CopyAllOfComponent<OrbitalComponent>(scene->m_Registry);
@@ -307,6 +310,8 @@ namespace Limnova
     void OrbitalScene::OnStartRuntime()
     {
         Scene::OnStartRuntime();
+
+        PhysicsUseContext();
     }
 
 
@@ -414,7 +419,8 @@ namespace Limnova
             viewSpaceTransf = viewSpaceTransf * Quaternion(Vector3::X(), -PIover2f);
             viewSpaceTransf = glm::scale((glm::mat4)viewSpaceTransf, glm::vec3(2.f));
             float lsThickness = m_LocalSpaceThickness * cameraDistance;
-            Renderer2D::DrawCircle(viewSpaceTransf, m_LocalSpaceColor, lsThickness, 0);
+            Vector4 lsColor = m_ViewLSpace.IsInfluencing() ? m_InfluencingSpaceColor : m_LocalSpaceColor;
+            Renderer2D::DrawCircle(viewSpaceTransf, lsColor, lsThickness, 0);
         }
 
         float orbitDrawingThickness = m_OrbitThickness * cameraDistance;
@@ -460,7 +466,8 @@ namespace Limnova
                 lsTransform = glm::scale((glm::mat4)lsTransform, glm::vec3(lsRadius));
 
                 float lsThickness = m_LocalSpaceThickness * cameraDistance / lsRadius;
-                Renderer2D::DrawCircle(lsTransform, m_LocalSpaceColor, lsThickness, m_LocalSpaceFade, editorPickingId);
+                Vector4 lsColor = lspNode.IsInfluencing() ? m_InfluencingSpaceColor : m_LocalSpaceColor;
+                Renderer2D::DrawCircle(lsTransform, lsColor, lsThickness, m_LocalSpaceFade, editorPickingId);
             }
 
             // Perifocal frame
