@@ -510,9 +510,9 @@ namespace Limnova
                     LimnGui::InputConfig<float> config;
                     config.Speed = 0.0001f;
                     config.Precision = 4;
-                    config.Min = 0.01f;
-                    config.Max = 2.f;
-                    config.WidgetId = l;
+                    config.Min = OrbitalPhysics::kMinLSpaceRadius;
+                    config.Max = OrbitalPhysics::kMaxLSpaceRadius;
+                    config.WidgetId = lspNode.Id();
                     if (LimnGui::DragFloat("Radius", localSpaceRadius, config, 100.f)) {
                         lspNode.SetRadius(localSpaceRadius);
                         lspacesChanged = true;

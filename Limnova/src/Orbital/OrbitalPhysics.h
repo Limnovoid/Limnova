@@ -11,7 +11,7 @@ namespace Limnova
     public:
         OrbitalPhysics() = delete;
 
-    private:
+    public:
         /* Basis of the reference frame: the XY-plane represents the orbital plane of the system which has the root object as its primary */
         static constexpr Vector3 kReferenceX        = { 1.f, 0.f, 0.f };
         static constexpr Vector3 kReferenceY        = { 0.f, 0.f,-1.f };
@@ -28,7 +28,7 @@ namespace Limnova
         static constexpr float kEccentricityEpsilon = 1e-4f;
 
         static constexpr float kMaxLSpaceRadius = 0.2f;
-        static constexpr float kMinLSpaceRadius = 0.01f;
+        static constexpr float kMinLSpaceRadius = 0.004f;
         static constexpr float kEpsLSpaceRadius = 1e-6f;
 
         static constexpr float kMaxObjectUpdates = 20.f; /* highest number of updates each object is allowed before the total number of updates (across all objects) in a single frame becomes too high (resulting in unacceptable FPS drops) */
@@ -126,6 +126,8 @@ namespace Limnova
                 LV_CORE_ASSERT(Has(m_Nodes[nodeId].PrevSibling), "Invalid node ID!");
                 auto& node = m_Nodes[nodeId];
                 auto& prev = m_Nodes[node.PrevSibling];
+                auto& parent = m_Nodes[node.Parent];
+                if (parent.FirstChild == node.PrevSibling) { parent.FirstChild = nodeId; }
                 prev.NextSibling = node.NextSibling;
                 node.NextSibling = node.PrevSibling;
                 node.PrevSibling = prev.PrevSibling;
@@ -138,6 +140,8 @@ namespace Limnova
                 LV_CORE_ASSERT(Has(m_Nodes[nodeId].NextSibling), "Invalid node ID!");
                 auto& node = m_Nodes[nodeId];
                 auto& next = m_Nodes[node.NextSibling];
+                auto& parent = m_Nodes[node.Parent];
+                if (parent.FirstChild == nodeId) { parent.FirstChild = node.NextSibling; }
                 next.PrevSibling = node.PrevSibling;
                 node.PrevSibling = node.NextSibling;
                 node.NextSibling = next.NextSibling;
@@ -749,10 +753,13 @@ namespace Limnova
                 Vector3 const& lspPos = ParentObj().Object().State.Position;
                 for (auto objNode : childObjs)
                 {
-                    if ((nextHigherIsSibling && sqrtf(objNode.Object().State.Position.SqrMagnitude()) < radiusInPrev) ||
-                        (!nextHigherIsSibling && sqrtf((objNode.Object().State.Position - lspPos).SqrMagnitude()) < lsp.Radius))
-                    {
-                        // TODO : capture object
+                    if (objNode.m_NodeId == m_Ctx->m_Tree[m_NodeId].Parent) continue; /* skip parent object */
+
+                    if (nextHigherIsSibling && sqrtf(objNode.Object().State.Position.SqrMagnitude()) < radiusInPrev) {
+                        DemoteObjectNode(objNode);
+                    }
+                    else if (!nextHigherIsSibling && sqrtf((objNode.Object().State.Position - lspPos).SqrMagnitude()) < lsp.Radius) {
+                        DemoteObjectNode(*this, objNode);
                     }
                 }
 
@@ -970,7 +977,7 @@ namespace Limnova
         static LSpaceNode NewLSpaceNode(ObjectNode parentNode, float radius = kDefaultLSpaceRadius)
         {
             TNodeId newLspNodeId = { m_Ctx->m_Tree.New(parentNode.Id()) };
-            m_Ctx->m_LSpaces.Add(newLspNodeId);
+            m_Ctx->m_LSpaces.Add(newLspNodeId).Radius = 1.f;
             LSpaceNode newLspNode = { newLspNodeId };
             newLspNode.SetRadius(radius);
             return newLspNode;
