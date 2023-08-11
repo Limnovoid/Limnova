@@ -508,7 +508,8 @@ namespace Limnova
                 oc.Object.SetPosition(     oNode["Position"].as<Vector3>());
                 oc.Object.SetVelocity(     oNode["Velocity"].as<Vector3d>());
             }
-            auto localSpaceRadiiNode = entityNode["LocalSpaceRadii"];
+
+            auto localSpaceRadiiNode = oNode["LocalSpaceRadii"];
             for (size_t i = 0; i < localSpaceRadiiNode.size(); i++) {
                 oc.Object.AddLocalSpace(localSpaceRadiiNode[i].as<float>());
             }

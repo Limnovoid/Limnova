@@ -128,6 +128,8 @@ namespace Limnova
                 auto& prev = m_Nodes[node.PrevSibling];
                 auto& parent = m_Nodes[node.Parent];
                 if (parent.FirstChild == node.PrevSibling) { parent.FirstChild = nodeId; }
+                if (prev.PrevSibling != NNull) { m_Nodes[prev.PrevSibling].NextSibling = nodeId; }
+                if (node.NextSibling != NNull) { m_Nodes[node.NextSibling].PrevSibling = node.PrevSibling; }
                 prev.NextSibling = node.NextSibling;
                 node.NextSibling = node.PrevSibling;
                 node.PrevSibling = prev.PrevSibling;
@@ -142,6 +144,8 @@ namespace Limnova
                 auto& next = m_Nodes[node.NextSibling];
                 auto& parent = m_Nodes[node.Parent];
                 if (parent.FirstChild == nodeId) { parent.FirstChild = node.NextSibling; }
+                if (next.NextSibling != NNull) { m_Nodes[next.NextSibling].PrevSibling = nodeId; }
+                if (node.PrevSibling != NNull) { m_Nodes[node.PrevSibling].NextSibling = node.NextSibling; }
                 next.PrevSibling = node.PrevSibling;
                 node.PrevSibling = node.NextSibling;
                 node.NextSibling = next.NextSibling;

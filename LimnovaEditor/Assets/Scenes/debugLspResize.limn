@@ -1,0 +1,74 @@
+OrbitalScene: Untitled
+LocalSpaceColor: [1, 1, 1, 0.300000012]
+LocalSpaceThickness: 0.00300000003
+LocalSpaceFade: 0.00600000005
+ShowViewSpace: true
+OrbitThickness: 0.00600000005
+OrbitFade: 0
+OrbitAlpha: 0.400000006
+OrbitPointRadius: 0.00999999978
+ShowReferenceAxes: true
+ReferenceAxisColor: [1, 1, 1, 0.200000003]
+ReferenceAxisLength: 0.400000006
+ReferenceAxisThickness: 0.00600000005
+ReferenceAxisArrowSize: 0.0240000002
+PerifocalAxisThickness: 0.00100000005
+PerifocalAxisArrowSize: 0.00499999989
+TrackingEntity: 3991604775407627372
+ViewSpace: 0
+RootScaling: 1
+Entities:
+  - Entity: 3991604775407627372
+    TagComponent:
+      Tag: Root
+    HierarchyComponent:
+      Parent: 0
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.100000001, 0.100000001, 0.100000001]
+    BillboardCircleRendererComponent:
+      Color: [1, 0.953505099, 0.914691925, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [0.10000000000000001, 0.10000000000000001, 0.10000000000000001]
+      LocalSpace: -1
+    OrbitalComponent:
+      UIColor: [1, 1, 1]
+      Albedo: 0
+      ShowMajorMinorAxes: false
+      ShowNormal: false
+      Mass: 1
+      LocalSpaceRadii:
+        []
+  - Entity: 14459431121056359079
+    TagComponent:
+      Tag: Root child
+    HierarchyComponent:
+      Parent: 3991604775407627372
+    TransformComponent:
+      Position: [0.5, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.00100000005, 0.00100000005, 0.00100000005]
+    BillboardCircleRendererComponent:
+      Color: [0, 0.729857922, 1, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [0.001, 0.001, 0.001]
+      LocalSpace: -1
+    OrbitalComponent:
+      UIColor: [0, 0.729857922, 1]
+      Albedo: 0
+      ShowMajorMinorAxes: false
+      ShowNormal: true
+      Mass: 0.0001
+      Dynamic: false
+      Position: [0.5, 0, 0]
+      Velocity: [0, 0, -1.1553614153155712e-05]
+      LocalSpaceRadii:
+        - 0.0241
+        - 0.00590000022

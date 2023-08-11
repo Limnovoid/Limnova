@@ -501,7 +501,8 @@ namespace Limnova
 
                     auto lspNode = orbital.LocalSpaces[l];
                     bool isSoi = lspNode.IsSphereOfInfluence();
-                    if (isSoi) { ImGui::Text("Influencing"); }
+                    if (isSoi) { ImGui::Text("Sphere of Influence"); }
+                    else if (lspNode.IsInfluencing()) { ImGui::Text("Influencing"); }
                     else { ImGui::Text("Non-influencing"); }
 
                     ImGui::BeginDisabled(isSoi);
@@ -545,9 +546,7 @@ namespace Limnova
                 }
 
                 if (ImGui::Button("Add")) {
-                    float radius = orbital.LocalSpaces.size() == 0 ? 0.1f
-                        : orbital.LocalSpaces.back().GetLSpace().Radius * 0.8f;
-                    orbital.Object.AddLocalSpace(radius);
+                    orbital.Object.AddLocalSpace();
                     lspacesChanged = true;
                 }
 
@@ -555,7 +554,7 @@ namespace Limnova
 
                 if (lspacesChanged) {
                     orbital.LocalSpaces.clear();
-                    orbital.Object.GetLocalSpaces(orbital.LocalSpaces); /* ordering may change */
+                    orbital.Object.GetLocalSpaces(orbital.LocalSpaces); /* ordering may have changed */
                 }
             }
 
