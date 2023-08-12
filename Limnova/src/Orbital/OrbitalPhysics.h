@@ -482,12 +482,18 @@ namespace Limnova
 
             LSpaceNode PrimaryLsp() const { return m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetParent(m_NodeId)].Primary; }
             ObjectNode PrimaryObj() const { return m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetParent(m_NodeId)].Primary.ParentObj(); }
-            LSpaceNode InfluenceLsp() const { return m_Ctx->m_Objects[m_NodeId].Influence; }
+            LSpaceNode SphereOfInfluence() const { return m_Ctx->m_Objects[m_NodeId].Influence; }
 
             Vector3 LocalPositionFromPrimary() const
             {
                 return m_Ctx->m_Objects[m_NodeId].State.Position +
                     LSpaceNode(m_Ctx->m_Tree[m_NodeId].Parent).LocalOffsetFromPrimary();
+            }
+
+            Vector3d LocalVelocityFromPrimary() const
+            {
+                LV_CORE_ASSERT(false, "TODO !!!");
+                return Vector3d::Zero();
             }
 
             size_t GetLocalSpaces(::std::vector<LSpaceNode>& lspNodes) const
@@ -668,8 +674,8 @@ namespace Limnova
         private:
             operator TNodeId() const { return m_NodeId; }
         public:
-            bool operator==(ObjectNode const& rhs) const { return this->m_NodeId == rhs.m_NodeId; }
-            bool operator!=(ObjectNode const& rhs) const { return this->m_NodeId != rhs.m_NodeId; }
+            bool operator==(LSpaceNode const& rhs) const { return this->m_NodeId == rhs.m_NodeId; }
+            bool operator!=(LSpaceNode const& rhs) const { return this->m_NodeId != rhs.m_NodeId; }
         private:
             Vector3 LocalOffsetFromPrimary(TNodeId lspId, TNodeId primaryLspId) const
             {
@@ -730,6 +736,7 @@ namespace Limnova
                     // Radius increased: sort node left-wards
                     while (!prevLspNode.IsNull()) {
                         if (radius > prevLspNode.LSpace().Radius) {
+                            if (prevLspNode.IsSphereOfInfluence()) { lsp.Influencing = false; }
                             m_Ctx->m_Tree.SwapWithPrevSibling(m_NodeId);
                             prevLspNode = { node.PrevSibling };
                         }
@@ -741,6 +748,7 @@ namespace Limnova
                     LSpaceNode nextLspNode = { node.NextSibling };
                     while (!nextLspNode.IsNull()) {
                         if (radius < nextLspNode.LSpace().Radius) {
+                            if (nextLspNode.IsSphereOfInfluence()) { lsp.Influencing = true; }
                             m_Ctx->m_Tree.SwapWithNextSibling(m_NodeId);
                             nextLspNode = { node.NextSibling };
                         }
@@ -1051,8 +1059,9 @@ namespace Limnova
         {
             static constexpr float kEscapeDistanceSqr = kLocalSpaceEscapeRadius * kLocalSpaceEscapeRadius;
 
-            return objNode.Object().State.Position.SqrMagnitude() < kEscapeDistanceSqr;
-                /* TODO - check for influence overlaps */;
+            float posMag = objNode.Object().State.Position.SqrMagnitude();
+            return posMag < kEscapeDistanceSqr;
+                /* TODO : check for influence overlaps */
         }
 
         static bool ValidMass(ObjectNode objNode)
@@ -1128,6 +1137,7 @@ namespace Limnova
             if (massFactor > kMinimumMassFactor)
             {
                 float radiusOfInfluence = objNode.Elements().SemiMajor * (float)massFactor;
+                LV_CORE_ASSERT(radiusOfInfluence > 0.f, "Invalid orbit for influencing object!");
                 if (obj.Influence.IsNull())
                 {
                     LSpaceNode lspNode = NewLSpaceNode(objNode, radiusOfInfluence);
@@ -1234,10 +1244,19 @@ namespace Limnova
             elems.Grav = kGravitational * objNode.PrimaryObj().Object().State.Mass * pow(lsp.MetersPerRadius, -3.0);
 
             Vector3 positionFromPrimary = objNode.LocalPositionFromPrimary();
+            // TODO : get local velocity relative to primary !!! (velocity may be zero relative to local parent, but non-zero relative to a non-local primary)
 
             Vector3d Hvec = Vector3d(positionFromPrimary).Cross(obj.State.Velocity);
             double H2 = Hvec.SqrMagnitude();
             elems.H = sqrt(H2);
+            if (elems.H == 0)
+            {
+                /* handle position or velocity being zero */
+                double grav = elems.Grav;
+                elems = Elements();
+                elems.Grav = grav;
+                return;
+            }
             elems.PerifocalNormal = (Vector3)(Hvec / elems.H);
 
             /* Loss of precision due to casting is acceptable: semi-latus rectum is on the order of 1 in all common cases, due to distance parameterisation */
@@ -1383,8 +1402,9 @@ namespace Limnova
             Vector3d vDir;
             Vector3 positionFromPrimary = localPosition + lspNode.LocalOffsetFromPrimary();
             float rMag = sqrtf(positionFromPrimary.SqrMagnitude());
-            Vector3 rDir = positionFromPrimary / rMag;
+            if (rMag == 0) { return Vector3d::Zero(); }
 
+            Vector3 rDir =  positionFromPrimary / rMag;
             float rDotNormal = rDir.Dot(kReferenceNormal);
             if (abs(rDotNormal) > kParallelDotProductLimit) {
                 /* Handle cases where the normal and position are parallel:

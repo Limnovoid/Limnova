@@ -196,7 +196,7 @@ namespace Limnova
 
     Entity OrbitalScene::GetViewPrimary()
     {
-        return Entity{ m_Entities[m_TrackingEntity], this };
+        return Entity{ m_PhysicsToEnttIds.at(m_ViewLSpace.ParentObj().Id()), this};
     }
 
 
@@ -401,7 +401,8 @@ namespace Limnova
         std::vector<OrbitalPhysics::ObjectNode> viewObjs;
         m_ViewLSpace.GetLocalObjects(viewObjs);
 
-        Vector3 viewCenter = GetComponent<TransformComponent>(m_PhysicsToEnttIds.at(viewParentObjNode.Id())).GetPosition();
+        Entity viewParent = { m_PhysicsToEnttIds.at(viewParentObjNode.Id()), this };
+        Vector3 viewCenter = viewParent.GetComponent<TransformComponent>().GetPosition();
         if (m_ShowReferenceAxes) {
             // X
             Renderer2D::DrawDashedArrow(viewCenter, viewCenter + (m_OrbitalReferenceX * m_ReferenceAxisLength),
@@ -413,14 +414,30 @@ namespace Limnova
             Renderer2D::DrawDashedArrow(viewCenter, viewCenter + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
                 m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize, 4.f, 2.f);
         }
-        if (m_ShowViewSpace)
+        /*if (m_ShowViewSpace)
         {
-            Matrix4 viewSpaceTransf = glm::translate(glm::mat4(1.f), (glm::vec3)(viewCenter));
+            Matrix4 viewSpaceTransf = glm::translate(glm::mat4(1.f), (glm::vec3)viewCenter);
             viewSpaceTransf = viewSpaceTransf * Quaternion(Vector3::X(), -PIover2f);
             viewSpaceTransf = glm::scale((glm::mat4)viewSpaceTransf, glm::vec3(2.f));
             float lsThickness = m_LocalSpaceThickness * cameraDistance;
-            Vector4 lsColor = m_ViewLSpace.IsInfluencing() ? m_InfluencingSpaceColor : m_LocalSpaceColor;
+            Vector4 lsColor = m_ViewLSpace.IsSphereOfInfluence() ? m_InfluencingSpaceColor : m_LocalSpaceColor;
             Renderer2D::DrawCircle(viewSpaceTransf, lsColor, lsThickness, 0);
+        }*/
+        auto& viewOc = viewParent.GetComponent<OrbitalComponent>();
+        size_t l = 0;
+        while (viewOc.LocalSpaces[l] != m_ViewLSpace) { l++; }
+
+        float viewSpaceScaling = 2.f / m_ViewLSpace.GetLSpace().Radius; /* x2 for radius --> diameter */
+        for (; l < viewOc.LocalSpaces.size(); l++) {
+            Matrix4 lsTransform = glm::translate(glm::mat4(1.f), (glm::vec3)viewCenter);
+            lsTransform = lsTransform * Quaternion(Vector3::X(), -PIover2f);
+
+            float lsRadius = viewOc.LocalSpaces[l].GetLSpace().Radius * viewSpaceScaling;
+            lsTransform = glm::scale((glm::mat4)lsTransform, glm::vec3(lsRadius));
+
+            float lsThickness = m_LocalSpaceThickness * cameraDistance / lsRadius;
+            Vector4 lsColor = viewOc.LocalSpaces[l].IsSphereOfInfluence() ? m_InfluencingSpaceColor : m_LocalSpaceColor;
+            Renderer2D::DrawCircle(lsTransform, lsColor, lsThickness, m_LocalSpaceFade);
         }
 
         float orbitDrawingThickness = m_OrbitThickness * cameraDistance;
@@ -466,7 +483,7 @@ namespace Limnova
                 lsTransform = glm::scale((glm::mat4)lsTransform, glm::vec3(lsRadius));
 
                 float lsThickness = m_LocalSpaceThickness * cameraDistance / lsRadius;
-                Vector4 lsColor = lspNode.IsInfluencing() ? m_InfluencingSpaceColor : m_LocalSpaceColor;
+                Vector4 lsColor = lspNode.IsSphereOfInfluence() ? m_InfluencingSpaceColor : m_LocalSpaceColor;
                 Renderer2D::DrawCircle(lsTransform, lsColor, lsThickness, m_LocalSpaceFade, editorPickingId);
             }
 

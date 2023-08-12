@@ -502,12 +502,12 @@ namespace Limnova
                 ? entity.GetComponent<OrbitalComponent>()
                 : entity.AddComponent<OrbitalComponent>();
 
-            oc.Object.SetMass(             oNode["Mass"].as<double>());
             if (!isRootEntity) {
                 oc.Object.SetDynamic(      oNode["Dynamic"].as<bool>());
                 oc.Object.SetPosition(     oNode["Position"].as<Vector3>());
                 oc.Object.SetVelocity(     oNode["Velocity"].as<Vector3d>());
             }
+            oc.Object.SetMass(             oNode["Mass"].as<double>());
 
             auto localSpaceRadiiNode = oNode["LocalSpaceRadii"];
             for (size_t i = 0; i < localSpaceRadiiNode.size(); i++) {

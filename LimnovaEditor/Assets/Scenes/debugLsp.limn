@@ -14,7 +14,7 @@ ReferenceAxisThickness: 0.00600000005
 ReferenceAxisArrowSize: 0.0240000002
 PerifocalAxisThickness: 0.00100000005
 PerifocalAxisArrowSize: 0.00499999989
-TrackingEntity: 3991604775407627372
+TrackingEntity: 14459431121056359079
 ViewSpace: 0
 RootScaling: 1
 Entities:
@@ -27,7 +27,7 @@ Entities:
       Position: [0, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0.100000001, 0.100000001, 0.100000001]
+      Scale: [0, 0, 0]
     BillboardCircleRendererComponent:
       Color: [1, 0.953505099, 0.914691925, 1]
       Thickness: 1
@@ -49,10 +49,10 @@ Entities:
     HierarchyComponent:
       Parent: 3991604775407627372
     TransformComponent:
-      Position: [0.5, 0, 0]
+      Position: [0, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0.00100000005, 0.00100000005, 0.00100000005]
+      Scale: [0.052910056, 0.052910056, 0.052910056]
     BillboardCircleRendererComponent:
       Color: [0, 0.729857922, 1, 1]
       Thickness: 1
@@ -70,5 +70,5 @@ Entities:
       Position: [0.5, 0, 0]
       Velocity: [0, 0, -1.1553614153155712e-05]
       LocalSpaceRadii:
-        - 0.0241
-        - 0.00590000022
+        - 0.0188999996
+        - 0.00700000022

@@ -237,15 +237,15 @@ namespace Limnova
         ImGui::PopItemWidth();
 
         bool isOrbital = entity.HasComponent<OrbitalComponent>();
-        bool isOrbitalViewPrimary = isOrbital ? entity == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
-        bool isOrbitalViewSecondary = isOrbital ? m_Scene->GetParent(entity) == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
+        bool isOrbitalViewParent = isOrbital ? entity == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
+        bool isOrbitalViewObject = isOrbital ? entity.GetParent() == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
 
         ComponentInspector<TransformComponent>(entity, "Transform", false, [&]()
         {
             auto& transform = entity.GetComponent<TransformComponent>();
 
             // Position
-            ImGui::BeginDisabled(isOrbital && !isOrbitalViewSecondary);
+            ImGui::BeginDisabled(!isOrbitalViewObject);
             {
                 LimnGui::InputConfig<float> config;
                 config.Speed = 0.01f;
@@ -263,7 +263,7 @@ namespace Limnova
             }
 
             // Rotation
-            ImGui::BeginDisabled(isOrbital && !(isOrbitalViewPrimary || isOrbitalViewSecondary));
+            ImGui::BeginDisabled(!(isOrbitalViewParent || isOrbitalViewObject));
             {
                 Vector3 eulerAngles = DegreesVec3(transform.GetEulerAngles());
                 eulerAngles.x = Wrapf(eulerAngles.x, 0.f, 360.f);
@@ -281,7 +281,7 @@ namespace Limnova
             }
 
             // Scale
-            ImGui::BeginDisabled(isOrbital && !isOrbitalViewPrimary);
+            ImGui::BeginDisabled(!isOrbitalViewParent);
             {
                 LimnGui::InputConfig<float> config;
                 config.Speed = 0.01f;
@@ -475,15 +475,11 @@ namespace Limnova
 
                 ImGui::Separator();
 
-                ImGui::BeginDisabled(!isOrbitalViewSecondary);
                 LimnGui::Checkbox("Show Major/Minor Axes", orbital.ShowMajorMinorAxes, 175.f);
                 LimnGui::Checkbox("Show Normal", orbital.ShowNormal, 175.f);
-                ImGui::EndDisabled();
             }
 
             ImGui::Separator();
-
-            ImGui::BeginDisabled(!(isOrbitalViewPrimary || isOrbitalViewSecondary));
 
             // Local spaces
             if (ImGui::TreeNode("Local Spaces"))
@@ -505,22 +501,24 @@ namespace Limnova
                     else if (lspNode.IsInfluencing()) { ImGui::Text("Influencing"); }
                     else { ImGui::Text("Non-influencing"); }
 
-                    ImGui::BeginDisabled(isSoi);
-
+                    // Radius
+                    //ImGui::BeginDisabled(isSoi);
                     float localSpaceRadius = lspNode.GetLSpace().Radius;
                     LimnGui::InputConfig<float> config;
                     config.Speed = 0.0001f;
                     config.Precision = 4;
                     config.Min = OrbitalPhysics::kMinLSpaceRadius;
                     config.Max = OrbitalPhysics::kMaxLSpaceRadius;
+                    config.ReadOnly = isSoi; /* cannot resize spheres of influence ! */
                     config.WidgetId = lspNode.Id();
                     if (LimnGui::DragFloat("Radius", localSpaceRadius, config, 100.f)) {
                         lspNode.SetRadius(localSpaceRadius);
                         lspacesChanged = true;
                     }
+                    //ImGui::EndDisabled();
 
-                    ImGui::EndDisabled();
-
+                    // Context menu
+                    ImGui::PushID(l);
                     ImGui::EndGroup();
                     {
                         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
@@ -534,13 +532,17 @@ namespace Limnova
                                 ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
                                 ((OrbitalScene*)m_Scene)->SetRelativeViewSpace(l);
                             }
+                            ImGui::BeginDisabled(isSoi);
                             if (ImGui::MenuItem("Remove")) {
                                 OrbitalPhysics::CollapseLocalSpace(orbital.LocalSpaces[l]);
                                 lspacesChanged = true;
                             }
+                            ImGui::EndDisabled();
+
                             ImGui::EndPopup();
                         }
                     }
+                    ImGui::PopID();
 
                     ImGui::Separator();
                 }
@@ -560,6 +562,8 @@ namespace Limnova
 
             ImGui::Separator();
 
+            ImGui::BeginDisabled(!(isOrbitalViewParent || isOrbitalViewObject));
+
             // Mass
             double mass = obj.State.Mass;
             if (LimnGui::InputScientific("Mass", mass))
@@ -577,7 +581,7 @@ namespace Limnova
             ImGui::EndDisabled();
 
             ImGui::Separator();
-            ImGui::BeginDisabled(!isOrbitalViewSecondary);
+            ImGui::BeginDisabled(!isOrbitalViewObject);
 
             // Position
             {
@@ -909,6 +913,9 @@ namespace Limnova
 
     bool LimnGui::DragFloat(const std::string& label, float& value, const InputConfig<float>& config, float columnWidth)
     {
+        ImGuiSliderFlags flags = ImGuiSliderFlags_AlwaysClamp;
+        if (config.ReadOnly) flags |= ImGuiSliderFlags_ReadOnly;
+
         std::ostringstream idOss;
         idOss << label << config.WidgetId;
         ImGui::PushID(idOss.str().c_str());
@@ -920,7 +927,7 @@ namespace Limnova
 
         std::ostringstream formatting;
         formatting << "%." << config.Precision << "f";
-        bool valueChanged = ImGui::DragFloat("##V", &value, config.Speed, config.Min, config.Max, formatting.str().c_str(), ImGuiSliderFlags_AlwaysClamp);
+        bool valueChanged = ImGui::DragFloat("##V", &value, config.Speed, config.Min, config.Max, formatting.str().c_str(), flags);
 
         ImGui::Columns(1);
         ImGui::PopID();
