@@ -414,19 +414,9 @@ namespace Limnova
             Renderer2D::DrawDashedArrow(viewCenter, viewCenter + (m_OrbitalReferenceNormal * 0.5f * m_ReferenceAxisLength),
                 m_ReferenceAxisColor, m_ReferenceAxisThickness, m_ReferenceAxisArrowSize, 4.f, 2.f);
         }
-        /*if (m_ShowViewSpace)
-        {
-            Matrix4 viewSpaceTransf = glm::translate(glm::mat4(1.f), (glm::vec3)viewCenter);
-            viewSpaceTransf = viewSpaceTransf * Quaternion(Vector3::X(), -PIover2f);
-            viewSpaceTransf = glm::scale((glm::mat4)viewSpaceTransf, glm::vec3(2.f));
-            float lsThickness = m_LocalSpaceThickness * cameraDistance;
-            Vector4 lsColor = m_ViewLSpace.IsSphereOfInfluence() ? m_InfluencingSpaceColor : m_LocalSpaceColor;
-            Renderer2D::DrawCircle(viewSpaceTransf, lsColor, lsThickness, 0);
-        }*/
         auto& viewOc = viewParent.GetComponent<OrbitalComponent>();
         size_t l = 0;
         while (viewOc.LocalSpaces[l] != m_ViewLSpace) { l++; }
-
         float viewSpaceScaling = 2.f / m_ViewLSpace.GetLSpace().Radius; /* x2 for radius --> diameter */
         for (; l < viewOc.LocalSpaces.size(); l++) {
             Matrix4 lsTransform = glm::translate(glm::mat4(1.f), (glm::vec3)viewCenter);
@@ -563,10 +553,10 @@ namespace Limnova
         /* Parent of an orbital entity must also be orbital */
         OrbitalPhysics::LSpaceNode localSpace = GetEntityLSpace(entity);
         {
-            entt::entity parent = m_PhysicsToEnttIds.at(localSpace.ParentObj().Id());
-            if (parent != m_Entities[hc.Parent]) {
+            entt::entity localParent = m_PhysicsToEnttIds.at(localSpace.ParentObj().Id());
+            if (localParent != m_Entities[hc.Parent]) {
                 HierarchyDisconnect(entity);
-                HierarchyConnect(entity, parent);
+                HierarchyConnect(entity, localParent);
             }
         }
         oc.Object = OrbitalPhysics::Create(localSpace, 0.0, tc.GetPosition());

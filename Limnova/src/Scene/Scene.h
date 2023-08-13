@@ -58,6 +58,8 @@ namespace Limnova
         Entity GetParent(Entity entity);
         std::vector<Entity> GetChildren(Entity entity);
         std::vector<Entity> GetTree(Entity root);
+        size_t GetChildren(Entity parent, std::vector<Entity>& children);
+        size_t GetTree(Entity root, std::vector<Entity>& tree);
 
         virtual void OnStartRuntime();
         virtual void OnUpdateRuntime(Timestep dT);

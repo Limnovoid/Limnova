@@ -58,7 +58,7 @@ namespace Limnova
         Vector4 m_InfluencingSpaceColor = { 1.f, 0.9f, 0.3f, 0.3f };
         Vector4 m_LocalSpaceColor = { 1.f, 1.f, 1.f, 0.3f };
         float m_LocalSpaceThickness = 0.003f;
-        float m_LocalSpaceFade = 0.006f;
+        float m_LocalSpaceFade = 0.f;
         bool m_ShowViewSpace = true;
 
         float m_OrbitThickness = 0.006f;

@@ -104,7 +104,10 @@ namespace Limnova
             void Remove(TNodeId nodeId)
             {
                 if (nodeId == 0) { Clear(); }
-                else { RecycleSubtree(nodeId); }
+                else {
+                    Detach(nodeId);
+                    RecycleSubtree(nodeId);
+                }
             }
 
             void Clear()
@@ -163,17 +166,6 @@ namespace Limnova
                     children.push_back(child);
                     child = m_Nodes[child].NextSibling;
                 }
-
-                /*TNodeId first = m_Nodes[nodeId].FirstChild;
-                if (first != NNull) {
-                    TNodeId child = first;
-                    do {
-                        numChildren++;
-                        children.push_back(child);
-                        child = m_Nodes[child].NextSibling;
-                        LV_CORE_ASSERT(child != NNull, "Sibling circular-linked list is broken!");
-                    } while (child != first);
-                }*/
                 return numChildren;
             }
 
@@ -246,15 +238,6 @@ namespace Limnova
                     childId = m_Nodes[childId].NextSibling;
                     RecycleSubtree(m_Nodes[childId].PrevSibling);
                 }
-
-                /*TNodeId firstId = m_Nodes[rootId].FirstChild;
-                if (firstId != NNull) {
-                    TNodeId childId = firstId;
-                    do {
-                        childId = m_Nodes[childId].NextSibling;
-                        RecycleSubtree(m_Nodes[childId].PrevSibling);
-                    } while (childId != firstId);
-                }*/
                 Recycle(rootId);
             }
 
@@ -271,22 +254,6 @@ namespace Limnova
                     m_Nodes[parent.FirstChild].PrevSibling = nodeId;
                 }
                 parent.FirstChild = nodeId;
-
-                //if (parent.FirstChild == NNull) {
-                //    parent.FirstChild = nodeId;
-                //    node.PrevSibling = node.NextSibling = nodeId;
-                //}
-                //else {
-                //    // Connect to siblings
-                //    auto& next = m_Nodes[parent.FirstChild];
-                //    auto& prev = m_Nodes[next.PrevSibling];
-
-                //    node.NextSibling = parent.FirstChild;
-                //    node.PrevSibling = next.PrevSibling;
-
-                //    next.PrevSibling = nodeId;
-                //    prev.NextSibling = nodeId;
-                //}
 
                 m_Heights[nodeId] = m_Heights[parentId] + 1;
             }
@@ -310,21 +277,6 @@ namespace Limnova
                     m_Nodes[node.PrevSibling].NextSibling = node.NextSibling;
                 }
                 node.NextSibling = node.PrevSibling = NNull;
-
-                //if (parent.FirstChild == nodeId) {
-                //    parent.FirstChild = node.NextSibling == nodeId ? NNull : node.NextSibling;
-                //}
-                //node.Parent = NNull;
-
-                //// Disconnect from siblings
-                //if (node.NextSibling != nodeId)
-                //{
-                //    auto& next = m_Nodes[node.NextSibling];
-                //    auto& prev = m_Nodes[node.PrevSibling];
-                //    next.PrevSibling = node.PrevSibling;
-                //    prev.NextSibling = node.NextSibling;
-                //}
-                //node.NextSibling = node.PrevSibling = NNull;
 
                 m_Heights[nodeId] = -1;
             }
@@ -997,10 +949,6 @@ namespace Limnova
 
         static void RemoveLSpaceNode(LSpaceNode lspNode)
         {
-            std::vector<ObjectNode> localObjs;
-            for (size_t i = 0; i < lspNode.GetLocalObjects(localObjs); i++) {
-                PromoteObjectNode(localObjs[i]);
-            }
             m_Ctx->m_LSpaces.Remove(lspNode.Id());
             m_Ctx->m_Tree.Remove(lspNode.Id());
         }
@@ -1057,10 +1005,13 @@ namespace Limnova
     private:
         static bool ValidPosition(ObjectNode objNode)
         {
-            static constexpr float kEscapeDistanceSqr = kLocalSpaceEscapeRadius * kLocalSpaceEscapeRadius;
+            static constexpr float kEscapeDistance2 = kLocalSpaceEscapeRadius * kLocalSpaceEscapeRadius;
 
-            float posMag = objNode.Object().State.Position.SqrMagnitude();
-            return posMag < kEscapeDistanceSqr;
+            if (objNode.IsRoot()) return true;
+
+            float posMag2 = objNode.Object().State.Position.SqrMagnitude();
+            float posFromPrimaryMag2 = objNode.LocalPositionFromPrimary().SqrMagnitude();
+            return posMag2 < kEscapeDistance2 && posFromPrimaryMag2 > 0;
                 /* TODO : check for influence overlaps */
         }
 
@@ -1132,12 +1083,15 @@ namespace Limnova
             /* Radius of influence = a(m / M)^0.4
              * Semi-major axis must be in the order of 1,
              * so the order of ROI is determined by (m / M)^0.4 */
-            static constexpr double kMinimumMassFactor = 1e-4; // TODO : test for optimal values
             double massFactor = pow(obj.State.Mass / objNode.PrimaryObj().Object().State.Mass, 0.4);
-            if (massFactor > kMinimumMassFactor)
+            float radiusOfInfluence = objNode.Elements().SemiMajor * (float)massFactor;
+            if (radiusOfInfluence > kMinLSpaceRadius)
             {
-                float radiusOfInfluence = objNode.Elements().SemiMajor * (float)massFactor;
-                LV_CORE_ASSERT(radiusOfInfluence > 0.f, "Invalid orbit for influencing object!");
+                if (radiusOfInfluence > kMaxLSpaceRadius) {
+                    LV_WARN("Object with sphere of influence must have adequate separation from primary!");
+                    obj.Validity = Validity::InvalidPath;
+                    return;
+                }
                 if (obj.Influence.IsNull())
                 {
                     LSpaceNode lspNode = NewLSpaceNode(objNode, radiusOfInfluence);
