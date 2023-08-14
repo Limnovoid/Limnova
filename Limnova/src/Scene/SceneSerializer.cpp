@@ -684,7 +684,7 @@ namespace Limnova
     {
         YAML::Emitter out;
         out << YAML::BeginMap; // Scene
-        out << YAML::Key << "Scene" << YAML::Value << "Untitled";
+        out << YAML::Key << "Scene" << YAML::Value << std::filesystem::path(filepath).filename().string();
 
         out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
         // Serialise in descending scene hierarchy order,
@@ -748,7 +748,8 @@ namespace Limnova
     {
         YAML::Emitter out;
         out << YAML::BeginMap; // Scene
-        out << YAML::Key << "OrbitalScene" << YAML::Value << "Untitled";
+
+        out << YAML::Key << "OrbitalScene" << YAML::Value << std::filesystem::path(filepath).filename().string();
 
         out << YAML::Key << "LocalSpaceColor"           << YAML::Value << scene->m_LocalSpaceColor;
         out << YAML::Key << "LocalSpaceThickness"       << YAML::Value << scene->m_LocalSpaceThickness;
@@ -810,6 +811,7 @@ namespace Limnova
         std::string sceneName = data["OrbitalScene"].as<std::string>();
         LV_CORE_TRACE("Deserializing orbital scene '{0}'", sceneName);
 
+        // Scene settings
         scene->m_LocalSpaceColor            = data["LocalSpaceColor"].as<Vector4>();
         scene->m_LocalSpaceThickness        = data["LocalSpaceThickness"].as<float>();
         scene->m_LocalSpaceFade             = data["LocalSpaceFade"].as<float>();
@@ -826,21 +828,23 @@ namespace Limnova
         scene->m_PerifocalAxisThickness     = data["PerifocalAxisThickness"].as<float>();
         scene->m_PerifocalAxisArrowSize     = data["PerifocalAxisArrowSize"].as<float>();
 
-        scene->m_TrackingEntity             = data["TrackingEntity"].as<uint64_t>();
-        scene->m_ViewSpaceRelativeToTrackedEntity = data["ViewSpace"].as<int>();
-
         // Physics
         scene->m_Physics = OrbitalPhysics::Context(); /* reset physics context */
         scene->PhysicsUseContext();
 
         scene->SetRootScaling(              data["RootScaling"].as<double>());
 
+        // Entities
         YAML::Node entitiesNode = data["Entities"];
         if (entitiesNode) {
             for (YAML::Node entityNode : entitiesNode) {
                 DeserializeEntity(scene, entityNode);
             }
         }
+
+        // Editor view space
+        scene->SetTrackingEntity(           scene->GetEntity(data["TrackingEntity"].as<uint64_t>()));
+        scene->SetRelativeViewSpace(        data["ViewSpace"].as<int>());
 
         return true;
     }

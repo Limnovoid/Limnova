@@ -166,8 +166,6 @@ namespace Limnova
 
     void OrbitalScene::SetTrackingEntity(Entity entity)
     {
-        if (entity.GetUUID() == m_TrackingEntity) return;
-
         m_TrackingEntity = entity.GetUUID();
 
         m_ViewSpaceRelativeToTrackedEntity = -1;
