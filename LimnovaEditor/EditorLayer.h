@@ -25,7 +25,8 @@ namespace Limnova
         {
             Edit = 0,
             Play = 1,
-            Simulate = 2
+            Simulate = 2,
+            Pause = 3
         };
     private:
         void UI_Toolbar();
@@ -67,6 +68,7 @@ namespace Limnova
 
         SceneState m_SceneState = SceneState::Edit;
         Ref<Texture2D> m_IconPlay;
+        Ref<Texture2D> m_IconPause;
         Ref<Texture2D> m_IconStop;
 
         Entity m_HoveredEntity = Entity::Null;

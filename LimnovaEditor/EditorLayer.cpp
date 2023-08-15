@@ -198,6 +198,7 @@ namespace Limnova
 
         m_SceneHierarchyPanel.SetContext(m_ActiveScene.get());
         m_IconPlay = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\PlayButton.png");
+        m_IconPause = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\PauseButton.png");
         m_IconStop = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\StopButton.png");
     }
 
@@ -233,14 +234,17 @@ namespace Limnova
             }
             case SceneState::Simulate:
             {
-                m_EditorCamera.OnUpdate(dT);
-                /* don't break, call OnUpdateRuntime() */
+                m_EditorCamera.OnUpdate(dT); /* Simulate uses editor camera so we update it */
+                /* cascade to Play */
             }
             case SceneState::Play:
             {
                 m_ActiveScene->OnUpdateRuntime(dT);
                 break;
             }
+            case SceneState::Pause:
+                m_EditorCamera.OnUpdate(dT); /* Pause is Simulate without scene updates */
+                break;
             }
         }
 
@@ -264,6 +268,7 @@ namespace Limnova
             {
             case SceneState::Edit:
             case SceneState::Simulate:
+            case SceneState::Pause:
             {
                 m_ActiveScene->OnRenderEditor(m_EditorCamera);
                 break;
@@ -652,9 +657,11 @@ namespace Limnova
         ImGui::Begin("##toolbar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
 
         // Play button
+        float mid = ImGui::GetWindowContentRegionMax().x * 0.5f;
         float size = ImGui::GetWindowHeight() - 8.f;
-        const Ref<Texture2D>& playButtonIcon = m_SceneState == SceneState::Edit ? m_IconPlay : m_IconStop;
-        ImGui::SetCursorPosX((ImGui::GetWindowContentRegionMax().x - size) * 0.5f);
+        float halfPad = size * 0.05f;
+        const Ref<Texture2D>& playButtonIcon = (m_SceneState == SceneState::Edit || m_SceneState == SceneState::Pause) ? m_IconPlay : m_IconPause;
+        ImGui::SetCursorPosX(mid - size - halfPad);
         if (ImGui::ImageButton("##playButton", (ImTextureID)playButtonIcon->GetRendererId(), ImVec2{size, size}))
         {
             switch (m_SceneState)
@@ -664,7 +671,24 @@ namespace Limnova
                 OnSceneSimulate();
                 break;
             case SceneState::Simulate:
+                m_SceneState = SceneState::Pause;
+                break;
+            case SceneState::Pause:
+                m_SceneState = SceneState::Simulate;
+                break;
+            }
+        }
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(mid + size + halfPad);
+        if (ImGui::ImageButton("##stopButton", (ImTextureID)m_IconStop->GetRendererId(), ImVec2{ size, size }))
+        {
+            switch (m_SceneState)
+            {
+            case SceneState::Edit:
+                break;
+            case SceneState::Simulate:
             case SceneState::Play:
+            case SceneState::Pause:
                 OnSceneStop();
                 break;
             }
