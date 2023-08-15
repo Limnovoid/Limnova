@@ -322,7 +322,7 @@ namespace Limnova
             TAttr& GetOrAdd(TNodeId nodeId)
             {
                 return m_NodeToAttr.contains(nodeId) ?
-                    Add(nodeId) : Get(nodeId);
+                    Get(nodeId) : Add(nodeId);
             }
 
             void Remove(TNodeId nodeId)

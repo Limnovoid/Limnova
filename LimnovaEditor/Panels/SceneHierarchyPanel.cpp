@@ -64,7 +64,7 @@ namespace Limnova
         if (entity == m_SelectedEntity) flags |= ImGuiTreeNodeFlags_Selected;
 
         auto& tag = entity.GetComponent<TagComponent>();
-        bool isRoot = entity == m_Scene->GetRoot();
+        bool isRoot = entity.GetUUID() == m_Scene->m_Root;
 
         auto children = m_Scene->GetChildren(entity);
         if (children.empty()) flags |= ImGuiTreeNodeFlags_Leaf;
@@ -116,6 +116,36 @@ namespace Limnova
                         if (m_SelectedEntity == entity) {
                             m_SelectedEntity = Entity::Null;
                         }
+                    }
+                }
+
+                ImGui::Separator();
+
+                if (entity.HasComponent<OrbitalComponent>())
+                {
+                    auto& oc = entity.GetComponent<OrbitalComponent>();
+
+                    if (ImGui::MenuItem("View")) {
+                        ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
+                    }
+
+                    if (ImGui::BeginMenu("View Local Space")) {
+                        if (oc.LocalSpaces.size() == 0) {
+                            ImGui::TextDisabled("No local spaces"); // ?
+                        }
+                        else {
+                            for (size_t i = 0; i < oc.LocalSpaces.size(); i++)
+                            {
+                                if (oc.LocalSpaces[i] == ((OrbitalScene*)m_Scene)->m_ViewLSpace) continue;
+
+                                std::ostringstream label; label << i;
+                                if (ImGui::MenuItem(label.str().c_str())) {
+                                    ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
+                                    ((OrbitalScene*)m_Scene)->SetRelativeViewSpace(i);
+                                }
+                            }
+                        }
+                        ImGui::EndMenu();
                     }
                 }
 
@@ -254,9 +284,10 @@ namespace Limnova
         }
         ImGui::PopItemWidth();
 
+        bool isRoot = entity.GetUUID() == m_Scene->m_Root;
         bool isOrbital = entity.HasComponent<OrbitalComponent>();
         bool isOrbitalViewParent = isOrbital ? entity == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
-        bool isOrbitalViewObject = isOrbital && !isOrbitalViewParent ? entity.GetParent() == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
+        bool isOrbitalViewObject = (!isRoot && isOrbital) ? entity.GetParent() == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
 
         ComponentInspector<TransformComponent>(entity, "Transform", false, [&]()
         {
@@ -433,6 +464,8 @@ namespace Limnova
             // Relative local space
             if (entity != m_Scene->GetRoot())
             {
+                ImGui::Text("Local space ID: %d", ((OrbitalScene*)m_Scene)->GetLocalSpace(entity).Id());
+
                 ImGui::BeginDisabled(!entity.GetParent().HasComponent<OrbitalComponent>());
 
                 LimnGui::InputConfig<int> config;
@@ -527,8 +560,14 @@ namespace Limnova
                     else if (lspNode.IsInfluencing()) { ImGui::Text("Influencing"); }
                     else { ImGui::Text("Non-influencing"); }
 
+                    // Debug info
+                    {
+                        std::ostringstream ostr;
+                        ostr << "Node " << lspNode.Id();
+                        LimnGui::HelpMarker(ostr.str());
+                    }
+
                     // Radius
-                    //ImGui::BeginDisabled(isSoi);
                     float localSpaceRadius = lspNode.GetLSpace().Radius;
                     LimnGui::InputConfig<float> config;
                     config.Speed = 0.0001f;
@@ -541,7 +580,6 @@ namespace Limnova
                         lspNode.SetRadius(localSpaceRadius);
                         lspacesChanged = true;
                     }
-                    //ImGui::EndDisabled();
 
                     // Context menu
                     ImGui::PushID(l);

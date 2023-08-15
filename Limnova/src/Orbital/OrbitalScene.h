@@ -85,6 +85,7 @@ namespace Limnova
         Quaternion m_OrbitalReferenceFrameOrientation; /* Orientation of the orbital physics system's reference frame relative to the scene frame */
         Vector3 m_OrbitalReferenceX, m_OrbitalReferenceY, m_OrbitalReferenceNormal;
 
+        friend class SceneHierarchyPanel;
         friend class SceneSerializer;
     };
 

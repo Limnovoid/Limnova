@@ -86,6 +86,8 @@ namespace Limnova
         newScene->m_PerifocalAxisArrowSize = scene->m_PerifocalAxisArrowSize;
 
         newScene->m_TrackingEntity = scene->m_TrackingEntity;
+        newScene->m_ViewSpaceRelativeToTrackedEntity = scene->m_ViewSpaceRelativeToTrackedEntity;
+        newScene->m_ViewLSpace = scene->m_ViewLSpace;
 
         newScene->m_OrbitalReferenceFrameOrientation = scene->m_OrbitalReferenceFrameOrientation;
         newScene->m_OrbitalReferenceX = scene->m_OrbitalReferenceX;
@@ -211,8 +213,11 @@ namespace Limnova
             && localSpaceRelativeToParent < parent.GetComponent<OrbitalComponent>().LocalSpaces.size()),
             "Given localSpaceRelativeToParent is out of bounds!");
 
+
         if (entity.HasComponent<OrbitalComponent>())
         {
+            // TODO : should orbital entities be allowed to have relative space -1 ???
+
             LV_ASSERT(parent.HasComponent<OrbitalComponent>(), "Cannot parent orbital entity to a non-orbital entity!");
 
             // Update physics system to reflect new parentage
@@ -549,14 +554,35 @@ namespace Limnova
         auto[oc, hc, tc, ohc] = GetComponents<OrbitalComponent, HierarchyComponent, TransformComponent, OrbitalHierarchyComponent>(entity);
 
         /* Parent of an orbital entity must also be orbital */
-        OrbitalPhysics::LSpaceNode localSpace = GetEntityLSpace(entity);
+        /*OrbitalPhysics::LSpaceNode localSpace = GetEntityLSpace(entity);
         {
             entt::entity localParent = m_PhysicsToEnttIds.at(localSpace.ParentObj().Id());
-            if (localParent != m_Entities[hc.Parent]) {
+            if (localParent != m_Entities.at(hc.Parent)) {
                 HierarchyDisconnect(entity);
                 HierarchyConnect(entity, localParent);
             }
+        }*/
+
+        OrbitalPhysics::LSpaceNode localSpace;
+        Entity entityParent = GetEntity(hc.Parent);
+        if (!entityParent.HasComponent<OrbitalComponent>() || entityParent.GetComponent<OrbitalComponent>().LocalSpaces.size() == 0)
+        {
+            // No local space attached to parent - reparent to parent of current local space
+            localSpace = GetEntityLSpace(entity);
+            entt::entity localParent = m_PhysicsToEnttIds.at(localSpace.ParentObj().Id());
+            HierarchyDisconnect(entity);
+            HierarchyConnect(entity, localParent);
         }
+        else
+        {
+            if (ohc.LocalSpaceRelativeToParent == -1) {
+                ohc.LocalSpaceRelativeToParent = 0;
+            }
+            auto& parentOc = entityParent.GetComponent<OrbitalComponent>();
+            LV_CORE_ASSERT(parentOc.LocalSpaces.size() > ohc.LocalSpaceRelativeToParent, "Invalid relative local space index!");
+            localSpace = parentOc.LocalSpaces[ohc.LocalSpaceRelativeToParent];
+        }
+
         oc.Object = OrbitalPhysics::Create(localSpace, 0.0, tc.GetPosition());
         m_PhysicsToEnttIds.insert({ oc.Object.Id(), entity });
     }
