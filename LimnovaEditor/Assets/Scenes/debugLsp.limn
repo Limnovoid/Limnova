@@ -14,8 +14,8 @@ ReferenceAxisThickness: 0.00600000005
 ReferenceAxisArrowSize: 0.0240000002
 PerifocalAxisThickness: 0.00100000005
 PerifocalAxisArrowSize: 0.00499999989
-TrackingEntity: 14459431121056359079
-ViewSpace: 1
+TrackingEntity: 13827553148329750021
+ViewSpace: 0
 RootScaling: 1
 Entities:
   - Entity: 3991604775407627372
@@ -52,14 +52,14 @@ Entities:
       Position: [0, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0.0796214342, 0.0796214342, 0.0796214342]
+      Scale: [0, 0, 0]
     BillboardCircleRendererComponent:
       Color: [0, 0.729857922, 1, 1]
       Thickness: 1
       Fade: 0.00499999989
     OrbitalHierarchyComponent:
       AbsoluteScale: [0.001, 0.001, 0.001]
-      LocalSpace: -1
+      LocalSpace: 0
     OrbitalComponent:
       UIColor: [0, 0.729857922, 1]
       Albedo: 0
@@ -78,10 +78,10 @@ Entities:
     HierarchyComponent:
       Parent: 14459431121056359079
     TransformComponent:
-      Position: [0.810000002, 0, 0]
+      Position: [0, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0.00796214305, 0.00796214305, 0.00796214305]
+      Scale: [0.379593968, 0.379593968, 0.379593968]
     BillboardCircleRendererComponent:
       Color: [1, 0, 1, 1]
       Thickness: 1
@@ -98,5 +98,33 @@ Entities:
       Dynamic: false
       Position: [0.810000002, 0, 0]
       Velocity: [5.0000000000000004e-06, -1.0000000000000001e-05, 6.4490000000000001e-05]
+      LocalSpaceRadii:
+        []
+  - Entity: 11506238116439127687
+    TagComponent:
+      Tag: Ship 0
+    HierarchyComponent:
+      Parent: 13827553148329750021
+    TransformComponent:
+      Position: [0.99000001, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.189796984, 0.189796984, 0.189796984]
+    BillboardCircleRendererComponent:
+      Color: [0, 1, 0.047393322, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [5.0000000000000002e-05, 5.0000000000000002e-05, 5.0000000000000002e-05]
+      LocalSpace: 0
+    OrbitalComponent:
+      UIColor: [1, 1, 1]
+      Albedo: 0
+      ShowMajorMinorAxes: false
+      ShowNormal: true
+      Mass: 9.9999999999999998e-17
+      Dynamic: true
+      Position: [0.99000001, 0, 0]
+      Velocity: [0, 0, -0.00029999999999999997]
       LocalSpaceRadii:
         []

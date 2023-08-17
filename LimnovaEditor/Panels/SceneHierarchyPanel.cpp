@@ -305,7 +305,10 @@ namespace Limnova
                     transform.NeedCompute = true;
 
                     if (entity.HasComponent<OrbitalComponent>()) {
-                        entity.GetComponent<OrbitalComponent>().Object.SetPosition(transform.Position);
+                        auto& oc = entity.GetComponent<OrbitalComponent>();
+                        oc.Object.SetPosition(transform.Position);
+                        oc.LocalSpaces.clear();
+                        oc.Object.GetLocalSpaces(oc.LocalSpaces);
                     }
                 }
                 ImGui::EndDisabled();
@@ -471,6 +474,8 @@ namespace Limnova
                 LimnGui::InputConfig<int> config;
                 config.Speed = 1;
                 config.FastSpeed = 1; /* number of local spaces belonging to parent will almost always be on the order of 1 */
+                config.LabelWidth = 135.f;
+                config.WidgetWidth = 120.f;
                 int value = orbitalhc.LocalSpaceRelativeToParent;
                 if (LimnGui::InputInt("Relative Local Space", value, config))
                 {
@@ -544,9 +549,6 @@ namespace Limnova
             bool lspacesChanged = false;
             if (ImGui::TreeNode("Local Spaces"))
             {
-
-                ImGui::Separator();
-
                 for (size_t l = 0; l < orbital.LocalSpaces.size(); l++)
                 {
                     ImGui::BeginGroup();
@@ -933,17 +935,19 @@ namespace Limnova
     }
 
 
-    bool LimnGui::InputInt(const std::string& label, int& value, const InputConfig<int>& config, float columnWidth)
+    bool LimnGui::InputInt(const std::string& label, int& value, const InputConfig<int>& config)
     {
         std::ostringstream idOss;
         idOss << label << config.WidgetId;
         ImGui::PushID(idOss.str().c_str());
 
         ImGui::Columns(2);
-        ImGui::SetColumnWidth(0, columnWidth);
+        ImGui::SetColumnWidth(0, config.LabelWidth);
         ImGui::Text(label.c_str());
+
         ImGui::NextColumn();
 
+        ImGui::SetColumnWidth(1, config.WidgetWidth);
         bool valueChanged = ImGui::InputInt("##V", &value, config.Speed, config.FastSpeed, ImGuiInputTextFlags_EnterReturnsTrue);
 
         ImGui::Columns(1);
@@ -1209,4 +1213,51 @@ namespace Limnova
         return valueChanged;
     }
 
+
+    bool LimnGui::SliderFloat(const std::string& label, float& value, const InputConfig<float>& config)
+    {
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
+
+        ImGui::BeginGroup();
+
+        // Setup
+        ImGuiIO& io = ImGui::GetIO();
+        auto* boldFont = io.Fonts->Fonts[ImGuiLayer::FontIndex::Bold];
+        float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
+        ImVec2 buttonSize = { lineHeight, lineHeight };
+        std::string formatStr;
+        {
+            std::ostringstream formatting;
+            formatting << "%." << config.Precision << "f";
+            formatStr = formatting.str();
+        }
+        ImGuiSliderFlags flags = 0;
+        if (config.ReadOnly) { flags |= ImGuiSliderFlags_ReadOnly; }
+
+        // Elements
+        ImGui::Columns(3);
+        ImGui::SetColumnWidth(0, config.LabelWidth);
+        ImGui::Text(label.c_str());
+        if (!config.HelpMarker.empty()) { HelpMarker(config.HelpMarker); }
+
+        ImGui::NextColumn();
+        ImGui::SetColumnWidth(1, config.WidgetWidth + 12.f);
+        ImGui::SetNextItemWidth(config.WidgetWidth);
+        bool valueChanged = ImGui::SliderFloat("##V", &value, config.Min, config.Max, formatStr.c_str(), flags);
+
+        ImGui::NextColumn();
+        ImGui::PushFont(boldFont);
+        if (ImGui::Button("X", buttonSize)) {
+            value = config.ResetValue;
+            valueChanged = true;
+        }
+        ImGui::PopFont();
+
+        ImGui::Columns(1);
+        ImGui::EndGroup();
+        ImGui::PopID();
+        return valueChanged;
+    }
 }

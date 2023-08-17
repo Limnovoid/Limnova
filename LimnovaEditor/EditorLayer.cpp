@@ -235,6 +235,7 @@ namespace Limnova
             case SceneState::Simulate:
             {
                 m_EditorCamera.OnUpdate(dT); /* Simulate uses editor camera so we update it */
+                dT = dT * m_SceneDTMultiplier;
                 /* cascade to Play */
             }
             case SceneState::Play:
@@ -659,10 +660,10 @@ namespace Limnova
         // Play button
         float mid = ImGui::GetWindowContentRegionMax().x * 0.5f;
         float size = ImGui::GetWindowHeight() - 8.f;
-        float halfPad = size * 0.05f;
+        float pad = size * 0.1f;
         const Ref<Texture2D>& playButtonIcon = (m_SceneState == SceneState::Edit || m_SceneState == SceneState::Pause) ? m_IconPlay : m_IconPause;
-        ImGui::SetCursorPosX(mid - size - halfPad);
-        if (ImGui::ImageButton("##playButton", (ImTextureID)playButtonIcon->GetRendererId(), ImVec2{size, size}))
+        ImGui::SetCursorPosX(mid - size - pad);
+        if (ImGui::ImageButton("##playButton", (ImTextureID)playButtonIcon->GetRendererId(), ImVec2{ size, size }))
         {
             switch (m_SceneState)
             {
@@ -679,7 +680,7 @@ namespace Limnova
             }
         }
         ImGui::SameLine();
-        ImGui::SetCursorPosX(mid + size + halfPad);
+        ImGui::SetCursorPosX(mid + pad);
         if (ImGui::ImageButton("##stopButton", (ImTextureID)m_IconStop->GetRendererId(), ImVec2{ size, size }))
         {
             switch (m_SceneState)
@@ -693,7 +694,28 @@ namespace Limnova
                 break;
             }
         }
-        ImGui::End();
+
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(2.f * mid - 250.f);
+        static const LimnGui::InputConfig<float> config {
+            1.f,    // ResetValue
+            0.1f,   // Speed
+            1.f,    // FastSpeed 
+            0.1f,   // Min
+            10.f,   // Max
+            3,      // Precision
+            false,  // ReadOnly
+            0,      // WidgetId
+            80,     // LabelWidth
+            120,     // WidgetWidth
+            "Delta-time multiplier: multiplied with frame dT before being passed to Scene::OnUpdate.\n"
+            "Effectively a time dilation tool for controlling the apparent timescale of the game scene."
+        };
+        LimnGui::SliderFloat("dT mult.", m_SceneDTMultiplier, config);
+        /*LimnGui::HelpMarker("Delta-time multiplier: multiplied with frame dT before being passed to Scene::OnUpdate.\n"
+            "Effectively a time dilation tool for controlling the apparent timescale of the game scene.");*/
+
+        ImGui::End(); // toolbar
 
         ImGui::PopStyleColor(3);
         ImGui::PopStyleVar(2);

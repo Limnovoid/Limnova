@@ -1104,6 +1104,7 @@ namespace Limnova
                 else {
                     obj.Influence.SetRadiusImpl(radiusOfInfluence);
                 }
+                LV_CORE_ASSERT(!obj.Influence.IsNull() && m_Ctx->m_LSpaces.Has(obj.Influence.m_NodeId), "Failed to create sphere of influence!");
             }
             else if (!obj.Influence.IsNull()) {
                 // Object was previously influencing - remove old sphere of influence

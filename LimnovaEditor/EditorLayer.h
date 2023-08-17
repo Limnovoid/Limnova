@@ -71,6 +71,8 @@ namespace Limnova
         Ref<Texture2D> m_IconPause;
         Ref<Texture2D> m_IconStop;
 
+        float m_SceneDTMultiplier = 1.f;
+
         Entity m_HoveredEntity = Entity::Null;
 
         int m_ActiveGizmo = -1; /* from ImGuizmo::OPERATION */
