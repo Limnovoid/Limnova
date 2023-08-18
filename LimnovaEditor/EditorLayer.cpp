@@ -227,6 +227,7 @@ namespace Limnova
             switch (m_SceneState)
             {
             case SceneState::Edit:
+            case SceneState::Pause:
             {
                 m_EditorCamera.OnUpdate(dT);
                 m_ActiveScene->OnUpdateEditor(dT);
@@ -243,9 +244,6 @@ namespace Limnova
                 m_ActiveScene->OnUpdateRuntime(dT);
                 break;
             }
-            case SceneState::Pause:
-                m_EditorCamera.OnUpdate(dT); /* Pause is Simulate without scene updates */
-                break;
             }
         }
 
@@ -702,7 +700,7 @@ namespace Limnova
             0.1f,   // Speed
             1.f,    // FastSpeed 
             0.1f,   // Min
-            10.f,   // Max
+            1000.f, // Max
             3,      // Precision
             false,  // ReadOnly
             0,      // WidgetId
@@ -711,7 +709,7 @@ namespace Limnova
             "Delta-time multiplier: multiplied with frame dT before being passed to Scene::OnUpdate.\n"
             "Effectively a time dilation tool for controlling the apparent timescale of the game scene."
         };
-        LimnGui::SliderFloat("dT mult.", m_SceneDTMultiplier, config);
+        LimnGui::SliderFloat("dT mult.", m_SceneDTMultiplier, config, true);
         /*LimnGui::HelpMarker("Delta-time multiplier: multiplied with frame dT before being passed to Scene::OnUpdate.\n"
             "Effectively a time dilation tool for controlling the apparent timescale of the game scene.");*/
 

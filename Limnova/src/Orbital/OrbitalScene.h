@@ -34,6 +34,7 @@ namespace Limnova
         OrbitalPhysics::LSpaceNode GetLocalSpace(Entity entity);
         std::vector<Entity> GetSecondaries(Entity entity);
         std::vector<Entity> GetSatellites(Entity primary);
+        int GetLocalSpaceRelativeToParent(OrbitalPhysics::LSpaceNode lspNode);
 
         void OnStartRuntime() override;
         void OnUpdateRuntime(Timestep dT) override;
@@ -54,6 +55,8 @@ namespace Limnova
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
         void OnOrbitalComponentUpdate(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
+
+        void OnLocalSpaceChange(OrbitalPhysics::ObjectNode objNode);
     public:
         Vector4 m_InfluencingSpaceColor = { 1.f, 0.9f, 0.3f, 0.3f };
         Vector4 m_LocalSpaceColor = { 1.f, 1.f, 1.f, 0.3f };

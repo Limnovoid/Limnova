@@ -565,7 +565,7 @@ namespace Limnova
             bool IsNull() const { return m_NodeId == OrbitalPhysics::NNull; }
             bool IsRoot() const { return m_NodeId == kRootLspId; }
             bool IsHighestLSpaceOnObject() const { return m_NodeId == m_Ctx->m_Tree[m_Ctx->m_Tree.GetParent(m_NodeId)].FirstChild; }
-            bool IsInfluencing() const { return m_Ctx->m_LSpaces[m_NodeId].Influencing; } /* True if the parent object is the local dominant source of gravity, i.e, this LSP is less than or equal to the parent's influence LSP */
+            bool IsInfluencing() const { return m_NodeId == m_Ctx->m_LSpaces[m_NodeId].Primary.m_NodeId; } /* True if the parent object is the local dominant source of gravity, i.e, this LSP is less than or equal to the parent's influence LSP */
             bool IsSphereOfInfluence() const { return m_NodeId == ParentObj().Object().Influence.m_NodeId; } /* True if this local space represents the parent object's sphere of influence */
 
             LocalSpace const& GetLSpace() const { return m_Ctx->m_LSpaces[m_NodeId]; }
@@ -612,14 +612,14 @@ namespace Limnova
             /// <returns>True if successfully changed, false otherwise</returns>
             bool TrySetRadius(float radius) const
             {
-                if (!m_Ctx->m_LSpaces[m_NodeId].Influencing &&
+                if (!IsInfluencing() &&
                     radius < kMaxLSpaceRadius + kEpsLSpaceRadius &&
                     radius > kMinLSpaceRadius - kEpsLSpaceRadius)
                 {
                     SetRadiusImpl(radius);
                     return true;
                 }
-                LV_CORE_ASSERT(!m_Ctx->m_LSpaces[m_NodeId].Influencing, "Local-space radius of influencing entities cannot be manually set (must be set equal to radius of influence)!");
+                LV_CORE_ASSERT(!IsInfluencing(), "Local-space radius of influencing entities cannot be manually set (must be set equal to radius of influence)!");
                 LV_CORE_WARN("Attempted to set invalid local-space radius ({0}): must be in the range [{1}, {2}]", radius, kMinLSpaceRadius, kMaxLSpaceRadius);
                 return false;
             }
@@ -654,11 +654,19 @@ namespace Limnova
 
                 float rescaleFactor = lsp.Radius / radius;
 
-                // Update local space dimensions
+                // Update local space attribute
                 lsp.Radius = radius;
                 lsp.MetersPerRadius = (double)radius * (Height() == 1
                     ? GetRootLSpaceNode().LSpace().MetersPerRadius
                     : m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetGrandparent(m_NodeId)].MetersPerRadius);
+
+                if (!ParentObj().Object().Influence.IsNull() &&
+                    radius <= ParentObj().Object().Influence.LSpace().Radius) {
+                    lsp.Primary = *this; /* an influencing space is its own Primary local space */
+                }
+                else {
+                    lsp.Primary = ParentObj().PrimaryLsp();
+                }
 
                 // Move child objects to next-higher/-lower space as necessary
                 std::vector<ObjectNode> childObjs = {};
@@ -688,7 +696,6 @@ namespace Limnova
                     // Radius increased: sort node left-wards
                     while (!prevLspNode.IsNull()) {
                         if (radius > prevLspNode.LSpace().Radius) {
-                            if (prevLspNode.IsSphereOfInfluence()) { lsp.Influencing = false; }
                             m_Ctx->m_Tree.SwapWithPrevSibling(m_NodeId);
                             prevLspNode = { node.PrevSibling };
                         }
@@ -700,7 +707,6 @@ namespace Limnova
                     LSpaceNode nextLspNode = { node.NextSibling };
                     while (!nextLspNode.IsNull()) {
                         if (radius < nextLspNode.LSpace().Radius) {
-                            if (nextLspNode.IsSphereOfInfluence()) { lsp.Influencing = true; }
                             m_Ctx->m_Tree.SwapWithNextSibling(m_NodeId);
                             nextLspNode = { node.NextSibling };
                         }
@@ -981,7 +987,6 @@ namespace Limnova
                 auto& rootLsp = m_LSpaces.Add(kRootLspId);
                 rootLsp.Radius = 1.f;
                 rootLsp.Primary.m_NodeId = kRootLspId; /* an influencing lsp is its own primary */
-                rootLsp.Influencing = true;
             }
             Context(Context const& other) = default;
             ~Context()
@@ -1096,14 +1101,14 @@ namespace Limnova
                 {
                     LSpaceNode lspNode = NewLSpaceNode(objNode, radiusOfInfluence);
                     LocalSpace& lsp = lspNode.LSpace();
-                    lsp.Influencing = true;
                     lsp.Primary = lspNode; /* an influencing local space must be its own primary */
-
                     obj.Influence = lspNode;
                 }
                 else {
                     obj.Influence.SetRadiusImpl(radiusOfInfluence);
+                    LV_CORE_ASSERT(obj.Influence.LSpace().Primary == obj.Influence, "Sphere of influence should still be its own Primary!");
                 }
+
                 LV_CORE_ASSERT(!obj.Influence.IsNull() && m_Ctx->m_LSpaces.Has(obj.Influence.m_NodeId), "Failed to create sphere of influence!");
             }
             else if (!obj.Influence.IsNull()) {

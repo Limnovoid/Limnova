@@ -14,8 +14,8 @@ ReferenceAxisThickness: 0.00600000005
 ReferenceAxisArrowSize: 0.0240000002
 PerifocalAxisThickness: 0.00100000005
 PerifocalAxisArrowSize: 0.00499999989
-TrackingEntity: 13827553148329750021
-ViewSpace: 0
+TrackingEntity: 14459431121056359079
+ViewSpace: 2
 RootScaling: 1
 Entities:
   - Entity: 3991604775407627372
@@ -52,7 +52,7 @@ Entities:
       Position: [0, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0, 0, 0]
+      Scale: [0.142857134, 0.142857134, 0.142857134]
     BillboardCircleRendererComponent:
       Color: [0, 0.729857922, 1, 1]
       Thickness: 1
@@ -81,7 +81,7 @@ Entities:
       Position: [0, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0.379593968, 0.379593968, 0.379593968]
+      Scale: [0, 0, 0]
     BillboardCircleRendererComponent:
       Color: [1, 0, 1, 1]
       Thickness: 1
@@ -104,19 +104,19 @@ Entities:
     TagComponent:
       Tag: Ship 0
     HierarchyComponent:
-      Parent: 13827553148329750021
+      Parent: 14459431121056359079
     TransformComponent:
       Position: [0.99000001, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0.189796984, 0.189796984, 0.189796984]
+      Scale: [0.00714285672, 0.00714285672, 0.00714285672]
     BillboardCircleRendererComponent:
       Color: [0, 1, 0.047393322, 1]
       Thickness: 1
       Fade: 0.00499999989
     OrbitalHierarchyComponent:
       AbsoluteScale: [5.0000000000000002e-05, 5.0000000000000002e-05, 5.0000000000000002e-05]
-      LocalSpace: 0
+      LocalSpace: 2
     OrbitalComponent:
       UIColor: [1, 1, 1]
       Albedo: 0
@@ -125,6 +125,6 @@ Entities:
       Mass: 9.9999999999999998e-17
       Dynamic: true
       Position: [0.99000001, 0, 0]
-      Velocity: [0, 0, -0.00029999999999999997]
+      Velocity: [0, 0, -0.00050000000000000001]
       LocalSpaceRadii:
         []

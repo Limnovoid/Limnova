@@ -686,7 +686,8 @@ namespace Limnova
             ImGui::Separator();
 
             // Elements
-            if (entity != m_Scene->GetRoot())
+            if (entity != m_Scene->GetRoot() &&
+                ImGui::TreeNode("Elements"))
             {
                 const auto& elems = orbital.Object.GetElements();
                 if (ImGui::BeginTable("Elements", 2))
@@ -821,6 +822,50 @@ namespace Limnova
 
                     ImGui::EndTable();
                 }
+                ImGui::TreePop();
+            }
+
+            if (orbital.Object.IsDynamic() &&
+                ImGui::TreeNode("Dynamics"))
+            {
+                const auto& dynamics = orbital.Object.GetDynamics();
+                if (ImGui::BeginTable("Elements", 2))
+                {
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Escape TA");
+                    LimnGui::HelpMarker("True anomaly of future escape point");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3e", dynamics.EscapeTrueAnomaly);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Escape point");
+                    LimnGui::HelpMarker("Local coordinates of future escape point");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f, %.3f, %.3f", dynamics.EscapePoint.x, dynamics.EscapePoint.y, dynamics.EscapePoint.z);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Entry point");
+                    LimnGui::HelpMarker("Local coordinates of theoretical entry point (merely the reflection of the escape point about the current apse line, it is not necessarily the actual point at which this object previously entered the local space)");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f, %.3f, %.3f", dynamics.EntryPoint.x, dynamics.EntryPoint.y, dynamics.EntryPoint.z);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Acceleration");
+                    LimnGui::HelpMarker("Sum of constant non-gravitational accelarations being applied to this object (this value excludes the acceleration of gravity of the object's primary)");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.5f, %.5f, %.5f", dynamics.ContAcceleration.x, dynamics.ContAcceleration.y, dynamics.ContAcceleration.z);
+
+                    ImGui::EndTable();
+                }
+                ImGui::TreePop();
             }
         });
 
@@ -1214,7 +1259,7 @@ namespace Limnova
     }
 
 
-    bool LimnGui::SliderFloat(const std::string& label, float& value, const InputConfig<float>& config)
+    bool LimnGui::SliderFloat(const std::string& label, float& value, const InputConfig<float>& config, bool logarithmic)
     {
         std::ostringstream idOss;
         idOss << label << config.WidgetId;
@@ -1233,7 +1278,7 @@ namespace Limnova
             formatting << "%." << config.Precision << "f";
             formatStr = formatting.str();
         }
-        ImGuiSliderFlags flags = 0;
+        ImGuiSliderFlags flags = logarithmic ? ImGuiSliderFlags_Logarithmic : 0;
         if (config.ReadOnly) { flags |= ImGuiSliderFlags_ReadOnly; }
 
         // Elements
@@ -1260,4 +1305,5 @@ namespace Limnova
         ImGui::PopID();
         return valueChanged;
     }
+
 }

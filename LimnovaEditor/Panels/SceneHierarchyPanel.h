@@ -53,7 +53,7 @@ namespace Limnova
         bool InputVec3d(const std::string& label, Vector3d& values, const InputConfig<double>& config, float columnWidth = 100.f);
         bool ColorEdit(const std::string& label, Vector4& values, float columnWidth = 100.f);
         bool ColorEdit3(const std::string& label, Vector3& values, float columnWidth = 100.f);
-        bool SliderFloat(const std::string& label, float& value, const InputConfig<float>& config = {});
+        bool SliderFloat(const std::string& label, float& value, const InputConfig<float>& config = {}, bool logarithmic = false);
     }
 
 }

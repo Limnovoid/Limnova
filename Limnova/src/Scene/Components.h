@@ -311,6 +311,12 @@ namespace Limnova
             Object.SetVelocity(v);
         }
 
+        void UpdateLocalSpaces()
+        {
+            LocalSpaces.clear();
+            Object.GetLocalSpaces(LocalSpaces);
+        }
+
         operator OrbitalPhysics::ObjectNode() const { return Object; }
     };
 
