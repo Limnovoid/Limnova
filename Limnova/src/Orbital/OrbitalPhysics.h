@@ -1125,6 +1125,8 @@ namespace Limnova
             auto& obj = objNode.Object();
             auto& elems = objNode.Elements();
 
+            LV_CORE_ASSERT(false, "TODO: escape non-influencing local spaces");
+
             float apoapsisRadius = elems.P / (1.f - elems.E);
             bool escapesLocalSpace = elems.Type == OrbitType::Hyperbola || apoapsisRadius > kLocalSpaceEscapeRadius;
 
