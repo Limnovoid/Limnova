@@ -1037,6 +1037,12 @@ namespace Limnova
 
         static bool ValidParent(ObjectNode objNode)
         {
+            if (!objNode.ParentLsp().IsInfluencing()) {
+                // TODO : foreign (non-local) orbits
+                LV_WARN("Orbits in non-influencing local spaces are not yet supported!");
+                return false;
+            }
+
             if (objNode.IsRoot()) return true;
             if (LSpaceNode(kRootLspId).LSpace().MetersPerRadius > 0.0) {
                 return objNode.ParentObj().Object().Validity == Validity::Valid;
@@ -1124,8 +1130,6 @@ namespace Limnova
 
             auto& obj = objNode.Object();
             auto& elems = objNode.Elements();
-
-            LV_CORE_ASSERT(false, "TODO: escape non-influencing local spaces");
 
             float apoapsisRadius = elems.P / (1.f - elems.E);
             bool escapesLocalSpace = elems.Type == OrbitType::Hyperbola || apoapsisRadius > kLocalSpaceEscapeRadius;
