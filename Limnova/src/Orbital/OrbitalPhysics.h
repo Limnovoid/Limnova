@@ -1037,13 +1037,14 @@ namespace Limnova
 
         static bool ValidParent(ObjectNode objNode)
         {
+            if (objNode.IsRoot()) return true;
+
             if (!objNode.ParentLsp().IsInfluencing()) {
-                // TODO : foreign (non-local) orbits
+                // TODO : foreign (non-local) orbits <--------------------------------------------- TEMPORARY !!!
                 LV_WARN("Orbits in non-influencing local spaces are not yet supported!");
                 return false;
             }
 
-            if (objNode.IsRoot()) return true;
             if (LSpaceNode(kRootLspId).LSpace().MetersPerRadius > 0.0) {
                 return objNode.ParentObj().Object().Validity == Validity::Valid;
             }
@@ -1646,7 +1647,7 @@ namespace Limnova
 
                     float escapeTrueAnomaly = dynamics.EscapeTrueAnomaly;
                     if (escapeTrueAnomaly > 0.f && elems.TrueAnomaly < PIf && elems.TrueAnomaly > escapeTrueAnomaly) {
-                        LV_CORE_ASSERT(sqrtf(obj.State.Position.SqrMagnitude()) > kLocalSpaceEscapeRadius, "False positive on escape test!");
+                        LV_CORE_ASSERT(sqrtf(obj.State.Position.SqrMagnitude()) > kLocalSpaceEscapeRadius - kEps, "False positive on escape test!");
                         LV_CORE_ASSERT(!m_Ctx->m_UpdateQueueFront.ParentLsp().IsRoot(), "Cannot escape root local space!");
 
                         PromoteObjectNode(m_Ctx->m_UpdateQueueFront);
