@@ -15,7 +15,7 @@ namespace Limnova
     {
     public:
         Entity() = default;
-        Entity(const Entity& other) = default;
+        Entity(const Entity&) = default;
         Entity(entt::entity id, Scene* scene)
             : m_EnttId(id), m_Scene(scene) {}
 
@@ -88,6 +88,7 @@ namespace Limnova
         friend class Scene;
         friend class OrbitalScene;
         friend class NativeScript;
+        friend class SceneSerializer;
     };
 
 }

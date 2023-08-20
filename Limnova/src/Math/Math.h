@@ -17,6 +17,7 @@ namespace Limnova
     // Constants ///////////////////////////
 
     constexpr float kEps = std::numeric_limits<float>::epsilon(); /* std::numeric_limits<float>::epsilon() */
+    constexpr double kEpsd = std::numeric_limits<double>::epsilon(); /* std::numeric_limits<double>::epsilon() */
     constexpr float kDotProductEpsilon = 1e-5f; /* Minimum permissible magnitude of the dot product of two non-perpendicular unit vectors */
     constexpr float kParallelDotProductLimit = 1.f - 1e-5f; /* Maximum permissible magnitude of the dot product of two non-parallel unit vectors */
 

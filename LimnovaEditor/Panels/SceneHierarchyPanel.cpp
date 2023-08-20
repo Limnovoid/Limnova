@@ -64,6 +64,7 @@ namespace Limnova
         if (entity == m_SelectedEntity) flags |= ImGuiTreeNodeFlags_Selected;
 
         auto& tag = entity.GetComponent<TagComponent>();
+        bool isRoot = entity.GetUUID() == m_Scene->m_Root;
 
         auto children = m_Scene->GetChildren(entity);
         if (children.empty()) flags |= ImGuiTreeNodeFlags_Leaf;
@@ -80,7 +81,7 @@ namespace Limnova
                 // Handle double-clicks on entity node:
 
                 if (entity.HasComponent<OrbitalComponent>()) {
-                    ((OrbitalScene*)m_Scene)->SetViewPrimary(entity);
+                    ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
                 }
             }
 
@@ -90,17 +91,64 @@ namespace Limnova
                     m_SelectedEntity = m_Scene->CreateEntityAsChild(entity, tag.Tag + " child");
                 }
 
-                if (ImGui::MenuItem("Duplicate Entity")) {
-                    m_Scene->DuplicateEntity(entity);
-                }
+                if (!isRoot)
+                {
+                    if (ImGui::MenuItem("Duplicate Entity")) {
+                        m_Scene->DuplicateEntity(entity);
+                    }
 
-                if (ImGui::MenuItem("Delete Entity")) {
-                    deleteEntity = true;
+                    if (ImGui::BeginMenu("Reparent")) {
+                        Entity parent = entity.GetParent();
+                        std::vector<Entity> tree = { m_Scene->GetRoot() };
+                        for (size_t i = 0; i < m_Scene->GetTree(tree[0], tree) + 1; i++)
+                        {
+                            if (entity == tree[i] || parent == tree[i]) continue;
+                            if (ImGui::MenuItem(tree[i].GetComponent<TagComponent>().Tag.c_str())) {
+                                entity.Parent(tree[i]);
+                            }
+                        }
+                        ImGui::EndMenu();
+                    }
 
-                    if (m_SelectedEntity == entity) {
-                        m_SelectedEntity = Entity::Null;
+                    if (ImGui::MenuItem("Delete Entity")) {
+                        deleteEntity = true;
+
+                        if (m_SelectedEntity == entity) {
+                            m_SelectedEntity = Entity::Null;
+                        }
                     }
                 }
+
+                ImGui::Separator();
+
+                if (entity.HasComponent<OrbitalComponent>())
+                {
+                    auto& oc = entity.GetComponent<OrbitalComponent>();
+
+                    if (ImGui::MenuItem("View")) {
+                        ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
+                    }
+
+                    if (ImGui::BeginMenu("View Local Space")) {
+                        if (oc.LocalSpaces.size() == 0) {
+                            ImGui::TextDisabled("No local spaces"); // ?
+                        }
+                        else {
+                            for (size_t i = 0; i < oc.LocalSpaces.size(); i++)
+                            {
+                                if (oc.LocalSpaces[i] == ((OrbitalScene*)m_Scene)->m_ViewLSpace) continue;
+
+                                std::ostringstream label; label << i;
+                                if (ImGui::MenuItem(label.str().c_str())) {
+                                    ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
+                                    ((OrbitalScene*)m_Scene)->SetRelativeViewSpace(i);
+                                }
+                            }
+                        }
+                        ImGui::EndMenu();
+                    }
+                }
+
                 ImGui::EndPopup();
             }
         }
@@ -236,16 +284,17 @@ namespace Limnova
         }
         ImGui::PopItemWidth();
 
+        bool isRoot = entity.GetUUID() == m_Scene->m_Root;
         bool isOrbital = entity.HasComponent<OrbitalComponent>();
-        bool isOrbitalViewPrimary = isOrbital ? entity == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
-        bool isOrbitalViewSecondary = isOrbital ? m_Scene->GetParent(entity) == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
+        bool isOrbitalViewParent = isOrbital ? entity == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
+        bool isOrbitalViewObject = (!isRoot && isOrbital) ? entity.GetParent() == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
 
         ComponentInspector<TransformComponent>(entity, "Transform", false, [&]()
         {
             auto& transform = entity.GetComponent<TransformComponent>();
 
             // Position
-            ImGui::BeginDisabled(isOrbital && !isOrbitalViewSecondary);
+            ImGui::BeginDisabled(isOrbital && !isOrbitalViewObject);
             {
                 LimnGui::InputConfig<float> config;
                 config.Speed = 0.01f;
@@ -256,14 +305,17 @@ namespace Limnova
                     transform.NeedCompute = true;
 
                     if (entity.HasComponent<OrbitalComponent>()) {
-                        entity.GetComponent<OrbitalComponent>().SetPosition(transform.Position);
+                        auto& oc = entity.GetComponent<OrbitalComponent>();
+                        oc.Object.SetPosition(transform.Position);
+                        oc.LocalSpaces.clear();
+                        oc.Object.GetLocalSpaces(oc.LocalSpaces);
                     }
                 }
                 ImGui::EndDisabled();
             }
 
             // Rotation
-            ImGui::BeginDisabled(isOrbital && !(isOrbitalViewPrimary || isOrbitalViewSecondary));
+            ImGui::BeginDisabled(isOrbital && !(isOrbitalViewParent || isOrbitalViewObject));
             {
                 Vector3 eulerAngles = DegreesVec3(transform.GetEulerAngles());
                 eulerAngles.x = Wrapf(eulerAngles.x, 0.f, 360.f);
@@ -281,7 +333,7 @@ namespace Limnova
             }
 
             // Scale
-            ImGui::BeginDisabled(isOrbital && !isOrbitalViewPrimary);
+            ImGui::BeginDisabled(isOrbital && !isOrbitalViewParent);
             {
                 LimnGui::InputConfig<float> config;
                 config.Speed = 0.01f;
@@ -291,15 +343,16 @@ namespace Limnova
                 {
                     transform.NeedCompute = true;
 
-                    if (entity.HasComponent<OrbitalComponent>()) {
-                        entity.GetComponent<OrbitalComponent>().LocalScale = transform.Scale;
-                    }
+#ifdef LV_EDITOR_USE_ORBITAL
+                    entity.GetComponent<OrbitalHierarchyComponent>().AbsoluteScale =
+                        ((OrbitalScene*)m_Scene)->GetLocalSpace(entity).GetLSpace().MetersPerRadius * (Vector3d)transform.Scale;
+#endif
                 }
                 ImGui::EndDisabled();
             }
         });
 
-        ComponentInspector<HierarchyComponent>(entity, "Hierarchy", true, [&]() {
+        ComponentInspector<HierarchyComponent>(entity, "Hierarchy", false, [&]() {
             auto& hierarchy = entity.GetComponent<HierarchyComponent>();
 
             if (hierarchy.Parent != UUID::Null) {
@@ -407,132 +460,236 @@ namespace Limnova
             }
         });
 
+        ComponentInspector<OrbitalHierarchyComponent>(entity, "Orbital Hierarchy", false, [&]()
+        {
+            auto& orbitalhc = entity.GetComponent<OrbitalHierarchyComponent>();
+
+            // Relative local space
+            if (entity != m_Scene->GetRoot())
+            {
+                ImGui::Text("Local space ID: %d", ((OrbitalScene*)m_Scene)->GetLocalSpace(entity).Id());
+
+                ImGui::BeginDisabled(!entity.GetParent().HasComponent<OrbitalComponent>());
+
+                LimnGui::InputConfig<int> config;
+                config.Speed = 1;
+                config.FastSpeed = 1; /* number of local spaces belonging to parent will almost always be on the order of 1 */
+                config.LabelWidth = 135.f;
+                config.WidgetWidth = 120.f;
+                int value = orbitalhc.LocalSpaceRelativeToParent;
+                if (LimnGui::InputInt("Relative Local Space", value, config))
+                {
+                    auto parentOc = entity.GetParent().GetComponent<OrbitalComponent>();
+                    orbitalhc.LocalSpaceRelativeToParent = std::clamp<int>(value,
+                        isOrbital ? 0 : -1, parentOc.LocalSpaces.size() - 1);
+
+                    if (isOrbital) {
+                        // Update physics
+                        entity.GetComponent<OrbitalComponent>().Object.SetLocalSpace(
+                            parentOc.LocalSpaces[orbitalhc.LocalSpaceRelativeToParent]);
+                    }
+                }
+
+                ImGui::EndDisabled();
+            }
+
+            // Absolute scale
+            {
+                LimnGui::InputConfig<double> config;
+                if (LimnGui::InputVec3d("Absolute Scale", orbitalhc.AbsoluteScale, config))
+                {
+                    config.Precision = 8;
+                    double lspScaling = 1.0 / ((OrbitalScene*)m_Scene)->GetLocalSpace(entity).GetLSpace().MetersPerRadius;
+                    entity.GetComponent<TransformComponent>().SetScale((Vector3)(orbitalhc.AbsoluteScale * lspScaling));
+                }
+            }
+        });
+
         ComponentInspector<OrbitalComponent>(entity, "Orbital", true, [&]()
         {
             auto& orbital = entity.GetComponent<OrbitalComponent>();
 
-            ImGui::Text("Object ID: %d", (Physics::TObjectId)orbital);
+            ImGui::Text("Object ID: %d", orbital.Object.Id());
 
             LimnGui::ColorEdit3("UI Color", orbital.UIColor);
 
-            switch (orbital.GetValidity())
+            auto& obj = orbital.Object.GetObj();
+
+            switch (obj.Validity)
             {
-            case Physics::Validity::Valid:          ImGui::Text(                                "Validity: Valid");             break;
-            case Physics::Validity::InvalidParent:  ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Parent!");   break;
-            case Physics::Validity::InvalidMass:    ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Mass!");     break;
-            case Physics::Validity::InvalidPosition:ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Position!"); break;
-            case Physics::Validity::InvalidPath:    ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Path!");     break;
+            case OrbitalPhysics::Validity::Valid:          ImGui::Text(                                "Validity: Valid");             break;
+            case OrbitalPhysics::Validity::InvalidParent:  ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Parent!");   break;
+            case OrbitalPhysics::Validity::InvalidMass:    ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Mass!");     break;
+            case OrbitalPhysics::Validity::InvalidPosition:ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Position!"); break;
+            case OrbitalPhysics::Validity::InvalidPath:    ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Path!");     break;
             }
 
             if (entity != m_Scene->GetRoot())
             {
-                bool isDynamic = orbital.IsDynamic();
+                switch (obj.Integration.Method)
+                {
+                case OrbitalPhysics::Integration::Method::Angular:  ImGui::Text("Integration: Angular");    break;
+                case OrbitalPhysics::Integration::Method::Linear:   ImGui::Text("Integration: Linear");     break;
+                }
+
+                bool isDynamic = orbital.Object.IsDynamic();
                 if (LimnGui::Checkbox("Dynamic", isDynamic)) {
-                    orbital.SetDynamic(isDynamic);
+                    orbital.Object.SetDynamic(isDynamic);
                 }
 
                 ImGui::Separator();
 
-                ImGui::BeginDisabled(!isOrbitalViewSecondary);
                 LimnGui::Checkbox("Show Major/Minor Axes", orbital.ShowMajorMinorAxes, 175.f);
                 LimnGui::Checkbox("Show Normal", orbital.ShowNormal, 175.f);
-                ImGui::EndDisabled();
             }
 
             ImGui::Separator();
-            ImGui::BeginDisabled(!(isOrbitalViewPrimary || isOrbitalViewSecondary));
 
-            // Local scale
+            // Local spaces
+            bool lspacesChanged = false;
+            if (ImGui::TreeNode("Local Spaces"))
             {
-                LimnGui::InputConfig<float> config;
-                config.Speed = 0.0001f;
-                config.ResetValue = 0.1f;
-                config.Precision = 4;
-                LimnGui::DragVec3("Local Scale", orbital.LocalScale, config);
+                for (size_t l = 0; l < orbital.LocalSpaces.size(); l++)
+                {
+                    ImGui::BeginGroup();
+
+                    ImGui::Text("%d", l);
+                    ImGui::SameLine();
+
+                    auto lspNode = orbital.LocalSpaces[l];
+                    bool isSoi = lspNode.IsSphereOfInfluence();
+                    if (isSoi) { ImGui::Text("Sphere of Influence"); }
+                    else if (lspNode.IsInfluencing()) { ImGui::Text("Influencing"); }
+                    else { ImGui::Text("Non-influencing"); }
+
+                    // Debug info
+                    {
+                        std::ostringstream ostr;
+                        ostr << "Node " << lspNode.Id();
+                        LimnGui::HelpMarker(ostr.str());
+                    }
+
+                    // Radius
+                    float localSpaceRadius = lspNode.GetLSpace().Radius;
+                    LimnGui::InputConfig<float> config;
+                    config.Speed = 0.0001f;
+                    config.Precision = 4;
+                    config.Min = OrbitalPhysics::kMinLSpaceRadius;
+                    config.Max = OrbitalPhysics::kMaxLSpaceRadius;
+                    config.ReadOnly = isSoi; /* cannot resize spheres of influence ! */
+                    config.WidgetId = lspNode.Id();
+                    if (LimnGui::DragFloat("Radius", localSpaceRadius, config, 100.f)) {
+                        lspNode.SetRadius(localSpaceRadius);
+                        lspacesChanged = true;
+                    }
+
+                    // Context menu
+                    ImGui::PushID(l);
+                    ImGui::EndGroup();
+                    {
+                        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+                        {
+                            ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
+                            ((OrbitalScene*)m_Scene)->SetRelativeViewSpace(l);
+                        }
+                        if (ImGui::BeginPopupContextItem("localSpacePopup"))
+                        {
+                            if (ImGui::MenuItem("View")) {
+                                ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
+                                ((OrbitalScene*)m_Scene)->SetRelativeViewSpace(l);
+                            }
+                            ImGui::BeginDisabled(isSoi);
+                            if (ImGui::MenuItem("Remove")) {
+                                OrbitalPhysics::CollapseLocalSpace(orbital.LocalSpaces[l]);
+                                lspacesChanged = true;
+                            }
+                            ImGui::EndDisabled();
+
+                            ImGui::EndPopup();
+                        }
+                    }
+                    ImGui::PopID();
+
+                    ImGui::Separator();
+                }
+
+                if (ImGui::Button("Add")) {
+                    orbital.Object.AddLocalSpace();
+                    lspacesChanged = true;
+                }
+
+                ImGui::TreePop();
             }
 
             ImGui::Separator();
 
-            // Local space radius
-            bool isInfluencing = orbital.IsInfluencing();
-            if (isInfluencing) {
-                ImGui::Text("Influencing");
-            }
-            else {
-                ImGui::Text("Non-influencing");
-            }
+            ImGui::BeginDisabled(!(isOrbitalViewParent || isOrbitalViewObject));
 
-            ImGui::BeginDisabled(isInfluencing);
-
-            float localSpaceRadius = orbital.GetLocalSpaceRadius();
-            LimnGui::InputConfig<float> config;
-            config.Speed = 0.0001f;
-            config.Precision = 4;
-            config.Min = 0.01f;
-            config.Max = 2.f;
-            if (LimnGui::DragFloat("Local Space Radius", localSpaceRadius, config, 125.f)) {
-                orbital.SetLocalSpaceRadius(localSpaceRadius);
-            }
-
-            ImGui::EndDisabled();
+            bool wasInfluencing = orbital.Object.IsInfluencing();
 
             // Mass
-            double mass = orbital.GetMass();
+            double mass = obj.State.Mass;
             if (LimnGui::InputScientific("Mass", mass))
             {
-                orbital.SetMass(mass);
+                orbital.Object.SetMass(mass);
             }
 
             ImGui::EndDisabled();
 
             ImGui::Separator();
-            ImGui::BeginDisabled(!isOrbitalViewSecondary);
+            ImGui::BeginDisabled(!isOrbitalViewObject);
 
             // Position
             {
-                Vector3 position = orbital.GetPosition();
+                Vector3 position = obj.State.Position;
                 LimnGui::InputConfig<float> config;
                 config.Speed = 0.0001f;
                 config.Precision = 4;
                 config.ResetValue = 0.f;
-                if (LimnGui::DragVec3("Position", position, config))
-                {
-                    orbital.SetPosition(position);
+                if (LimnGui::DragVec3("Position", position, config)) {
+                    orbital.Object.SetPosition(position);
                 }
             }
 
             // Velocity
             if (entity != m_Scene->GetRoot())
             {
-                Vector3d velocity = orbital.GetVelocity();
+                Vector3d velocity = obj.State.Velocity;
                 LimnGui::InputConfig<double> config;
                 config.Speed = 0.0001;
                 config.FastSpeed = 0.01;
                 config.Precision = 8;
                 config.ResetValue = 0.f;
                 if (LimnGui::InputVec3d("Velocity", velocity, config)) {
-                    orbital.SetVelocity(velocity);
+                    orbital.Object.SetVelocity(velocity);
                 }
 
-                if (ImGui::Button("Circularise Orbit")) {
+                if (ImGui::Button("Circularize")) {
                     orbital.SetCircular();
                 }
 
                 ImGui::SameLine();
 
-                if (ImGui::Button("Reverse Orbit")) {
-                    orbital.SetVelocity(-velocity);
+                if (ImGui::Button("Reverse")) {
+                    orbital.Object.SetVelocity(-velocity);
                 }
+            }
+
+            if (lspacesChanged || wasInfluencing != orbital.Object.IsInfluencing()) {
+                orbital.LocalSpaces.clear();
+                orbital.Object.GetLocalSpaces(orbital.LocalSpaces);
             }
 
             ImGui::EndDisabled(); // (isOrbital && !isOrbitalViewSecondary)
 
+
             ImGui::Separator();
 
             // Elements
-            if (entity != m_Scene->GetRoot())
+            if (entity != m_Scene->GetRoot() &&
+                ImGui::TreeNode("Elements"))
             {
-                const auto& elems = orbital.GetElements();
+                const auto& elems = orbital.Object.GetElements();
                 if (ImGui::BeginTable("Elements", 2))
                 {
                     ImGui::TableNextRow();
@@ -665,6 +822,50 @@ namespace Limnova
 
                     ImGui::EndTable();
                 }
+                ImGui::TreePop();
+            }
+
+            if (orbital.Object.IsDynamic() &&
+                ImGui::TreeNode("Dynamics"))
+            {
+                const auto& dynamics = orbital.Object.GetDynamics();
+                if (ImGui::BeginTable("Elements", 2))
+                {
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Escape TA");
+                    LimnGui::HelpMarker("True anomaly of future escape point");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3e", dynamics.EscapeTrueAnomaly);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Escape point");
+                    LimnGui::HelpMarker("Local coordinates of future escape point");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f, %.3f, %.3f", dynamics.EscapePoint.x, dynamics.EscapePoint.y, dynamics.EscapePoint.z);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Entry point");
+                    LimnGui::HelpMarker("Local coordinates of theoretical entry point (merely the reflection of the escape point about the current apse line, it is not necessarily the actual point at which this object previously entered the local space)");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.3f, %.3f, %.3f", dynamics.EntryPoint.x, dynamics.EntryPoint.y, dynamics.EntryPoint.z);
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Acceleration");
+                    LimnGui::HelpMarker("Sum of constant non-gravitational accelarations being applied to this object (this value excludes the acceleration of gravity of the object's primary)");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.5f, %.5f, %.5f", dynamics.ContAcceleration.x, dynamics.ContAcceleration.y, dynamics.ContAcceleration.z);
+
+                    ImGui::EndTable();
+                }
+                ImGui::TreePop();
             }
         });
 
@@ -779,6 +980,27 @@ namespace Limnova
     }
 
 
+    bool LimnGui::InputInt(const std::string& label, int& value, const InputConfig<int>& config)
+    {
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
+
+        ImGui::Columns(2);
+        ImGui::SetColumnWidth(0, config.LabelWidth);
+        ImGui::Text(label.c_str());
+
+        ImGui::NextColumn();
+
+        ImGui::SetColumnWidth(1, config.WidgetWidth);
+        bool valueChanged = ImGui::InputInt("##V", &value, config.Speed, config.FastSpeed, ImGuiInputTextFlags_EnterReturnsTrue);
+
+        ImGui::Columns(1);
+        ImGui::PopID();
+        return valueChanged;
+    }
+
+
     bool LimnGui::InputScientific(const std::string& label, double& value, float columnWidth)
     {
         ImGui::PushID(label.c_str());
@@ -800,7 +1022,12 @@ namespace Limnova
 
     bool LimnGui::DragFloat(const std::string& label, float& value, const InputConfig<float>& config, float columnWidth)
     {
-        ImGui::PushID(label.c_str());
+        ImGuiSliderFlags flags = ImGuiSliderFlags_AlwaysClamp;
+        if (config.ReadOnly) flags |= ImGuiSliderFlags_ReadOnly;
+
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
 
         ImGui::Columns(2);
         ImGui::SetColumnWidth(0, columnWidth);
@@ -809,7 +1036,7 @@ namespace Limnova
 
         std::ostringstream formatting;
         formatting << "%." << config.Precision << "f";
-        bool valueChanged = ImGui::DragFloat("##V", &value, config.Speed, config.Min, config.Max, formatting.str().c_str(), ImGuiSliderFlags_AlwaysClamp);
+        bool valueChanged = ImGui::DragFloat("##V", &value, config.Speed, config.Min, config.Max, formatting.str().c_str(), flags);
 
         ImGui::Columns(1);
         ImGui::PopID();
@@ -824,7 +1051,9 @@ namespace Limnova
         ImGuiIO& io = ImGui::GetIO();
         auto* boldFont = io.Fonts->Fonts[ImGuiLayer::FontIndex::Bold];
 
-        ImGui::PushID(label.c_str());
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
 
         ImGui::Columns(2);
         ImGui::SetColumnWidth(0, columnWidth);
@@ -911,7 +1140,9 @@ namespace Limnova
         ImGuiIO& io = ImGui::GetIO();
         auto* boldFont = io.Fonts->Fonts[ImGuiLayer::FontIndex::Bold];
 
-        ImGui::PushID(label.c_str());
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
 
         ImGui::Columns(2);
         ImGui::SetColumnWidth(0, columnWidth);
@@ -931,6 +1162,9 @@ namespace Limnova
             formatStr = formatting.str();
         }
 
+        ImGuiInputTextFlags flags = 0;
+        if (config.ReadOnly) flags |= ImGuiInputTextFlags_ReadOnly;
+
         // X
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 1.f, 0.2f, 0.3f, 0.7f });
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 1.f, 0.2f, 0.3f, 1.f });
@@ -943,7 +1177,7 @@ namespace Limnova
         ImGui::PopFont();
         ImGui::PopStyleColor(3);
         ImGui::SameLine();
-        if (ImGui::InputDouble("##X", &values.x, config.Speed, config.FastSpeed, formatStr.c_str())) {
+        if (ImGui::InputDouble("##X", &values.x, config.Speed, config.FastSpeed, formatStr.c_str(), flags)) {
             valueChanged = true;
         }
         //ImGui::PopItemWidth();
@@ -961,7 +1195,7 @@ namespace Limnova
         ImGui::PopFont();
         ImGui::PopStyleColor(3);
         ImGui::SameLine();
-        if (ImGui::InputDouble("##Y", &values.y, config.Speed, config.FastSpeed, formatStr.c_str())) {
+        if (ImGui::InputDouble("##Y", &values.y, config.Speed, config.FastSpeed, formatStr.c_str(), flags)) {
             valueChanged = true;
         }
         //ImGui::PopItemWidth();
@@ -979,7 +1213,7 @@ namespace Limnova
         ImGui::PopFont();
         ImGui::PopStyleColor(3);
         ImGui::SameLine();
-        if (ImGui::InputDouble("##Z", &values.z, config.Speed, config.FastSpeed, formatStr.c_str())) {
+        if (ImGui::InputDouble("##Z", &values.z, config.Speed, config.FastSpeed, formatStr.c_str(), flags)) {
             valueChanged = true;
         }
         //ImGui::PopItemWidth();
@@ -1020,6 +1254,54 @@ namespace Limnova
         bool valueChanged = ImGui::ColorEdit3("##V", values.Ptr());
 
         ImGui::Columns(1);
+        ImGui::PopID();
+        return valueChanged;
+    }
+
+
+    bool LimnGui::SliderFloat(const std::string& label, float& value, const InputConfig<float>& config, bool logarithmic)
+    {
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
+
+        ImGui::BeginGroup();
+
+        // Setup
+        ImGuiIO& io = ImGui::GetIO();
+        auto* boldFont = io.Fonts->Fonts[ImGuiLayer::FontIndex::Bold];
+        float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
+        ImVec2 buttonSize = { lineHeight, lineHeight };
+        std::string formatStr;
+        {
+            std::ostringstream formatting;
+            formatting << "%." << config.Precision << "f";
+            formatStr = formatting.str();
+        }
+        ImGuiSliderFlags flags = logarithmic ? ImGuiSliderFlags_Logarithmic : 0;
+        if (config.ReadOnly) { flags |= ImGuiSliderFlags_ReadOnly; }
+
+        // Elements
+        ImGui::Columns(3);
+        ImGui::SetColumnWidth(0, config.LabelWidth);
+        ImGui::Text(label.c_str());
+        if (!config.HelpMarker.empty()) { HelpMarker(config.HelpMarker); }
+
+        ImGui::NextColumn();
+        ImGui::SetColumnWidth(1, config.WidgetWidth + 12.f);
+        ImGui::SetNextItemWidth(config.WidgetWidth);
+        bool valueChanged = ImGui::SliderFloat("##V", &value, config.Min, config.Max, formatStr.c_str(), flags);
+
+        ImGui::NextColumn();
+        ImGui::PushFont(boldFont);
+        if (ImGui::Button("X", buttonSize)) {
+            value = config.ResetValue;
+            valueChanged = true;
+        }
+        ImGui::PopFont();
+
+        ImGui::Columns(1);
+        ImGui::EndGroup();
         ImGui::PopID();
         return valueChanged;
     }

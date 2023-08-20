@@ -849,7 +849,7 @@ namespace Limnova
 
     void Renderer2D::DrawOrbitalEllipse(const Vector3& center, const Quaternion& orientation, const OrbitalComponent& component, const Vector4& color, float thickness, float fade, int entityId)
     {
-        auto& elems = component.GetElements();
+        auto& elems = component.Object.GetElements();
 
         Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)center);
         transform = transform * Matrix4(orientation);
@@ -857,9 +857,9 @@ namespace Limnova
 
         Vector2 cutoffPoint = { 0.f }; /* the point on the orbit path above the x-axis (positive y-component) at which the orbit should stop being drawn */
         Vector2 cutoffNormal = { 0.f }; /* the normal to the the cutoff line, equal to the unit direction vector of the orbit velocity at the cutoff point */
-        if (component.IsDynamic())
+        if (component.Object.IsDynamic())
         {
-            auto& dynamics = component.GetDynamics();
+            auto& dynamics = component.Object.GetDynamics();
             if (dynamics.EscapeTrueAnomaly > 0.f)
             {
                 cutoffPoint = dynamics.EscapePointPerifocal;
@@ -936,9 +936,9 @@ namespace Limnova
 
     void Renderer2D::DrawOrbitalHyperbola(const Vector3& center, const Quaternion& orientation, const OrbitalComponent& component, const Vector4& color, float thickness, float fade, int entityId)
     {
-        auto& elems = component.GetElements();
-        LV_CORE_ASSERT(elems.Type == Physics::OrbitType::Hyperbola, "Orbit must be hyperbolic!");
-        auto& dynamics = component.GetDynamics();
+        auto& elems = component.Object.GetElements();
+        LV_CORE_ASSERT(elems.Type == OrbitalPhysics::OrbitType::Hyperbola, "Orbit must be hyperbolic!");
+        auto& dynamics = component.Object.GetDynamics();
 
         Vector2 cutoffPoint = dynamics.EscapePointPerifocal; /* the point on the orbit path above the x-axis (positive y-component) at which the orbit should stop being drawn */
         Vector2 cutoffNormal = { 0.f }; /* the normal to the cutoff line, equal to the unit direction vector of the orbit velocity at the cutoff point */

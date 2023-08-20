@@ -198,6 +198,7 @@ namespace Limnova
 
         m_SceneHierarchyPanel.SetContext(m_ActiveScene.get());
         m_IconPlay = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\PlayButton.png");
+        m_IconPause = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\PauseButton.png");
         m_IconStop = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\StopButton.png");
     }
 
@@ -226,6 +227,7 @@ namespace Limnova
             switch (m_SceneState)
             {
             case SceneState::Edit:
+            case SceneState::Pause:
             {
                 m_EditorCamera.OnUpdate(dT);
                 m_ActiveScene->OnUpdateEditor(dT);
@@ -233,8 +235,9 @@ namespace Limnova
             }
             case SceneState::Simulate:
             {
-                m_EditorCamera.OnUpdate(dT);
-                /* don't break, call OnUpdateRuntime() */
+                m_EditorCamera.OnUpdate(dT); /* Simulate uses editor camera so we update it */
+                dT = dT * m_SceneDTMultiplier;
+                /* cascade to Play */
             }
             case SceneState::Play:
             {
@@ -264,6 +267,7 @@ namespace Limnova
             {
             case SceneState::Edit:
             case SceneState::Simulate:
+            case SceneState::Pause:
             {
                 m_ActiveScene->OnRenderEditor(m_EditorCamera);
                 break;
@@ -422,6 +426,7 @@ namespace Limnova
             }
         }
 
+        ImGui::Checkbox("Show view space boundary", &m_ActiveScene->m_ShowViewSpace);
 
         ImGui::Checkbox("Show reference axes", &m_ActiveScene->m_ShowReferenceAxes);
         ImGui::BeginDisabled(!m_ActiveScene->m_ShowReferenceAxes);
@@ -473,7 +478,8 @@ namespace Limnova
         ImGui::Text("Indices:       %d", stats.GetNumIndices());
         ImGui::End(); // Renderer2D Statistics
 
-#if defined(LV_DEBUG) && defined(LV_EDITOR_USE_ORBITAL)
+
+#if defined(LV_DEBUG) && defined(LV_EDITOR_USE_ORBITAL) && defined(TEMP_EXCLUDE)
         ImGui::Begin("OrbitalPhysics Statistics");
         auto& orbitalStats = m_ActiveScene->GetPhysicsStats();
         {
@@ -650,10 +656,12 @@ namespace Limnova
         ImGui::Begin("##toolbar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
 
         // Play button
+        float mid = ImGui::GetWindowContentRegionMax().x * 0.5f;
         float size = ImGui::GetWindowHeight() - 8.f;
-        const Ref<Texture2D>& playButtonIcon = m_SceneState == SceneState::Edit ? m_IconPlay : m_IconStop;
-        ImGui::SetCursorPosX((ImGui::GetWindowContentRegionMax().x - size) * 0.5f);
-        if (ImGui::ImageButton("##playButton", (ImTextureID)playButtonIcon->GetRendererId(), ImVec2{size, size}))
+        float pad = size * 0.1f;
+        const Ref<Texture2D>& playButtonIcon = (m_SceneState == SceneState::Edit || m_SceneState == SceneState::Pause) ? m_IconPlay : m_IconPause;
+        ImGui::SetCursorPosX(mid - size - pad);
+        if (ImGui::ImageButton("##playButton", (ImTextureID)playButtonIcon->GetRendererId(), ImVec2{ size, size }))
         {
             switch (m_SceneState)
             {
@@ -662,12 +670,50 @@ namespace Limnova
                 OnSceneSimulate();
                 break;
             case SceneState::Simulate:
+                m_SceneState = SceneState::Pause;
+                break;
+            case SceneState::Pause:
+                m_SceneState = SceneState::Simulate;
+                break;
+            }
+        }
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(mid + pad);
+        if (ImGui::ImageButton("##stopButton", (ImTextureID)m_IconStop->GetRendererId(), ImVec2{ size, size }))
+        {
+            switch (m_SceneState)
+            {
+            case SceneState::Edit:
+                break;
+            case SceneState::Simulate:
             case SceneState::Play:
+            case SceneState::Pause:
                 OnSceneStop();
                 break;
             }
         }
-        ImGui::End();
+
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(2.f * mid - 250.f);
+        static const LimnGui::InputConfig<float> config {
+            1.f,    // ResetValue
+            0.1f,   // Speed
+            1.f,    // FastSpeed 
+            0.1f,   // Min
+            1000.f, // Max
+            3,      // Precision
+            false,  // ReadOnly
+            0,      // WidgetId
+            80,     // LabelWidth
+            120,     // WidgetWidth
+            "Delta-time multiplier: multiplied with frame dT before being passed to Scene::OnUpdate.\n"
+            "Effectively a time dilation tool for controlling the apparent timescale of the game scene."
+        };
+        LimnGui::SliderFloat("dT mult.", m_SceneDTMultiplier, config, true);
+        /*LimnGui::HelpMarker("Delta-time multiplier: multiplied with frame dT before being passed to Scene::OnUpdate.\n"
+            "Effectively a time dilation tool for controlling the apparent timescale of the game scene.");*/
+
+        ImGui::End(); // toolbar
 
         ImGui::PopStyleColor(3);
         ImGui::PopStyleVar(2);
@@ -835,7 +881,8 @@ namespace Limnova
 
 #ifdef LV_EDITOR_USE_ORBITAL
         m_ActiveScene = OrbitalScene::Copy(m_EditorScene);
-    #ifdef LV_DEBUG
+
+    #if defined(LV_DEBUG) && defined(TEMP_EXCLUDE)
         size_t numObjs = m_ActiveScene->GetPhysicsStats().ObjStats.size();
         m_ObjectUpdates.clear();
         m_ResizeInit(m_ObjectUpdates, numObjs, 0.f);
@@ -860,7 +907,9 @@ namespace Limnova
         m_ActiveScene->OnStopRuntime();
 
         m_ActiveScene = m_EditorScene;
+
         m_SceneHierarchyPanel.SetContext(m_EditorScene.get());
+        m_EditorScene->PhysicsUseContext();
     }
 
 
