@@ -39,6 +39,100 @@ namespace Limnova
         ////////////////////////////////////////
 
 
+        /*** General-purpose array-based storage class ***/
+    private:
+        using TId = uint32_t;
+        template<typename T>
+        class Storage
+        {
+            std::vector<T> m_Items;
+            std::unordered_set<TId> m_Empties;
+        public:
+            Storage() = default;
+            Storage(const Storage&) = default;
+
+            size_t Size() const
+            {
+                return m_Items.size() - m_Empties.size();
+            }
+
+            bool Has(TId id) const
+            {
+                return id < m_Items.size() && !m_Empties.contains(id);
+            }
+
+            TId New()
+            {
+                return GetEmpty();
+            }
+
+            T& Get(TId id)
+            {
+                LV_CORE_ASSERT(Has(id), "Invalid ID!");
+                return m_Items[id];
+            }
+
+            T const& Get(TId id) const
+            {
+                LV_CORE_ASSERT(Has(id), "Invalid ID!");
+                return m_Items[id];
+            }
+
+            void Erase(TId id)
+            {
+                LV_CORE_ASSERT(Has(id), "Invalid ID!");
+                Recycle(id);
+            }
+
+            bool TryErase(TId id)
+            {
+                if (Has(id)) {
+                    Recycle(m_Items[id]);
+                    return true;
+                }
+                return false;
+            }
+
+            void Clear()
+            {
+                m_Items.clear();
+                m_Empties.clear();
+            }
+        public:
+            T& operator[](TId id)
+            {
+                LV_CORE_ASSERT(Has(id), "Invalid ID!");
+                return m_Items[id];
+            }
+            T const& operator[](TId id) const
+            {
+                LV_CORE_ASSERT(Has(id), "Invalid ID!");
+                return m_Items[id];
+            }
+        private:
+            TId GetEmpty()
+            {
+                TId emptyId;
+                if (m_Empties.empty()) {
+                    emptyId = m_Items.size();
+                    m_Items.emplace_back();
+                }
+                else {
+                    auto it = m_Empties.begin();
+                    emptyId = *it;
+                    m_Empties.erase(it);
+                }
+                return emptyId;
+            }
+
+            void Recycle(TId id)
+            {
+                m_Items[id] = T();
+                m_Empties.insert(id);
+            }
+        };
+
+
         /*** Object tree ***/
     public:
         using TNodeId = uint32_t;
@@ -55,21 +149,20 @@ namespace Limnova
 
         class Tree
         {
-            std::vector<Node> m_Nodes;
+            Storage<Node> m_Nodes;
             std::vector<int> m_Heights;
-            std::unordered_set<TNodeId> m_Empties;
         public:
             Tree() = default;
             Tree(const Tree&) = default;
 
-            size_t Size()
+            size_t Size() const
             {
-                return m_Nodes.size() - m_Empties.size();
+                return m_Nodes.Size();
             }
 
             bool Has(TNodeId nodeId) const
             {
-                return nodeId < m_Nodes.size() && !m_Empties.contains(nodeId);
+                return m_Nodes.Has(nodeId);
             }
 
             TNodeId New()
@@ -84,15 +177,15 @@ namespace Limnova
             {
                 LV_CORE_ASSERT(Has(parentId), "Invalid parent ID!");
 
-                TNodeId node = GetEmpty();
-                Attach(node, parentId);
-                return node;
+                TNodeId nodeId = GetEmpty();
+                Attach(nodeId, parentId);
+                return nodeId;
             }
 
             Node const& Get(TNodeId nodeId) const
             {
                 LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
-                return m_Nodes[nodeId];
+                return m_Nodes.Get(nodeId);
             }
 
             int Height(TNodeId nodeId) const
@@ -112,9 +205,8 @@ namespace Limnova
 
             void Clear()
             {
-                m_Nodes.clear();
+                m_Nodes.Clear();
                 m_Heights.clear();
-                m_Empties.clear();
             }
 
             void Move(TNodeId nodeId, TNodeId newParentId)
@@ -208,26 +300,9 @@ namespace Limnova
         private:
             TNodeId GetEmpty()
             {
-                TNodeId emptyId;
-                if (m_Empties.empty()) {
-                    emptyId = m_Nodes.size();
-                    m_Nodes.emplace_back();
-                    m_Heights.push_back(-1);
-                }
-                else {
-                    auto it = m_Empties.begin();
-                    emptyId = *it;
-                    m_Empties.erase(it);
-                }
+                TNodeId emptyId = m_Nodes.New();
+                if (emptyId >= m_Heights.size()) { m_Heights.push_back(-1); }
                 return emptyId;
-            }
-
-            void Recycle(TNodeId nodeId)
-            {
-                LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
-                m_Nodes[nodeId] = Node();
-                m_Heights[nodeId] = -1;
-                m_Empties.insert(nodeId);
             }
 
             void RecycleSubtree(TNodeId rootId)
@@ -238,7 +313,7 @@ namespace Limnova
                     childId = m_Nodes[childId].NextSibling;
                     RecycleSubtree(m_Nodes[childId].PrevSibling);
                 }
-                Recycle(rootId);
+                m_Nodes.Erase(rootId);
             }
 
             void Attach(TNodeId nodeId, TNodeId parentId)
@@ -282,15 +357,13 @@ namespace Limnova
             }
         };
 
+        /*** Node attribute storage class ***/
     private:
-        using TAttrId = uint32_t;
-
         template<typename TAttr>
         class AttributeStorage
         {
-            std::vector<TAttr> m_Attributes;
-            std::unordered_set<TAttrId> m_Empties;
-            std::unordered_map<TNodeId, TAttrId> m_NodeToAttr;
+            Storage<TAttr> m_Attributes;
+            std::unordered_map<TNodeId, TId> m_NodeToAttr;
         public:
             AttributeStorage() = default;
             AttributeStorage(const AttributeStorage&) = default;
@@ -307,66 +380,64 @@ namespace Limnova
 
             TAttr& Add(TNodeId nodeId)
             {
-                LV_CORE_ASSERT(!m_NodeToAttr.contains(nodeId), "Node already has attribute!");
-                TAttrId attr = GetEmpty();
-                m_NodeToAttr[nodeId] = attr;
-                return m_Attributes[attr];
+                LV_CORE_ASSERT(!Has(nodeId), "Node already has attribute!");
+                TId attrId = m_Attributes.New();
+                m_NodeToAttr.insert({ nodeId, attrId });
+                return m_Attributes[attrId];
             }
 
             TAttr& Get(TNodeId nodeId)
             {
-                LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node is missing requested attribute!");
-                return m_Attributes.at(m_NodeToAttr.at(nodeId));
+                LV_CORE_ASSERT(Has(nodeId), "Node is missing requested attribute!");
+                return m_Attributes.Get(m_NodeToAttr.at(nodeId));
             }
 
             TAttr& GetOrAdd(TNodeId nodeId)
             {
-                return m_NodeToAttr.contains(nodeId) ?
-                    Get(nodeId) : Add(nodeId);
+                return Has(nodeId) ? Get(nodeId) : Add(nodeId);
             }
 
             void Remove(TNodeId nodeId)
             {
-                LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node does not have the attribute to remove!");
-                Recycle(m_NodeToAttr.at(nodeId));
+                LV_CORE_ASSERT(Has(nodeId), "Node does not have the attribute to remove!");
+                m_Attributes.Erase(m_NodeToAttr.at(nodeId));
                 m_NodeToAttr.erase(nodeId);
             }
 
-            void TryRemove(TNodeId nodeId)
+            bool TryRemove(TNodeId nodeId)
             {
                 if (m_NodeToAttr.contains(nodeId)) {
-                    Recycle(m_NodeToAttr.at(nodeId));
+                    m_Attributes.Erase(m_NodeToAttr.at(nodeId));
                     m_NodeToAttr.erase(nodeId);
+                    return true;
                 }
+                return false;
             }
         public:
             TAttr& operator[](TNodeId nodeId)
             {
                 LV_CORE_ASSERT(m_NodeToAttr.contains(nodeId), "Node is missing requested attribute!");
-                return m_Attributes.at(m_NodeToAttr.at(nodeId));
-            }
-        private:
-            TAttrId GetEmpty()
-            {
-                TAttrId emptyAttr;
-                if (m_Empties.empty()) {
-                    emptyAttr = m_Attributes.size();
-                    m_Attributes.emplace_back();
-                }
-                else {
-                    auto it = m_Empties.begin();
-                    emptyAttr = *it;
-                    m_Empties.erase(it);
-                }
-                return emptyAttr;
-            }
-
-            void Recycle(TAttrId attributeId)
-            {
-                m_Attributes[attributeId] = TAttr();
-                m_Empties.insert(attributeId);
+                return m_Attributes.Get(m_NodeToAttr.at(nodeId));
             }
         };
+
+
+        /*** Orbit data classes ***/
+    public:
+        class OrbitSection
+        {
+            Elements m_Elements;
+            float m_TrueAnomalyStart  = 0.f;
+            float m_TrueAnomalyEnd    = PI2f;
+            TId m_Next = NNull;
+        };
+
+        class Path
+        {
+            TId m_First = NNull;
+        };
+
+        Storage<OrbitSection> m_OrbitSections;
 
 
         /*** Simulation classes
