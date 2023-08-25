@@ -849,7 +849,7 @@ namespace Limnova
 
     void Renderer2D::DrawOrbitalEllipse(const Vector3& center, const Quaternion& orientation, const OrbitalComponent& component, const Vector4& color, float thickness, float fade, int entityId)
     {
-        auto& elems = component.Object.GetElements();
+        auto& elems = component.Object.GetOrbit().Elements;
 
         Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)center);
         transform = transform * Matrix4(orientation);
@@ -936,7 +936,7 @@ namespace Limnova
 
     void Renderer2D::DrawOrbitalHyperbola(const Vector3& center, const Quaternion& orientation, const OrbitalComponent& component, const Vector4& color, float thickness, float fade, int entityId)
     {
-        auto& elems = component.Object.GetElements();
+        auto& elems = component.Object.GetOrbit().Elements;
         LV_CORE_ASSERT(elems.Type == OrbitalPhysics::OrbitType::Hyperbola, "Orbit must be hyperbolic!");
         auto& dynamics = component.Object.GetDynamics();
 

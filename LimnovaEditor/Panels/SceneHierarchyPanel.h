@@ -48,6 +48,7 @@ namespace Limnova
         bool Checkbox(const std::string& label, bool& value, float columnWidth = 100.f);
         bool InputInt(const std::string& label, int& value, const InputConfig<int>& config = {});
         bool InputScientific(const std::string& label, double& value, float columnWidth = 100.f);
+        bool InputDouble(const std::string& label, double& value, const InputConfig<double>& config, float columnWidth = 100.f);
         bool DragFloat(const std::string& label, float& value, const InputConfig<float>& config, float columnWidth = 100.f);
         bool DragVec3(const std::string& label, Vector3& values, const InputConfig<float>& config, float columnWidth = 100.f);
         bool InputVec3d(const std::string& label, Vector3d& values, const InputConfig<double>& config, float columnWidth = 100.f);

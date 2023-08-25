@@ -707,7 +707,7 @@ namespace Limnova
 
                 TNodeId lspParentObjId = m_Ctx->m_Tree[lspId].Parent;
                 return (m_Ctx->m_Objects[lspParentObjId].State.Velocity +
-                    LocalOffsetFromPrimary(m_Ctx->m_Tree[lspParentObjId].Parent, primaryLspId))
+                    LocalVelocityFromPrimary(m_Ctx->m_Tree[lspParentObjId].Parent, primaryLspId))
                     / m_Ctx->m_LSpaces[lspId].Radius;
             }
 
@@ -730,8 +730,6 @@ namespace Limnova
                 lsp.MetersPerRadius = (double)radius * (Height() == 1
                     ? GetRootLSpaceNode().LSpace().MetersPerRadius
                     : m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetGrandparent(m_NodeId)].MetersPerRadius);
-                lsp.Grav = kGravitational * PrimaryObj().Object().State.Mass * pow(lsp.MetersPerRadius, -3.0);
-
                 if (!ParentObj().Object().Influence.IsNull() &&
                     radius <= ParentObj().Object().Influence.LSpace().Radius) {
                     lsp.Primary = *this; /* an influencing space is its own Primary local space */
@@ -739,6 +737,7 @@ namespace Limnova
                 else {
                     lsp.Primary = ParentObj().PrimaryLsp();
                 }
+                lsp.Grav = kGravitational * PrimaryObj().Object().State.Mass * pow(lsp.MetersPerRadius, -3.0); /* depends on Primary ! */
 
                 // Move child objects to next-higher/-lower space as necessary
                 std::vector<ObjectNode> childObjs = {};
@@ -1056,8 +1055,7 @@ namespace Limnova
         static TId NewOrbit(LSpaceNode lspNode)
         {
             TId newFirstSectionId = m_Ctx->m_OrbitSections.New();
-            auto& newSection = m_Ctx->m_OrbitSections.Get(newFirstSectionId);
-            newSection.LocalSpace = lspNode;
+            m_Ctx->m_OrbitSections.Get(newFirstSectionId).LocalSpace = lspNode;
             return newFirstSectionId;
         }
 
@@ -1080,10 +1078,10 @@ namespace Limnova
                 auto& section = m_Ctx->m_OrbitSections.Get(sectionId);
                 ComputeElements(section, localPosition, localVelocity);
                 ComputeTaLimits(section);
-                LV_CORE_ASSERT(false, "TODO : compute OrbitSection::TaEscape in dynamics !!"); // <----------- TODO !!!
                 if (section.TaEscape == PI2f) { break; }
 
-                // TODO : add new section(s)
+                break;
+                // TODO : add new section(s) and loop over
             }
         }
 
@@ -1130,6 +1128,7 @@ namespace Limnova
             {
                 /* handle position or velocity being zero */
                 elems = Elements();
+                section.TrueAnomaly = 0.f;
                 return;
             }
             elems.PerifocalNormal = (Vector3)(Hvec / elems.H);
@@ -1141,8 +1140,10 @@ namespace Limnova
             /* Loss of precision due to casting is acceptable: result of vector division (V x H / Grav) is on the order of 1 */
             Vector3 posDir = positionFromPrimary.Normalized();
             Vector3 Evec = (Vector3)(velocityFromPrimary.Cross(Hvec) / lsp.Grav) - posDir;
-            elems.E = sqrtf(Evec.SqrMagnitude());
-            float e2 = powf(elems.E, 2.f), e2term;
+            float e2 = Evec.SqrMagnitude();
+            elems.E = sqrtf(e2);
+
+            float e2term;
             if (elems.E < kEccentricityEpsilon)
             {
                 // Circular
@@ -1170,7 +1171,7 @@ namespace Limnova
                     elems.Type = OrbitType::Hyperbola;
                     e2term = e2 - 1.f;
                 }
-                e2term += std::numeric_limits<float>::epsilon(); /* guarantees e2term > 0 */
+                e2term += kEps; /* guarantees e2term > 0 */
             }
 
             // Dimensions
@@ -1178,7 +1179,7 @@ namespace Limnova
             elems.SemiMinor = elems.SemiMajor * sqrtf(e2term);
 
             elems.C = elems.P / (1.f + elems.E);
-            elems.C += (elems.Type == OrbitType::Hyperbola) ? elems.SemiMajor : -elems.SemiMajor; /* different center position for cirlce/ellipse and hyperbola */
+            elems.C += (elems.Type == OrbitType::Hyperbola) ? elems.SemiMajor : -elems.SemiMajor; /* different center positions for elliptical and hyperbolic */
 
             elems.T = PI2 * (double)(elems.SemiMajor * elems.SemiMinor) / elems.H;
 
@@ -1289,8 +1290,8 @@ namespace Limnova
         {
             if (objNode.IsRoot()) return true;
 
-            if (!objNode.ParentLsp().IsInfluencing()) {
-                // TODO : foreign (non-local) orbits <--------------------------------------------- TEMPORARY !!!
+            if (!objNode.ParentLsp().IsInfluencing()) { // <--------------------------------------------- TEMPORARY !!!
+                // TODO : foreign (non-local) orbits
                 LV_WARN("Orbits in non-influencing local spaces are not yet supported!");
                 return false;
             }
@@ -1347,12 +1348,12 @@ namespace Limnova
             /* Radius of influence = a(m / M)^0.4
              * Semi-major axis must be in the order of 1,
              * so the order of ROI is determined by (m / M)^0.4 */
-            double massFactor = pow(obj.State.Mass / objNode.PrimaryObj().Object().State.Mass, 0.4);
-            float radiusOfInfluence = objNode.Orbit().Elements.SemiMajor * (float)massFactor;
+            float massFactor = (float)pow(obj.State.Mass / objNode.PrimaryObj().Object().State.Mass, 0.4);
+            float radiusOfInfluence = objNode.Orbit().Elements.SemiMajor * massFactor;
             if (radiusOfInfluence > kMinLSpaceRadius)
             {
                 if (radiusOfInfluence > kMaxLSpaceRadius) {
-                    LV_WARN("Object with sphere of influence must have adequate separation from primary!");
+                    LV_WARN("Sphere of influence is too wide - adjust orbit radius or object mass!");
                     obj.Validity = Validity::InvalidPath;
                     return;
                 }
@@ -1571,8 +1572,11 @@ namespace Limnova
             if (!objNode.IsRoot() && (obj.Validity == Validity::Valid || obj.Validity == Validity::InvalidPath))
             {
                 ComputeOrbit(obj.Orbit, obj.State.Position, obj.State.Velocity);
-                //ComputeDynamics(objNode); /* sets Validity to InvalidPath if dynamic events are found and orbiter is not dynamic */
                 ComputeInfluence(objNode);
+
+                /* TEMP */
+                if (!objNode.ParentLsp().IsInfluencing()) { obj.Validity = Validity::InvalidPath; } // TODO : non-local orbits !!!
+                /* /TEMP */
 
                 if (obj.Validity == Validity::Valid)
                 {
@@ -1823,9 +1827,18 @@ namespace Limnova
                         float cosT = cosf(orbit.TrueAnomaly);
                         float r = elems.P / (1.f + elems.E * cosT); /* orbit equation: r = h^2 / mu * 1 / (1 + e * cos(trueAnomaly)) */
 
-                        Vector3 positionFromPrimary = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
-                        obj.State.Position = positionFromPrimary - m_Ctx->m_UpdateQueueFront.ParentLsp().LocalOffsetFromPrimary();
+                        //Vector3 positionFromPrimary = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
+                        //Vector3d velocityFromPrimary = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
+                        //obj.State.Position = positionFromPrimary - m_Ctx->m_UpdateQueueFront.ParentLsp().LocalOffsetFromPrimary();
+                        //obj.State.Velocity = velocityFromPrimary - m_Ctx->m_UpdateQueueFront.ParentLsp().LocalVelocityFromPrimary();
+
+                        /* state according to elements (local distance scaling, relative to primary) */
+                        obj.State.Position = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
                         obj.State.Velocity = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
+                        /* state relative to local space */
+                        LSpaceNode parentLspNode = m_Ctx->m_UpdateQueueFront.ParentLsp();
+                        obj.State.Position -= parentLspNode.LocalOffsetFromPrimary();
+                        obj.State.Velocity -= parentLspNode.LocalVelocityFromPrimary();
 
                         objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
                         obj.Integration.DeltaTrueAnomaly = (float)(objDT * elems.H) / (r * r);
@@ -1853,8 +1866,6 @@ namespace Limnova
                     obj.State.Acceleration = newAcceleration;
 
                     if (isDynamicallyAccelerating) {
-                        //ComputeElements(m_Ctx->m_UpdateQueueFront);
-                        //ComputeDynamics(m_Ctx->m_UpdateQueueFront);
                         ComputeOrbit(obj.Orbit, obj.State.Position, obj.State.Velocity);
                         ComputeInfluence(m_Ctx->m_UpdateQueueFront);
                     }
@@ -1890,7 +1901,7 @@ namespace Limnova
                     break;
                 }
                 }
-                LV_CORE_ASSERT(orbit.TrueAnomaly < PI2f, "True anomaly has not been accurately wrapped to range [0, 2Pi]!");
+                LV_CORE_ASSERT(orbit.TrueAnomaly < PI2f, "True anomaly has not been accurately wrapped to range [0, 2Pi)!");
 
 #ifdef LV_DEBUG // debug object post-update
                 /*if (elems.TrueAnomaly < prevTrueAnomaly) {
@@ -1907,8 +1918,8 @@ namespace Limnova
                 if (isDynamic) {
                     auto& dynamics = m_Ctx->m_UpdateQueueFront.Dynamics();
 
-                    float escapeTrueAnomaly = orbit.TaEscape;
-                    if (escapeTrueAnomaly > 0.f && orbit.TrueAnomaly < PIf && orbit.TrueAnomaly > escapeTrueAnomaly) {
+                    //if (orbit.TaEscape > 0.f && orbit.TrueAnomaly < PIf && orbit.TrueAnomaly > orbit.TaEscape) {
+                    if (orbit.TrueAnomaly > orbit.TaEscape) {
                         LV_CORE_ASSERT(sqrtf(obj.State.Position.SqrMagnitude()) > kLocalSpaceEscapeRadius - kEps, "False positive on escape test!");
                         LV_CORE_ASSERT(!m_Ctx->m_UpdateQueueFront.ParentLsp().IsRoot(), "Cannot escape root local space!");
 

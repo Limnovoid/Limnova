@@ -138,7 +138,7 @@ namespace Limnova
             dstOc.ShowNormal = srcOc.ShowNormal;
 
             LV_CORE_ASSERT((dstOc.Object.GetObj().State.Position - srcOc.Object.GetObj().State.Position).SqrMagnitude() < 1e-5f, "Failed to adequately replicate position!");
-            LV_CORE_ASSERT(dstOc.Object.GetElements().E - srcOc.Object.GetElements().E < 1e-5f, "Failed to adequately replicate orbit shape!");
+            LV_CORE_ASSERT(dstOc.Object.GetOrbit().Elements.E - srcOc.Object.GetOrbit().Elements.E < 1e-5f, "Failed to adequately replicate orbit shape!");
             LV_CORE_ASSERT(dstOc.Object.GetDynamics().EscapeTrueAnomaly - srcOc.Object.GetDynamics().EscapeTrueAnomaly < 1e-5f, "Failed to adequately replicate dynamics!");
         }
         return newEntity;
@@ -447,7 +447,7 @@ namespace Limnova
             int editorPickingId = (int)(entity);
             auto [tc, oc] = GetComponents<TransformComponent, OrbitalComponent>(entity);
             auto& object = oc.Object.GetObj();
-            auto& elems = oc.Object.GetElements();
+            auto& elems = oc.Object.GetOrbit().Elements;
 
             if (object.Validity != OrbitalPhysics::Validity::Valid) continue;
 
