@@ -569,6 +569,10 @@ namespace Limnova
             }
         }*/
 
+        if (ohc.LocalSpaceRelativeToParent == -1) {
+            ohc.LocalSpaceRelativeToParent = 0;
+        }
+
         OrbitalPhysics::LSpaceNode localSpace;
         Entity entityParent = GetEntity(hc.Parent);
         if (!entityParent.HasComponent<OrbitalComponent>() || entityParent.GetComponent<OrbitalComponent>().LocalSpaces.size() == 0)
@@ -581,9 +585,6 @@ namespace Limnova
         }
         else
         {
-            if (ohc.LocalSpaceRelativeToParent == -1) {
-                ohc.LocalSpaceRelativeToParent = 0;
-            }
             auto& parentOc = entityParent.GetComponent<OrbitalComponent>();
             LV_CORE_ASSERT(parentOc.LocalSpaces.size() > ohc.LocalSpaceRelativeToParent, "Invalid relative local space index!");
             localSpace = parentOc.LocalSpaces[ohc.LocalSpaceRelativeToParent];

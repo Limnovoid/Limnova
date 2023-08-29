@@ -14,8 +14,8 @@ ReferenceAxisThickness: 0.00600000005
 ReferenceAxisArrowSize: 0.0240000002
 PerifocalAxisThickness: 0.00100000005
 PerifocalAxisArrowSize: 0.00499999989
-TrackingEntity: 518833432052485731
-ViewSpace: -1
+TrackingEntity: 14459431121056359079
+ViewSpace: 1
 RootScaling: 1
 Entities:
   - Entity: 3991604775407627372
@@ -41,18 +41,21 @@ Entities:
       ShowMajorMinorAxes: false
       ShowNormal: false
       Mass: 1
+      Dynamic: false
+      Position: [0, 0, 0]
+      Velocity: [0, 0, 0]
       LocalSpaceRadii:
         []
   - Entity: 14459431121056359079
     TagComponent:
-      Tag: Root child
+      Tag: Planet 0
     HierarchyComponent:
       Parent: 3991604775407627372
     TransformComponent:
       Position: [0, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0.052910056, 0.052910056, 0.052910056]
+      Scale: [0.0796214342, 0.0796214342, 0.0796214342]
     BillboardCircleRendererComponent:
       Color: [0, 0.729857922, 1, 1]
       Thickness: 1
@@ -74,14 +77,14 @@ Entities:
         - 0.00700000022
   - Entity: 13827553148329750021
     TagComponent:
-      Tag: Root child child
+      Tag: Moon 0
     HierarchyComponent:
       Parent: 14459431121056359079
     TransformComponent:
-      Position: [0, 0, 0]
+      Position: [0.810000002, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0, 0, 0]
+      Scale: [0.00796214305, 0.00796214305, 0.00796214305]
     BillboardCircleRendererComponent:
       Color: [1, 0, 1, 1]
       Thickness: 1
@@ -97,7 +100,7 @@ Entities:
       Mass: 1e-08
       Dynamic: false
       Position: [0.810000002, 0, 0]
-      Velocity: [5.0000000000000004e-06, -1.0000000000000001e-05, 6.4490000000000001e-05]
+      Velocity: [0, 0, -6.4491922823312195e-05]
       LocalSpaceRadii:
         []
   - Entity: 11506238116439127687
@@ -137,7 +140,7 @@ Entities:
       Position: [1, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0.0052910056, 0.0052910056, 0.0052910056]
+      Scale: [0, 0, 0]
     BillboardCircleRendererComponent:
       Color: [0.436018944, 0, 1, 1]
       Thickness: 1

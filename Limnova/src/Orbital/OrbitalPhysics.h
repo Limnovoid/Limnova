@@ -498,7 +498,6 @@ namespace Limnova
 
             Vector3d LocalVelocityFromPrimary() const
             {
-                LV_CORE_ASSERT(false, "TODO !!!");
                 return m_Ctx->m_Objects[m_NodeId].State.Velocity +
                     LSpaceNode(m_Ctx->m_Tree[m_NodeId].Parent).LocalVelocityFromPrimary();
             }
@@ -528,9 +527,18 @@ namespace Limnova
 
             void SetMass(double mass) const
             {
+                LV_ASSERT(!IsNull(), "Cannot set mass of null object!");
+
                 m_Ctx->m_Objects[m_NodeId].State.Mass = mass;
                 ComputeStateValidity(*this);
-                TryComputeAttributes(*this); /* NOTE: this should be redundant as orbital motion is independent of orbiter mass, but do it anyway just for consistency */
+                if (IsRoot()) {
+                    auto& rootLsp = Object().Influence.LSpace();
+                    rootLsp.Grav = LocalGravitationalParameter(mass, rootLsp.MetersPerRadius);
+                    // TODO : exclude from release builds ?
+                }
+                else {
+                    TryComputeAttributes(*this);
+                }
                 SubtreeCascadeAttributeChanges(*this);
             }
 
@@ -725,19 +733,23 @@ namespace Limnova
 
                 float rescaleFactor = lsp.Radius / radius;
 
+                bool isSoi = IsSphereOfInfluence();
+                bool isInfluencing = !ParentObj().Object().Influence.IsNull() &&
+                    radius <= ParentObj().Object().Influence.LSpace().Radius;
+
                 // Update local space attribute
                 lsp.Radius = radius;
                 lsp.MetersPerRadius = (double)radius * (Height() == 1
                     ? GetRootLSpaceNode().LSpace().MetersPerRadius
                     : m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetGrandparent(m_NodeId)].MetersPerRadius);
-                if (!ParentObj().Object().Influence.IsNull() &&
-                    radius <= ParentObj().Object().Influence.LSpace().Radius) {
-                    lsp.Primary = *this; /* an influencing space is its own Primary local space */
+                if (isSoi || isInfluencing) {
+                    lsp.Primary = *this; /* an influencing space is its own Primary space */
                 }
                 else {
-                    lsp.Primary = ParentObj().PrimaryLsp();
+                    lsp.Primary = ParentObj().PrimaryLsp(); /* a non-influencing space's Primary is that of its parent object*/
                 }
-                lsp.Grav = kGravitational * PrimaryObj().Object().State.Mass * pow(lsp.MetersPerRadius, -3.0); /* depends on Primary ! */
+                //lsp.Grav = kGravitational * PrimaryObj().Object().State.Mass * pow(lsp.MetersPerRadius, -3.0); /* depends on Primary ! */
+                lsp.Grav = LocalGravitationalParameter(PrimaryObj().Object().State.Mass, lsp.MetersPerRadius);
 
                 // Move child objects to next-higher/-lower space as necessary
                 std::vector<ObjectNode> childObjs = {};
@@ -767,6 +779,9 @@ namespace Limnova
                     // Radius increased: sort node left-wards
                     while (!prevLspNode.IsNull()) {
                         if (radius > prevLspNode.LSpace().Radius) {
+                            if (isSoi) {
+                                prevLspNode.LSpace().Primary = prevLspNode; /* if resorting the sphere of influence, any smaller local spaces are now influencing */
+                            }
                             m_Ctx->m_Tree.SwapWithPrevSibling(m_NodeId);
                             prevLspNode = { node.PrevSibling };
                         }
@@ -778,6 +793,9 @@ namespace Limnova
                     LSpaceNode nextLspNode = { node.NextSibling };
                     while (!nextLspNode.IsNull()) {
                         if (radius < nextLspNode.LSpace().Radius) {
+                            if (isSoi) {
+                                nextLspNode.LSpace().Primary = ParentObj().PrimaryLsp(); /* if resorting the sphere of influence, any larger local spaces are no longer influencing */
+                            }
                             m_Ctx->m_Tree.SwapWithNextSibling(m_NodeId);
                             nextLspNode = { node.NextSibling };
                         }
@@ -804,7 +822,12 @@ namespace Limnova
                     }
                 }
 
-                SubtreeCascadeAttributeChanges(m_NodeId);
+                if (isSoi) {
+                    SubtreeCascadeAttributeChanges(ParentObj().m_NodeId); /* if SOI changed, update all sibling spaces */
+                }
+                else {
+                    SubtreeCascadeAttributeChanges(m_NodeId);
+                }
             }
         };
 
@@ -875,7 +898,6 @@ namespace Limnova
             double Grav = 0.f;  /* Gravitational parameter (mu) */
 
             LSpaceNode Primary = {};
-            bool Influencing = false; /* True if the parent object is the local dominant source of gravity, i.e, this LSP is less than or equal to the parent's influence LSP */
         };
 
         struct Elements
@@ -1041,6 +1063,17 @@ namespace Limnova
             LSpaceNode newLspNode = { newLspNodeId };
             newLspNode.SetRadius(radius);
             return newLspNode;
+        }
+
+        static LSpaceNode NewSoiNode(ObjectNode parentNode, float radiusOfInfluence)
+        {
+            LV_CORE_ASSERT(parentNode.Object().Influence.IsNull(), "Object already has sphere of influence!");
+            TNodeId newSoiNodeId = { m_Ctx->m_Tree.New(parentNode.Id()) };
+            m_Ctx->m_LSpaces.Add(newSoiNodeId).Radius = 1.f;
+            LSpaceNode newSoiNode = { newSoiNodeId };
+            parentNode.Object().Influence = newSoiNode;
+            newSoiNode.SetRadiusImpl(radiusOfInfluence);
+            return newSoiNode;
         }
 
         static void RemoveLSpaceNode(LSpaceNode lspNode)
@@ -1234,6 +1267,7 @@ namespace Limnova
 
                 auto& rootObj = m_Objects.Add(kRootObjId);
                 rootObj.Validity = Validity::InvalidMass; /* Object::Validity is by default initialised to InvalidParent, but that is meaningless for the root object (which cannot be parented) */
+                rootObj.Influence.m_NodeId = kRootLspId;
 
                 auto& rootLsp = m_LSpaces.Add(kRootLspId);
                 rootLsp.Radius = 1.f;
@@ -1242,7 +1276,7 @@ namespace Limnova
             Context(Context const& other) = default;
             ~Context()
             {
-                // Estimating maximum object allocation for optimising vectors -> arrays
+                // Estimating required memory allocation for converting vectors to static arrays
                 LV_CORE_INFO("OrbitalPhysics final tree size: {0} ({1} objects, {2} local spaces)",
                     m_Tree.Size(), m_Objects.Size(), m_LSpaces.Size());
             }
@@ -1296,11 +1330,15 @@ namespace Limnova
                 return false;
             }
 
-            if (LSpaceNode(kRootLspId).LSpace().MetersPerRadius > 0.0) {
-                return objNode.ParentObj().Object().Validity == Validity::Valid;
+            if (LSpaceNode(kRootLspId).LSpace().MetersPerRadius == 0.0) {
+                LV_WARN("OrbitalPhysics root scaling has not been set!");
+                return false;
             }
-            LV_WARN("OrbitalPhysics root scaling has not been set!");
-            return false;
+            if (LSpaceNode(kRootLspId).LSpace().Grav == 0.0) {
+                LV_WARN("OrbitalPhysics root object mass has not been set!");
+                return false;
+            }
+            return objNode.ParentObj().Object().Validity == Validity::Valid;
         }
 
         static bool ComputeStateValidity(ObjectNode objNode)
@@ -1357,12 +1395,8 @@ namespace Limnova
                     obj.Validity = Validity::InvalidPath;
                     return;
                 }
-                if (obj.Influence.IsNull())
-                {
-                    LSpaceNode lspNode = NewLSpaceNode(objNode, radiusOfInfluence);
-                    LocalSpace& lsp = lspNode.LSpace();
-                    lsp.Primary = lspNode; /* an influencing local space must be its own primary */
-                    obj.Influence = lspNode;
+                if (obj.Influence.IsNull()) {
+                    NewSoiNode(objNode, radiusOfInfluence);
                 }
                 else {
                     obj.Influence.SetRadiusImpl(radiusOfInfluence);
@@ -1566,13 +1600,21 @@ namespace Limnova
 
         static void TryComputeAttributes(ObjectNode objNode)
         {
+            LV_CORE_ASSERT(!objNode.IsRoot(), "Cannot compute orbit or influence on root object!");
+
             UpdateQueueSafeRemove(objNode);
 
             auto& obj = objNode.Object();
-            if (!objNode.IsRoot() && (obj.Validity == Validity::Valid || obj.Validity == Validity::InvalidPath))
+            if (obj.Validity == Validity::Valid || obj.Validity == Validity::InvalidPath)
             {
+                obj.Validity = Validity::Valid;
                 ComputeOrbit(obj.Orbit, obj.State.Position, obj.State.Velocity);
                 ComputeInfluence(objNode);
+                if (!objNode.IsDynamic() &&
+                    objNode.Orbit().Elements.Type == OrbitType::Hyperbola)
+                {
+                    obj.Validity = Validity::InvalidPath;
+                }
 
                 /* TEMP */
                 if (!objNode.ParentLsp().IsInfluencing()) { obj.Validity = Validity::InvalidPath; } // TODO : non-local orbits !!!
@@ -1605,13 +1647,22 @@ namespace Limnova
 
 
         /// <summary>
+        /// Returns gravitational parameter (GM/r in standard units) scaled to a local space with the given length unit.
+        /// </summary>
+        static double LocalGravitationalParameter(double localPrimaryMass, double localMetersPerUnitLength)
+        {
+            return kGravitational * localPrimaryMass * pow(localMetersPerUnitLength, -3.0);
+        }
+
+
+        /// <summary>
         /// Returns speed for a circular orbit around the local primary (not circular in local space if local space is not influencing) at the given distance from the primary (measured in local space radii).
         /// Assumes orbiter has insignificant mass compared to primary.
         /// </summary>
         static double CircularOrbitSpeed(LSpaceNode lspNode, float localRadius)
         {
             /* ||V_circular|| = sqrt(mu / ||r||), where mu is the gravitational parameter of the orbit */
-            return sqrt(kGravitational * lspNode.PrimaryObj().Object().State.Mass * pow(lspNode.LSpace().MetersPerRadius, -3.0) / (double)localRadius);
+            return sqrt(lspNode.LSpace().Grav / (double)localRadius);
         }
 
 
@@ -1738,7 +1789,9 @@ namespace Limnova
             for (auto nodeId : tree) {
                 if (IsLocalSpace(nodeId)) {
                     LSpaceNode subLspNode{ nodeId };
-                    // TODO : recompute MetersPerRadius and Grav
+                    if (!subLspNode.IsRoot() && !subLspNode.IsSphereOfInfluence()) {
+                        subLspNode.SetRadius(subLspNode.LSpace().Radius); /* recomputes MetersPerRadius and Grav */
+                    }
                 }
                 else {
                     // TODO : preserve orbit shapes ?
@@ -1988,7 +2041,10 @@ namespace Limnova
         /// <param name="meters"></param>
         static void SetRootSpaceScaling(double meters)
         {
-            LSpaceNode(kRootLspId).LSpace().MetersPerRadius = meters;
+            auto& rootLsp = LSpaceNode(kRootLspId).LSpace();
+            rootLsp.MetersPerRadius = meters;
+            rootLsp.Grav = LocalGravitationalParameter(ObjectNode(kRootObjId).Object().State.Mass, meters);
+
             SubtreeCascadeAttributeChanges(kRootLspId);
         }
 

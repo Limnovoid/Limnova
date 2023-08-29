@@ -405,7 +405,7 @@ namespace Limnova
             parentId = hcNode["Parent"].as<uint64_t>();
         }
 
-        bool isRootEntity = name == "Root";
+        bool isRootEntity = parentId == UUID::Null;
 
         Entity entity;
         if (isRootEntity) {
