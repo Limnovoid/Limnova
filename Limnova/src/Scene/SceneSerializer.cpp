@@ -513,7 +513,7 @@ namespace Limnova
             for (size_t i = 0; i < localSpaceRadiiNode.size(); i++) {
                 oc.Object.AddLocalSpace(localSpaceRadiiNode[i].as<float>());
             }
-            if (isRootEntity) { oc.LocalSpaces.clear(); }
+            oc.LocalSpaces.clear();
             oc.Object.GetLocalSpaces(oc.LocalSpaces);
 
             oc.UIColor      = oNode["UIColor"].as<Vector3>();

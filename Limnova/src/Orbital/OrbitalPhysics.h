@@ -751,7 +751,7 @@ namespace Limnova
                 //lsp.Grav = kGravitational * PrimaryObj().Object().State.Mass * pow(lsp.MetersPerRadius, -3.0); /* depends on Primary ! */
                 lsp.Grav = LocalGravitationalParameter(PrimaryObj().Object().State.Mass, lsp.MetersPerRadius);
 
-                // Move child objects to next-higher/-lower space as necessary
+                // Move child objects to next-higher space if necessary
                 std::vector<ObjectNode> childObjs = {};
                 GetLocalObjects(childObjs);
 
@@ -803,6 +803,16 @@ namespace Limnova
                     }
                 }
 
+                // Local space ordering potentially changed
+                CallChildLSpacesChangedCallback(ParentObj()); /* local space itself has been fully changed at this point - call relevant callback before changing local objects */
+
+                // Child objects potentially moved
+                for (auto objNode : childObjs) {
+                    if (objNode.ParentLsp() != *this) {
+                        CallParentLSpaceChangedCallback(objNode);
+                    }
+                }
+
                 // Adopt any child objects from the new next-higher local space
                 LSpaceNode nextHigherSpace = NextHigherLSpace();
                 childObjs.clear();
@@ -816,12 +826,17 @@ namespace Limnova
 
                     if (nextHigherIsSibling && sqrtf(objNode.Object().State.Position.SqrMagnitude()) < radiusInPrev) {
                         DemoteObjectNode(objNode);
+
+                        CallParentLSpaceChangedCallback(objNode);
                     }
                     else if (!nextHigherIsSibling && sqrtf((objNode.Object().State.Position - lspPos).SqrMagnitude()) < lsp.Radius) {
                         DemoteObjectNode(*this, objNode);
+
+                        CallParentLSpaceChangedCallback(objNode);
                     }
                 }
 
+                // Finally, update orbits with all local space changes
                 if (isSoi) {
                     SubtreeCascadeAttributeChanges(ParentObj().m_NodeId); /* if SOI changed, update all sibling spaces */
                 }
@@ -946,7 +961,7 @@ namespace Limnova
             Elements Elements;        // Orbital motion description (shape, duration, etc)
             float TrueAnomaly = 0.f;  // Object's current true anomaly in this orbit section (if this section is the object's current)
             float TaEntry    = 0.f;   // True anomaly of orbit's point of entry into the local space (if the section escapes the local space, otherwise has value 0)
-            float TaEscape   = PI2f;  // True anomaly of orbit's point of escape from the local space (if the section escapes the local space, otherwise has value 2Pi)
+            float TaExit   = PI2f;  // True anomaly of orbit's point of escape from the local space (if the section escapes the local space, otherwise has value 2Pi)
             TId Next = NNull;         // Reference to next orbit section which will describe the object's motion after escaping this, or entering a new, local space (if this section escapes its local space or intersects another, otherwise has value NNull)
         };
 
@@ -1009,8 +1024,10 @@ namespace Limnova
 
             m_Ctx->m_Tree.Move(objNode.Id(), newLspNode.Id());
 
-            RescaleLocalSpaces(objNode, rescalingFactor);
+            objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
+            LV_CORE_ASSERT(false, "TODO - use orbit sections to facilitate promotion/demotion !");
 
+            RescaleLocalSpaces(objNode, rescalingFactor);
             ComputeStateValidity(objNode);
             TryComputeAttributes(objNode);
             SubtreeCascadeAttributeChanges(objNode.Id());
@@ -1032,7 +1049,13 @@ namespace Limnova
 
             m_Ctx->m_Tree.Move(objNode.Id(), newLspNode.Id());
 
+            objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
+            LV_CORE_ASSERT(false, "TODO - use orbit sections to facilitate promotion/demotion !");
+
             RescaleLocalSpaces(objNode, rescalingFactor);
+            ComputeStateValidity(objNode);
+            TryComputeAttributes(objNode);
+            SubtreeCascadeAttributeChanges(objNode.Id());
         }
 
         /// <summary>
@@ -1053,7 +1076,13 @@ namespace Limnova
 
             m_Ctx->m_Tree.Move(objNode.Id(), newLspNode.Id());
 
+            objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
+            LV_CORE_ASSERT(false, "TODO - use orbit sections to facilitate promotion/demotion !");
+
             RescaleLocalSpaces(objNode, rescalingFactor);
+            ComputeStateValidity(objNode);
+            TryComputeAttributes(objNode);
+            SubtreeCascadeAttributeChanges(objNode.Id());
         }
 
         static LSpaceNode NewLSpaceNode(ObjectNode parentNode, float radius = kDefaultLSpaceRadius)
@@ -1111,7 +1140,7 @@ namespace Limnova
                 auto& section = m_Ctx->m_OrbitSections.Get(sectionId);
                 ComputeElements(section, localPosition, localVelocity);
                 ComputeTaLimits(section);
-                if (section.TaEscape == PI2f) { break; }
+                if (section.TaExit == PI2f) { break; }
 
                 break;
                 // TODO : add new section(s) and loop over
@@ -1129,17 +1158,17 @@ namespace Limnova
                 bool escapesLocalSpace = elems.Type == OrbitType::Hyperbola || apoapsisRadius > kLocalSpaceEscapeRadius;
 
                 section.TaEntry = 0.f;
-                section.TaEscape = PI2f;
+                section.TaExit = PI2f;
                 if (escapesLocalSpace) {
-                    section.TaEscape = acosf((elems.P / kLocalSpaceEscapeRadius - 1.f) / elems.E);
-                    section.TaEntry = PI2f - section.TaEscape;
+                    section.TaExit = acosf((elems.P / kLocalSpaceEscapeRadius - 1.f) / elems.E);
+                    section.TaEntry = PI2f - section.TaExit;
                 }
             }
             else
             {
                 // TODO : compute escapes for non-local orbits !!!
                 section.TaEntry = 0.f;
-                section.TaEscape = PI2f;
+                section.TaExit = PI2f;
             }
         }
 
@@ -1253,7 +1282,6 @@ namespace Limnova
 
             AttributeStorage<Object> m_Objects;
             AttributeStorage<LocalSpace> m_LSpaces;
-            //AttributeStorage<Elements> m_Elements;
             AttributeStorage<Dynamics> m_Dynamics;
 
             ObjectNode m_UpdateQueueFront = {};
@@ -1281,7 +1309,8 @@ namespace Limnova
                     m_Tree.Size(), m_Objects.Size(), m_LSpaces.Size());
             }
         public:
-            std::function<void(ObjectNode)> m_LSpaceChangedCallback;
+            std::function<void(ObjectNode)> m_ParentLSpaceChangedCallback;
+            std::function<void(ObjectNode)> m_ChildLSpacesChangedCallback;
         };
 
         static void SetContext(Context* ctx) { m_Ctx = ctx; }
@@ -1293,6 +1322,26 @@ namespace Limnova
 
         /*** Simulation helpers ***/
     private:
+        static void CallParentLSpaceChangedCallback(ObjectNode objNode)
+        {
+            if (m_Ctx->m_ParentLSpaceChangedCallback) {
+                m_Ctx->m_ParentLSpaceChangedCallback(objNode);
+            }
+            else {
+                LV_WARN("Callback function 'ParentLSpaceChangedCallback' is not set in this context!");
+            }
+        }
+
+        static void CallChildLSpacesChangedCallback(ObjectNode objNode)
+        {
+            if (m_Ctx->m_ChildLSpacesChangedCallback) {
+                m_Ctx->m_ChildLSpacesChangedCallback(objNode);
+            }
+            else {
+                LV_WARN("Callback function 'ChildLSpacesChangedCallback' is not set in this context!");
+            }
+        }
+
         static bool ValidPosition(ObjectNode objNode)
         {
             static constexpr float kEscapeDistance2 = kLocalSpaceEscapeRadius * kLocalSpaceEscapeRadius;
@@ -1402,7 +1451,6 @@ namespace Limnova
                     obj.Influence.SetRadiusImpl(radiusOfInfluence);
                     LV_CORE_ASSERT(obj.Influence.LSpace().Primary == obj.Influence, "Sphere of influence should still be its own Primary!");
                 }
-
                 LV_CORE_ASSERT(!obj.Influence.IsNull() && m_Ctx->m_LSpaces.Has(obj.Influence.m_NodeId), "Failed to create sphere of influence!");
             }
             else if (!obj.Influence.IsNull()) {
@@ -1607,6 +1655,8 @@ namespace Limnova
             auto& obj = objNode.Object();
             if (obj.Validity == Validity::Valid || obj.Validity == Validity::InvalidPath)
             {
+                LV_CORE_ASSERT(objNode.Orbit().LocalSpace == objNode.ParentLsp(), "Orbit/hierarchy local space mismatch!");
+
                 obj.Validity = Validity::Valid;
                 ComputeOrbit(obj.Orbit, obj.State.Position, obj.State.Velocity);
                 ComputeInfluence(objNode);
@@ -1927,7 +1977,7 @@ namespace Limnova
                         // Code taken from ComputeElements():
                         Vector3 posDir = positionFromPrimary.Normalized();
                         float newTrueAnomaly = AngleBetweenUnitVectors(elems.PerifocalX, posDir);
-                        if (posDir.Dot(elems.PerifocalY) < 0.f) {
+                        if (posDir.Dot(elems.PerifocalY) < 0.f && newTrueAnomaly != 0.f) {
                             newTrueAnomaly = PI2f - newTrueAnomaly;
                         }
 
@@ -1937,8 +1987,9 @@ namespace Limnova
                             orbit.TrueAnomaly = newTrueAnomaly; /* True anomaly has wrapped around at periapsis in the forwards direction */
                         }
                         else if (!(dTrueAnomaly > PIf)) {
-                            orbit.TrueAnomaly = std::max(newTrueAnomaly, orbit.TrueAnomaly); /* True anomaly has NOT wrapped at periapsis in the backwards direction(we can safely take the larger value) */
-                        } /* else, true anomaly has wrapped backwards at periapsis so we discard the new value */
+                            orbit.TrueAnomaly = std::max(newTrueAnomaly, orbit.TrueAnomaly); /* True anomaly has NOT wrapped at periapsis in the backwards direction (we can safely take the larger value) */
+                        }
+                        /* else, true anomaly has wrapped backwards at periapsis so we discard the new value */
                     }
 
                     // Recheck integration method choice
@@ -1971,22 +2022,16 @@ namespace Limnova
                 if (isDynamic) {
                     auto& dynamics = m_Ctx->m_UpdateQueueFront.Dynamics();
 
-                    //if (orbit.TaEscape > 0.f && orbit.TrueAnomaly < PIf && orbit.TrueAnomaly > orbit.TaEscape) {
-                    if (orbit.TrueAnomaly > orbit.TaEscape) {
+                    if (orbit.TrueAnomaly > orbit.TaExit) {
                         LV_CORE_ASSERT(sqrtf(obj.State.Position.SqrMagnitude()) > kLocalSpaceEscapeRadius - kEps, "False positive on escape test!");
                         LV_CORE_ASSERT(!m_Ctx->m_UpdateQueueFront.ParentLsp().IsRoot(), "Cannot escape root local space!");
 
                         PromoteObjectNode(m_Ctx->m_UpdateQueueFront);
-
-                        if (m_Ctx->m_LSpaceChangedCallback) {
-                            m_Ctx->m_LSpaceChangedCallback(m_Ctx->m_UpdateQueueFront);
-                        }
-                        else {
-                            LV_WARN("Callback function 'LSpaceChangedCallback' is not set in this context!");
-                        }
+                        CallParentLSpaceChangedCallback(m_Ctx->m_UpdateQueueFront);
 
                         LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Invalid dynamics after escape!");
 
+                        // Prepare integration in new local space
                         objDT = ComputeObjDT(sqrt(obj.State.Velocity.SqrMagnitude()), minObjDT);
                         Vector3 positionFromPrimary = m_Ctx->m_UpdateQueueFront.LocalPositionFromPrimary();
                         float posMag2 = positionFromPrimary.SqrMagnitude();
@@ -2166,7 +2211,16 @@ namespace Limnova
                 PromoteObjectNode(objNode);
             }
             LV_CORE_ASSERT(m_Ctx->m_Tree[lspNode.m_NodeId].FirstChild == OrbitalPhysics::NNull, "Failed to remove all children!");
+
+            ObjectNode parentObjNode = lspNode.ParentObj();
+
             RemoveLSpaceNode(lspNode);
+
+            CallChildLSpacesChangedCallback(parentObjNode);
+
+            for (auto objNode : localObjs) {
+                CallParentLSpaceChangedCallback(objNode);
+            }
         }
 
 

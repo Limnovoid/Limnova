@@ -56,7 +56,8 @@ namespace Limnova
         void OnOrbitalComponentUpdate(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);
 
-        void OnLocalSpaceChange(OrbitalPhysics::ObjectNode objNode);
+        void OnParentLocalSpaceChange(OrbitalPhysics::ObjectNode objNode);
+        void OnChildLocalSpacesChange(OrbitalPhysics::ObjectNode objNode);
     public:
         Vector4 m_InfluencingSpaceColor = { 1.f, 0.9f, 0.3f, 0.3f };
         Vector4 m_LocalSpaceColor = { 1.f, 1.f, 1.f, 0.3f };
