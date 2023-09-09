@@ -1025,7 +1025,6 @@ namespace Limnova
             m_Ctx->m_Tree.Move(objNode.Id(), newLspNode.Id());
 
             objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
-            LV_CORE_ASSERT(false, "TODO - use orbit sections to facilitate promotion/demotion !");
 
             RescaleLocalSpaces(objNode, rescalingFactor);
             ComputeStateValidity(objNode);
@@ -1050,7 +1049,6 @@ namespace Limnova
             m_Ctx->m_Tree.Move(objNode.Id(), newLspNode.Id());
 
             objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
-            LV_CORE_ASSERT(false, "TODO - use orbit sections to facilitate promotion/demotion !");
 
             RescaleLocalSpaces(objNode, rescalingFactor);
             ComputeStateValidity(objNode);
@@ -1077,7 +1075,6 @@ namespace Limnova
             m_Ctx->m_Tree.Move(objNode.Id(), newLspNode.Id());
 
             objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
-            LV_CORE_ASSERT(false, "TODO - use orbit sections to facilitate promotion/demotion !");
 
             RescaleLocalSpaces(objNode, rescalingFactor);
             ComputeStateValidity(objNode);

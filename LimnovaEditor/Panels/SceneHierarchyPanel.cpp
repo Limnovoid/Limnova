@@ -496,9 +496,9 @@ namespace Limnova
             // Absolute scale
             {
                 LimnGui::InputConfig<double> config;
+                config.Precision = 8;
                 if (LimnGui::InputVec3d("Absolute Scale", orbitalhc.AbsoluteScale, config))
                 {
-                    config.Precision = 8;
                     double lspScaling = 1.0 / ((OrbitalScene*)m_Scene)->GetLocalSpace(entity).GetLSpace().MetersPerRadius;
                     entity.GetComponent<TransformComponent>().SetScale((Vector3)(orbitalhc.AbsoluteScale * lspScaling));
                 }
