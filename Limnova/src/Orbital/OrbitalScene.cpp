@@ -12,7 +12,7 @@ namespace Limnova
         : Scene()
     {
         // Orbital scene setup
-        OrbitalPhysics::SetContext(&m_Physics);
+        PhysicsUseContext();
 
         /* NOTE : root MUST be assigned before signal setup - the root's OrbitalComponent should NOT create
          * a new object in OrbitalPhysics */
@@ -37,7 +37,7 @@ namespace Limnova
         m_Registry.on_destroy<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentDestruct>(this);
 
         // Physics callbacks
-        m_Physics.m_LSpaceChangedCallback = [this](OrbitalPhysics::ObjectNode objNode) { this->OnLocalSpaceChange(objNode); };
+        //m_Physics.m_LSpaceChangedCallback = [this](OrbitalPhysics::ObjectNode objNode) { this->OnParentLocalSpaceChange(objNode); };
     }
 
 
@@ -50,8 +50,8 @@ namespace Limnova
 
         // Copy OrbitalPhysics
         newScene->m_Physics = scene->m_Physics; /* copies internal state of OrbitalPhysics, but callbacks have to be manually (re)pointed to the new OrbitalScene */
-        newScene->m_Physics.m_LSpaceChangedCallback = [newScene](OrbitalPhysics::ObjectNode objNode) { newScene->OnLocalSpaceChange(objNode); };
         newScene->PhysicsUseContext();
+        //newScene->m_Physics.m_LSpaceChangedCallback = [newScene](OrbitalPhysics::ObjectNode objNode) { newScene->OnParentLocalSpaceChange(objNode); };
 
         newScene->CopyAllOfComponent<OrbitalHierarchyComponent>(scene->m_Registry);
 
@@ -138,7 +138,7 @@ namespace Limnova
             dstOc.ShowNormal = srcOc.ShowNormal;
 
             LV_CORE_ASSERT((dstOc.Object.GetObj().State.Position - srcOc.Object.GetObj().State.Position).SqrMagnitude() < 1e-5f, "Failed to adequately replicate position!");
-            LV_CORE_ASSERT(dstOc.Object.GetElements().E - srcOc.Object.GetElements().E < 1e-5f, "Failed to adequately replicate orbit shape!");
+            LV_CORE_ASSERT(dstOc.Object.GetOrbit().Elements.E - srcOc.Object.GetOrbit().Elements.E < 1e-5f, "Failed to adequately replicate orbit shape!");
             LV_CORE_ASSERT(dstOc.Object.GetDynamics().EscapeTrueAnomaly - srcOc.Object.GetDynamics().EscapeTrueAnomaly < 1e-5f, "Failed to adequately replicate dynamics!");
         }
         return newEntity;
@@ -148,6 +148,8 @@ namespace Limnova
     void OrbitalScene::PhysicsUseContext()
     {
         OrbitalPhysics::SetContext(&m_Physics);
+        m_Physics.m_ParentLSpaceChangedCallback = [this](OrbitalPhysics::ObjectNode objNode) { this->OnParentLocalSpaceChange(objNode); };
+        m_Physics.m_ChildLSpacesChangedCallback = [this](OrbitalPhysics::ObjectNode objNode) { this->OnChildLocalSpacesChange(objNode); };
     }
 
 
@@ -447,7 +449,7 @@ namespace Limnova
             int editorPickingId = (int)(entity);
             auto [tc, oc] = GetComponents<TransformComponent, OrbitalComponent>(entity);
             auto& object = oc.Object.GetObj();
-            auto& elems = oc.Object.GetElements();
+            auto& elems = oc.Object.GetOrbit().Elements;
 
             if (object.Validity != OrbitalPhysics::Validity::Valid) continue;
 
@@ -569,6 +571,10 @@ namespace Limnova
             }
         }*/
 
+        if (ohc.LocalSpaceRelativeToParent == -1) {
+            ohc.LocalSpaceRelativeToParent = 0;
+        }
+
         OrbitalPhysics::LSpaceNode localSpace;
         Entity entityParent = GetEntity(hc.Parent);
         if (!entityParent.HasComponent<OrbitalComponent>() || entityParent.GetComponent<OrbitalComponent>().LocalSpaces.size() == 0)
@@ -581,9 +587,6 @@ namespace Limnova
         }
         else
         {
-            if (ohc.LocalSpaceRelativeToParent == -1) {
-                ohc.LocalSpaceRelativeToParent = 0;
-            }
             auto& parentOc = entityParent.GetComponent<OrbitalComponent>();
             LV_CORE_ASSERT(parentOc.LocalSpaces.size() > ohc.LocalSpaceRelativeToParent, "Invalid relative local space index!");
             localSpace = parentOc.LocalSpaces[ohc.LocalSpaceRelativeToParent];
@@ -600,7 +603,7 @@ namespace Limnova
     }
 
 
-    void OrbitalScene::OnLocalSpaceChange(OrbitalPhysics::ObjectNode objNode)
+    void OrbitalScene::OnParentLocalSpaceChange(OrbitalPhysics::ObjectNode objNode)
     {
         entt::entity objectEnttId = m_PhysicsToEnttIds.at(objNode.Id());
         entt::entity parentEnttId = m_PhysicsToEnttIds.at(objNode.ParentObj().Id());
@@ -610,6 +613,11 @@ namespace Limnova
         GetComponent<OrbitalComponent>(objectEnttId).UpdateLocalSpaces();
         GetComponent<OrbitalHierarchyComponent>(objectEnttId).LocalSpaceRelativeToParent =
             GetLocalSpaceRelativeToParent(objNode.ParentLsp());
+    }
+
+    void OrbitalScene::OnChildLocalSpacesChange(OrbitalPhysics::ObjectNode objNode)
+    {
+        GetComponent<OrbitalComponent>(m_PhysicsToEnttIds.at(objNode.Id())).UpdateLocalSpaces();
     }
 
 }

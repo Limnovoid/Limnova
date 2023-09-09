@@ -496,9 +496,9 @@ namespace Limnova
             // Absolute scale
             {
                 LimnGui::InputConfig<double> config;
+                config.Precision = 8;
                 if (LimnGui::InputVec3d("Absolute Scale", orbitalhc.AbsoluteScale, config))
                 {
-                    config.Precision = 8;
                     double lspScaling = 1.0 / ((OrbitalScene*)m_Scene)->GetLocalSpace(entity).GetLSpace().MetersPerRadius;
                     entity.GetComponent<TransformComponent>().SetScale((Vector3)(orbitalhc.AbsoluteScale * lspScaling));
                 }
@@ -557,6 +557,8 @@ namespace Limnova
                     ImGui::SameLine();
 
                     auto lspNode = orbital.LocalSpaces[l];
+                    auto& lsp = lspNode.GetLSpace();
+
                     bool isSoi = lspNode.IsSphereOfInfluence();
                     if (isSoi) { ImGui::Text("Sphere of Influence"); }
                     else if (lspNode.IsInfluencing()) { ImGui::Text("Influencing"); }
@@ -570,17 +572,28 @@ namespace Limnova
                     }
 
                     // Radius
-                    float localSpaceRadius = lspNode.GetLSpace().Radius;
-                    LimnGui::InputConfig<float> config;
-                    config.Speed = 0.0001f;
-                    config.Precision = 4;
-                    config.Min = OrbitalPhysics::kMinLSpaceRadius;
-                    config.Max = OrbitalPhysics::kMaxLSpaceRadius;
-                    config.ReadOnly = isSoi; /* cannot resize spheres of influence ! */
-                    config.WidgetId = lspNode.Id();
-                    if (LimnGui::DragFloat("Radius", localSpaceRadius, config, 100.f)) {
-                        lspNode.SetRadius(localSpaceRadius);
-                        lspacesChanged = true;
+                    {
+                        float localSpaceRadius = lsp.Radius;
+                        LimnGui::InputConfig<float> config;
+                        config.Speed = 0.0001f;
+                        config.Precision = 4;
+                        config.Min = OrbitalPhysics::kMinLSpaceRadius;
+                        config.Max = OrbitalPhysics::kMaxLSpaceRadius;
+                        config.ReadOnly = isSoi; /* cannot resize spheres of influence ! */
+                        config.WidgetId = lspNode.Id();
+                        if (LimnGui::DragFloat("Radius", localSpaceRadius, config, 100.f)) {
+                            lspNode.SetRadius(localSpaceRadius);
+                            lspacesChanged = true;
+                        }
+                    }
+
+                    // Local gravity parameter
+                    {
+                        double grav = lsp.Grav;
+                        LimnGui::InputConfig<double> config;
+                        config.ReadOnly = true;
+                        config.WidgetId = lspNode.Id();
+                        LimnGui::InputDouble("Gravity Parameter", grav, config, 100.f);
                     }
 
                     // Context menu
@@ -689,17 +702,10 @@ namespace Limnova
             if (entity != m_Scene->GetRoot() &&
                 ImGui::TreeNode("Elements"))
             {
-                const auto& elems = orbital.Object.GetElements();
+                const auto& orbit = orbital.Object.GetOrbit();
+                const auto& elems = orbit.Elements;
                 if (ImGui::BeginTable("Elements", 2))
                 {
-                    ImGui::TableNextRow();
-
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text("Grav");
-                    LimnGui::HelpMarker("Gravity parameter");
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.3e", elems.Grav);
-
                     ImGui::TableNextRow();
 
                     ImGui::TableSetColumnIndex(0);
@@ -729,7 +735,7 @@ namespace Limnova
                     ImGui::TableSetColumnIndex(0);
                     ImGui::Text("True anomaly");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.3f", elems.TrueAnomaly);
+                    ImGui::Text("%.3f", orbit.TrueAnomaly);
 
                     ImGui::TableNextRow();
 
@@ -979,7 +985,6 @@ namespace Limnova
         return valueChanged;
     }
 
-
     bool LimnGui::InputInt(const std::string& label, int& value, const InputConfig<int>& config)
     {
         std::ostringstream idOss;
@@ -1000,7 +1005,6 @@ namespace Limnova
         return valueChanged;
     }
 
-
     bool LimnGui::InputScientific(const std::string& label, double& value, float columnWidth)
     {
         ImGui::PushID(label.c_str());
@@ -1014,6 +1018,29 @@ namespace Limnova
         double step = FromScientific<double, double, int>(1.0, e - 4);
         double stepFast = FromScientific<double, double, int>(1.0, e - 1);
         bool valueChanged = ImGui::InputDouble("##V", &value, step, stepFast, "%.4e", ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CharsScientific);
+
+        ImGui::Columns(1);
+        ImGui::PopID();
+        return valueChanged;
+    }
+
+    bool LimnGui::InputDouble(const std::string& label, double& value, const InputConfig<double>& config, float columnWidth)
+    {
+        ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;
+        if (config.ReadOnly) flags |= ImGuiInputTextFlags_ReadOnly;
+
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
+
+        ImGui::Columns(2);
+        ImGui::SetColumnWidth(0, columnWidth);
+        ImGui::Text(label.c_str());
+        ImGui::NextColumn();
+
+        std::ostringstream formatting;
+        formatting << "%." << config.Precision << "f";
+        bool valueChanged = ImGui::InputDouble("##V", &value, config.Speed, config.FastSpeed, formatting.str().c_str(), flags);
 
         ImGui::Columns(1);
         ImGui::PopID();
@@ -1042,7 +1069,6 @@ namespace Limnova
         ImGui::PopID();
         return valueChanged;
     }
-
 
     bool LimnGui::DragVec3(const std::string& label, Vector3& values, const InputConfig<float>& config, float columnWidth)
     {
@@ -1131,7 +1157,6 @@ namespace Limnova
         ImGui::PopID();
         return valueChanged;
     }
-
 
     bool LimnGui::InputVec3d(const std::string& label, Vector3d& values, const InputConfig<double>& config, float columnWidth)
     {

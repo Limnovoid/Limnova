@@ -849,7 +849,8 @@ namespace Limnova
 
     void Renderer2D::DrawOrbitalEllipse(const Vector3& center, const Quaternion& orientation, const OrbitalComponent& component, const Vector4& color, float thickness, float fade, int entityId)
     {
-        auto& elems = component.Object.GetElements();
+        auto& orbit = component.Object.GetOrbit();
+        auto& elems = orbit.Elements;
 
         Matrix4 transform = glm::translate(glm::mat4(1.f), (glm::vec3)center);
         transform = transform * Matrix4(orientation);
@@ -859,14 +860,14 @@ namespace Limnova
         Vector2 cutoffNormal = { 0.f }; /* the normal to the the cutoff line, equal to the unit direction vector of the orbit velocity at the cutoff point */
         if (component.Object.IsDynamic())
         {
-            auto& dynamics = component.Object.GetDynamics();
-            if (dynamics.EscapeTrueAnomaly > 0.f)
+            if (orbit.TaExit < PI2f) // TEMP ! will 
             {
-                cutoffPoint = dynamics.EscapePointPerifocal;
+                cutoffPoint = { OrbitalPhysics::kLocalSpaceEscapeRadius * cosf(orbit.TaExit) - elems.C, /* subtract center's x-offset to convert x-component to the perifocal frame */
+                    OrbitalPhysics::kLocalSpaceEscapeRadius * sinf(orbit.TaExit) };
 
                 // Compute cutoff normal from the orbit velocity at the cutoff point
-                cutoffNormal.x = -sinf(dynamics.EscapeTrueAnomaly);
-                cutoffNormal.y = elems.E + cosf(dynamics.EscapeTrueAnomaly);
+                cutoffNormal.x = -sinf(orbit.TaExit);
+                cutoffNormal.y = elems.E + cosf(orbit.TaExit);
                 cutoffNormal.Normalize();
             }
         }
@@ -936,16 +937,18 @@ namespace Limnova
 
     void Renderer2D::DrawOrbitalHyperbola(const Vector3& center, const Quaternion& orientation, const OrbitalComponent& component, const Vector4& color, float thickness, float fade, int entityId)
     {
-        auto& elems = component.Object.GetElements();
+        auto& orbit = component.Object.GetOrbit();
+        auto& elems = orbit.Elements;
         LV_CORE_ASSERT(elems.Type == OrbitalPhysics::OrbitType::Hyperbola, "Orbit must be hyperbolic!");
-        auto& dynamics = component.Object.GetDynamics();
 
-        Vector2 cutoffPoint = dynamics.EscapePointPerifocal; /* the point on the orbit path above the x-axis (positive y-component) at which the orbit should stop being drawn */
+        Vector2 cutoffPoint /* the point on the orbit path above the x-axis (positive y-component) at which the orbit should stop being drawn */
+            { OrbitalPhysics::kLocalSpaceEscapeRadius * cosf(orbit.TaExit) - elems.C, /* subtract center's x-offset to convert x-component to the perifocal frame */
+                OrbitalPhysics::kLocalSpaceEscapeRadius * sinf(orbit.TaExit)};
         Vector2 cutoffNormal = { 0.f }; /* the normal to the cutoff line, equal to the unit direction vector of the orbit velocity at the cutoff point */
 
         // Compute cutoff normal from the orbit velocity at the cutoff point
-        cutoffNormal.x = -sinf(dynamics.EscapeTrueAnomaly);
-        cutoffNormal.y = elems.E + cosf(dynamics.EscapeTrueAnomaly);
+        cutoffNormal.x = -sinf(orbit.TaExit);
+        cutoffNormal.y = elems.E + cosf(orbit.TaExit);
         cutoffNormal.Normalize();
 
         // Transform

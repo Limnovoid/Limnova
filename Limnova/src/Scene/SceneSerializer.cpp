@@ -405,7 +405,7 @@ namespace Limnova
             parentId = hcNode["Parent"].as<uint64_t>();
         }
 
-        bool isRootEntity = name == "Root";
+        bool isRootEntity = parentId == UUID::Null;
 
         Entity entity;
         if (isRootEntity) {
@@ -513,7 +513,7 @@ namespace Limnova
             for (size_t i = 0; i < localSpaceRadiiNode.size(); i++) {
                 oc.Object.AddLocalSpace(localSpaceRadiiNode[i].as<float>());
             }
-            if (isRootEntity) { oc.LocalSpaces.clear(); }
+            oc.LocalSpaces.clear();
             oc.Object.GetLocalSpaces(oc.LocalSpaces);
 
             oc.UIColor      = oNode["UIColor"].as<Vector3>();
