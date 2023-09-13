@@ -514,6 +514,7 @@ namespace Limnova
             LimnGui::ColorEdit3("UI Color", orbital.UIColor);
 
             auto& obj = orbital.Object.GetObj();
+            auto& state = orbital.Object.GetState();
 
             switch (obj.Validity)
             {
@@ -526,10 +527,10 @@ namespace Limnova
 
             if (entity != m_Scene->GetRoot())
             {
-                switch (obj.Integration.Method)
+                switch (orbital.Object.GetMotion().Integration)
                 {
-                case OrbitalPhysics::Integration::Method::Angular:  ImGui::Text("Integration: Angular");    break;
-                case OrbitalPhysics::Integration::Method::Linear:   ImGui::Text("Integration: Linear");     break;
+                case OrbitalPhysics::Motion::Integration::Angular:  ImGui::Text("Integration: Angular");    break;
+                case OrbitalPhysics::Motion::Integration::Linear:   ImGui::Text("Integration: Linear");     break;
                 }
 
                 bool isDynamic = orbital.Object.IsDynamic();
@@ -636,65 +637,70 @@ namespace Limnova
 
             ImGui::Separator();
 
-            ImGui::BeginDisabled(!(isOrbitalViewParent || isOrbitalViewObject));
-
             bool wasInfluencing = orbital.Object.IsInfluencing();
 
-            // Mass
-            double mass = obj.State.Mass;
-            if (LimnGui::InputScientific("Mass", mass))
+            // State
+            if (ImGui::TreeNode("State"))
             {
-                orbital.Object.SetMass(mass);
-            }
+                ImGui::BeginDisabled(!(isOrbitalViewParent || isOrbitalViewObject));
 
-            ImGui::EndDisabled();
-
-            ImGui::Separator();
-            ImGui::BeginDisabled(!isOrbitalViewObject);
-
-            // Position
-            {
-                Vector3 position = obj.State.Position;
-                LimnGui::InputConfig<float> config;
-                config.Speed = 0.0001f;
-                config.Precision = 4;
-                config.ResetValue = 0.f;
-                if (LimnGui::DragVec3("Position", position, config)) {
-                    orbital.Object.SetPosition(position);
-                }
-            }
-
-            // Velocity
-            if (entity != m_Scene->GetRoot())
-            {
-                Vector3d velocity = obj.State.Velocity;
-                LimnGui::InputConfig<double> config;
-                config.Speed = 0.0001;
-                config.FastSpeed = 0.01;
-                config.Precision = 8;
-                config.ResetValue = 0.f;
-                if (LimnGui::InputVec3d("Velocity", velocity, config)) {
-                    orbital.Object.SetVelocity(velocity);
+                // Mass
+                double mass = state.Mass;
+                if (LimnGui::InputScientific("Mass", mass))
+                {
+                    orbital.Object.SetMass(mass);
                 }
 
-                if (ImGui::Button("Circularize")) {
-                    orbital.SetCircular();
+                ImGui::EndDisabled();
+
+                ImGui::Separator();
+                ImGui::BeginDisabled(!isOrbitalViewObject);
+
+                // Position
+                {
+                    Vector3 position = state.Position;
+                    LimnGui::InputConfig<float> config;
+                    config.Speed = 0.0001f;
+                    config.Precision = 4;
+                    config.ResetValue = 0.f;
+                    if (LimnGui::DragVec3("Position", position, config)) {
+                        orbital.Object.SetPosition(position);
+                    }
                 }
 
-                ImGui::SameLine();
+                ImGui::Separator();
 
-                if (ImGui::Button("Reverse")) {
-                    orbital.Object.SetVelocity(-velocity);
+                // Velocity
+                if (entity != m_Scene->GetRoot())
+                {
+                    Vector3d velocity = state.Velocity;
+                    LimnGui::InputConfig<double> config;
+                    config.Speed = 0.0001;
+                    config.FastSpeed = 0.01;
+                    config.Precision = 8;
+                    config.ResetValue = 0.f;
+                    if (LimnGui::InputVec3d("Velocity", velocity, config)) {
+                        orbital.Object.SetVelocity(velocity);
+                    }
+
+                    if (ImGui::Button("Circularize")) {
+                        orbital.SetCircular();
+                    }
+
+                    ImGui::SameLine();
+
+                    if (ImGui::Button("Reverse")) {
+                        orbital.Object.SetVelocity(-velocity);
+                    }
                 }
+
+                ImGui::EndDisabled(); // (isOrbital && !isOrbitalViewSecondary)
             }
 
             if (lspacesChanged || wasInfluencing != orbital.Object.IsInfluencing()) {
                 orbital.LocalSpaces.clear();
                 orbital.Object.GetLocalSpaces(orbital.LocalSpaces);
             }
-
-            ImGui::EndDisabled(); // (isOrbital && !isOrbitalViewSecondary)
-
 
             ImGui::Separator();
 
@@ -837,30 +843,6 @@ namespace Limnova
                 const auto& dynamics = orbital.Object.GetDynamics();
                 if (ImGui::BeginTable("Elements", 2))
                 {
-                    ImGui::TableNextRow();
-
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text("Escape TA");
-                    LimnGui::HelpMarker("True anomaly of future escape point");
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.3e", dynamics.EscapeTrueAnomaly);
-
-                    ImGui::TableNextRow();
-
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text("Escape point");
-                    LimnGui::HelpMarker("Local coordinates of future escape point");
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.3f, %.3f, %.3f", dynamics.EscapePoint.x, dynamics.EscapePoint.y, dynamics.EscapePoint.z);
-
-                    ImGui::TableNextRow();
-
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text("Entry point");
-                    LimnGui::HelpMarker("Local coordinates of theoretical entry point (merely the reflection of the escape point about the current apse line, it is not necessarily the actual point at which this object previously entered the local space)");
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.3f, %.3f, %.3f", dynamics.EntryPoint.x, dynamics.EntryPoint.y, dynamics.EntryPoint.z);
-
                     ImGui::TableNextRow();
 
                     ImGui::TableSetColumnIndex(0);
