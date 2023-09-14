@@ -461,7 +461,7 @@ namespace Limnova
                     LV_CORE_ASSERT(m_Ctx->m_Tree.Height(nodeId) % 2 == 0, "Class is for object nodes only!");
                     LV_CORE_ASSERT(m_Ctx->m_Objects.Has(nodeId), "Object node must have an Object attribute!");
                     LV_CORE_ASSERT(m_Ctx->m_States.Has(nodeId), "Object node must have a State attribute!");
-                    LV_CORE_ASSERT(m_Ctx->m_Motions.Has(nodeId), "Object node must have a Motion attribute!");
+                    LV_CORE_ASSERT(nodeId == kRootObjId || m_Ctx->m_Motions.Has(nodeId), "Object node must have a Motion attribute!");
                 }
             }
 
@@ -494,7 +494,7 @@ namespace Limnova
             bool IsDynamic() const { return m_Ctx->m_Dynamics.Has(m_NodeId); }
             bool IsInfluencing() const { return !Object().Influence.IsNull(); }
 
-            OrbitalPhysics::Object const& GetObj() const { Object(); }
+            OrbitalPhysics::Object const& GetObj() const { return Object(); }
             OrbitalPhysics::OrbitSection const& GetOrbit() const { return Orbit(); }
             OrbitalPhysics::State const& GetState() const { return State(); }
             OrbitalPhysics::Motion const& GetMotion() const { return Motion(); }
@@ -1313,6 +1313,7 @@ namespace Limnova
                 auto& rootObj = m_Objects.Add(kRootObjId);
                 rootObj.Validity = Validity::InvalidMass; /* Object::Validity is by default initialised to InvalidParent, but that is meaningless for the root object (which cannot be parented) */
                 rootObj.Influence.m_NodeId = kRootLspId;
+                m_States.Add(kRootObjId);
 
                 auto& rootLsp = m_LSpaces.Add(kRootLspId);
                 rootLsp.Radius = 1.f;

@@ -123,9 +123,9 @@ namespace Limnova
             auto& dstOc = newEntity.AddComponent<OrbitalComponent>();
 
             dstOc.Object.SetDynamic(srcOc.Object.IsDynamic());
-            dstOc.Object.SetMass(srcOc.Object.GetObj().State.Mass);
-            dstOc.Object.SetPosition(srcOc.Object.GetObj().State.Position);
-            dstOc.Object.SetVelocity(srcOc.Object.GetObj().State.Velocity);
+            dstOc.Object.SetMass(srcOc.Object.GetState().Mass);
+            dstOc.Object.SetPosition(srcOc.Object.GetState().Position);
+            dstOc.Object.SetVelocity(srcOc.Object.GetState().Velocity);
 
             for (auto srcLsp : srcOc.LocalSpaces) {
                 if (srcLsp.IsSphereOfInfluence()) continue; /* influencing LSPs are handled by OrbitalPhysics */
@@ -137,9 +137,9 @@ namespace Limnova
             dstOc.ShowMajorMinorAxes = srcOc.ShowMajorMinorAxes;
             dstOc.ShowNormal = srcOc.ShowNormal;
 
-            LV_CORE_ASSERT((dstOc.Object.GetObj().State.Position - srcOc.Object.GetObj().State.Position).SqrMagnitude() < 1e-5f, "Failed to adequately replicate position!");
+            LV_CORE_ASSERT((dstOc.Object.GetState().Position - srcOc.Object.GetState().Position).SqrMagnitude() < 1e-5f, "Failed to adequately replicate position!");
             LV_CORE_ASSERT(dstOc.Object.GetOrbit().Elements.E - srcOc.Object.GetOrbit().Elements.E < 1e-5f, "Failed to adequately replicate orbit shape!");
-            LV_CORE_ASSERT(dstOc.Object.GetDynamics().EscapeTrueAnomaly - srcOc.Object.GetDynamics().EscapeTrueAnomaly < 1e-5f, "Failed to adequately replicate dynamics!");
+            LV_CORE_ASSERT(dstOc.Object.GetOrbit().TaExit - srcOc.Object.GetOrbit().TaExit < 1e-5f, "Failed to adequately replicate dynamics!");
         }
         return newEntity;
     }
@@ -365,7 +365,7 @@ namespace Limnova
         {
             auto [tc, ohc, oc] = GetComponents<TransformComponent, OrbitalHierarchyComponent, OrbitalComponent>(m_PhysicsToEnttIds.at(viewObj.Id()));
             tc.SetScale((Vector3)(ohc.AbsoluteScale / lsp.MetersPerRadius));
-            tc.SetPosition(oc.Object.GetObj().State.Position);
+            tc.SetPosition(oc.Object.GetState().Position);
         }
 
         // TODO : place non-orbital children (down to hierarchy leaves):
