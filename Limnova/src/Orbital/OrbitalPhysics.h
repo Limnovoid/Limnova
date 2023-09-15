@@ -1678,8 +1678,10 @@ namespace Limnova
                 LV_CORE_ASSERT(objNode.Orbit().LocalSpace == objNode.ParentLsp(), "Orbit/hierarchy local space mismatch!");
 
                 obj.Validity = Validity::Valid;
+
                 ComputeOrbit(motion.Orbit, state.Position, state.Velocity);
                 ComputeInfluence(objNode);
+
                 if (!objNode.IsDynamic() &&
                     objNode.Orbit().Elements.Type == OrbitType::Hyperbola)
                 {
@@ -1722,45 +1724,6 @@ namespace Limnova
         static double LocalGravitationalParameter(double localPrimaryMass, double localMetersPerUnitLength)
         {
             return kGravitational * localPrimaryMass * pow(localMetersPerUnitLength, -3.0);
-        }
-
-
-        /// <summary>
-        /// Returns speed for a circular orbit around the local primary (not circular in local space if local space is not influencing) at the given distance from the primary (measured in local space radii).
-        /// Assumes orbiter has insignificant mass compared to primary.
-        /// </summary>
-        static double CircularOrbitSpeed(LSpaceNode lspNode, float localRadius)
-        {
-            /* ||V_circular|| = sqrt(mu / ||r||), where mu is the gravitational parameter of the orbit */
-            return sqrt(lspNode.LSpace().Grav / (double)localRadius);
-        }
-
-
-        /// <summary>
-        /// Returns velocity for a circular counter-clockwise orbit around the given primary at the given position.
-        /// Assumes orbiter has insignificant mass compared to primary.
-        /// </summary>
-        /// <param name="object">Physics object ID</param>
-        static Vector3d CircularOrbitVelocity(LSpaceNode lspNode, Vector3 const& localPosition)
-        {
-            /* Keep the orbital plane as flat (close to the reference plane) as possible:
-             * derive velocity direction as the cross product of reference normal and normalized position */
-            Vector3d vDir;
-            Vector3 positionFromPrimary = localPosition + lspNode.LocalOffsetFromPrimary();
-            float rMag = sqrtf(positionFromPrimary.SqrMagnitude());
-            if (rMag == 0) { return Vector3d::Zero(); }
-
-            Vector3 rDir =  positionFromPrimary / rMag;
-            float rDotNormal = rDir.Dot(kReferenceNormal);
-            if (abs(rDotNormal) > kParallelDotProductLimit) {
-                /* Handle cases where the normal and position are parallel:
-                 * counter-clockwise around the reference Y-axis, whether above or below the plane */
-                vDir = rDotNormal > 0.f ? (Vector3d)(-kReferenceX) : (Vector3d)kReferenceX;
-            }
-            else {
-                vDir = (Vector3d)kReferenceNormal.Cross(rDir).Normalized();
-            }
-            return vDir * CircularOrbitSpeed(lspNode, rMag);
         }
 
 
@@ -1872,7 +1835,7 @@ namespace Limnova
             }
         }
 
-        /*** Usage ***/
+        /*** Simulation usage ***/
     public:
 #ifdef LV_DEBUG
         struct ObjStats
@@ -1903,18 +1866,20 @@ namespace Limnova
             m_Stats.ObjStats.resize(m_Objects.size(), ObjStats());*/
 #endif
 
+            ObjectNode& updateNode = m_Ctx->m_UpdateQueueFront;
+
             double minObjDT = dT / kMaxObjectUpdates;
 
             // Update all objects with timers less than 0
-            while (m_Ctx->m_UpdateQueueFront.Motion().UpdateTimer < 0.0)
+            while (updateNode.Motion().UpdateTimer < 0.0)
             {
-                auto& lsp = m_Ctx->m_UpdateQueueFront.ParentLsp().LSpace();
-                auto& obj = m_Ctx->m_UpdateQueueFront.Object();
-                auto& state = m_Ctx->m_UpdateQueueFront.State();
-                auto& motion = m_Ctx->m_UpdateQueueFront.Motion();
-                auto& orbit = m_Ctx->m_UpdateQueueFront.Orbit();
+                auto& lsp = updateNode.ParentLsp().LSpace();
+                auto& obj = updateNode.Object();
+                auto& state = updateNode.State();
+                auto& motion = updateNode.Motion();
+                auto& orbit = updateNode.Orbit();
                 auto& elems = orbit.Elements;
-                bool isDynamic = m_Ctx->m_UpdateQueueFront.IsDynamic();
+                bool isDynamic = updateNode.IsDynamic();
 
 #ifdef LV_DEBUG // debug object pre-update
                 /*m_Stats.ObjStats[m_UpdateQueueFront].NumObjectUpdates += 1;
@@ -1932,15 +1897,16 @@ namespace Limnova
                     * dTrueAnomaly / dT = h / r^2
                     * */
                     if (motion.DeltaTrueAnomaly < kMinUpdateTrueAnomaly) {
-                        Vector3 positionFromPrimary = m_Ctx->m_UpdateQueueFront.LocalPositionFromPrimary();
+                        Vector3 positionFromPrimary = updateNode.LocalPositionFromPrimary();
                         float posMag2 = positionFromPrimary.SqrMagnitude();
                         Vector3 posDir = positionFromPrimary / sqrtf(posMag2);
                         state.Acceleration = -(Vector3d)posDir * lsp.Grav / (double)posMag2;
                         if (isDynamic) {
-                            state.Acceleration += m_Ctx->m_UpdateQueueFront.Dynamics().ContAcceleration;
+                            state.Acceleration += updateNode.Dynamics().ContAcceleration;
                         }
+
                         motion.Integration = Motion::Integration::Linear;
-                        LV_CORE_TRACE("Object {0} switched from angular to linear integration!", m_Ctx->m_UpdateQueueFront.m_NodeId);
+                        LV_CORE_TRACE("Object {0} switched from angular to linear integration!", updateNode.m_NodeId);
                         // NOTE: switch falls through to case Motion::Integration::Linear
                     }
                     else {
@@ -1954,14 +1920,14 @@ namespace Limnova
 
                         //Vector3 positionFromPrimary = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
                         //Vector3d velocityFromPrimary = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
-                        //obj.State.Position = positionFromPrimary - m_Ctx->m_UpdateQueueFront.ParentLsp().LocalOffsetFromPrimary();
-                        //obj.State.Velocity = velocityFromPrimary - m_Ctx->m_UpdateQueueFront.ParentLsp().LocalVelocityFromPrimary();
+                        //obj.State.Position = positionFromPrimary - updateNode.ParentLsp().LocalOffsetFromPrimary();
+                        //obj.State.Velocity = velocityFromPrimary - updateNode.ParentLsp().LocalVelocityFromPrimary();
 
                         /* state according to elements (local distance scaling, relative to primary) */
                         state.Position = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
                         state.Velocity = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
                         /* state relative to local space */
-                        LSpaceNode parentLspNode = m_Ctx->m_UpdateQueueFront.ParentLsp();
+                        LSpaceNode parentLspNode = updateNode.ParentLsp();
                         state.Position -= parentLspNode.LocalOffsetFromPrimary();
                         state.Velocity -= parentLspNode.LocalVelocityFromPrimary();
 
@@ -1979,20 +1945,25 @@ namespace Limnova
                     * v1 = v0 + 0.5 * (a0 + a1) * dT
                     * */
                     state.Position += (Vector3)(state.Velocity * objDT) + 0.5f * (Vector3)(state.Acceleration * objDT * objDT);
-                    Vector3 positionFromPrimary = m_Ctx->m_UpdateQueueFront.LocalPositionFromPrimary();
+                    Vector3 positionFromPrimary = updateNode.LocalPositionFromPrimary();
                     float r2 = positionFromPrimary.SqrMagnitude();
                     Vector3d newAcceleration = -(Vector3d)positionFromPrimary * lsp.Grav / (double)(r2 * sqrtf(r2));
                     bool isDynamicallyAccelerating = false;
                     if (isDynamic) {
-                        newAcceleration += m_Ctx->m_UpdateQueueFront.Dynamics().ContAcceleration;
-                        isDynamicallyAccelerating = !m_Ctx->m_UpdateQueueFront.Dynamics().ContAcceleration.IsZero();
+                        newAcceleration += updateNode.Dynamics().ContAcceleration;
+                        isDynamicallyAccelerating = !updateNode.Dynamics().ContAcceleration.IsZero();
                     }
                     state.Velocity += 0.5 * (state.Acceleration + newAcceleration) * objDT;
                     state.Acceleration = newAcceleration;
 
                     if (isDynamicallyAccelerating) {
-                        ComputeOrbit(motion.Orbit, state.Position, state.Velocity);
-                        ComputeInfluence(m_Ctx->m_UpdateQueueFront);
+                        //ComputeOrbit(motion.Orbit, state.Position, state.Velocity);
+                        //ComputeInfluence(updateNode);
+
+                        if (motion.Orbit != IdNull) { /* Dynamic motion invalidates orbit */
+                            DeleteOrbit(motion.Orbit); /* We do not compute the orbit of a linearly integrated object until requested */
+                            motion.Orbit = IdNull;
+                        }
                     }
                     else {
                         // Update true anomaly with new position vector
@@ -2021,6 +1992,11 @@ namespace Limnova
                         motion.DeltaTrueAnomaly = (float)(objDT * elems.H) / positionFromPrimary.SqrMagnitude();
                         if (motion.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
                             motion.Integration = Motion::Integration::Angular;
+
+                            if (motion.Orbit == IdNull) {
+                                motion.Orbit = NewOrbit(updateNode.ParentLsp());
+                                ComputeOrbit(motion.Orbit, state.Position, state.Velocity);
+                            }
                         }
                     }
 
@@ -2042,21 +2018,21 @@ namespace Limnova
 
                 // Test for orbit events
                 if (isDynamic) {
-                    auto& dynamics = m_Ctx->m_UpdateQueueFront.Dynamics();
+                    auto& dynamics = updateNode.Dynamics();
 
                     float r = sqrtf(state.Position.SqrMagnitude());
 
                     if (r > kLocalSpaceEscapeRadius) {
-                        LV_CORE_ASSERT(!m_Ctx->m_UpdateQueueFront.ParentLsp().IsRoot(), "Cannot escape root local space!");
+                        LV_CORE_ASSERT(!updateNode.ParentLsp().IsRoot(), "Cannot escape root local space!");
 
-                        PromoteObjectNode(m_Ctx->m_UpdateQueueFront);
-                        CallParentLSpaceChangedCallback(m_Ctx->m_UpdateQueueFront);
+                        PromoteObjectNode(updateNode);
+                        CallParentLSpaceChangedCallback(updateNode);
 
                         LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Invalid dynamics after escape!");
 
                         // Prepare integration in new local space
                         objDT = ComputeObjDT(sqrt(state.Velocity.SqrMagnitude()), minObjDT);
-                        Vector3 positionFromPrimary = m_Ctx->m_UpdateQueueFront.LocalPositionFromPrimary();
+                        Vector3 positionFromPrimary = updateNode.LocalPositionFromPrimary();
                         float posMag2 = positionFromPrimary.SqrMagnitude();
                         motion.DeltaTrueAnomaly = (float)(objDT * elems.H) / posMag2;
 
@@ -2277,6 +2253,46 @@ namespace Limnova
         //{
         //    LV_CORE_ASSERT(false, "Not implemented!");
         //}
+
+
+        /* Query functions */
+    public:
+        /// <summary>
+        /// Returns speed for a circular orbit around the local primary (not circular in local space if local space is non-influencing) at the given distance from the primary (measured in local space radii).
+        /// Assumes orbiter has insignificant mass compared to primary.
+        /// </summary>
+        static double CircularOrbitSpeed(LSpaceNode lspNode, float localRadius)
+        {
+            /* ||V_circular|| = sqrt(mu / ||r||), where mu is the gravitational parameter of the orbit */
+            return sqrt(lspNode.LSpace().Grav / (double)localRadius);
+        }
+
+
+        /// <summary>
+        /// Returns velocity for a circular counter-clockwise orbit in the given local space, given an initial position.
+        /// Assumes orbiter has insignificant mass compared to primary.
+        /// </summary>
+        static Vector3d CircularOrbitVelocity(LSpaceNode lspNode, Vector3 const& localPosition)
+        {
+            /* Keep the orbital plane as flat (close to the reference plane) as possible:
+             * derive velocity direction as the cross product of reference normal and normalized position */
+            Vector3d vDir;
+            Vector3 positionFromPrimary = localPosition + lspNode.LocalOffsetFromPrimary();
+            float rMag = sqrtf(positionFromPrimary.SqrMagnitude());
+            if (rMag == 0) { return Vector3d::Zero(); }
+
+            Vector3 rDir = positionFromPrimary / rMag;
+            float rDotNormal = rDir.Dot(kReferenceNormal);
+            if (abs(rDotNormal) > kParallelDotProductLimit) {
+                /* Handle cases where the normal and position are parallel:
+                 * counter-clockwise around the reference Y-axis, whether above or below the plane */
+                vDir = rDotNormal > 0.f ? (Vector3d)(-kReferenceX) : (Vector3d)kReferenceX;
+            }
+            else {
+                vDir = (Vector3d)kReferenceNormal.Cross(rDir).Normalized();
+            }
+            return vDir * CircularOrbitSpeed(lspNode, rMag);
+        }
 
     };
 
