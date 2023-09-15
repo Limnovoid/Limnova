@@ -366,11 +366,11 @@ namespace Limnova
             out << YAML::Key << "ShowMajorMinorAxes"    << YAML::Value << orbital.ShowMajorMinorAxes;
             out << YAML::Key << "ShowNormal"            << YAML::Value << orbital.ShowNormal;
 
-            out << YAML::Key << "Mass"                  << YAML::Value << orbital.Object.GetObj().State.Mass;
+            out << YAML::Key << "Mass"                  << YAML::Value << orbital.Object.GetState().Mass;
             if (!isRootEntity) {
                 out << YAML::Key << "Dynamic" << YAML::Value << orbital.Object.IsDynamic();
-                out << YAML::Key << "Position" << YAML::Value << orbital.Object.GetObj().State.Position;
-                out << YAML::Key << "Velocity" << YAML::Value << orbital.Object.GetObj().State.Velocity;
+                out << YAML::Key << "Position" << YAML::Value << orbital.Object.GetState().Position;
+                out << YAML::Key << "Velocity" << YAML::Value << orbital.Object.GetState().Velocity;
             }
 
             out << YAML::Key << "LocalSpaceRadii" << YAML::BeginSeq;
