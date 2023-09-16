@@ -248,34 +248,40 @@ namespace Limnova
         }
         if (ImGui::BeginPopup("AddComponent"))
         {
-            if (ImGui::MenuItem("Camera"))
+            if (!m_SelectedEntity.HasComponent<CameraComponent>() &&
+                ImGui::MenuItem("Camera"))
             {
                 m_SelectedEntity.AddComponent<CameraComponent>();
                 ImGui::CloseCurrentPopup();
             }
 #ifdef LV_EDITOR_USE_ORBITAL
-            if (ImGui::MenuItem("Orbital"))
+            if (!m_SelectedEntity.HasComponent<OrbitalComponent>() &&
+                ImGui::MenuItem("Orbital"))
             {
                 m_SelectedEntity.AddComponent<OrbitalComponent>();
                 ImGui::CloseCurrentPopup();
             }
 #endif
-            if (ImGui::MenuItem("Sprite Renderer"))
+            if (!m_SelectedEntity.HasComponent<SpriteRendererComponent>() &&
+                ImGui::MenuItem("Sprite Renderer"))
             {
                 m_SelectedEntity.AddComponent<SpriteRendererComponent>();
                 ImGui::CloseCurrentPopup();
             }
-            if (ImGui::MenuItem("Billboard Sprite Renderer"))
+            if (!m_SelectedEntity.HasComponent<BillboardSpriteRendererComponent>() &&
+                ImGui::MenuItem("Billboard Sprite Renderer"))
             {
                 m_SelectedEntity.AddComponent<BillboardSpriteRendererComponent>();
                 ImGui::CloseCurrentPopup();
             }
-            if (ImGui::MenuItem("Circle Renderer"))
+            if (!m_SelectedEntity.HasComponent<CircleRendererComponent>() &&
+                ImGui::MenuItem("Circle Renderer"))
             {
                 m_SelectedEntity.AddComponent<CircleRendererComponent>();
                 ImGui::CloseCurrentPopup();
             }
-            if (ImGui::MenuItem("Billboard Circle Renderer"))
+            if (!m_SelectedEntity.HasComponent<BillboardCircleRendererComponent>() &&
+                ImGui::MenuItem("Billboard Circle Renderer"))
             {
                 m_SelectedEntity.AddComponent<BillboardCircleRendererComponent>();
                 ImGui::CloseCurrentPopup();
@@ -695,6 +701,8 @@ namespace Limnova
                 }
 
                 ImGui::EndDisabled(); // (isOrbital && !isOrbitalViewSecondary)
+
+                ImGui::TreePop();
             }
 
             if (lspacesChanged || wasInfluencing != orbital.Object.IsInfluencing()) {

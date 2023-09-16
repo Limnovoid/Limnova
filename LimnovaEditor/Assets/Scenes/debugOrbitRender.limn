@@ -1,4 +1,4 @@
-OrbitalScene: debugLsp.limn
+OrbitalScene: debugOrbitRender
 LocalSpaceColor: [1, 1, 1, 0.300000012]
 LocalSpaceThickness: 0.00300000003
 LocalSpaceFade: 0.00600000005
@@ -14,8 +14,8 @@ ReferenceAxisThickness: 0.00600000005
 ReferenceAxisArrowSize: 0.0240000002
 PerifocalAxisThickness: 0.00100000005
 PerifocalAxisArrowSize: 0.00499999989
-TrackingEntity: 14459431121056359079
-ViewSpace: 1
+TrackingEntity: 5468002836552908823
+ViewSpace: -1
 RootScaling: 1
 Entities:
   - Entity: 3991604775407627372
@@ -100,62 +100,6 @@ Entities:
       Velocity: [0, 0, -6.4491922823312195e-05]
       LocalSpaceRadii:
         - 0.0340000018
-  - Entity: 11506238116439127687
-    TagComponent:
-      Tag: Ship 0
-    HierarchyComponent:
-      Parent: 14459431121056359079
-    TransformComponent:
-      Position: [0.99000001, 0, 0]
-      Orientation: [0, 0, 0, 1]
-      EulerAngles: [0, 0, 0]
-      Scale: [0, 0, 0]
-    BillboardCircleRendererComponent:
-      Color: [0, 1, 0.047393322, 1]
-      Thickness: 1
-      Fade: 0.00499999989
-    OrbitalHierarchyComponent:
-      AbsoluteScale: [5.0000000000000002e-05, 5.0000000000000002e-05, 5.0000000000000002e-05]
-      LocalSpace: 2
-    OrbitalComponent:
-      UIColor: [1, 1, 1]
-      Albedo: 0
-      ShowMajorMinorAxes: false
-      ShowNormal: true
-      Mass: 9.9999999999999998e-17
-      Dynamic: true
-      Position: [0.99000001, 0, 0]
-      Velocity: [0, 0, -0.00014999999999999999]
-      LocalSpaceRadii:
-        []
-  - Entity: 518833432052485731
-    TagComponent:
-      Tag: Ship 1
-    HierarchyComponent:
-      Parent: 14459431121056359079
-    TransformComponent:
-      Position: [1, 0, 0]
-      Orientation: [0, 0, 0, 1]
-      EulerAngles: [0, 0, 0]
-      Scale: [0, 0, 0]
-    BillboardCircleRendererComponent:
-      Color: [0.436018944, 0, 1, 1]
-      Thickness: 1
-      Fade: 0.00499999989
-    OrbitalHierarchyComponent:
-      AbsoluteScale: [0.0001, 0.0001, 0.0001]
-      LocalSpace: 0
-    OrbitalComponent:
-      UIColor: [1, 1, 1]
-      Albedo: 0
-      ShowMajorMinorAxes: false
-      ShowNormal: true
-      Mass: 9.9999999999999998e-17
-      Dynamic: true
-      Position: [1, 0, 0]
-      Velocity: [0, 0, -0.00060006629845452261]
-      LocalSpaceRadii:
-        []
   - Entity: 5468002836552908823
     TagComponent:
       Tag: Ship 2
@@ -182,5 +126,33 @@ Entities:
       Dynamic: true
       Position: [0.819999993, 0, -0.0430000015]
       Velocity: [3.0000000000000001e-06, -0, 8.0000000000000007e-05]
+      LocalSpaceRadii:
+        []
+  - Entity: 11506238116439127687
+    TagComponent:
+      Tag: Ship 0
+    HierarchyComponent:
+      Parent: 14459431121056359079
+    TransformComponent:
+      Position: [-0.639999986, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.00398107152, 0.00398107152, 0.00398107152]
+    BillboardCircleRendererComponent:
+      Color: [0, 1, 0.047393322, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [5.0000000000000002e-05, 5.0000000000000002e-05, 5.0000000000000002e-05]
+      LocalSpace: 1
+    OrbitalComponent:
+      UIColor: [1, 1, 1]
+      Albedo: 0
+      ShowMajorMinorAxes: false
+      ShowNormal: true
+      Mass: 9.9999999999999998e-17
+      Dynamic: true
+      Position: [-0.639999986, 0, 0]
+      Velocity: [0, -0, 6.7999999999999999e-05]
       LocalSpaceRadii:
         []
