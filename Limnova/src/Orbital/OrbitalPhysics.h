@@ -493,6 +493,7 @@ namespace Limnova
             bool IsRoot() const { return m_NodeId == kRootObjId; }
             bool IsDynamic() const { return m_Ctx->m_Dynamics.Has(m_NodeId); }
             bool IsInfluencing() const { return !Object().Influence.IsNull(); }
+            bool HasChildLSpace() const { return m_Ctx->m_Tree[m_NodeId].FirstChild != IdNull; }
 
             OrbitalPhysics::Object const& GetObj() const { return Object(); }
             OrbitalPhysics::OrbitSection const& GetOrbit() const { return Orbit(); }
@@ -505,6 +506,8 @@ namespace Limnova
 
             LSpaceNode PrimaryLsp() const { return m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetParent(m_NodeId)].Primary; }
             ObjectNode PrimaryObj() const { return m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetParent(m_NodeId)].Primary.ParentObj(); }
+
+            LSpaceNode FirstChildLSpace() const { return LSpaceNode{ m_Ctx->m_Tree[m_NodeId].FirstChild }; }
             LSpaceNode SphereOfInfluence() const { return m_Ctx->m_Objects[m_NodeId].Influence; }
 
             Vector3 LocalPositionFromPrimary() const
@@ -536,6 +539,11 @@ namespace Limnova
                 LV_ASSERT(!IsRoot() && !IsNull() && !newLspNode.IsNull(), "Invalid nodes!");
 
                 m_Ctx->m_Tree.Move(m_NodeId, newLspNode.Id());
+
+                if (Motion().Orbit != IdNull) {
+                    DeleteOrbit(Motion().Orbit);
+                    Motion().Orbit = NewOrbit(newLspNode);
+                }
 
                 ComputeStateValidity(*this);
                 TryComputeAttributes(*this);
@@ -669,7 +677,7 @@ namespace Limnova
                 return numChildren;
             }
 
-            LSpaceNode NextHigherLSpace() const
+            LSpaceNode UpperLSpace() const
             {
                 TNodeId prevSibling = m_Ctx->m_Tree[m_NodeId].PrevSibling;
                 return LSpaceNode{ prevSibling == OrbitalPhysics::NNull
@@ -837,7 +845,7 @@ namespace Limnova
                 }
 
                 // Adopt any child objects from the new next-higher local space
-                LSpaceNode nextHigherSpace = NextHigherLSpace();
+                LSpaceNode nextHigherSpace = UpperLSpace();
                 childObjs.clear();
                 nextHigherSpace.GetLocalObjects(childObjs);
                 bool nextHigherIsSibling = nextHigherSpace.m_NodeId == node.PrevSibling;
@@ -1019,7 +1027,7 @@ namespace Limnova
         {
             LSpaceNode oldLspNode = objNode.ParentLsp();
             LV_CORE_ASSERT(!oldLspNode.IsRoot(), "Cannot promote objects in the root local space!");
-            LSpaceNode newLspNode = oldLspNode.NextHigherLSpace();
+            LSpaceNode newLspNode = oldLspNode.UpperLSpace();
 
             float rescalingFactor;
             State& state = objNode.State();
@@ -1161,29 +1169,52 @@ namespace Limnova
         {
             auto& elems = section.Elements;
 
-            if (section.LocalSpace.IsInfluencing())
+            section.TaEntry = 0.f;
+            section.TaExit = PI2f;
+            if (false /*section.LocalSpace.IsInfluencing()*/)
             {
-                float apoapsisRadius = elems.P / (1.f - elems.E);
-                bool escapesLocalSpace = elems.Type == OrbitType::Hyperbola || apoapsisRadius > kLocalSpaceEscapeRadius;
-
-                if (!section.LocalSpace.IsLowestLSpaceOnObject()) {
-                    // TODO !
-                    // float periapsisRadius =
-                    // bool entersInnerSpace =
-                }
-
-                section.TaEntry = 0.f;
-                section.TaExit = PI2f;
-                if (escapesLocalSpace) {
+                // Local space escape
+                float apoapsisRadius = elems.SemiMajor * (1.f + elems.E);
+                if (elems.Type == OrbitType::Hyperbola || apoapsisRadius > kLocalSpaceEscapeRadius) {
                     section.TaExit = acosf((elems.P / kLocalSpaceEscapeRadius - 1.f) / elems.E);
                     section.TaEntry = PI2f - section.TaExit;
+                }
+                // Inner space entry
+                else if (!section.LocalSpace.IsLowestLSpaceOnObject())
+                {
+                    float periapsisRadius = elems.SemiMajor * (1.f - elems.E);
+                    float innerSpaceRelativeRadius = section.LocalSpace.InnerLSpace().LSpace().Radius / section.LocalSpace.LSpace().Radius;
+                    if (periapsisRadius < innerSpaceRelativeRadius) {
+                        section.TaEntry = acosf((elems.P / innerSpaceRelativeRadius - 1.f) / elems.E);
+                        section.TaExit = PI2f - section.TaEntry;
+                    }
                 }
             }
             else
             {
-                // TODO : compute escapes for non-local orbits !!!
-                section.TaEntry = 0.f;
-                section.TaExit = PI2f;
+                // TODO : get ta limits in primary space
+                auto primarySpace = section.LocalSpace.PrimaryLsp();
+                float primarySpaceRelativeScaling = primarySpace.LSpace().MetersPerRadius / section.LocalSpace.LSpace().MetersPerRadius;
+                float escapeRadius = kLocalSpaceEscapeRadius * primarySpaceRelativeScaling;
+
+                // COPY FROM ABOVE (+ edits)
+                // Check for local space escape
+                float apoapsisRadius = elems.SemiMajor * (1.f + elems.E);
+                if (elems.Type == OrbitType::Hyperbola || apoapsisRadius > escapeRadius)
+                {
+                    section.TaExit = acosf((elems.P / escapeRadius - 1.f) / elems.E);
+                    section.TaEntry = PI2f - section.TaExit;
+                }
+                // Check for inner space entry
+                else if (!primarySpace.IsLowestLSpaceOnObject())
+                {
+                    float periapsisRadius = elems.SemiMajor * (1.f - elems.E);
+                    float innerSpaceRelativeRadius = primarySpace.InnerLSpace().LSpace().Radius / primarySpace.LSpace().Radius * primarySpaceRelativeScaling;
+                    if (periapsisRadius < innerSpaceRelativeRadius) {
+                        section.TaEntry = acosf((elems.P / innerSpaceRelativeRadius - 1.f) / elems.E);
+                        section.TaExit = PI2f - section.TaEntry;
+                    }
+                }
             }
         }
 
@@ -1195,8 +1226,6 @@ namespace Limnova
 
             Vector3 positionFromPrimary = localPosition + section.LocalSpace.LocalOffsetFromPrimary();
             Vector3d velocityFromPrimary = localVelocity + section.LocalSpace.LocalVelocityFromPrimary();
-            
-            // TODO : get local velocity relative to primary !!! (velocity may, e.g, be zero relative to local parent but non-zero relative to a non-local primary)
 
             Vector3d Hvec = Vector3d(positionFromPrimary).Cross(velocityFromPrimary);
             double H2 = Hvec.SqrMagnitude();
@@ -1390,12 +1419,6 @@ namespace Limnova
         static bool ValidParent(ObjectNode objNode)
         {
             if (objNode.IsRoot()) return true;
-
-            if (!objNode.ParentLsp().IsInfluencing()) { // <--------------------------------------------- TEMPORARY !!!
-                // TODO : foreign (non-local) orbits
-                LV_WARN("Orbits in non-influencing local spaces are not yet supported!");
-                return false;
-            }
 
             if (LSpaceNode(kRootLspId).LSpace().MetersPerRadius == 0.0) {
                 LV_WARN("OrbitalPhysics root scaling has not been set!");
@@ -1688,10 +1711,6 @@ namespace Limnova
                     obj.Validity = Validity::InvalidPath;
                 }
 
-                /* TEMP */
-                if (!objNode.ParentLsp().IsInfluencing()) { obj.Validity = Validity::InvalidPath; } // TODO : non-local orbits !!!
-                /* /TEMP */
-
                 if (obj.Validity == Validity::Valid)
                 {
                     UpdateQueuePushFront(objNode);
@@ -1873,7 +1892,8 @@ namespace Limnova
             // Update all objects with timers less than 0
             while (updateNode.Motion().UpdateTimer < 0.0)
             {
-                auto& lsp = updateNode.ParentLsp().LSpace();
+                auto lspNode = updateNode.ParentLsp();
+                auto& lsp = lspNode.LSpace();
                 auto& obj = updateNode.Object();
                 auto& state = updateNode.State();
                 auto& motion = updateNode.Motion();
@@ -2020,15 +2040,46 @@ namespace Limnova
                 if (isDynamic) {
                     auto& dynamics = updateNode.Dynamics();
 
+                    bool lspChanged = false;
+
+                    // Local escape
                     float r = sqrtf(state.Position.SqrMagnitude());
-
-                    if (r > kLocalSpaceEscapeRadius) {
+                    if (r > kLocalSpaceEscapeRadius)
+                    {
                         LV_CORE_ASSERT(!updateNode.ParentLsp().IsRoot(), "Cannot escape root local space!");
-
+                        lspChanged = true;
                         PromoteObjectNode(updateNode);
-                        CallParentLSpaceChangedCallback(updateNode);
+                    }
+                    // Inner space entry
+                    else if (!lspNode.IsLowestLSpaceOnObject() &&
+                        r < lspNode.InnerLSpace().LSpace().Radius / lsp.Radius)
+                    {
+                        lspChanged = true;
+                        DemoteObjectNode(updateNode);
+                    }
+                    // Local subspace entry
+                    else
+                    {
+                        std::vector<ObjectNode> objs{ };
+                        lspNode.GetLocalObjects(objs);
+                        for (auto objNode : objs)
+                        {
+                            if (objNode == updateNode) continue; /* skip self */
+                            if (!objNode.HasChildLSpace()) continue; /* skip objs without subspaces */
 
-                        LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Invalid dynamics after escape!");
+                            auto subspaceNode = objNode.FirstChildLSpace();
+                            float s = sqrtf((state.Position - objNode.State().Position).SqrMagnitude());
+                            if (s < subspaceNode.LSpace().Radius)
+                            {
+                                lspChanged = true;
+                                DemoteObjectNode(subspaceNode, updateNode);
+                            }
+                        }
+                    }
+
+                    if (lspChanged) {
+                        LV_CORE_ASSERT(obj.Validity == Validity::Valid, "Invalid dynamics after event!");
+                        CallParentLSpaceChangedCallback(updateNode);
 
                         // Prepare integration in new local space
                         objDT = ComputeObjDT(sqrt(state.Velocity.SqrMagnitude()), minObjDT);
@@ -2195,6 +2246,7 @@ namespace Limnova
                 }
             }
 
+            UpdateQueueSafeRemove(objNode);
             RemoveObjectNode(objNode);
         }
 

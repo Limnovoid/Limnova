@@ -860,7 +860,7 @@ namespace Limnova
         Vector2 cutoffNormal = { 0.f }; /* the normal to the the cutoff line, equal to the unit direction vector of the orbit velocity at the cutoff point */
         if (component.Object.IsDynamic())
         {
-            if (orbit.TaExit < PI2f) // TEMP ! will 
+            if (orbit.TaExit < PI2f) // TEMP !
             {
                 cutoffPoint = { OrbitalPhysics::kLocalSpaceEscapeRadius * cosf(orbit.TaExit) - elems.C, /* subtract center's x-offset to convert x-component to the perifocal frame */
                     OrbitalPhysics::kLocalSpaceEscapeRadius * sinf(orbit.TaExit) };

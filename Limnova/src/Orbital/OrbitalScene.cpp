@@ -181,7 +181,7 @@ namespace Limnova
             m_ViewLSpace = GetEntityLSpace(m_Entities.at(m_TrackingEntity));
             while (relativeViewSpaceIndex < -1) {
                 LV_CORE_ASSERT(!m_ViewLSpace.IsRoot(), "Local space relative index is out of bounds!");
-                m_ViewLSpace = m_ViewLSpace.NextHigherLSpace();
+                m_ViewLSpace = m_ViewLSpace.UpperLSpace();
                 relativeViewSpaceIndex++;
             }
         }
@@ -451,14 +451,16 @@ namespace Limnova
             auto& object = oc.Object.GetObj();
             auto& elems = oc.Object.GetOrbit().Elements;
 
-            if (object.Validity != OrbitalPhysics::Validity::Valid) continue;
+            if (object.Validity != OrbitalPhysics::Validity::Valid &&
+                object.Validity != OrbitalPhysics::Validity::InvalidPath) continue;
 
             // TODO - point light/brightness from OrbitalComponent::Albedo
 
             // Orbit path
             Vector3 posFromPrimary = oc.Object.LocalPositionFromPrimary();
             Vector3 orbitCenter = tc.GetPosition() - posFromPrimary + (elems.PerifocalX * elems.C);
-            Vector4 uiColor = Vector4{ oc.UIColor, 0.4f };
+            Vector4 uiColor = object.Validity == OrbitalPhysics::Validity::InvalidPath ?
+                Vector4{ 1.f, 0.f, 0.f, 0.4f } : Vector4{ oc.UIColor, 0.4f };
             {
                 switch (elems.Type)
                 {
@@ -481,7 +483,7 @@ namespace Limnova
                 lsTransform = lsTransform * Matrix4(cameraOrientation);
 
                 float lsRadius = lspNode.GetLSpace().Radius;
-                lsTransform = glm::scale((glm::mat4)lsTransform, glm::vec3(lsRadius));
+                lsTransform = glm::scale((glm::mat4)lsTransform, glm::vec3(2.f * lsRadius));
 
                 float lsThickness = m_LocalSpaceThickness * cameraDistance / lsRadius;
                 Vector4 lsColor = lspNode.IsSphereOfInfluence() ? m_InfluencingSpaceColor : m_LocalSpaceColor;
