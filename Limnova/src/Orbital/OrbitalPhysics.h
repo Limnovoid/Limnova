@@ -505,6 +505,9 @@ namespace Limnova
                     motion.Orbit = NewOrbit(ParentLsp());
                     ComputeOrbit(motion.Orbit, state.Position, state.Velocity, maxSections);
                 }
+                else if (motion.Integration == Motion::Integration::Linear) {
+                    LV_CORE_ASSERT(false, "TODO: update true anomaly !");
+                }
                 return m_Ctx->m_OrbitSections[motion.Orbit];
             }
 
@@ -552,8 +555,9 @@ namespace Limnova
                 //    Motion().Orbit = NewOrbit(newLspNode);
                 //}
 
-                ComputeStateValidity(*this);
-                TryComputeAttributes(*this);
+                //ComputeStateValidity(*this);
+                //TryComputeAttributes(*this);
+                TryPrepareObject(*this);
                 SubtreeCascadeAttributeChanges(*this);
             }
 
@@ -569,7 +573,9 @@ namespace Limnova
                     // TODO : exclude from release builds ?
                 }
                 else {
-                    TryComputeAttributes(*this);
+                    //ComputeStateValidity(*this);
+                    //TryComputeAttributes(*this);
+                    TryPrepareObject(*this);
                 }
                 SubtreeCascadeAttributeChanges(*this);
             }
@@ -579,8 +585,9 @@ namespace Limnova
                 LV_ASSERT(!IsNull() && !IsRoot(), "Cannot set position of root or null object!");
 
                 m_Ctx->m_States[m_NodeId].Position = position;
-                ComputeStateValidity(*this);
-                TryComputeAttributes(*this);
+                //ComputeStateValidity(*this);
+                //TryComputeAttributes(*this);
+                TryPrepareObject(*this);
                 SubtreeCascadeAttributeChanges(*this);
             }
 
@@ -589,7 +596,8 @@ namespace Limnova
                 LV_ASSERT(!IsNull() && !IsRoot(), "Cannot set position of root or null object!");
 
                 m_Ctx->m_States[m_NodeId].Velocity = velocity;
-                TryComputeAttributes(*this);
+                //TryComputeAttributes(*this);
+                TryPrepareObject(*this);
                 SubtreeCascadeAttributeChanges(*this);
             }
 
@@ -613,8 +621,9 @@ namespace Limnova
                 else {
                     m_Ctx->m_Dynamics.TryRemove(m_NodeId);
                 }
-                ComputeStateValidity(*this);
-                TryComputeAttributes(*this);
+                //ComputeStateValidity(*this);
+                //TryComputeAttributes(*this);
+                TryPrepareObject(*this);
             }
 
 
@@ -811,8 +820,9 @@ namespace Limnova
                         PromoteObjectNode(objNode); /* "promoting" still works because we haven't yet re-sorted the local space amongst its siblings */
                     }
                     else {
-                        ComputeStateValidity(objNode);
-                        TryComputeAttributes(objNode);
+                        //ComputeStateValidity(objNode);
+                        //TryComputeAttributes(objNode);
+                        TryPrepareObject(objNode);
                         SubtreeCascadeAttributeChanges(objNode.Id());
                     }
                 }
@@ -901,7 +911,7 @@ namespace Limnova
             Valid = 100
         };
 
-        std::string ValidityToString(Validity v)
+        static std::string ValidityToString(Validity v)
         {
             switch (v)
             {
@@ -909,7 +919,7 @@ namespace Limnova
             case Validity::InvalidSpace:    return "InvalidSpace";
             case Validity::InvalidMass:     return "InvalidMass";
             case Validity::InvalidPosition: return "InvalidPosition";
-            case Validity::InvalidMotion:     return "InvalidMotion";
+            case Validity::InvalidMotion:   return "InvalidMotion";
             case Validity::Valid:           return "Valid";
             }
         }
@@ -941,9 +951,9 @@ namespace Limnova
         {
             enum class Integration {
                 Angular = 0,
-                Linear  = 1
-            }
-            Integration = Integration::Angular; /* set to Angular by default in TryComputeAttributes() anyway */
+                Linear = 1
+            };
+            Integration Integration = Integration::Angular;
             bool ForceLinear = false;
 
         private:
@@ -1094,8 +1104,9 @@ namespace Limnova
             objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
 
             RescaleLocalSpaces(objNode, rescalingFactor);
-            ComputeStateValidity(objNode);
-            TryComputeAttributes(objNode);
+            //ComputeStateValidity(objNode);
+            //TryComputeAttributes(objNode);
+            TryPrepareObject(objNode);
             SubtreeCascadeAttributeChanges(objNode.Id());
         }
 
@@ -1118,8 +1129,9 @@ namespace Limnova
             objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
 
             RescaleLocalSpaces(objNode, rescalingFactor);
-            ComputeStateValidity(objNode);
-            TryComputeAttributes(objNode);
+            //ComputeStateValidity(objNode);
+            //TryComputeAttributes(objNode);
+            TryPrepareObject(objNode);
             SubtreeCascadeAttributeChanges(objNode.Id());
         }
 
@@ -1144,8 +1156,9 @@ namespace Limnova
             objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
 
             RescaleLocalSpaces(objNode, rescalingFactor);
-            ComputeStateValidity(objNode);
-            TryComputeAttributes(objNode);
+            //ComputeStateValidity(objNode);
+            //TryComputeAttributes(objNode);
+            TryPrepareObject(objNode);
             SubtreeCascadeAttributeChanges(objNode.Id());
         }
 
@@ -1186,14 +1199,15 @@ namespace Limnova
         }
 
         // Deletes an orbit (a linked list of orbit sections) from the given section
-        static void DeleteOrbit(TId sectionId)
+        static void DeleteOrbit(TId& sectionId)
         {
-            while (sectionId != NNull)
+            while (sectionId != IdNull)
             {
                 TId nextSection = m_Ctx->m_OrbitSections.Get(sectionId).Next;
                 m_Ctx->m_OrbitSections.Erase(sectionId);
                 sectionId = nextSection;
             }
+            sectionId = IdNull;
         }
 
         static void ComputeOrbit(TId firstSectionId, Vector3 const& localPosition, Vector3d const& localVelocity, size_t maxSections = 1)
@@ -1441,19 +1455,19 @@ namespace Limnova
             if (!objNode.IsDynamic()) {
                 auto& orbit = objNode.GetOrbit();
                 if (orbit.TaExit < PI2) {
-                    LV_WARN("Object (%d) has invalid motion: non-dynamic objects cannot exit their local space!");
+                    LV_WARN("Object {0} has invalid motion: non-dynamic objects cannot exit their local space!");
                     return false;
                 }
                 if (objNode.IsInfluencing()) {
                     float roi = objNode.SphereOfInfluence().LSpace().Radius;
                     if (roi > kMaxLSpaceRadius) {
-                        LV_WARN("Object (%d) has invalid motion: sphere of influence is too wide - adjust orbit radius or object mass!",
+                        LV_WARN("Object {0} has invalid motion: sphere of influence is too wide - adjust orbit radius or object mass!",
                             objNode.Id());
                         return false;
                     }
                     if (orbit.Elements.RadiusAt(PIf) + roi > kLocalSpaceEscapeRadius ||
                         orbit.Elements.RadiusAt(0.f) - roi < objNode.ParentLsp().InnerLSpaceLocalRadius()) {
-                        LV_WARN("Object (%d) has invalid motion: sphere of influence is crossing local space boundaries!", objNode.Id());
+                        LV_WARN("Object {0} has invalid motion: sphere of influence is crossing local space boundaries!", objNode.Id());
                         return false;
                     }
                 }
@@ -1474,11 +1488,11 @@ namespace Limnova
             float posFromPrimaryMag2 = objNode.LocalPositionFromPrimary().SqrMagnitude();
 
             if (posFromPrimaryMag2 < kEps) {
-                LV_WARN("Object (%d) has invalid position: distance from primary object (%d) must be non-zero!", objNode.Id(), objNode.PrimaryObj().Id());
+                LV_WARN("Object {0} has invalid position: distance from primary object {1} must be non-zero!", objNode.Id(), objNode.PrimaryObj().Id());
                 return false;
             }
             if (posMag2 > kEscapeDistance2 || posMag2 < innerSpaceRadius * innerSpaceRadius + kEps) {
-                LV_WARN("Object (%d) has invalid position: must be inside its local space!", objNode.Id(), objNode.PrimaryObj().Id());
+                LV_WARN("Object {0} has invalid position: must be inside its local space!", objNode.Id(), objNode.PrimaryObj().Id());
                 return false;
             }
 
@@ -1489,7 +1503,7 @@ namespace Limnova
                 float separation = sqrtf((objNode.State().Position - sibNode.State().Position).SqrMagnitude());
                 float minSeparation = kEps + (sibNode.HasChildLSpace() ? sibNode.FirstChildLSpace().LSpace().Radius : 0.f);
                 if (separation < minSeparation) {
-                    LV_WARN("Object (%d) has invalid position: overlapping with another object (%d)!", objNode.Id(), sibNode.Id());
+                    LV_WARN("Object {0} has invalid position: overlapping with another object's {1} local space!", objNode.Id(), sibNode.Id());
                     return false;
                 }
             }
@@ -1519,14 +1533,14 @@ namespace Limnova
             //return hasValidMass;
 
             if (state.Mass <= 0.0) {
-                LV_WARN("Object (%d) has invalid mass: mass must be positive (non-zero)!", objNode.Id());
+                LV_WARN("Object {0} has invalid mass: mass must be positive (non-zero)!", objNode.Id());
                 return false;
             }
             if (objNode.IsRoot()) { return true; }
             double& primaryMass = objNode.PrimaryObj().State().Mass;
             double massRatio = state.Mass / (state.Mass + primaryMass);
             if (massRatio > kMaxCOG) {
-                LV_WARN("Object (%d) has invalid mass: ratio with primary object (%d) mass is too high "
+                LV_WARN("Object {0} has invalid mass: ratio with primary object {1} mass is too high "
                     "(ratio is m / (m + M) = %.5f, must be less than %.5f)!",
                     objNode.Id(), objNode.PrimaryObj().Id(), massRatio, kMaxCOG);
                 return false;
@@ -1534,7 +1548,7 @@ namespace Limnova
             static const float maxDynamicMassRatio = powf(kMinLSpaceRadius, 2.5f);
             massRatio = state.Mass / primaryMass;
             if (objNode.IsDynamic() && (float)massRatio > maxDynamicMassRatio) {
-                LV_WARN("Object (&d) has invalid mass: ratio with primary object (%d) mass is too high for a dynamic object "
+                LV_WARN("Object {0} has invalid mass: ratio with primary object {1} mass is too high for a dynamic object "
                     "(ratio is m/M = %.5f, must be less than %.5f for dynamic objects)!",
                     objNode.Id(), objNode.PrimaryObj().Id(), massRatio, maxDynamicMassRatio);
                 return false;
@@ -1546,7 +1560,7 @@ namespace Limnova
         {
             if (objNode.IsRoot()) { return true; }
             if (!objNode.IsDynamic() && !objNode.ParentLsp().IsInfluencing()) {
-                LV_WARN("Object (%d) invalid local space (%d): non-dynamic object cannot belong to a non-influencing space!", objNode.Id(), objNode.ParentLsp().Id());
+                LV_WARN("Object {0} invalid local space {1}: non-dynamic object cannot belong to a non-influencing space!", objNode.Id(), objNode.ParentLsp().Id());
                 return false;
             }
             return true;
@@ -1558,7 +1572,7 @@ namespace Limnova
                 return objNode.Object().Validity != Validity::InvalidParent; /* see SetRootSpaceScaling() */
             }
             if (objNode.ParentObj().Object().Validity != Validity::Valid) {
-                LV_WARN("Object (%d) invalid parent (%d): parent Validity must be Validity::Valid!", objNode.Id(), objNode.ParentObj().Id());
+                LV_WARN("Object {0} invalid parent {1}: parent Validity must be Validity::Valid!", objNode.Id(), objNode.ParentObj().Id());
                 return false;
             }
             return true;
@@ -1967,27 +1981,6 @@ namespace Limnova
         }
 
 
-        static void SubtreeCascadeAttributeChanges(TNodeId rootNodeId)
-        {
-            std::vector<TNodeId> tree{};
-            m_Ctx->m_Tree.GetSubtree(rootNodeId, tree);
-            for (auto nodeId : tree) {
-                if (IsLocalSpace(nodeId)) {
-                    LSpaceNode subLspNode{ nodeId };
-                    if (!subLspNode.IsRoot() && !subLspNode.IsSphereOfInfluence()) {
-                        subLspNode.SetRadius(subLspNode.LSpace().Radius); /* recomputes MetersPerRadius and Grav */
-                    }
-                }
-                else {
-                    // TODO : preserve orbit shapes ?
-                    ObjectNode subObjNode{ nodeId };
-                    ComputeStateValidity(subObjNode);
-                    TryComputeAttributes(subObjNode);
-                }
-            }
-        }
-
-
         static Validity TryPrepareObject(ObjectNode objNode)
         {
             LV_CORE_ASSERT(!objNode.IsRoot(), "Cannot compute orbit or influence on root object!");
@@ -2011,43 +2004,7 @@ namespace Limnova
             }
 
             // State is valid: prepare Motion
-            auto& state = objNode.State();
-            auto& motion = objNode.Motion();
-
-            motion.PrevDT = ComputeObjDT(sqrt(state.Velocity.SqrMagnitude()));
-            DeleteOrbit(motion.Orbit);
-
-            double approxDTrueAnomaly;
-            Vector3d posDir;
-            double posMag2;
-            {
-                // Approximate delta true anomaly (dTa) as the angle change in position direction caused by velocity across delta time (dT)
-                Vector3d posFromPrimary = (Vector3d)objNode.LocalPositionFromPrimary();
-                posMag2 = posFromPrimary.SqrMagnitude();
-                double r = sqrt(posMag2);
-                posDir = posFromPrimary / r;
-
-                Vector3d velFromPrimary = objNode.LocalVelocityFromPrimary();
-                double vHorz = sqrt(velFromPrimary.SqrMagnitude() - pow(velFromPrimary.Dot(posFromPrimary) / r, 2.0));
-                approxDTrueAnomaly = motion.PrevDT * vHorz / r;
-            }
-            bool isDynamicallyAccelerating = objNode.IsDynamic() && !objNode.Dynamics().ContAcceleration.IsZero();
-            if (!isDynamicallyAccelerating && approxDTrueAnomaly > kMinUpdateTrueAnomaly)
-            {
-                // Angular integration
-                motion.Integration = Motion::Integration::Angular;
-                auto& orbit = objNode.GetOrbit(); /* creates Orbit */
-                motion.DeltaTrueAnomaly = (motion.PrevDT * orbit.Elements.H) / posMag2;
-            }
-            else
-            {
-                // Linear integration
-                motion.Integration = Motion::Integration::Linear;
-                state.Acceleration = -posDir * objNode.ParentLsp().LSpace().Grav / posMag2;
-                if (isDynamicallyAccelerating) {
-                    state.Acceleration += objNode.Dynamics().ContAcceleration;
-                }
-            }
+            ComputeMotion(objNode);
 
             // Prepare Influence
             if (!objNode.IsDynamic()) {
@@ -2058,13 +2015,97 @@ namespace Limnova
                 return obj.Validity = Validity::InvalidMotion;
             }
 
-
             if (obj.Validity == Validity::Valid)
             {
                 UpdateQueuePushFront(objNode);
             }
 
             return obj.Validity;
+        }
+
+        static void SubtreeCascadeAttributeChanges(TNodeId rootNodeId)
+        {
+            std::vector<TNodeId> tree{};
+            m_Ctx->m_Tree.GetSubtree(rootNodeId, tree);
+            for (auto nodeId : tree) {
+                if (IsLocalSpace(nodeId)) {
+                    LSpaceNode subLspNode{ nodeId };
+                    if (!subLspNode.IsRoot() && !subLspNode.IsSphereOfInfluence()) {
+                        subLspNode.SetRadius(subLspNode.LSpace().Radius); /* recomputes MetersPerRadius and Grav */
+                    }
+                }
+                else {
+                    // TODO : preserve orbit shapes ?
+                    ObjectNode subObjNode{ nodeId };
+                    //ComputeStateValidity(subObjNode);
+                    //TryComputeAttributes(subObjNode);
+                    TryPrepareObject(subObjNode);
+                }
+            }
+        }
+
+        static double ApproximateDeltaTrueAnomaly(Vector3d const& posFromPrimary, double distFromPrimary, Vector3d const& velFromPrimary, double objDT)
+        {
+            double vHorz = sqrt(velFromPrimary.SqrMagnitude() - pow(velFromPrimary.Dot(posFromPrimary) / distFromPrimary, 2.0));
+            return objDT * vHorz / distFromPrimary;
+        }
+
+        static enum class Motion::Integration SelectIntegrationMethod(double deltaTrueAnomaly, bool isDynamicallyAccelerating = false)
+        {
+            return !isDynamicallyAccelerating && deltaTrueAnomaly > kMinUpdateTrueAnomaly
+                ? Motion::Integration::Angular : Motion::Integration::Linear;
+        }
+
+        static void ComputeMotion(ObjectNode objNode)
+        {
+            LV_CORE_ASSERT(!objNode.IsRoot(), "Root object cannot have Motion!");
+
+            auto& state = objNode.State();
+            auto& motion = objNode.Motion();
+
+            if (motion.Orbit != IdNull) {
+                DeleteOrbit(motion.Orbit);
+            }
+
+            motion.PrevDT = ComputeObjDT(sqrt(state.Velocity.SqrMagnitude()));
+
+            double approxDTrueAnomaly;
+            Vector3d posDir;
+            double posMag2;
+            bool isDynamicallyAccelerating;
+            {
+                // Approximate delta true anomaly (dTa) as the angle change in position direction caused by velocity across delta time (dT)
+                Vector3d posFromPrimary = (Vector3d)objNode.LocalPositionFromPrimary();
+                posMag2 = posFromPrimary.SqrMagnitude();
+                double r = sqrt(posMag2);
+                posDir = posFromPrimary / r;
+                Vector3d velFromPrimary = objNode.LocalVelocityFromPrimary();
+                double approxDTrueAnomaly = ApproximateDeltaTrueAnomaly(posFromPrimary, r, velFromPrimary, motion.PrevDT);
+
+                isDynamicallyAccelerating = objNode.IsDynamic() && !objNode.Dynamics().ContAcceleration.IsZero();
+                motion.Integration = SelectIntegrationMethod(approxDTrueAnomaly, isDynamicallyAccelerating);
+            }
+            switch (motion.Integration)
+            {
+            case Motion::Integration::Angular:
+            {
+                // Angular integration
+                motion.Integration = Motion::Integration::Angular;
+                auto& orbit = objNode.GetOrbit(); /* creates Orbit */
+                motion.DeltaTrueAnomaly = (motion.PrevDT * orbit.Elements.H) / posMag2;
+                break;
+            }
+            case Motion::Integration::Linear:
+            {
+                // Linear integration
+                motion.Integration = Motion::Integration::Linear;
+                state.Acceleration = -posDir * objNode.ParentLsp().LSpace().Grav / posMag2;
+                if (isDynamicallyAccelerating) {
+                    state.Acceleration += objNode.Dynamics().ContAcceleration;
+                }
+                break;
+            }
+            }
         }
 
         /*** Simulation usage ***/
@@ -2110,8 +2151,6 @@ namespace Limnova
                 auto& obj = updateNode.Object();
                 auto& state = updateNode.State();
                 auto& motion = updateNode.Motion();
-                auto& orbit = updateNode.Orbit();
-                auto& elems = orbit.Elements;
                 bool isDynamic = updateNode.IsDynamic();
 
 #ifdef LV_DEBUG // debug object pre-update
@@ -2129,46 +2168,43 @@ namespace Limnova
                     /* Integrate true anomaly:
                     * dTrueAnomaly / dT = h / r^2
                     * */
-                    if (motion.DeltaTrueAnomaly < kMinUpdateTrueAnomaly) {
-                        Vector3 positionFromPrimary = updateNode.LocalPositionFromPrimary();
-                        float posMag2 = positionFromPrimary.SqrMagnitude();
-                        Vector3 posDir = positionFromPrimary / sqrtf(posMag2);
-                        state.Acceleration = -(Vector3d)posDir * lsp.Grav / (double)posMag2;
+                    auto& orbit = updateNode.Orbit();
+                    auto& elems = orbit.Elements;
+                    orbit.TrueAnomaly += motion.DeltaTrueAnomaly;
+                    orbit.TrueAnomaly = Wrapf(orbit.TrueAnomaly, PI2f);
+
+                    // Compute new state
+                    float sinT = sinf(orbit.TrueAnomaly);
+                    float cosT = cosf(orbit.TrueAnomaly);
+                    float r = elems.P / (1.f + elems.E * cosT); /* orbit equation: r = h^2 / mu * 1 / (1 + e * cos(trueAnomaly)) */
+
+                    /* state according to elements (local distance scaling, relative to primary) */
+                    state.Position = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
+                    state.Velocity = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
+                    /* state relative to local space */
+                    LSpaceNode parentLspNode = updateNode.ParentLsp();
+                    state.Position -= parentLspNode.LocalOffsetFromPrimary();
+                    state.Velocity -= parentLspNode.LocalVelocityFromPrimary();
+
+                    objDT = ComputeObjDT(sqrt(state.Velocity.SqrMagnitude()), minObjDT);
+                    motion.DeltaTrueAnomaly = (float)(objDT * elems.H) / (r * r);
+
+                    // Re-select integration method
+                    motion.Integration = SelectIntegrationMethod(motion.DeltaTrueAnomaly);
+                    if (motion.Integration == Motion::Integration::Linear)
+                    {
+                        // Prepare Linear integration
+                        Vector3d positionFromPrimary = (Vector3d)updateNode.LocalPositionFromPrimary();
+                        double posMag2 = positionFromPrimary.SqrMagnitude();
+                        Vector3d posDir = positionFromPrimary / sqrt(posMag2);
+                        state.Acceleration = -posDir * lsp.Grav / posMag2;
                         if (isDynamic) {
                             state.Acceleration += updateNode.Dynamics().ContAcceleration;
                         }
-
-                        motion.Integration = Motion::Integration::Linear;
-                        LV_CORE_TRACE("Object {0} switched from angular to linear integration!", updateNode.m_NodeId);
-                        // NOTE: switch falls through to case Motion::Integration::Linear
+                        LV_CORE_TRACE("Object {0} switched to Linear integration!", updateNode.m_NodeId);
                     }
-                    else {
-                        orbit.TrueAnomaly += motion.DeltaTrueAnomaly;
-                        orbit.TrueAnomaly = Wrapf(orbit.TrueAnomaly, PI2f);
 
-                        // Compute new state
-                        float sinT = sinf(orbit.TrueAnomaly);
-                        float cosT = cosf(orbit.TrueAnomaly);
-                        float r = elems.P / (1.f + elems.E * cosT); /* orbit equation: r = h^2 / mu * 1 / (1 + e * cos(trueAnomaly)) */
-
-                        //Vector3 positionFromPrimary = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
-                        //Vector3d velocityFromPrimary = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
-                        //obj.State.Position = positionFromPrimary - updateNode.ParentLsp().LocalOffsetFromPrimary();
-                        //obj.State.Velocity = velocityFromPrimary - updateNode.ParentLsp().LocalVelocityFromPrimary();
-
-                        /* state according to elements (local distance scaling, relative to primary) */
-                        state.Position = r * (cosT * elems.PerifocalX + sinT * elems.PerifocalY);
-                        state.Velocity = elems.VConstant * (Vector3d)((elems.E + cosT) * elems.PerifocalY - sinT * elems.PerifocalX);
-                        /* state relative to local space */
-                        LSpaceNode parentLspNode = updateNode.ParentLsp();
-                        state.Position -= parentLspNode.LocalOffsetFromPrimary();
-                        state.Velocity -= parentLspNode.LocalVelocityFromPrimary();
-
-                        objDT = ComputeObjDT(sqrt(state.Velocity.SqrMagnitude()), minObjDT);
-                        motion.DeltaTrueAnomaly = (float)(objDT * elems.H) / (r * r);
-                        break;
-                    }
-                    // NOTE: case break is conditional on purpose!
+                    break;
                 }
                 case Motion::Integration::Linear:
                 {
@@ -2178,9 +2214,11 @@ namespace Limnova
                     * v1 = v0 + 0.5 * (a0 + a1) * dT
                     * */
                     state.Position += (Vector3)(state.Velocity * objDT) + 0.5f * (Vector3)(state.Acceleration * objDT * objDT);
-                    Vector3 positionFromPrimary = updateNode.LocalPositionFromPrimary();
-                    float r2 = positionFromPrimary.SqrMagnitude();
-                    Vector3d newAcceleration = -(Vector3d)positionFromPrimary * lsp.Grav / (double)(r2 * sqrtf(r2));
+                    Vector3d positionFromPrimary = (Vector3d)updateNode.LocalPositionFromPrimary();
+                    double r2 = positionFromPrimary.SqrMagnitude();
+                    double r = sqrt(r2);
+
+                    Vector3d newAcceleration = -positionFromPrimary * lsp.Grav / (r2 * r);
                     bool isDynamicallyAccelerating = false;
                     if (isDynamic) {
                         newAcceleration += updateNode.Dynamics().ContAcceleration;
@@ -2189,54 +2227,28 @@ namespace Limnova
                     state.Velocity += 0.5 * (state.Acceleration + newAcceleration) * objDT;
                     state.Acceleration = newAcceleration;
 
-                    if (isDynamicallyAccelerating) {
-                        //ComputeOrbit(motion.Orbit, state.Position, state.Velocity);
-                        //ComputeInfluence(updateNode);
-
-                        if (motion.Orbit != IdNull) { /* Dynamic motion invalidates orbit */
-                            DeleteOrbit(motion.Orbit); /* We do not compute the orbit of a linearly integrated object until requested */
-                            motion.Orbit = IdNull;
-                        }
-                    }
-                    else {
-                        // Update true anomaly with new position vector
-                        // Code taken from ComputeElements():
-                        Vector3 posDir = positionFromPrimary.Normalized();
-                        float newTrueAnomaly = AngleBetweenUnitVectors(elems.PerifocalX, posDir);
-                        if (posDir.Dot(elems.PerifocalY) < 0.f && newTrueAnomaly != 0.f) {
-                            newTrueAnomaly = PI2f - newTrueAnomaly;
-                        }
-
-                        // Not dynamically accelerating, so we ensure true anomaly does not decrease:
-                        float dTrueAnomaly = newTrueAnomaly - orbit.TrueAnomaly;
-                        if (dTrueAnomaly < -PIf) {
-                            orbit.TrueAnomaly = newTrueAnomaly; /* True anomaly has wrapped around at periapsis in the forwards direction */
-                        }
-                        else if (!(dTrueAnomaly > PIf)) {
-                            orbit.TrueAnomaly = std::max(newTrueAnomaly, orbit.TrueAnomaly); /* True anomaly has NOT wrapped at periapsis in the backwards direction (we can safely take the larger value) */
-                        }
-                        /* else, true anomaly has wrapped backwards at periapsis so we discard the new value */
-                    }
-
-                    // Recheck integration method choice
                     objDT = ComputeObjDT(sqrt(state.Velocity.SqrMagnitude()), minObjDT);
-                    if (!isDynamicallyAccelerating)
-                    {
-                        motion.DeltaTrueAnomaly = (float)(objDT * elems.H) / positionFromPrimary.SqrMagnitude();
-                        if (motion.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
-                            motion.Integration = Motion::Integration::Angular;
 
-                            if (motion.Orbit == IdNull) {
-                                motion.Orbit = NewOrbit(updateNode.ParentLsp());
-                                ComputeOrbit(motion.Orbit, state.Position, state.Velocity);
-                            }
-                        }
+                    if (isDynamicallyAccelerating && motion.Orbit != IdNull) {
+                        // Dynamic acceleration invalidates orbit:
+                        // Orbit was requested by the user in the previous frame so we need to delete the stored (now invalid) data
+                        DeleteOrbit(motion.Orbit); /* We do not compute the orbit of a linearly integrated object until it is requested */
+                    }
+
+                    // Re-select integration method
+                    double approxDTrueAnomaly = ApproximateDeltaTrueAnomaly(positionFromPrimary, r, updateNode.LocalVelocityFromPrimary(), objDT);
+                    motion.Integration = SelectIntegrationMethod(approxDTrueAnomaly, isDynamicallyAccelerating);
+                    if (motion.Integration == Motion::Integration::Angular)
+                    {
+                        // Prepare Angular integration
+                        motion.DeltaTrueAnomaly = (motion.PrevDT * updateNode.GetOrbit().Elements.H) / r2; /* GetOrbit() creates or updates orbit */
+
+                        LV_CORE_TRACE("Object {0} switched to Angular integration!", updateNode.m_NodeId);
                     }
 
                     break;
                 }
                 }
-                LV_CORE_ASSERT(orbit.TrueAnomaly < PI2f, "True anomaly has not been accurately wrapped to range [0, 2Pi)!");
 
 #ifdef LV_DEBUG // debug object post-update
                 /*if (elems.TrueAnomaly < prevTrueAnomaly) {
@@ -2250,7 +2262,8 @@ namespace Limnova
 #endif
 
                 // Test for orbit events
-                if (isDynamic) {
+                if (isDynamic)
+                {
                     auto& dynamics = updateNode.Dynamics();
 
                     bool lspChanged = false;
@@ -2295,22 +2308,22 @@ namespace Limnova
                         CallParentLSpaceChangedCallback(updateNode);
 
                         // Prepare integration in new local space
-                        objDT = ComputeObjDT(sqrt(state.Velocity.SqrMagnitude()), minObjDT);
-                        Vector3 positionFromPrimary = updateNode.LocalPositionFromPrimary();
-                        float posMag2 = positionFromPrimary.SqrMagnitude();
-                        motion.DeltaTrueAnomaly = (float)(objDT * elems.H) / posMag2;
+                        //objDT = ComputeObjDT(sqrt(state.Velocity.SqrMagnitude()), minObjDT);
+                        //Vector3 positionFromPrimary = updateNode.LocalPositionFromPrimary();
+                        //float posMag2 = positionFromPrimary.SqrMagnitude();
+                        //motion.DeltaTrueAnomaly = (float)(objDT * elems.H) / posMag2;
 
-                        // TODO : handle cases where dynamic acceleration is non-zero, e.g, bool isDynamicallyAccelerating = m_Dynamics.Has(object) && !m_Dynamics[object].ContAcceleration.IsZero()
-                        if (motion.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
-                            LV_CORE_ASSERT(dynamics.ContAcceleration.IsZero(), "Dynamic acceleration not handled!");
-                            motion.Integration = Motion::Integration::Angular;
-                        }
-                        else {
-                            Vector3 posDir = positionFromPrimary / sqrtf(posMag2);
-                            state.Acceleration = -(Vector3d)posDir * lsp.Grav / (double)posMag2;
-                            state.Acceleration += dynamics.ContAcceleration;
-                            motion.Integration = Motion::Integration::Linear;
-                        }
+                        //// TODO : handle cases where dynamic acceleration is non-zero, e.g, bool isDynamicallyAccelerating = m_Dynamics.Has(object) && !m_Dynamics[object].ContAcceleration.IsZero()
+                        //if (motion.DeltaTrueAnomaly > kMinUpdateTrueAnomaly) {
+                        //    LV_CORE_ASSERT(dynamics.ContAcceleration.IsZero(), "Dynamic acceleration not handled!");
+                        //    motion.Integration = Motion::Integration::Angular;
+                        //}
+                        //else {
+                        //    Vector3 posDir = positionFromPrimary / sqrtf(posMag2);
+                        //    state.Acceleration = -(Vector3d)posDir * lsp.Grav / (double)posMag2;
+                        //    state.Acceleration += dynamics.ContAcceleration;
+                        //    motion.Integration = Motion::Integration::Linear;
+                        //}
                     }
                 }
 
@@ -2320,7 +2333,7 @@ namespace Limnova
 
             // Subtract elapsed time from all object timers
             ObjectNode objNode = m_Ctx->m_UpdateQueueFront;
-            do { 
+            do {
                 objNode.Motion().UpdateTimer -= dT;
                 objNode = objNode.Motion().UpdateNext;
             } while (!objNode.IsNull());
@@ -2413,8 +2426,6 @@ namespace Limnova
         /// <returns>ID of the created physics object</returns>
         static ObjectNode Create(LSpaceNode lspNode, double mass, Vector3 const& position, bool dynamic = false)
         {
-            LV_CORE_ASSERT(!lspNode.IsNull(), "Invalid local space!");
-
             return Create(lspNode, mass, position, CircularOrbitVelocity(lspNode, position), dynamic);
         }
 
@@ -2425,8 +2436,6 @@ namespace Limnova
         /// <returns>ID of the created physics object</returns>
         static ObjectNode Create(LSpaceNode lspNode, bool dynamic = false)
         {
-            LV_CORE_ASSERT(!lspNode.IsNull(), "Invalid local space!");
-
             return Create(lspNode, 0.0, { 0.f }, { 0.0 }, dynamic);
         }
 
@@ -2465,8 +2474,9 @@ namespace Limnova
 
                     m_Ctx->m_Tree.Move(localObjs[j].Id(), parentLsp.Id());
 
-                    ComputeStateValidity(localObjs[j]);
-                    TryComputeAttributes(localObjs[j]);
+                    //ComputeStateValidity(localObjs[j]);
+                    //TryComputeAttributes(localObjs[j]);
+                    TryPrepareObject(localObjs[j]);
                     SubtreeCascadeAttributeChanges(localObjs[j].Id());
                 }
             }
