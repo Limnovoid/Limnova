@@ -1,4 +1,4 @@
-OrbitalScene: debugOrbitRender
+OrbitalScene: debugOrbitRender.limn
 LocalSpaceColor: [1, 1, 1, 0.300000012]
 LocalSpaceThickness: 0.00300000003
 LocalSpaceFade: 0.00600000005
@@ -14,7 +14,7 @@ ReferenceAxisThickness: 0.00600000005
 ReferenceAxisArrowSize: 0.0240000002
 PerifocalAxisThickness: 0.00100000005
 PerifocalAxisArrowSize: 0.00499999989
-TrackingEntity: 5468002836552908823
+TrackingEntity: 13827553148329750021
 ViewSpace: -1
 RootScaling: 1
 Entities:

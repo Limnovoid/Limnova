@@ -497,6 +497,7 @@ namespace Limnova
             OrbitalPhysics::Motion const& GetMotion() const { return Motion(); }
             OrbitalPhysics::Dynamics const& GetDynamics() const { return Dynamics(); }
 
+            // Computes or updates the Orbit and returns its first section.
             OrbitalPhysics::OrbitSection const& GetOrbit(size_t maxSections = 1) const
             {
                 auto& state = m_Ctx->m_States[m_NodeId];
@@ -506,7 +507,7 @@ namespace Limnova
                     ComputeOrbit(motion.Orbit, state.Position, state.Velocity, maxSections);
                 }
                 else if (motion.Integration == Motion::Integration::Linear) {
-                    LV_CORE_ASSERT(false, "TODO: update true anomaly !");
+                    Orbit().UpdateTrueAnomaly(state.Position.Normalized());
                 }
                 return m_Ctx->m_OrbitSections[motion.Orbit];
             }
@@ -1020,6 +1021,20 @@ namespace Limnova
                     + sinf(trueAnomaly) * PerifocalY;
                 return RadiusAt(trueAnomaly) * directionAtTrueAnomaly;
             }
+
+            float TrueAnomalyOf(Vector3 const& positionDirection) const
+            {
+                LV_CORE_ASSERT(abs(positionDirection.SqrMagnitude() - 1.f) < 10.f * kEps, "Direction vector must be a unit vector (length was {0}, must be 1)!",
+                    abs(positionDirection.SqrMagnitude() - 1.f));
+
+                float trueAnomaly = AngleBetweenUnitVectors(PerifocalX, positionDirection);
+                // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
+                if (positionDirection.Dot(PerifocalY) < 0.f) {
+                    // Velocity is in the negative X-axis of the perifocal frame
+                    trueAnomaly = PI2f - trueAnomaly;
+                }
+                return trueAnomaly;
+            }
         };
 
         class OrbitSection
@@ -1036,6 +1051,11 @@ namespace Limnova
             Vector3 LocalPositionAt(float trueAnomaly) const
             {
                 return Elements.PositionAt(trueAnomaly) - LocalSpace.LocalOffsetFromPrimary();
+            }
+
+            void UpdateTrueAnomaly(Vector3 const& positionDirection)
+            {
+                TrueAnomaly = Elements.TrueAnomalyOf(positionDirection);
             }
         };
 
@@ -1541,16 +1561,16 @@ namespace Limnova
             double massRatio = state.Mass / (state.Mass + primaryMass);
             if (massRatio > kMaxCOG) {
                 LV_WARN("Object {0} has invalid mass: ratio with primary object {1} mass is too high "
-                    "(ratio is m / (m + M) = %.5f, must be less than %.5f)!",
+                    "(ratio is m / (m + M) = {2}, must be less than {3})!",
                     objNode.Id(), objNode.PrimaryObj().Id(), massRatio, kMaxCOG);
                 return false;
             }
-            static const float maxDynamicMassRatio = powf(kMinLSpaceRadius, 2.5f);
+            static const float kMaxDynamicMassRatio = powf(kMinLSpaceRadius, 2.5f);
             massRatio = state.Mass / primaryMass;
-            if (objNode.IsDynamic() && (float)massRatio > maxDynamicMassRatio) {
+            if (objNode.IsDynamic() && (float)massRatio > kMaxDynamicMassRatio) {
                 LV_WARN("Object {0} has invalid mass: ratio with primary object {1} mass is too high for a dynamic object "
-                    "(ratio is m/M = %.5f, must be less than %.5f for dynamic objects)!",
-                    objNode.Id(), objNode.PrimaryObj().Id(), massRatio, maxDynamicMassRatio);
+                    "(ratio is m/M = {2}, must be less than {3} for dynamic objects)!",
+                    objNode.Id(), objNode.PrimaryObj().Id(), massRatio, kMaxDynamicMassRatio);
                 return false;
             }
             return true;
@@ -1617,7 +1637,6 @@ namespace Limnova
         static void ComputeInfluence(ObjectNode objNode)
         {
             LV_CORE_ASSERT(!objNode.IsRoot(), "Cannot compute influence of root object!");
-            LV_CORE_ASSERT(!objNode.IsDynamic(), "Dynamic objects cannot have influences!"); /* see ValidMass() */
 
             Object& obj = objNode.Object();
 
@@ -1626,7 +1645,9 @@ namespace Limnova
              * so the order of ROI is determined by (m / M)^0.4 */
             float massFactor = (float)pow(objNode.State().Mass / objNode.PrimaryObj().State().Mass, 0.4);
             float radiusOfInfluence = objNode.GetOrbit().Elements.SemiMajor * massFactor;
-            if (radiusOfInfluence > kMinLSpaceRadius)
+            radiusOfInfluence = std::min(radiusOfInfluence, kMaxLSpaceRadius + kEps * kMaxLSpaceRadius); /* restrict size while still causing InvalidMotion */
+
+            if (!objNode.IsDynamic() && radiusOfInfluence > kMinLSpaceRadius)
             {
                 if (obj.Influence.IsNull()) {
                     NewSoiNode(objNode, radiusOfInfluence);
@@ -2007,9 +2028,7 @@ namespace Limnova
             ComputeMotion(objNode);
 
             // Prepare Influence
-            if (!objNode.IsDynamic()) {
-                ComputeInfluence(objNode);
-            }
+            ComputeInfluence(objNode);
 
             if (!ValidMotion(objNode)) {
                 return obj.Validity = Validity::InvalidMotion;
@@ -2413,7 +2432,7 @@ namespace Limnova
             //TryComputeAttributes(newObjNode);
 
             Validity validity = TryPrepareObject(newObjNode);
-            LV_INFO("New OrbitalPhysics object (%d) validity '%s'", newObjNode.Id(), ValidityToString(validity));
+            LV_INFO("New OrbitalPhysics object ({0}) validity '{1}'", newObjNode.Id(), ValidityToString(validity));
 
             return newObjNode;
         }
