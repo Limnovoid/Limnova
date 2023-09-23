@@ -35,7 +35,7 @@ namespace Limnova
         static constexpr double kDefaultMinDT = 1.0 / (60.0 * kMaxObjectUpdates); /* above constraint expressed as a maximum delta time for a single integration step */
         static constexpr float kMaxUpdateDistance = 1e-6f; /* largest delta position we can allow before integration step becomes too visible (for when object DT is much greater than frame DT) */
         static constexpr double kMaxUpdateDistanced = (double)kMaxUpdateDistance;
-        static constexpr double kMinUpdateTrueAnomaly = ::std::numeric_limits<float>::epsilon() * 1e2f; //1e-6f; /* smallest delta true anomaly we can allow before precision error becomes unacceptable for long-term angular integration */
+        static constexpr double kMinUpdateTrueAnomaly = ::std::numeric_limits<double>::epsilon() * 1e3f; /* smallest delta true anomaly we can allow before precision error becomes unacceptable for long-term angular integration */
         ////////////////////////////////////////
 
 
@@ -507,7 +507,7 @@ namespace Limnova
                     ComputeOrbit(motion.Orbit, state.Position, state.Velocity, maxSections);
                 }
                 else if (motion.Integration == Motion::Integration::Linear) {
-                    Orbit().UpdateTrueAnomaly(state.Position.Normalized());
+                    motion.TrueAnomaly = Orbit().Elements.TrueAnomalyOf(state.Position.Normalized());
                 }
                 return m_Ctx->m_OrbitSections[motion.Orbit];
             }
@@ -937,13 +937,13 @@ namespace Limnova
             };
             Integration Integration = Integration::Angular;
             bool ForceLinear = false;
-
+            double TrueAnomaly = 0.f;
         private:
             friend class OrbitalPhysics;
 
             double PrevDT = 0.0;
             double UpdateTimer = 0.0;
-            float DeltaTrueAnomaly = 0.f;
+            double DeltaTrueAnomaly = 0.f;
             ObjectNode UpdateNext = {};
 
             TId Orbit = IdNull;
@@ -1008,7 +1008,7 @@ namespace Limnova
                 LV_ASSERT(abs(positionDirection.SqrMagnitude() - 1.f) < 10.f * kEps, "Direction vector must be a unit vector (length was {0}, must be 1)!",
                     abs(positionDirection.SqrMagnitude() - 1.f));
 
-                float trueAnomaly = AngleBetweenUnitVectors(PerifocalX, positionDirection);
+                float trueAnomaly = AngleBetweenUnitVectorsf(PerifocalX, positionDirection);
                 // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
                 if (positionDirection.Dot(PerifocalY) < 0.f) {
                     // Velocity is in the negative X-axis of the perifocal frame
@@ -1023,20 +1023,14 @@ namespace Limnova
         public:
             LSpaceNode LocalSpace;      // The local space through which this orbit section describes its object's motion
             Elements Elements;          // Orbital motion description (shape, duration, etc)
-            float TrueAnomaly = 0.f;    // Object's current true anomaly in this orbit section (if this section is the object's current)
-            float TaEntry   = 0.f;     // True anomaly of orbit's point of entry into the local space (if the section escapes the local space, otherwise has value 0)
-            float TaExit    = PI2f;      // True anomaly of orbit's point of escape from the local space (if the section escapes the local space, otherwise has value 2Pi)
+            float TaEntry   = 0.f;      // True anomaly of orbit's point of entry into the local space (if the section escapes the local space, otherwise has value 0)
+            float TaExit    = PI2f;     // True anomaly of orbit's point of escape from the local space (if the section escapes the local space, otherwise has value 2Pi)
             TId Next = NNull;           // Reference to next orbit section which will describe the object's motion after escaping this, or entering a new, local space (if this section escapes its local space or intersects another, otherwise has value NNull)
 
         public:
             Vector3 LocalPositionAt(float trueAnomaly) const
             {
                 return Elements.PositionAt(trueAnomaly) - LocalSpace.LocalOffsetFromPrimary();
-            }
-
-            void UpdateTrueAnomaly(Vector3 const& positionDirection)
-            {
-                TrueAnomaly = Elements.TrueAnomalyOf(positionDirection);
             }
         };
 
@@ -1290,7 +1284,6 @@ namespace Limnova
             {
                 /* handle position or velocity being zero */
                 elems = Elements();
-                section.TrueAnomaly = 0.f;
                 return;
             }
             elems.PerifocalNormal = (Vector3)(Hvec / elems.H);
@@ -1353,7 +1346,7 @@ namespace Limnova
             if (elems.N.Dot(kReferenceY) < 0.f) {
                 elems.Omega = PI2f - elems.Omega;
             }
-            elems.ArgPeriapsis = AngleBetweenUnitVectors(elems.N, elems.PerifocalX);
+            elems.ArgPeriapsis = AngleBetweenUnitVectorsf(elems.N, elems.PerifocalX);
             if (elems.N.Dot(elems.PerifocalY) > 0.f) {
                 elems.ArgPeriapsis = PI2f - elems.ArgPeriapsis;
             }
@@ -1361,14 +1354,6 @@ namespace Limnova
                 Quaternion(elems.PerifocalNormal, elems.ArgPeriapsis)
                 * Quaternion(elems.N, elems.I)
                 * Quaternion(kReferenceNormal, elems.Omega);
-
-            // Current true anomaly
-            section.TrueAnomaly = AngleBetweenUnitVectors(elems.PerifocalX, posDir);
-            // Disambiguate based on whether the position is in the positive or negative Y-axis of the perifocal frame
-            if (posDir.Dot(elems.PerifocalY) < 0.f) {
-                // Velocity is in the negative X-axis of the perifocal frame
-                section.TrueAnomaly = PI2f - section.TrueAnomaly;
-            }
         }
 
         /*** Simulation resources ***/
@@ -1814,6 +1799,7 @@ namespace Limnova
                 // Angular integration
                 motion.Integration = Motion::Integration::Angular;
                 auto& orbit = objNode.GetOrbit(); /* creates Orbit */
+                motion.TrueAnomaly = orbit.Elements.TrueAnomalyOf((Vector3)posDir);
                 motion.DeltaTrueAnomaly = (motion.PrevDT * orbit.Elements.H) / posMag2;
                 break;
             }
@@ -1892,12 +1878,12 @@ namespace Limnova
                     * */
                     auto& orbit = updateNode.Orbit();
                     auto& elems = orbit.Elements;
-                    orbit.TrueAnomaly += motion.DeltaTrueAnomaly;
-                    orbit.TrueAnomaly = Wrapf(orbit.TrueAnomaly, PI2f);
+                    motion.TrueAnomaly += motion.DeltaTrueAnomaly;
+                    motion.TrueAnomaly = Wrapf(motion.TrueAnomaly, PI2f);
 
                     // Compute new state
-                    float sinT = sinf(orbit.TrueAnomaly);
-                    float cosT = cosf(orbit.TrueAnomaly);
+                    float sinT = sinf((float)motion.TrueAnomaly);
+                    float cosT = cosf((float)motion.TrueAnomaly);
                     float r = elems.P / (1.f + elems.E * cosT); /* orbit equation: r = h^2 / mu * 1 / (1 + e * cos(trueAnomaly)) */
 
                     /* state according to elements (local distance scaling, relative to primary) */
@@ -1909,7 +1895,7 @@ namespace Limnova
                     state.Velocity -= parentLspNode.LocalVelocityFromPrimary();
 
                     objDT = ComputeObjDT(sqrt(state.Velocity.SqrMagnitude()), minObjDT);
-                    motion.DeltaTrueAnomaly = (float)(objDT * elems.H) / (r * r);
+                    motion.DeltaTrueAnomaly = (objDT * elems.H) / (double)(r * r);
 
                     // Re-select integration method
                     motion.Integration = SelectIntegrationMethod(motion.DeltaTrueAnomaly);

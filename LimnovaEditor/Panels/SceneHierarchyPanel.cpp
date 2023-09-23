@@ -716,8 +716,8 @@ namespace Limnova
             if (entity != m_Scene->GetRoot() &&
                 ImGui::TreeNode("Elements"))
             {
-                const auto& orbit = orbital.Object.GetOrbit();
-                const auto& elems = orbit.Elements;
+                const auto& motion = orbital.Object.GetMotion();
+                const auto& elems = orbital.Object.GetOrbit().Elements;
                 if (ImGui::BeginTable("Elements", 2))
                 {
                     ImGui::TableNextRow();
@@ -749,7 +749,7 @@ namespace Limnova
                     ImGui::TableSetColumnIndex(0);
                     ImGui::Text("True anomaly");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.3f", orbit.TrueAnomaly);
+                    ImGui::Text("%.3f", motion.TrueAnomaly);
 
                     ImGui::TableNextRow();
 

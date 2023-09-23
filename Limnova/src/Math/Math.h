@@ -116,9 +116,19 @@ namespace Limnova
     /// Returns the angle (radians) between two unit vectors.
     /// Created specifically to handle floating point error which can result in a dot product being greater than 1 for parallel or near-parallel unit vectors.
     /// </summary>
-    inline float AngleBetweenUnitVectors(const Vector3& u0, const Vector3& u1) {
+    inline float AngleBetweenUnitVectorsf(const Vector3& u0, const Vector3& u1) {
         return acosf(std::min(1.f, u0.Dot(u1)));
     }
+
+    /// <summary>
+    /// Returns the angle (radians) between two unit vectors.
+    /// Created specifically to handle floating point error which can result in a dot product being greater than 1 for parallel or near-parallel unit vectors.
+    /// </summary>
+    inline double AngleBetweenUnitVectors(const Vector3d& u0, const Vector3d& u1) {
+        return acos(std::min(1.0, u0.Dot(u1)));
+    }
+
+
 
 
     // Matrix operations ///////////////////
