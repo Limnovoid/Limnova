@@ -452,14 +452,14 @@ namespace Limnova
             auto& elems = oc.Object.GetOrbit().Elements;
 
             if (object.Validity != OrbitalPhysics::Validity::Valid &&
-                object.Validity != OrbitalPhysics::Validity::InvalidPath) continue;
+                object.Validity != OrbitalPhysics::Validity::InvalidMotion) continue;
 
             // TODO - point light/brightness from OrbitalComponent::Albedo
 
             // Orbit path
             Vector3 posFromPrimary = oc.Object.LocalPositionFromPrimary();
             Vector3 orbitCenter = tc.GetPosition() - posFromPrimary + (elems.PerifocalX * elems.C);
-            Vector4 uiColor = object.Validity == OrbitalPhysics::Validity::InvalidPath ?
+            Vector4 uiColor = object.Validity == OrbitalPhysics::Validity::InvalidMotion ?
                 Vector4{ 1.f, 0.f, 0.f, 0.4f } : Vector4{ oc.UIColor, 0.4f };
             {
                 switch (elems.Type)
