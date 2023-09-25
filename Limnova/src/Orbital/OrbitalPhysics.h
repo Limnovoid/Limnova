@@ -33,8 +33,9 @@ namespace Limnova
 
         static constexpr float kMaxObjectUpdates = 20.f; /* highest number of updates each object is allowed before the total number of updates (across all objects) in a single frame becomes too high (resulting in unacceptable FPS drops) */
         static constexpr double kDefaultMinDT = 1.0 / (60.0 * kMaxObjectUpdates); /* above constraint expressed as a maximum delta time for a single integration step */
-        static constexpr float kMaxUpdateDistance = 1e-6f; /* largest delta position we can allow before integration step becomes too visible (for when object DT is much greater than frame DT) */
-        static constexpr double kMaxUpdateDistanced = (double)kMaxUpdateDistance;
+        static constexpr float kMaxPositionStep = 1e-6f; /* largest delta position we can allow before integration step becomes too visible (for when object DT is much greater than frame DT) */
+        static constexpr double kMaxPositionStepd = (double)kMaxPositionStep;
+        static constexpr double kMaxVelocityStep = kMaxPositionStepd / 10.0;
         static constexpr double kMinUpdateTrueAnomaly = ::std::numeric_limits<double>::epsilon() * 1e3f; /* smallest delta true anomaly we can allow before precision error becomes unacceptable for long-term angular integration */
         ////////////////////////////////////////
 
@@ -610,6 +611,22 @@ namespace Limnova
                 TryPrepareObject(*this);
             }
 
+            void SetContinuousAcceleration(Vector3d const& acceleration) const
+            {
+                LV_ASSERT(!IsDynamic(), "Cannot set dynamic acceleration on non-dynamic objects!");
+
+                auto& state = State();
+                auto& motion = Motion();
+                auto& dynamics = Dynamics();
+
+                dynamics.ContAcceleration = acceleration;
+                if (acceleration.IsZero()) return;
+
+                motion.Integration = Motion::Integration::Dynamic;
+                motion.PrevDT -= motion.UpdateTimer;
+                motion.UpdateTimer = 0.0;
+            }
+
 
             LSpaceNode AddLocalSpace(float radius = kDefaultLSpaceRadius)
             {
@@ -933,7 +950,8 @@ namespace Limnova
         {
             enum class Integration {
                 Angular = 0,
-                Linear = 1
+                Linear,
+                Dynamic
             };
             Integration Integration = Integration::Angular;
             bool ForceLinear = false;
@@ -952,6 +970,7 @@ namespace Limnova
         struct Dynamics
         {
             Vector3d ContAcceleration = { 0.0 }; /* Acceleration assumed to be constant between timesteps */
+            Vector3d DeltaPosition = { 0.0 };
         };
 
         struct LocalSpace
@@ -1469,9 +1488,18 @@ namespace Limnova
                 // computed DT is less than 1; if DT is too small (resulting in too many updates per frame),
                 // we take minDT instead and sacrifice accuracy to maintain framerate.
                 // Otherwise, if V < MUD, then DT > 1 and is safe to use.
-                return std::max(kMaxUpdateDistanced / velocityMagnitude, minDT);
+                return std::max(kMaxPositionStepd / velocityMagnitude, minDT);
             }
             return minDT;
+        }
+
+        inline static double ComputeDynamicObjDT(double velocityMagnitude, double accelerationMagnitude, double minDT = kDefaultMinDT)
+        {
+            if (accelerationMagnitude > 0.0) {
+                return std::min(ComputeObjDT(velocityMagnitude),
+                    std::max(kMaxVelocityStep / accelerationMagnitude, minDT));
+            }
+            return ComputeObjDT(velocityMagnitude);
         }
 
 
@@ -1847,11 +1875,18 @@ namespace Limnova
             m_Stats.ObjStats.resize(m_Objects.size(), ObjStats());*/
 #endif
 
-            ObjectNode& updateNode = m_Ctx->m_UpdateQueueFront;
+            // Subtract elapsed time from all object timers
+            ObjectNode objNode = m_Ctx->m_UpdateQueueFront;
+            do {
+                objNode.Motion().UpdateTimer -= dT;
+                objNode = objNode.Motion().UpdateNext;
+            } while (!objNode.IsNull());
+
 
             double minObjDT = dT / kMaxObjectUpdates;
 
             // Update all objects with timers less than 0
+            ObjectNode& updateNode = m_Ctx->m_UpdateQueueFront;
             while (updateNode.Motion().UpdateTimer < 0.0)
             {
                 auto lspNode = updateNode.ParentLsp();
@@ -1956,6 +1991,61 @@ namespace Limnova
 
                     break;
                 }
+                case Motion::Integration::Dynamic:
+                {
+                    auto& dynamics = updateNode.Dynamics();
+
+                    if (motion.Orbit != IdNull) {
+                        // Dynamic acceleration invalidates orbit:
+                        // Orbit was requested by the user in the previous frame so we need to delete the stored (now invalid) data
+                        DeleteOrbit(motion.Orbit); /* We do not compute the orbit of a linearly integrated object until it is requested */
+                    }
+
+                    dynamics.DeltaPosition += (state.Velocity * objDT) + (0.5 * state.Acceleration * objDT * objDT);
+
+                    Vector3d positionFromPrimary = (Vector3d)updateNode.LocalPositionFromPrimary() + dynamics.DeltaPosition;
+                    double r2 = positionFromPrimary.SqrMagnitude();
+                    double r = sqrt(r2);
+                    Vector3d newAcceleration = dynamics.ContAcceleration - (positionFromPrimary * lsp.Grav / (r2 * r));
+
+                    state.Velocity += 0.5 * (state.Acceleration + newAcceleration) * objDT;
+                    state.Acceleration = newAcceleration;
+
+                    static constexpr double kMaxUpdateDistanced2 = kMaxPositionStepd * kMaxPositionStepd;
+                    bool positionUpdated = false;
+                    double deltaPosMag2 = dynamics.DeltaPosition.SqrMagnitude();
+                    if (deltaPosMag2 > kMaxUpdateDistanced2) {
+                        Vector3 dPosf = (Vector3)dynamics.DeltaPosition;
+                        state.Position += dPosf;
+                        dynamics.DeltaPosition -= (Vector3d)dPosf;
+
+                        positionUpdated = true;
+                    }
+
+                    if (dynamics.ContAcceleration.IsZero())
+                    {
+                        double v = sqrt(state.Velocity.SqrMagnitude());
+                        objDT = ComputeObjDT(v, minObjDT);
+                        if (positionUpdated)
+                        {
+                            // Switch to Angular or Linear integration
+                            double approxDTrueAnomaly = ApproximateDeltaTrueAnomaly(positionFromPrimary, r, updateNode.LocalVelocityFromPrimary(), objDT);
+                            motion.Integration = SelectIntegrationMethod(approxDTrueAnomaly, false);
+                            if (motion.Integration == Motion::Integration::Angular)
+                            {
+                                motion.DeltaTrueAnomaly = (motion.PrevDT * updateNode.GetOrbit().Elements.H) / r2; /* GetOrbit() creates or updates orbit */
+                            }
+                        }
+                        else {
+                            // Prepare the next integration step so that it jumps to the next position update.
+                            objDT = std::max(minObjDT, objDT - (kMaxPositionStepd - sqrt(deltaPosMag2)) / v);
+                        }
+                    }
+                    else
+                    {
+                        objDT = ComputeDynamicObjDT(sqrt(state.Velocity.SqrMagnitude()), sqrt(state.Acceleration.SqrMagnitude()), minObjDT);
+                    }
+                }
                 }
 
 #ifdef LV_DEBUG // debug object post-update
@@ -2020,13 +2110,6 @@ namespace Limnova
                 motion.UpdateTimer += objDT;
                 UpdateQueueSortFront();
             }
-
-            // Subtract elapsed time from all object timers
-            ObjectNode objNode = m_Ctx->m_UpdateQueueFront;
-            do {
-                objNode.Motion().UpdateTimer -= dT;
-                objNode = objNode.Motion().UpdateNext;
-            } while (!objNode.IsNull());
 
 #ifdef LV_DEBUG // debug post-update
             //m_Stats.UpdateTime = std::chrono::steady_clock::now() - updateStart;
