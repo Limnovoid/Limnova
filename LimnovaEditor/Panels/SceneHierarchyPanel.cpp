@@ -849,18 +849,15 @@ namespace Limnova
                 ImGui::TreeNode("Dynamics"))
             {
                 const auto& dynamics = orbital.Object.GetDynamics();
-                if (ImGui::BeginTable("Elements", 2))
+
+                Vector3d acc = dynamics.ContAcceleration;
+                LimnGui::InputConfig<double> config;
+                config.Precision = 8;
+                if (LimnGui::InputVec3d("Dynamic acceleration", acc, config))
                 {
-                    ImGui::TableNextRow();
-
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text("Acceleration");
-                    LimnGui::HelpMarker("Sum of constant non-gravitational accelarations being applied to this object (this value excludes the acceleration of gravity of the object's primary)");
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.5f, %.5f, %.5f", dynamics.ContAcceleration.x, dynamics.ContAcceleration.y, dynamics.ContAcceleration.z);
-
-                    ImGui::EndTable();
+                    orbital.Object.SetContinuousAcceleration(acc);
                 }
+
                 ImGui::TreePop();
             }
         });

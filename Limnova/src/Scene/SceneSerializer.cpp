@@ -368,9 +368,11 @@ namespace Limnova
 
             out << YAML::Key << "Mass"                  << YAML::Value << orbital.Object.GetState().Mass;
             if (!isRootEntity) {
-                out << YAML::Key << "Dynamic" << YAML::Value << orbital.Object.IsDynamic();
                 out << YAML::Key << "Position" << YAML::Value << orbital.Object.GetState().Position;
                 out << YAML::Key << "Velocity" << YAML::Value << orbital.Object.GetState().Velocity;
+            }
+            if (orbital.Object.IsDynamic()) {
+                out << YAML::Key << "ContAcceleration" << YAML::Value << orbital.Object.GetDynamics().ContAcceleration;
             }
 
             out << YAML::Key << "LocalSpaceRadii" << YAML::BeginSeq;
@@ -503,11 +505,15 @@ namespace Limnova
                 : entity.AddComponent<OrbitalComponent>();
 
             if (!isRootEntity) {
-                oc.Object.SetDynamic(      oNode["Dynamic"].as<bool>());
                 oc.Object.SetPosition(     oNode["Position"].as<Vector3>());
                 oc.Object.SetVelocity(     oNode["Velocity"].as<Vector3d>());
             }
             oc.Object.SetMass(             oNode["Mass"].as<double>());
+
+            if (auto contAcceleration = oNode["ContAcceleration"]) {
+                oc.Object.SetDynamic(true);
+                oc.Object.SetContinuousAcceleration(contAcceleration.as<Vector3d>());
+            }
 
             auto localSpaceRadiiNode = oNode["LocalSpaceRadii"];
             for (size_t i = 0; i < localSpaceRadiiNode.size(); i++) {

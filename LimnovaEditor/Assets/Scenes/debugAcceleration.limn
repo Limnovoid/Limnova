@@ -1,0 +1,156 @@
+OrbitalScene: debugAcceleration.limn
+LocalSpaceColor: [1, 1, 1, 0.300000012]
+LocalSpaceThickness: 0.00300000003
+LocalSpaceFade: 0.00600000005
+ShowViewSpace: true
+OrbitThickness: 0.00600000005
+OrbitFade: 0
+OrbitAlpha: 0.400000006
+OrbitPointRadius: 0.00999999978
+ShowReferenceAxes: true
+ReferenceAxisColor: [1, 1, 1, 0.200000003]
+ReferenceAxisLength: 0.400000006
+ReferenceAxisThickness: 0.00600000005
+ReferenceAxisArrowSize: 0.0240000002
+PerifocalAxisThickness: 0.00100000005
+PerifocalAxisArrowSize: 0.00499999989
+TrackingEntity: 13827553148329750021
+ViewSpace: -1
+RootScaling: 1
+Entities:
+  - Entity: 3991604775407627372
+    TagComponent:
+      Tag: Root
+    HierarchyComponent:
+      Parent: 0
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0, 0, 0]
+    BillboardCircleRendererComponent:
+      Color: [1, 0.953505099, 0.914691925, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [0.10000000000000001, 0.10000000000000001, 0.10000000000000001]
+      LocalSpace: -1
+    OrbitalComponent:
+      UIColor: [1, 1, 1]
+      Albedo: 0
+      ShowMajorMinorAxes: false
+      ShowNormal: false
+      Mass: 1
+      LocalSpaceRadii:
+        []
+  - Entity: 14459431121056359079
+    TagComponent:
+      Tag: Planet 0
+    HierarchyComponent:
+      Parent: 3991604775407627372
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.0796214342, 0.0796214342, 0.0796214342]
+    BillboardCircleRendererComponent:
+      Color: [0, 0.729857922, 1, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [0.001, 0.001, 0.001]
+      LocalSpace: 0
+    OrbitalComponent:
+      UIColor: [0, 0.729857922, 1]
+      Albedo: 0
+      ShowMajorMinorAxes: false
+      ShowNormal: true
+      Mass: 0.0001
+      Position: [0.5, 0, 0]
+      Velocity: [0, 0, -1.1553614153155712e-05]
+      LocalSpaceRadii:
+        - 0.0188999996
+        - 0.00700000022
+  - Entity: 13827553148329750021
+    TagComponent:
+      Tag: Moon 0
+    HierarchyComponent:
+      Parent: 14459431121056359079
+    TransformComponent:
+      Position: [0.810000002, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.00796214305, 0.00796214305, 0.00796214305]
+    BillboardCircleRendererComponent:
+      Color: [1, 0, 1, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [0.0001, 0.0001, 0.0001]
+      LocalSpace: 1
+    OrbitalComponent:
+      UIColor: [1, 1, 1]
+      Albedo: 0
+      ShowMajorMinorAxes: false
+      ShowNormal: true
+      Mass: 1e-08
+      Position: [0.810000002, 0, 0]
+      Velocity: [0, 0, -6.4491922823312195e-05]
+      LocalSpaceRadii:
+        - 0.0340000018
+  - Entity: 5468002836552908823
+    TagComponent:
+      Tag: Ship 2
+    HierarchyComponent:
+      Parent: 14459431121056359079
+    TransformComponent:
+      Position: [0.819999993, 0, -0.0430000015]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.00159242866, 0.00159242866, 79.6214294]
+    BillboardCircleRendererComponent:
+      Color: [0, 0.0473935604, 1, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [2.0000000000000002e-05, 2.0000000000000002e-05, 1]
+      LocalSpace: 1
+    OrbitalComponent:
+      UIColor: [0.64135021, 0.759386957, 1]
+      Albedo: 0
+      ShowMajorMinorAxes: false
+      ShowNormal: true
+      Mass: 9.9999999999999998e-17
+      Position: [0.819999993, 0, -0.0430000015]
+      Velocity: [3.0000000000000001e-06, -0, 8.0000000000000007e-05]
+      ContAcceleration: [-9.9999999999999995e-07, 0, 0]
+      LocalSpaceRadii:
+        []
+  - Entity: 11506238116439127687
+    TagComponent:
+      Tag: Ship 0
+    HierarchyComponent:
+      Parent: 14459431121056359079
+    TransformComponent:
+      Position: [-0.639999986, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.00398107152, 0.00398107152, 0.00398107152]
+    BillboardCircleRendererComponent:
+      Color: [0, 1, 0.047393322, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [5.0000000000000002e-05, 5.0000000000000002e-05, 5.0000000000000002e-05]
+      LocalSpace: 1
+    OrbitalComponent:
+      UIColor: [1, 1, 1]
+      Albedo: 0
+      ShowMajorMinorAxes: false
+      ShowNormal: true
+      Mass: 9.9999999999999998e-17
+      Position: [-0.639999986, 0, 0]
+      Velocity: [0, -0, 6.7999999999999999e-05]
+      ContAcceleration: [0, 0, 0]
+      LocalSpaceRadii:
+        []

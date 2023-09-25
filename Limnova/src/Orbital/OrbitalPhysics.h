@@ -506,6 +506,7 @@ namespace Limnova
                 if (motion.Orbit == IdNull) {
                     motion.Orbit = NewOrbit(ParentLsp());
                     ComputeOrbit(motion.Orbit, state.Position, state.Velocity, maxSections);
+                    motion.TrueAnomaly = Orbit().Elements.TrueAnomalyOf(state.Position.Normalized());
                 }
                 else if (motion.Integration == Motion::Integration::Linear) {
                     motion.TrueAnomaly = Orbit().Elements.TrueAnomalyOf(state.Position.Normalized());
@@ -613,15 +614,14 @@ namespace Limnova
 
             void SetContinuousAcceleration(Vector3d const& acceleration) const
             {
-                LV_ASSERT(!IsDynamic(), "Cannot set dynamic acceleration on non-dynamic objects!");
+                LV_ASSERT(IsDynamic(), "Cannot set dynamic acceleration on non-dynamic objects!");
 
-                auto& state = State();
-                auto& motion = Motion();
-                auto& dynamics = Dynamics();
+                LV_CORE_ASSERT(false, "Not an absolute value! TODO: handle local scale changes! Enforce absolute acceleration as an argument ???");
 
-                dynamics.ContAcceleration = acceleration;
+                Dynamics().ContAcceleration = acceleration;
                 if (acceleration.IsZero()) return;
 
+                auto& motion = Motion();
                 motion.Integration = Motion::Integration::Dynamic;
                 motion.PrevDT -= motion.UpdateTimer;
                 motion.UpdateTimer = 0.0;
@@ -1115,8 +1115,6 @@ namespace Limnova
 
             m_Ctx->m_Tree.Move(objNode.m_NodeId, newLspNode.m_NodeId);
 
-            objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
-
             RescaleLocalSpaces(objNode, rescalingFactor);
             TryPrepareObject(objNode);
             TryPrepareSubtree(objNode.m_NodeId);
@@ -1137,8 +1135,6 @@ namespace Limnova
             state.Velocity = (state.Velocity - parentState.Velocity) * rescalingFactor;
 
             m_Ctx->m_Tree.Move(objNode.m_NodeId, newLspNode.m_NodeId);
-
-            objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
 
             RescaleLocalSpaces(objNode, rescalingFactor);
             TryPrepareObject(objNode);
@@ -1162,8 +1158,6 @@ namespace Limnova
             state.Velocity *= rescalingFactor;
 
             m_Ctx->m_Tree.Move(objNode.m_NodeId, newLspNode.m_NodeId);
-
-            objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
 
             RescaleLocalSpaces(objNode, rescalingFactor);
             TryPrepareObject(objNode);
