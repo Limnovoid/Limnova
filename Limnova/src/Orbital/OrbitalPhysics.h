@@ -33,8 +33,9 @@ namespace Limnova
 
         static constexpr float kMaxObjectUpdates = 20.f; /* highest number of updates each object is allowed before the total number of updates (across all objects) in a single frame becomes too high (resulting in unacceptable FPS drops) */
         static constexpr double kDefaultMinDT = 1.0 / (60.0 * kMaxObjectUpdates); /* above constraint expressed as a maximum delta time for a single integration step */
-        static constexpr float kMaxUpdateDistance = 1e-6f; /* largest delta position we can allow before integration step becomes too visible (for when object DT is much greater than frame DT) */
-        static constexpr double kMaxUpdateDistanced = (double)kMaxUpdateDistance;
+        static constexpr float kMaxPositionStep = 1e-6f; /* largest delta position we can allow before integration step becomes too visible (for when object DT is much greater than frame DT) */
+        static constexpr double kMaxPositionStepd = (double)kMaxPositionStep;
+        static constexpr double kMaxVelocityStep = kMaxPositionStepd / 10.0;
         static constexpr double kMinUpdateTrueAnomaly = ::std::numeric_limits<double>::epsilon() * 1e3f; /* smallest delta true anomaly we can allow before precision error becomes unacceptable for long-term angular integration */
         ////////////////////////////////////////
 
@@ -505,6 +506,7 @@ namespace Limnova
                 if (motion.Orbit == IdNull) {
                     motion.Orbit = NewOrbit(ParentLsp());
                     ComputeOrbit(motion.Orbit, state.Position, state.Velocity, maxSections);
+                    motion.TrueAnomaly = Orbit().Elements.TrueAnomalyOf(state.Position.Normalized());
                 }
                 else if (motion.Integration == Motion::Integration::Linear) {
                     motion.TrueAnomaly = Orbit().Elements.TrueAnomalyOf(state.Position.Normalized());
@@ -608,6 +610,25 @@ namespace Limnova
                     m_Ctx->m_Dynamics.TryRemove(m_NodeId);
                 }
                 TryPrepareObject(*this);
+            }
+
+            /// <summary>
+            /// Set the continuous dynamic acceleration of the object.
+            /// The acceleration is applied to the object's motion as though it is constant, e.g, like acceleration due to engine thrust.
+            /// This is in addition to its acceleration due to gravity - it does not affect the simulation of gravity.
+            /// </summary>
+            /// <param name="acceleration">Magnitude must be absolute (not scaled to the local space)</param>
+            void SetContinuousAcceleration(Vector3d const& acceleration) const
+            {
+                LV_ASSERT(IsDynamic(), "Cannot set dynamic acceleration on non-dynamic objects!");
+
+                Dynamics().ContAcceleration = acceleration / ParentLsp().LSpace().MetersPerRadius;
+                if (acceleration.IsZero()) return;
+
+                auto& motion = Motion();
+                motion.Integration = Motion::Integration::Dynamic;
+                motion.PrevDT -= motion.UpdateTimer;
+                motion.UpdateTimer = 0.0;
             }
 
 
@@ -933,7 +954,8 @@ namespace Limnova
         {
             enum class Integration {
                 Angular = 0,
-                Linear = 1
+                Linear,
+                Dynamic
             };
             Integration Integration = Integration::Angular;
             bool ForceLinear = false;
@@ -952,6 +974,7 @@ namespace Limnova
         struct Dynamics
         {
             Vector3d ContAcceleration = { 0.0 }; /* Acceleration assumed to be constant between timesteps */
+            Vector3d DeltaPosition = { 0.0 };
         };
 
         struct LocalSpace
@@ -1082,21 +1105,26 @@ namespace Limnova
             LSpaceNode newLspNode = oldLspNode.UpperLSpace();
 
             float rescalingFactor;
+            double rescalingFactord;
             State& state = objNode.State();
             if (oldLspNode.IsHighestLSpaceOnObject()) {
                 rescalingFactor = oldLspNode.LSpace().Radius;
+                rescalingFactord = (double)rescalingFactor;
                 state.Position = (state.Position * rescalingFactor) + oldLspNode.ParentObj().State().Position;
-                state.Velocity = (state.Velocity * (double)rescalingFactor) + oldLspNode.ParentObj().State().Velocity;
+                state.Velocity = (state.Velocity * rescalingFactord) + oldLspNode.ParentObj().State().Velocity;
             }
             else {
-                rescalingFactor = oldLspNode.LSpace().Radius / newLspNode.LSpace().Radius;
-                state.Position = state.Position * rescalingFactor;
-                state.Velocity = state.Velocity * (double)rescalingFactor;
+                rescalingFactord = (double)oldLspNode.LSpace().Radius / (double)newLspNode.LSpace().Radius;
+                rescalingFactor = (float)rescalingFactord;
+                state.Position *= rescalingFactor;
+                state.Velocity *= rescalingFactord;
+            }
+            state.Acceleration *= rescalingFactord;
+            if (objNode.IsDynamic()) {
+                objNode.Dynamics().ContAcceleration *= rescalingFactord;
             }
 
             m_Ctx->m_Tree.Move(objNode.m_NodeId, newLspNode.m_NodeId);
-
-            objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
 
             RescaleLocalSpaces(objNode, rescalingFactor);
             TryPrepareObject(objNode);
@@ -1110,16 +1138,19 @@ namespace Limnova
         {
             LV_CORE_ASSERT(newLspNode.ParentLsp() == objNode.ParentLsp(), "The given local space is not in the same local space as the given object!");
 
-            float rescalingFactor = 1.f / newLspNode.LSpace().Radius;
+            double rescalingFactord = 1.0 / (double)newLspNode.LSpace().Radius;
+            float rescalingFactor = (float)rescalingFactord;
 
             auto const& parentState = newLspNode.ParentObj().State();
             auto& state = objNode.State();
             state.Position = (state.Position - parentState.Position) * rescalingFactor;
-            state.Velocity = (state.Velocity - parentState.Velocity) * rescalingFactor;
+            state.Velocity = (state.Velocity - parentState.Velocity) * rescalingFactord;
+            state.Acceleration *= rescalingFactord;
+            if (objNode.IsDynamic()) {
+                objNode.Dynamics().ContAcceleration *= rescalingFactord;
+            }
 
             m_Ctx->m_Tree.Move(objNode.m_NodeId, newLspNode.m_NodeId);
-
-            objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
 
             RescaleLocalSpaces(objNode, rescalingFactor);
             TryPrepareObject(objNode);
@@ -1136,15 +1167,18 @@ namespace Limnova
             LSpaceNode newLspNode = { lspNode.Node().NextSibling };
             LV_CORE_ASSERT(!newLspNode.IsNull(), "There is no next-lower local space!");
 
-            float rescalingFactor = lspNode.LSpace().Radius / newLspNode.LSpace().Radius;
+            double rescalingFactord = (double)lspNode.LSpace().Radius / (double)newLspNode.LSpace().Radius;
+            float rescalingFactor = (float)rescalingFactord;
 
             auto& state = objNode.State();
             state.Position *= rescalingFactor;
-            state.Velocity *= rescalingFactor;
+            state.Velocity *= rescalingFactord;
+            state.Acceleration *= rescalingFactord;
+            if (objNode.IsDynamic()) {
+                objNode.Dynamics().ContAcceleration *= rescalingFactord;
+            }
 
             m_Ctx->m_Tree.Move(objNode.m_NodeId, newLspNode.m_NodeId);
-
-            objNode.Orbit().LocalSpace = newLspNode; // TEMPORARY ! TODO - use orbit sections to facilitate promotion/demotion
 
             RescaleLocalSpaces(objNode, rescalingFactor);
             TryPrepareObject(objNode);
@@ -1387,6 +1421,7 @@ namespace Limnova
 
                 auto& rootLsp = m_LSpaces.Add(kRootLspId);
                 rootLsp.Radius = 1.f;
+                rootLsp.MetersPerRadius = 1.0;
                 rootLsp.Primary.m_NodeId = kRootLspId; /* an influencing lsp is its own primary */
             }
             Context(Context const& other) = default;
@@ -1469,9 +1504,18 @@ namespace Limnova
                 // computed DT is less than 1; if DT is too small (resulting in too many updates per frame),
                 // we take minDT instead and sacrifice accuracy to maintain framerate.
                 // Otherwise, if V < MUD, then DT > 1 and is safe to use.
-                return std::max(kMaxUpdateDistanced / velocityMagnitude, minDT);
+                return std::max(kMaxPositionStepd / velocityMagnitude, minDT);
             }
             return minDT;
+        }
+
+        inline static double ComputeDynamicObjDT(double velocityMagnitude, double accelerationMagnitude, double minDT = kDefaultMinDT)
+        {
+            if (accelerationMagnitude > 0.0) {
+                return std::min(ComputeObjDT(velocityMagnitude),
+                    std::max(kMaxVelocityStep / accelerationMagnitude, minDT));
+            }
+            return ComputeObjDT(velocityMagnitude);
         }
 
 
@@ -1847,11 +1891,18 @@ namespace Limnova
             m_Stats.ObjStats.resize(m_Objects.size(), ObjStats());*/
 #endif
 
-            ObjectNode& updateNode = m_Ctx->m_UpdateQueueFront;
+            // Subtract elapsed time from all object timers
+            ObjectNode objNode = m_Ctx->m_UpdateQueueFront;
+            do {
+                objNode.Motion().UpdateTimer -= dT;
+                objNode = objNode.Motion().UpdateNext;
+            } while (!objNode.IsNull());
+
 
             double minObjDT = dT / kMaxObjectUpdates;
 
             // Update all objects with timers less than 0
+            ObjectNode& updateNode = m_Ctx->m_UpdateQueueFront;
             while (updateNode.Motion().UpdateTimer < 0.0)
             {
                 auto lspNode = updateNode.ParentLsp();
@@ -1956,6 +2007,61 @@ namespace Limnova
 
                     break;
                 }
+                case Motion::Integration::Dynamic:
+                {
+                    auto& dynamics = updateNode.Dynamics();
+
+                    if (motion.Orbit != IdNull) {
+                        // Dynamic acceleration invalidates orbit:
+                        // Orbit was requested by the user in the previous frame so we need to delete the stored (now invalid) data
+                        DeleteOrbit(motion.Orbit); /* We do not compute the orbit of a linearly integrated object until it is requested */
+                    }
+
+                    dynamics.DeltaPosition += (state.Velocity * objDT) + (0.5 * state.Acceleration * objDT * objDT);
+
+                    Vector3d positionFromPrimary = (Vector3d)updateNode.LocalPositionFromPrimary() + dynamics.DeltaPosition;
+                    double r2 = positionFromPrimary.SqrMagnitude();
+                    double r = sqrt(r2);
+                    Vector3d newAcceleration = dynamics.ContAcceleration - (positionFromPrimary * lsp.Grav / (r2 * r));
+
+                    state.Velocity += 0.5 * (state.Acceleration + newAcceleration) * objDT;
+                    state.Acceleration = newAcceleration;
+
+                    static constexpr double kMaxUpdateDistanced2 = kMaxPositionStepd * kMaxPositionStepd;
+                    bool positionUpdated = false;
+                    double deltaPosMag2 = dynamics.DeltaPosition.SqrMagnitude();
+                    if (deltaPosMag2 > kMaxUpdateDistanced2) {
+                        Vector3 dPosf = (Vector3)dynamics.DeltaPosition;
+                        state.Position += dPosf;
+                        dynamics.DeltaPosition -= (Vector3d)dPosf;
+
+                        positionUpdated = true;
+                    }
+
+                    if (dynamics.ContAcceleration.IsZero())
+                    {
+                        double v = sqrt(state.Velocity.SqrMagnitude());
+                        objDT = ComputeObjDT(v, minObjDT);
+                        if (positionUpdated)
+                        {
+                            // Switch to Angular or Linear integration
+                            double approxDTrueAnomaly = ApproximateDeltaTrueAnomaly(positionFromPrimary, r, updateNode.LocalVelocityFromPrimary(), objDT);
+                            motion.Integration = SelectIntegrationMethod(approxDTrueAnomaly, false);
+                            if (motion.Integration == Motion::Integration::Angular)
+                            {
+                                motion.DeltaTrueAnomaly = (motion.PrevDT * updateNode.GetOrbit().Elements.H) / r2; /* GetOrbit() creates or updates orbit */
+                            }
+                        }
+                        else {
+                            // Prepare the next integration step so that it jumps to the next position update.
+                            objDT = std::max(minObjDT, objDT - (kMaxPositionStepd - sqrt(deltaPosMag2)) / v);
+                        }
+                    }
+                    else
+                    {
+                        objDT = ComputeDynamicObjDT(sqrt(state.Velocity.SqrMagnitude()), sqrt(state.Acceleration.SqrMagnitude()), minObjDT);
+                    }
+                }
                 }
 
 #ifdef LV_DEBUG // debug object post-update
@@ -2021,13 +2127,6 @@ namespace Limnova
                 UpdateQueueSortFront();
             }
 
-            // Subtract elapsed time from all object timers
-            ObjectNode objNode = m_Ctx->m_UpdateQueueFront;
-            do {
-                objNode.Motion().UpdateTimer -= dT;
-                objNode = objNode.Motion().UpdateNext;
-            } while (!objNode.IsNull());
-
 #ifdef LV_DEBUG // debug post-update
             //m_Stats.UpdateTime = std::chrono::steady_clock::now() - updateStart;
 #endif
@@ -2052,7 +2151,7 @@ namespace Limnova
         /// <param name="meters">MUST be a non-zero positive number.</param>
         static void SetRootSpaceScaling(double meters)
         {
-            meters = std::max(meters, 0.0);
+            meters = std::max(meters, 1.0); /* minimum root scaling of 1 meter */
 
             auto& rootLsp = LSpaceNode(kRootLspId).LSpace();
             rootLsp.MetersPerRadius = meters;

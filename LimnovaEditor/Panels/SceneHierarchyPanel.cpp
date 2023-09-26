@@ -502,7 +502,8 @@ namespace Limnova
             // Absolute scale
             {
                 LimnGui::InputConfig<double> config;
-                config.Precision = 8;
+                config.Precision = 5;
+                config.Scientific = true;
                 if (LimnGui::InputVec3d("Absolute Scale", orbitalhc.AbsoluteScale, config))
                 {
                     double lspScaling = 1.0 / ((OrbitalScene*)m_Scene)->GetLocalSpace(entity).GetLSpace().MetersPerRadius;
@@ -521,6 +522,7 @@ namespace Limnova
 
             auto& obj = orbital.Object.GetObj();
             auto& state = orbital.Object.GetState();
+            auto& lsp = (orbital.Object.IsRoot() ? OrbitalPhysics::GetRootLSpaceNode() : orbital.Object.ParentLsp()).GetLSpace();
 
             switch (obj.Validity)
             {
@@ -594,6 +596,14 @@ namespace Limnova
                         }
                     }
 
+                    // Absolute radius
+                    {
+                        double value = lsp.MetersPerRadius;
+                        LimnGui::InputConfig<float> config;
+                        config.ReadOnly = true;
+                        LimnGui::InputScientific("Meters per radius", value);
+                    }
+
                     // Local gravity parameter
                     {
                         double grav = lsp.Grav;
@@ -662,7 +672,21 @@ namespace Limnova
                 ImGui::Separator();
                 ImGui::BeginDisabled(!isOrbitalViewObject);
 
+                static bool useAbsolute = false;
+                LimnGui::Checkbox("Use absolute values", useAbsolute);
+
                 // Position
+                if (useAbsolute)
+                {
+                    Vector3d position = (Vector3d)state.Position * lsp.MetersPerRadius;
+                    LimnGui::InputConfig<double> config;
+                    config.Precision = 5;
+                    config.Scientific = true;
+                    if (LimnGui::InputVec3d("Position", position, config)) {
+                        orbital.Object.SetPosition((Vector3)(position / lsp.MetersPerRadius));
+                    }
+                }
+                else
                 {
                     Vector3 position = state.Position;
                     LimnGui::InputConfig<float> config;
@@ -680,12 +704,17 @@ namespace Limnova
                 if (entity != m_Scene->GetRoot())
                 {
                     Vector3d velocity = state.Velocity;
+                    if (useAbsolute) { velocity *= lsp.MetersPerRadius; }
                     LimnGui::InputConfig<double> config;
                     config.Speed = 0.0001;
                     config.FastSpeed = 0.01;
-                    config.Precision = 8;
+                    config.Precision = 5;
+                    config.Scientific = true;
                     config.ResetValue = 0.f;
                     if (LimnGui::InputVec3d("Velocity", velocity, config)) {
+                        if (useAbsolute) {
+                            velocity /= lsp.MetersPerRadius;
+                        }
                         orbital.Object.SetVelocity(velocity);
                     }
 
@@ -849,18 +878,16 @@ namespace Limnova
                 ImGui::TreeNode("Dynamics"))
             {
                 const auto& dynamics = orbital.Object.GetDynamics();
-                if (ImGui::BeginTable("Elements", 2))
+
+                static Vector3d acc = dynamics.ContAcceleration * orbital.Object.ParentLsp().GetLSpace().MetersPerRadius;
+                LimnGui::InputConfig<double> config;
+                config.Precision = 5;
+                config.Scientific = true;
+                if (LimnGui::InputVec3d("Dynamic acceleration", acc, config))
                 {
-                    ImGui::TableNextRow();
-
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text("Acceleration");
-                    LimnGui::HelpMarker("Sum of constant non-gravitational accelarations being applied to this object (this value excludes the acceleration of gravity of the object's primary)");
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.5f, %.5f, %.5f", dynamics.ContAcceleration.x, dynamics.ContAcceleration.y, dynamics.ContAcceleration.z);
-
-                    ImGui::EndTable();
+                    orbital.Object.SetContinuousAcceleration(acc);
                 }
+
                 ImGui::TreePop();
             }
         });
@@ -1085,7 +1112,7 @@ namespace Limnova
         std::string formatStr;
         {
             std::ostringstream formatting;
-            formatting << "%." << config.Precision << "f";
+            formatting << "%." << config.Precision << (config.Scientific ? "e" : "f");
             formatStr = formatting.str();
         }
 
@@ -1173,7 +1200,7 @@ namespace Limnova
         std::string formatStr;
         {
             std::ostringstream formatting;
-            formatting << "%." << config.Precision << "f";
+            formatting << "%." << config.Precision << (config.Scientific ? "e" : "f");
             formatStr = formatting.str();
         }
 
@@ -1290,7 +1317,7 @@ namespace Limnova
         std::string formatStr;
         {
             std::ostringstream formatting;
-            formatting << "%." << config.Precision << "f";
+            formatting << "%." << config.Precision << (config.Scientific ? "e" : "f");
             formatStr = formatting.str();
         }
         ImGuiSliderFlags flags = logarithmic ? ImGuiSliderFlags_Logarithmic : 0;

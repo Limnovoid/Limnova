@@ -702,6 +702,7 @@ namespace Limnova
             0.1f,   // Min
             1000.f, // Max
             3,      // Precision
+            false,  // Scientific
             false,  // ReadOnly
             0,      // WidgetId
             80,     // LabelWidth
