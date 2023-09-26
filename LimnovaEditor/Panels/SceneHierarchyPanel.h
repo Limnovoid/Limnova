@@ -38,6 +38,7 @@ namespace Limnova
             T Min = 0;
             T Max = 0;
             uint32_t Precision = 3;
+            bool Scientific = false;
             bool ReadOnly = false;
             size_t WidgetId = 0;
             float LabelWidth = 100.f;

@@ -502,7 +502,8 @@ namespace Limnova
             // Absolute scale
             {
                 LimnGui::InputConfig<double> config;
-                config.Precision = 8;
+                config.Precision = 5;
+                config.Scientific = true;
                 if (LimnGui::InputVec3d("Absolute Scale", orbitalhc.AbsoluteScale, config))
                 {
                     double lspScaling = 1.0 / ((OrbitalScene*)m_Scene)->GetLocalSpace(entity).GetLSpace().MetersPerRadius;
@@ -521,6 +522,7 @@ namespace Limnova
 
             auto& obj = orbital.Object.GetObj();
             auto& state = orbital.Object.GetState();
+            auto& lsp = (orbital.Object.IsRoot() ? OrbitalPhysics::GetRootLSpaceNode() : orbital.Object.ParentLsp()).GetLSpace();
 
             switch (obj.Validity)
             {
@@ -670,7 +672,21 @@ namespace Limnova
                 ImGui::Separator();
                 ImGui::BeginDisabled(!isOrbitalViewObject);
 
+                static bool useAbsolute = false;
+                LimnGui::Checkbox("Use absolute values", useAbsolute);
+
                 // Position
+                if (useAbsolute)
+                {
+                    Vector3d position = (Vector3d)state.Position * lsp.MetersPerRadius;
+                    LimnGui::InputConfig<double> config;
+                    config.Precision = 5;
+                    config.Scientific = true;
+                    if (LimnGui::InputVec3d("Position", position, config)) {
+                        orbital.Object.SetPosition((Vector3)(position / lsp.MetersPerRadius));
+                    }
+                }
+                else
                 {
                     Vector3 position = state.Position;
                     LimnGui::InputConfig<float> config;
@@ -688,12 +704,17 @@ namespace Limnova
                 if (entity != m_Scene->GetRoot())
                 {
                     Vector3d velocity = state.Velocity;
+                    if (useAbsolute) { velocity *= lsp.MetersPerRadius; }
                     LimnGui::InputConfig<double> config;
                     config.Speed = 0.0001;
                     config.FastSpeed = 0.01;
-                    config.Precision = 8;
+                    config.Precision = 5;
+                    config.Scientific = true;
                     config.ResetValue = 0.f;
                     if (LimnGui::InputVec3d("Velocity", velocity, config)) {
+                        if (useAbsolute) {
+                            velocity /= lsp.MetersPerRadius;
+                        }
                         orbital.Object.SetVelocity(velocity);
                     }
 
@@ -860,7 +881,8 @@ namespace Limnova
 
                 static Vector3d acc = dynamics.ContAcceleration * orbital.Object.ParentLsp().GetLSpace().MetersPerRadius;
                 LimnGui::InputConfig<double> config;
-                config.Precision = 8;
+                config.Precision = 5;
+                config.Scientific = true;
                 if (LimnGui::InputVec3d("Dynamic acceleration", acc, config))
                 {
                     orbital.Object.SetContinuousAcceleration(acc);
@@ -1090,7 +1112,7 @@ namespace Limnova
         std::string formatStr;
         {
             std::ostringstream formatting;
-            formatting << "%." << config.Precision << "f";
+            formatting << "%." << config.Precision << (config.Scientific ? "e" : "f");
             formatStr = formatting.str();
         }
 
@@ -1178,7 +1200,7 @@ namespace Limnova
         std::string formatStr;
         {
             std::ostringstream formatting;
-            formatting << "%." << config.Precision << "f";
+            formatting << "%." << config.Precision << (config.Scientific ? "e" : "f");
             formatStr = formatting.str();
         }
 
@@ -1295,7 +1317,7 @@ namespace Limnova
         std::string formatStr;
         {
             std::ostringstream formatting;
-            formatting << "%." << config.Precision << "f";
+            formatting << "%." << config.Precision << (config.Scientific ? "e" : "f");
             formatStr = formatting.str();
         }
         ImGuiSliderFlags flags = logarithmic ? ImGuiSliderFlags_Logarithmic : 0;

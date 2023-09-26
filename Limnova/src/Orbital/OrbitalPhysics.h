@@ -1421,6 +1421,7 @@ namespace Limnova
 
                 auto& rootLsp = m_LSpaces.Add(kRootLspId);
                 rootLsp.Radius = 1.f;
+                rootLsp.MetersPerRadius = 1.0;
                 rootLsp.Primary.m_NodeId = kRootLspId; /* an influencing lsp is its own primary */
             }
             Context(Context const& other) = default;
@@ -2150,7 +2151,7 @@ namespace Limnova
         /// <param name="meters">MUST be a non-zero positive number.</param>
         static void SetRootSpaceScaling(double meters)
         {
-            meters = std::max(meters, 0.0);
+            meters = std::max(meters, 1.0); /* minimum root scaling of 1 meter */
 
             auto& rootLsp = LSpaceNode(kRootLspId).LSpace();
             rootLsp.MetersPerRadius = meters;
