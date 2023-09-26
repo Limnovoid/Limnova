@@ -612,13 +612,17 @@ namespace Limnova
                 TryPrepareObject(*this);
             }
 
+            /// <summary>
+            /// Set the continuous dynamic acceleration of the object.
+            /// The acceleration is applied to the object's motion as though it is constant, e.g, like acceleration due to engine thrust.
+            /// This is in addition to its acceleration due to gravity - it does not affect the simulation of gravity.
+            /// </summary>
+            /// <param name="acceleration">Magnitude must be absolute (not scaled to the local space)</param>
             void SetContinuousAcceleration(Vector3d const& acceleration) const
             {
                 LV_ASSERT(IsDynamic(), "Cannot set dynamic acceleration on non-dynamic objects!");
 
-                LV_CORE_ASSERT(false, "Not an absolute value! TODO: handle local scale changes! Enforce absolute acceleration as an argument ???");
-
-                Dynamics().ContAcceleration = acceleration;
+                Dynamics().ContAcceleration = acceleration / ParentLsp().LSpace().MetersPerRadius;
                 if (acceleration.IsZero()) return;
 
                 auto& motion = Motion();
@@ -1101,16 +1105,23 @@ namespace Limnova
             LSpaceNode newLspNode = oldLspNode.UpperLSpace();
 
             float rescalingFactor;
+            double rescalingFactord;
             State& state = objNode.State();
             if (oldLspNode.IsHighestLSpaceOnObject()) {
                 rescalingFactor = oldLspNode.LSpace().Radius;
+                rescalingFactord = (double)rescalingFactor;
                 state.Position = (state.Position * rescalingFactor) + oldLspNode.ParentObj().State().Position;
-                state.Velocity = (state.Velocity * (double)rescalingFactor) + oldLspNode.ParentObj().State().Velocity;
+                state.Velocity = (state.Velocity * rescalingFactord) + oldLspNode.ParentObj().State().Velocity;
             }
             else {
-                rescalingFactor = oldLspNode.LSpace().Radius / newLspNode.LSpace().Radius;
-                state.Position = state.Position * rescalingFactor;
-                state.Velocity = state.Velocity * (double)rescalingFactor;
+                rescalingFactord = (double)oldLspNode.LSpace().Radius / (double)newLspNode.LSpace().Radius;
+                rescalingFactor = (float)rescalingFactord;
+                state.Position *= rescalingFactor;
+                state.Velocity *= rescalingFactord;
+            }
+            state.Acceleration *= rescalingFactord;
+            if (objNode.IsDynamic()) {
+                objNode.Dynamics().ContAcceleration *= rescalingFactord;
             }
 
             m_Ctx->m_Tree.Move(objNode.m_NodeId, newLspNode.m_NodeId);
@@ -1127,12 +1138,17 @@ namespace Limnova
         {
             LV_CORE_ASSERT(newLspNode.ParentLsp() == objNode.ParentLsp(), "The given local space is not in the same local space as the given object!");
 
-            float rescalingFactor = 1.f / newLspNode.LSpace().Radius;
+            double rescalingFactord = 1.0 / (double)newLspNode.LSpace().Radius;
+            float rescalingFactor = (float)rescalingFactord;
 
             auto const& parentState = newLspNode.ParentObj().State();
             auto& state = objNode.State();
             state.Position = (state.Position - parentState.Position) * rescalingFactor;
-            state.Velocity = (state.Velocity - parentState.Velocity) * rescalingFactor;
+            state.Velocity = (state.Velocity - parentState.Velocity) * rescalingFactord;
+            state.Acceleration *= rescalingFactord;
+            if (objNode.IsDynamic()) {
+                objNode.Dynamics().ContAcceleration *= rescalingFactord;
+            }
 
             m_Ctx->m_Tree.Move(objNode.m_NodeId, newLspNode.m_NodeId);
 
@@ -1151,11 +1167,16 @@ namespace Limnova
             LSpaceNode newLspNode = { lspNode.Node().NextSibling };
             LV_CORE_ASSERT(!newLspNode.IsNull(), "There is no next-lower local space!");
 
-            float rescalingFactor = lspNode.LSpace().Radius / newLspNode.LSpace().Radius;
+            double rescalingFactord = (double)lspNode.LSpace().Radius / (double)newLspNode.LSpace().Radius;
+            float rescalingFactor = (float)rescalingFactord;
 
             auto& state = objNode.State();
             state.Position *= rescalingFactor;
-            state.Velocity *= rescalingFactor;
+            state.Velocity *= rescalingFactord;
+            state.Acceleration *= rescalingFactord;
+            if (objNode.IsDynamic()) {
+                objNode.Dynamics().ContAcceleration *= rescalingFactord;
+            }
 
             m_Ctx->m_Tree.Move(objNode.m_NodeId, newLspNode.m_NodeId);
 

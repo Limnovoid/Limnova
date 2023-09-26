@@ -594,6 +594,14 @@ namespace Limnova
                         }
                     }
 
+                    // Absolute radius
+                    {
+                        double value = lsp.MetersPerRadius;
+                        LimnGui::InputConfig<float> config;
+                        config.ReadOnly = true;
+                        LimnGui::InputScientific("Meters per radius", value);
+                    }
+
                     // Local gravity parameter
                     {
                         double grav = lsp.Grav;
@@ -850,7 +858,7 @@ namespace Limnova
             {
                 const auto& dynamics = orbital.Object.GetDynamics();
 
-                Vector3d acc = dynamics.ContAcceleration;
+                static Vector3d acc = dynamics.ContAcceleration * orbital.Object.ParentLsp().GetLSpace().MetersPerRadius;
                 LimnGui::InputConfig<double> config;
                 config.Precision = 8;
                 if (LimnGui::InputVec3d("Dynamic acceleration", acc, config))
