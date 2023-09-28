@@ -805,7 +805,6 @@ namespace Limnova
                 else {
                     lsp.Primary = ParentObj().PrimaryLsp(); /* a non-influencing space's Primary is that of its parent object*/
                 }
-                //lsp.Grav = kGravitational * PrimaryObj().Object().State.Mass * pow(lsp.MetersPerRadius, -3.0); /* depends on Primary ! */
                 lsp.Grav = LocalGravitationalParameter(PrimaryObj().State().Mass, lsp.MetersPerRadius);
 
                 // Move child objects to next-higher space if necessary
@@ -1087,11 +1086,20 @@ namespace Limnova
             double const& parentLspMetersPerRadius = objNode.ParentLsp().LSpace().MetersPerRadius;
             std::vector<LSpaceNode> lspNodes = {};
             objNode.GetLocalSpaces(lspNodes);
-            for (auto lspNode : lspNodes)
-            {
-                auto& lsp = lspNode.LSpace();
-                lsp.Radius *= rescalingFactor;
-                lsp.MetersPerRadius = parentLspMetersPerRadius * (double)lsp.Radius;
+
+            if (rescalingFactor > 1.f) {
+                for (auto lspNodeIt = lspNodes.begin(); lspNodeIt != lspNodes.end(); ++lspNodeIt)
+                {
+                    if (*lspNodeIt == objNode.SphereOfInfluence()) { continue; }
+                    lspNodeIt->SetRadius(lspNodeIt->LSpace().Radius * rescalingFactor);
+                }
+            }
+            else {
+                for (auto lspNodeIt = lspNodes.rbegin(); lspNodeIt != lspNodes.rend(); ++lspNodeIt)
+                {
+                    if (*lspNodeIt == objNode.SphereOfInfluence()) { continue; }
+                    lspNodeIt->SetRadius(lspNodeIt->LSpace().Radius * rescalingFactor);
+                }
             }
         }
 
