@@ -1,16 +1,18 @@
 #include "EditorLayer.h"
 
-#include "NativeScripts/CameraScripts.h"
+#include "Resources/NativeScripts/CameraScripts.h"
 
 #include <Scene/SceneSerializer.h>
 #include <Utils/PlatformUtils.h>
 #include <imguizmo/ImGuizmo.h>
 
-#define LV_EDITOR_ASSET_DIR "C:\\Programming\\source\\Limnova\\LimnovaEditor\\Assets"
+#define LV_EDITOR_RES_DIR "C:\\Programming\\source\\Limnova\\LimnovaEditor\\Resources"
 
 
 namespace Limnova
 {
+    extern const std::filesystem::path s_AssetDirectoryPath;
+
 
     EditorLayer::EditorLayer()
         : Layer("EditorLayer")
@@ -197,9 +199,10 @@ namespace Limnova
         m_EditorScene = m_ActiveScene;
 
         m_SceneHierarchyPanel.SetContext(m_ActiveScene.get());
-        m_IconPlay = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\PlayButton.png");
-        m_IconPause = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\PauseButton.png");
-        m_IconStop = Texture2D::Create(LV_EDITOR_ASSET_DIR"\\Icons\\StopButton.png");
+
+        m_IconPlay = Texture2D::Create(LV_EDITOR_RES_DIR"\\Icons\\PlayButton.png");
+        m_IconPause = Texture2D::Create(LV_EDITOR_RES_DIR"\\Icons\\PauseButton.png");
+        m_IconStop = Texture2D::Create(LV_EDITOR_RES_DIR"\\Icons\\StopButton.png");
     }
 
 
@@ -237,7 +240,7 @@ namespace Limnova
             {
                 m_EditorCamera.OnUpdate(dT); /* Simulate uses editor camera so we update it */
                 dT = dT * m_SceneDTMultiplier;
-                /* cascade to Play */
+                // fallthrough to Play
             }
             case SceneState::Play:
             {
@@ -582,6 +585,16 @@ namespace Limnova
         uint32_t viewportRendererId = m_Framebuffer->GetColorAttachmentRendererId();
         ImGui::Image((void*)viewportRendererId, viewportPanelSize, { 0, 1 }, { 1, 0 });
 
+        // Scene drag & drop
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSERT_BROWSER_ITEM")) {
+                const wchar_t* path = (const wchar_t*)payload->Data;
+                OpenScene(s_AssetDirectoryPath / path);
+            }
+            ImGui::EndDragDropTarget();
+        }
+
         // Gizmos
         if (m_ActiveGizmo > -1)
         {
@@ -631,8 +644,9 @@ namespace Limnova
         ImGui::End(); // Viewport
         ImGui::PopStyleVar();
 
-        // Scene hierarchy
+        // Panels
         m_SceneHierarchyPanel.OnImGuiRender();
+        m_AssetBrowserPanel.OnImGuiRender();
 
         UI_Toolbar();
 
@@ -832,10 +846,16 @@ namespace Limnova
     {
         std::string filepath = FileDialogs::OpenFile("Limnova Scene (*.limn)\0*.limn\0");
         if (!filepath.empty()) {
-            NewScene();
-            SceneSerializer::Deserialize(m_EditorScene.get(), filepath);
-            m_EditorScenePath = filepath;
+            OpenScene(filepath);
         }
+    }
+
+
+    void EditorLayer::OpenScene(std::filesystem::path filepath)
+    {
+        NewScene();
+        SceneSerializer::Deserialize(m_EditorScene.get(), filepath.string());
+        m_EditorScenePath = filepath;
     }
 
 

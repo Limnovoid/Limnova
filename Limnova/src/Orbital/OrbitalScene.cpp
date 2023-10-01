@@ -199,12 +199,6 @@ namespace Limnova
     }
 
 
-    Entity OrbitalScene::GetViewPrimary()
-    {
-        return Entity{ m_PhysicsToEnttIds.at(m_ViewLSpace.ParentObj().Id()), this};
-    }
-
-
     void OrbitalScene::SetParent(Entity entity, Entity parent)
     {
         SetParentAndLocalSpace(entity, parent, entity.HasComponent<OrbitalComponent>() ? 0 : -1);
@@ -419,6 +413,16 @@ namespace Limnova
 
         Renderer2D::BeginScene(camera);
 
+        RenderLocalSpace(cameraOrientation, cameraDistance);
+
+        // TODO : draw tertiaries as point lights orbiting secondaries
+
+        Renderer2D::EndScene();
+    }
+
+
+    void OrbitalScene::RenderLocalSpace(const Quaternion& cameraOrientation, float cameraDistance)
+    {
         // Render orbital visuals
         auto& lsp = m_ViewLSpace.GetLSpace();
         auto viewParentObjNode = m_ViewLSpace.ParentObj();
@@ -522,30 +526,7 @@ namespace Limnova
                 Renderer2D::DrawArrow(tc.GetPosition(), tc.GetPosition() + elems.PerifocalNormal * 0.5f * elems.SemiMinor,
                     uiColor, m_PerifocalAxisThickness, m_PerifocalAxisArrowSize, editorPickingId);
             }
-
-
-            // debug
-#ifdef EXCLUDE
-            if (orbital.IsDynamic())
-            {
-                auto& dynamics = orbital.GetDynamics();
-                if (dynamics.EscapeTrueAnomaly > 0.f)
-                {
-                    static constexpr Vector4 escapePointColor{ 1.f, 0.3f, 0.2f, 0.4f };
-                    static constexpr Vector4 entryPointColor{ 0.3f, 1.f, 0.2f, 0.4f };
-                    Renderer2D::DrawCircle(primaryPosition + dynamics.EscapePoint, 0.01f, escapePointColor, 1.f, 0.f, (int)secondary);
-                    Renderer2D::DrawCircle(primaryPosition + dynamics.EntryPoint, 0.01f, entryPointColor, 1.f, 0.f, (int)secondary);
-                }
-            }
-            if (m_Physics.IsIntegrationLinear(orbital.PhysicsObjectId)) {
-                Renderer2D::DrawDashedLine(transform.GetPosition(), primaryPosition, { 1.f, 0.3f, 0.2f, m_OrbitAlpha }, m_OrbitThickness, 2.f, 2.f, editorPickingId);
-            }
-#endif
         }
-
-        // TODO : draw tertiaries as point lights orbiting secondaries
-
-        Renderer2D::EndScene();
     }
 
 

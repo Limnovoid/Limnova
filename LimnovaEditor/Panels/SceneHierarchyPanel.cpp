@@ -292,8 +292,8 @@ namespace Limnova
 
         bool isRoot = entity.GetUUID() == m_Scene->m_Root;
         bool isOrbital = entity.HasComponent<OrbitalComponent>();
-        bool isOrbitalViewParent = isOrbital ? entity == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
-        bool isOrbitalViewObject = (!isRoot && isOrbital) ? entity.GetParent() == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
+        bool isOrbitalViewParent = isOrbital ? entity.GetComponent<OrbitalComponent>().Object == ((OrbitalScene*)m_Scene)->m_ViewLSpace.ParentObj() : false;
+        bool isOrbitalViewObject = isOrbital ? entity.GetComponent<OrbitalComponent>().Object == ((OrbitalScene*)m_Scene)->m_ViewObject : false;
 
         ComponentInspector<TransformComponent>(entity, "Transform", false, [&]()
         {

@@ -26,7 +26,8 @@ namespace Limnova
 
         void SetTrackingEntity(Entity primary);
         void SetRelativeViewSpace(int viewSpaceRelativeToTrackingEntity = 0);
-        Entity GetViewPrimary();
+        OrbitalPhysics::LSpaceNode GetViewSpace() { return m_ViewLSpace; }
+        OrbitalPhysics::ObjectNode GetViewObject() { return m_ViewObject; }
 
         void SetParent(Entity entity, Entity parent) override;
         void SetParentAndLocalSpace(Entity entity, Entity parent, int localSpaceRelativeToParent);
@@ -49,6 +50,8 @@ namespace Limnova
     private:
         void UpdateOrbitalScene();
         void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, float cameraDistance);
+
+        void RenderLocalSpace(const Quaternion& cameraOrientation, float cameraDistance);
 
         OrbitalPhysics::LSpaceNode GetEntityLSpace(entt::entity entity);
         OrbitalPhysics::ObjectNode GetEntityObject(entt::entity entity);
