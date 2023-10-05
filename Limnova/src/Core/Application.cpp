@@ -3,8 +3,9 @@
 #include "Input.h"
 #include "KeyCodes.h"
 
-#include "Renderer/Renderer.h"
-#include "Renderer/Renderer2D.h"
+#include <Renderer/Renderer.h>
+#include <Renderer/Renderer2D.h>
+#include <Scripting/ScriptEngine.h>
 
 
 namespace Limnova
@@ -29,6 +30,7 @@ namespace Limnova
         // TODO - build definition to select renderer ??? or leave initialisation up to user application ??
         Renderer::Init();
         Renderer2D::Init();
+        ScriptEngine::Init();
 
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);

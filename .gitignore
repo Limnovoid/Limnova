@@ -1,9 +1,14 @@
 ## Ignore builds.
 build/
 
+## Un-ignore Mono libraries
+!thirdparty/mono/bin
+!thirdparty/mono/lib/Debug
+!thirdparty/mono/lib/Release
+
 ## Ignore profiling data
 Profiling/
-!src/Profiling/
+!src/Profiling/ #un-ignore profiling source
 
 ## Ignore large assets
 LimnovaEditor/Assets/textures

@@ -38,6 +38,11 @@ target_link_libraries(${PROJECT_NAME}
         Limnova
 )
 
+target_link_directories(${PROJECT_NAME}
+    PRIVATE
+        "${CMAKE_SOURCE_DIR}/Limnova/thirdparty/mono/lib/$<IF:$<CONFIG:Debug>,Debug,Release>"
+)
+
 add_compile_definitions(
     GLFW_INCLUDE_NONE
     _CRT_SECURE_NO_WARNINGS

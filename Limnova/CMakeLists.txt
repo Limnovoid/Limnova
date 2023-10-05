@@ -159,7 +159,8 @@ target_link_libraries(${PROJECT_NAME}
         Glad
         GLFW
 
-        "${PROJECT_SOURCE_DIR}/thirdparty/mono/bin/$<IF:$<CONFIG:Debug>,Debug,Release>/libmono-static-sgen.lib"
+        "${PROJECT_SOURCE_DIR}/thirdparty/mono/lib/$<IF:$<CONFIG:Debug>,Debug,Release>/libmono-static-sgen.lib"
+        $<${WIN32}:Ws2_32 Winmm Version Bcrypt> # Mono Windows
     PUBLIC
         ImGui
         ImGuizmo
