@@ -10,6 +10,5 @@ add_library(${PROJECT_NAME} STATIC
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES
-        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/LimnovaEditor/Resources/Scripts"
-        OUTPUT_NAME ${PROJECT_NAME}
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/LimnovaEditor/Resources/lib/Scripting"
 )

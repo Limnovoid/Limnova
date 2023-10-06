@@ -667,7 +667,11 @@ namespace Limnova
         auto& colorButtonActive = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ colorButtonActive.x, colorButtonActive.y, colorButtonActive.z, 0.5f });
 
-        ImGui::Begin("##toolbar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+#ifdef LV_RELEASE
+        flags |= ImGuiWindowFlags_NoMove;
+#endif
+        ImGui::Begin("##toolbar", nullptr, flags);
 
         // Play button
         float mid = ImGui::GetWindowContentRegionMax().x * 0.5f;

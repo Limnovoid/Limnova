@@ -3,7 +3,7 @@
 #include "mono/jit/jit.h"
 #include "mono/metadata/assembly.h"
 
-#define SCRIPT_CORE_ASSEMBLY_PATH_BASE LV_DIR"/LimnovaEditor/Resources/Scripts/"
+#define SCRIPT_CORE_ASSEMBLY_PATH_BASE LV_DIR"/LimnovaEditor/Resources/lib/Scripting/"
 #ifdef LV_DEBUG
     #define SCRIPT_CORE_ASSEMBLY_CONFIG "Debug"
 #elif LV_RELEASE
@@ -22,18 +22,18 @@ namespace Limnova
         MonoAssembly* CoreAssembly;
     };
 
-    static ScriptEngineData* s_Data;
+    static ScriptEngineData* s_SEData;
 
     void ScriptEngine::Init()
     {
-        s_Data = new ScriptEngineData;
-
+        s_SEData = new ScriptEngineData;
         InitMono();
     }
 
     void ScriptEngine::Shutdown()
     {
-        delete s_Data;
+        ShutdownMono();
+        delete s_SEData;
     }
 
 
@@ -116,26 +116,37 @@ namespace Limnova
         MonoDomain* rootDomain = mono_jit_init("LimnovaJITRuntime");
         LV_CORE_ASSERT(rootDomain, "Failed to initialize JIT!");
 
-        s_Data->RootDomain = rootDomain;
+        s_SEData->RootDomain = rootDomain;
 
         static char appDomainName[32];
         strcpy(appDomainName, "LimnovaScriptRuntime");
-        s_Data->AppDomain = mono_domain_create_appdomain(appDomainName, nullptr);
-        mono_domain_set(s_Data->AppDomain, true);
+        s_SEData->AppDomain = mono_domain_create_appdomain(appDomainName, nullptr);
+        mono_domain_set(s_SEData->AppDomain, true);
 
-        s_Data->CoreAssembly = LoadCSharpAssembly(LV_SCRIPT_CORE_ASSEMBLY_PATH);
-        PrintAssemblyTypes(s_Data->CoreAssembly);
+        s_SEData->CoreAssembly = LoadCSharpAssembly(LV_SCRIPT_CORE_ASSEMBLY_PATH);
+        PrintAssemblyTypes(s_SEData->CoreAssembly);
 
 
-        MonoImage* assemblyImage = mono_assembly_get_image(s_Data->CoreAssembly);
+        // Test Main
+        MonoImage* assemblyImage = mono_assembly_get_image(s_SEData->CoreAssembly);
         MonoClass* monoClass = mono_class_from_name(assemblyImage, "Limnova", "Main");
 
-        MonoObject* instance = mono_object_new(s_Data->AppDomain, monoClass);
+        // 1. create object and call constructor
+        MonoObject* instance = mono_object_new(s_SEData->AppDomain, monoClass);
         mono_runtime_object_init(instance);
+
+        // 2. call function
+        MonoMethod* printMessageFunc = mono_class_get_method_from_name(monoClass, "PrintMessage", 0);
+        mono_runtime_invoke(printMessageFunc, instance, nullptr, nullptr);
     }
 
     void ScriptEngine::ShutdownMono()
     {
+        mono_domain_unload(s_SEData->AppDomain);
+        s_SEData->AppDomain = nullptr;
+
+        //mono_jit_cleanup(s_SEData->RootDomain); // TODO : make work ?
+        s_SEData->RootDomain = nullptr;
     }
 
 }

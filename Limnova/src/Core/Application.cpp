@@ -41,6 +41,10 @@ namespace Limnova
     Application::~Application()
     {
         LV_PROFILE_FUNCTION();
+
+        ScriptEngine::Shutdown();
+        Renderer2D::Shutdown();
+        Renderer::Shutdown();
     }
 
 
