@@ -1,8 +1,11 @@
 #include "ScriptEngine.h"
 
-#include "mono/jit/jit.h"
-#include "mono/metadata/assembly.h"
+#include "ScriptLibrary.h"
 
+#include <mono/jit/jit.h>
+#include <mono/metadata/assembly.h>
+
+// path to ScriptCoreAssembly.dll
 #define SCRIPT_CORE_ASSEMBLY_PATH_BASE LV_DIR"/LimnovaEditor/Resources/lib/Scripting/"
 #ifdef LV_DEBUG
     #define SCRIPT_CORE_ASSEMBLY_CONFIG "Debug"
@@ -10,65 +13,96 @@
     #define SCRIPT_CORE_ASSEMBLY_CONFIG "Release"
 #endif
 #define LV_SCRIPT_CORE_ASSEMBLY_PATH SCRIPT_CORE_ASSEMBLY_PATH_BASE SCRIPT_CORE_ASSEMBLY_CONFIG "/LimnovaScriptCore.dll"
+//
 
 namespace Limnova
 {
-
-    struct ScriptEngineData
+    namespace Utils
     {
-        MonoDomain* RootDomain;
-        MonoDomain* AppDomain;
+        static char* ReadBytes(std::filesystem::path const& filepath, uint32_t * outSize)
+        {
+            std::ifstream stream(filepath, std::ios::binary | std::ios::ate);
 
-        MonoAssembly* CoreAssembly;
-    };
+            if (!stream)
+            {
+                // Failed to open the file
+                return nullptr;
+            }
 
-    static ScriptEngineData* s_SEData;
+            std::streampos end = stream.tellg();
+            stream.seekg(0, std::ios::beg);
+            uint32_t size = end - stream.tellg();
+
+            if (size == 0)
+            {
+                // File is empty
+                return nullptr;
+            }
+
+            char* buffer = new char[size];
+            stream.read((char*)buffer, size);
+            stream.close();
+
+            *outSize = size;
+            return buffer;
+        }
+    }
+
+
+    ScriptEngine::ScriptEngineData* ScriptEngine::s_SEData = nullptr;
+
 
     void ScriptEngine::Init()
     {
+        LV_CORE_ASSERT(s_SEData == nullptr, "ScriptEngine is already initialized!");
         s_SEData = new ScriptEngineData;
         InitMono();
+        ScriptLibrary::RegisterAllFunctions();
+        ScriptLibrary::RegisterAllScriptClasses(s_SEData->CoreAssemblyImage);
+
+
+        // testing
+        MonoObject* instance = ScriptLibrary::ScriptClass_Main::Instantiate(s_SEData->AppDomain);
+        ScriptLibrary::ScriptClass_Main::InvokeMethod("PrintMessage", instance);
     }
 
     void ScriptEngine::Shutdown()
     {
         ShutdownMono();
         delete s_SEData;
+        s_SEData = nullptr;
     }
 
 
-    char* ReadBytes(const std::string& filepath, uint32_t* outSize)
+    void ScriptEngine::InitMono()
     {
-        std::ifstream stream(filepath, std::ios::binary | std::ios::ate);
+        mono_set_assemblies_path(LV_DIR"/Limnova/thirdparty/mono/lib.NET");
 
-        if (!stream)
-        {
-            // Failed to open the file
-            return nullptr;
-        }
+        MonoDomain* rootDomain = mono_jit_init("LimnovaJITRuntime");
+        LV_CORE_ASSERT(rootDomain, "Failed to initialize JIT!");
+        s_SEData->RootDomain = rootDomain;
 
-        std::streampos end = stream.tellg();
-        stream.seekg(0, std::ios::beg);
-        uint32_t size = end - stream.tellg();
+        static char appDomainName[] = "LimnovaScriptRuntime";
+        s_SEData->AppDomain = mono_domain_create_appdomain(appDomainName, nullptr);
+        mono_domain_set(s_SEData->AppDomain, true);
 
-        if (size == 0)
-        {
-            // File is empty
-            return nullptr;
-        }
-
-        char* buffer = new char[size];
-        stream.read((char*)buffer, size);
-        stream.close();
-
-        *outSize = size;
-        return buffer;
+        s_SEData->CoreAssembly = LoadMonoAssembly(LV_SCRIPT_CORE_ASSEMBLY_PATH);
+        s_SEData->CoreAssemblyImage = mono_assembly_get_image(s_SEData->CoreAssembly);
     }
 
-    MonoAssembly* LoadCSharpAssembly(const std::string& assemblyPath)
+    void ScriptEngine::ShutdownMono()
+    {
+        mono_domain_unload(s_SEData->AppDomain);
+        s_SEData->AppDomain = nullptr;
+
+        //mono_jit_cleanup(s_SEData->RootDomain); // TODO : make work ?
+        s_SEData->RootDomain = nullptr;
+    }
+
+    MonoAssembly* ScriptEngine::LoadMonoAssembly(std::filesystem::path const& assemblyPath)
     {
         uint32_t fileSize = 0;
-        char* fileData = ReadBytes(assemblyPath, &fileSize);
+        char* fileData = Utils::ReadBytes(assemblyPath, &fileSize);
 
         // NOTE: We can't use this image for anything other than loading the assembly because this image doesn't have a reference to the assembly
         MonoImageOpenStatus status;
@@ -81,7 +115,7 @@ namespace Limnova
             return nullptr;
         }
 
-        MonoAssembly* assembly = mono_assembly_load_from_full(image, assemblyPath.c_str(), &status, 0);
+        MonoAssembly* assembly = mono_assembly_load_from_full(image, assemblyPath.string().c_str(), &status, 0);
         mono_image_close(image);
 
         // Don't forget to free the file data
@@ -90,7 +124,8 @@ namespace Limnova
         return assembly;
     }
 
-    void PrintAssemblyTypes(MonoAssembly* assembly)
+
+    void ScriptEngine::PrintAssemblyTypes(MonoAssembly* assembly)
     {
         MonoImage* image = mono_assembly_get_image(assembly);
         const MonoTableInfo* typeDefinitionsTable = mono_image_get_table_info(image, MONO_TABLE_TYPEDEF);
@@ -106,47 +141,6 @@ namespace Limnova
 
             LV_CORE_INFO("{}.{}", nameSpace, name);
         }
-    }
-
-
-    void ScriptEngine::InitMono()
-    {
-        mono_set_assemblies_path(LV_DIR"/Limnova/thirdparty/mono/lib.NET");
-
-        MonoDomain* rootDomain = mono_jit_init("LimnovaJITRuntime");
-        LV_CORE_ASSERT(rootDomain, "Failed to initialize JIT!");
-
-        s_SEData->RootDomain = rootDomain;
-
-        static char appDomainName[32];
-        strcpy(appDomainName, "LimnovaScriptRuntime");
-        s_SEData->AppDomain = mono_domain_create_appdomain(appDomainName, nullptr);
-        mono_domain_set(s_SEData->AppDomain, true);
-
-        s_SEData->CoreAssembly = LoadCSharpAssembly(LV_SCRIPT_CORE_ASSEMBLY_PATH);
-        PrintAssemblyTypes(s_SEData->CoreAssembly);
-
-
-        // Test Main
-        MonoImage* assemblyImage = mono_assembly_get_image(s_SEData->CoreAssembly);
-        MonoClass* monoClass = mono_class_from_name(assemblyImage, "Limnova", "Main");
-
-        // 1. create object and call constructor
-        MonoObject* instance = mono_object_new(s_SEData->AppDomain, monoClass);
-        mono_runtime_object_init(instance);
-
-        // 2. call function
-        MonoMethod* printMessageFunc = mono_class_get_method_from_name(monoClass, "PrintMessage", 0);
-        mono_runtime_invoke(printMessageFunc, instance, nullptr, nullptr);
-    }
-
-    void ScriptEngine::ShutdownMono()
-    {
-        mono_domain_unload(s_SEData->AppDomain);
-        s_SEData->AppDomain = nullptr;
-
-        //mono_jit_cleanup(s_SEData->RootDomain); // TODO : make work ?
-        s_SEData->RootDomain = nullptr;
     }
 
 }

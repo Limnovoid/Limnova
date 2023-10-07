@@ -74,6 +74,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Scene/SceneSerializer.cpp"
 
     "src/Scripting/ScriptEngine.cpp"
+    "src/Scripting/ScriptLibrary.cpp"
 
     "src/Structures/Queue.h"
 

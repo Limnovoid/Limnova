@@ -53,6 +53,9 @@ namespace Limnova
                 LV_CORE_ERROR("Could not load default scene!");
             }
         }
+        else {
+            LV_WARN("No default scene specified!");
+        }
 
     #ifdef LV_DEBUG
         for (int i = 0; i < kUpdateDurationPlotSpan; i++) m_PhysicsUpdateDurations[i] = 0.f;
@@ -588,7 +591,7 @@ namespace Limnova
         // Scene drag & drop
         if (ImGui::BeginDragDropTarget())
         {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSERT_BROWSER_ITEM")) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_BROWSER_ITEM")) {
                 const wchar_t* path = (const wchar_t*)payload->Data;
                 OpenScene(s_AssetDirectoryPath / path);
             }
