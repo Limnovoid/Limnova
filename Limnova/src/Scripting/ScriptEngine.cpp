@@ -5,6 +5,8 @@
 #include <mono/jit/jit.h>
 #include <mono/metadata/assembly.h>
 
+#include <string>
+
 // path to ScriptCoreAssembly.dll
 #define SCRIPT_CORE_ASSEMBLY_PATH_BASE LV_DIR"/LimnovaEditor/Resources/lib/Scripting/"
 #ifdef LV_DEBUG
@@ -58,12 +60,13 @@ namespace Limnova
         s_SEData = new ScriptEngineData;
         InitMono();
         ScriptLibrary::RegisterAllFunctions();
-        ScriptLibrary::RegisterAllScriptClasses(s_SEData->CoreAssemblyImage);
-
 
         // testing
-        MonoObject* instance = ScriptLibrary::ScriptClass_Main::Instantiate(s_SEData->AppDomain);
-        ScriptLibrary::ScriptClass_Main::InvokeMethod("PrintMessage", instance);
+        s_SEData->ScriptClass_Main.Initialize("Main");
+        size_t methodHash_PrintMessage = s_SEData->ScriptClass_Main.RegisterMethod("PrintMessage");
+
+        MonoObject* instance = s_SEData->ScriptClass_Main.Instantiate(s_SEData->AppDomain);
+        s_SEData->ScriptClass_Main.InvokeMethod(methodHash_PrintMessage, instance);
     }
 
     void ScriptEngine::Shutdown()
@@ -141,6 +144,49 @@ namespace Limnova
 
             LV_CORE_INFO("{}.{}", nameSpace, name);
         }
+    }
+
+
+    std::hash<std::string> ScriptEngine::ScriptClass::s_StringHasher = {};
+
+    ScriptEngine::ScriptClass::ScriptClass(std::string const& className)
+    {
+        Initialize(className);
+    }
+
+    void ScriptEngine::ScriptClass::Initialize(std::string const& className)
+    {
+        m_MonoClass = mono_class_from_name(s_SEData->CoreAssemblyImage, "Limnova", className.c_str());
+    }
+
+
+    MonoObject* ScriptEngine::ScriptClass::Instantiate(MonoDomain* domain)
+    {
+        LV_CORE_ASSERT(m_MonoClass != nullptr, "ScriptClass has not been initialized!");
+
+        MonoObject* instance = mono_object_new(domain, m_MonoClass);
+        mono_runtime_object_init(instance);
+        return instance;
+    }
+
+    size_t ScriptEngine::ScriptClass::RegisterMethod(std::string const& methodName, size_t numArgs)
+    {
+        LV_CORE_ASSERT(m_MonoClass != nullptr, "ScriptClass has not been initialized!");
+
+        MonoMethod* monoMethod = mono_class_get_method_from_name(m_MonoClass, methodName.c_str(), numArgs);
+        size_t methodNameHash = s_StringHasher(methodName);
+        m_Methods.insert({ methodNameHash, monoMethod });
+        return methodNameHash;
+    }
+
+    MonoMethod* ScriptEngine::ScriptClass::GetMethod(size_t methodNameHash)
+    {
+        return m_Methods.at(methodNameHash);
+    }
+
+    void ScriptEngine::ScriptClass::InvokeMethod(size_t methodNameHash, MonoObject* instance, void** arguments)
+    {
+        mono_runtime_invoke(m_Methods.at(methodNameHash), instance, arguments, nullptr);
     }
 
 }
