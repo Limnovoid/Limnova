@@ -27,14 +27,14 @@ namespace Limnova
         static void ShutdownMono();
 
         static MonoAssembly* LoadMonoAssembly(std::filesystem::path const& assemblyPath);
-
         static void PrintAssemblyTypes(MonoAssembly* assembly);
     public:
         class ScriptClass
         {
             friend class ScriptLibrary;
             MonoClass* m_MonoClass = nullptr;
-            std::map<size_t, MonoMethod*> m_Methods = {};
+            std::unordered_map<size_t, MonoMethod*> m_Methods = {};
+            static std::hash<std::string> s_StringHasher;
         public:
             /// <summary> Constructs an un-initialized ScriptClass. </summary>
             ScriptClass() = default;
@@ -51,7 +51,7 @@ namespace Limnova
             MonoObject* Instantiate(MonoDomain* domain);
 
             /// <summary> Registers a method in this class. </summary>
-            /// <returns>The hash of the method name: the MonoMethod* associated with the registered method is stored in a map of string hashes (std::map size_t,MonoMethod* ).
+            /// <returns>The hash of the method name: the MonoMethod* associated with the registered method is stored in a map of string hashes (std::unordered_map size_t,MonoMethod* ).
             /// You may choose to store the string hash to avoid recomputing it where possible.</returns>
             size_t RegisterMethod(std::string const& methodName, size_t numArgs = 0);
 
@@ -64,9 +64,7 @@ namespace Limnova
             }
         public:
             /// <summary> Hashes the given string with the same std::hash object used internally to hash method names, and returns the hash. </summary>
-            static size_t GetHashedName(std::string const& methodName) { return s_StringHasher(methodName); }
-        private:
-            static std::hash<std::string> s_StringHasher;
+            size_t GetHashedName(std::string const& methodName) { return s_StringHasher(methodName); }
         };
     private:
         struct ScriptEngineData
@@ -77,7 +75,8 @@ namespace Limnova
             MonoAssembly* CoreAssembly = nullptr;
             MonoImage* CoreAssemblyImage = nullptr;
 
-            ScriptClass ScriptClass_Main;
+            // testing
+            ScriptClass ScriptClass_Main = {};
         };
         static ScriptEngineData* s_SEData;
     };

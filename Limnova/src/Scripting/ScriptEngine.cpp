@@ -61,12 +61,18 @@ namespace Limnova
         InitMono();
         ScriptLibrary::RegisterAllFunctions();
 
+
         // testing
         s_SEData->ScriptClass_Main.Initialize("Main");
-        size_t methodHash_PrintMessage = s_SEData->ScriptClass_Main.RegisterMethod("PrintMessage");
+        //size_t method_PrintVec3 = s_SEData->ScriptClass_Main.RegisterMethod("PrintVec3", 3);
 
-        MonoObject* instance = s_SEData->ScriptClass_Main.Instantiate(s_SEData->AppDomain);
-        s_SEData->ScriptClass_Main.InvokeMethod(methodHash_PrintMessage, instance);
+        MonoObject* instance = s_SEData->ScriptClass_Main.Instantiate(s_SEData->AppDomain); // Main() constructor
+
+        //float x = 0.1f, y = 2.3f, z = 4.5f;
+        //float* vecParams[] = { &x, &y, &z };
+        //s_SEData->ScriptClass_Main.InvokeMethod(method_PrintVec3, instance, (void**)vecParams);
+
+        LV_CORE_ASSERT(false, "debug");
     }
 
     void ScriptEngine::Shutdown()
@@ -147,6 +153,8 @@ namespace Limnova
     }
 
 
+    /*** ScriptEngine::ScriptClass ***/
+
     std::hash<std::string> ScriptEngine::ScriptClass::s_StringHasher = {};
 
     ScriptEngine::ScriptClass::ScriptClass(std::string const& className)
@@ -174,8 +182,10 @@ namespace Limnova
         LV_CORE_ASSERT(m_MonoClass != nullptr, "ScriptClass has not been initialized!");
 
         MonoMethod* monoMethod = mono_class_get_method_from_name(m_MonoClass, methodName.c_str(), numArgs);
+        LV_CORE_ASSERT(monoMethod, "Failed to create MonoMethod!");
+
         size_t methodNameHash = s_StringHasher(methodName);
-        m_Methods.insert({ methodNameHash, monoMethod });
+        m_Methods.emplace(methodNameHash, monoMethod);
         return methodNameHash;
     }
 
