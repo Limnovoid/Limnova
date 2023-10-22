@@ -59,6 +59,11 @@ namespace Limnova
             //Vec3 v1Xv2 = vec1.Cross(vec2);
             //InternalCalls.Native_PrintVec3(ref v1Xv2);
         }
+
+        public void PrintVec3(float x, float y, float z)
+        {
+            Native.LogTrace($"PrintVec3: ({x}, {y}, {z})");
+        }
     }
 
 }

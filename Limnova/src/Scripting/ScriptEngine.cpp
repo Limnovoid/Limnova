@@ -64,13 +64,14 @@ namespace Limnova
 
         // testing
         s_SEData->ScriptClass_Main.Initialize("Main");
-        //size_t method_PrintVec3 = s_SEData->ScriptClass_Main.RegisterMethod("PrintVec3", 3);
+        size_t method_PrintVec3 = s_SEData->ScriptClass_Main.RegisterMethod("PrintVec3", 3);
 
-        MonoObject* instance = s_SEData->ScriptClass_Main.Instantiate(s_SEData->AppDomain); // Main() constructor
+        Ref<ScriptInstance> instance = s_SEData->ScriptClass_Main.Instantiate(s_SEData->AppDomain); // Main() constructor
 
         //float x = 0.1f, y = 2.3f, z = 4.5f;
         //float* vecParams[] = { &x, &y, &z };
         //s_SEData->ScriptClass_Main.InvokeMethod(method_PrintVec3, instance, (void**)vecParams);
+        //instance->InvokeMethod(method_PrintVec3, (void**)vecParams);
 
         LV_CORE_ASSERT(false, "debug");
     }
@@ -157,6 +158,7 @@ namespace Limnova
 
     std::hash<std::string> ScriptEngine::ScriptClass::s_StringHasher = {};
 
+
     ScriptEngine::ScriptClass::ScriptClass(std::string const& className)
     {
         Initialize(className);
@@ -164,17 +166,17 @@ namespace Limnova
 
     void ScriptEngine::ScriptClass::Initialize(std::string const& className)
     {
+        LV_CORE_ASSERT(m_MonoClass == nullptr, "ScriptClass instance is already initialized!");
         m_MonoClass = mono_class_from_name(s_SEData->CoreAssemblyImage, "Limnova", className.c_str());
+        m_ClassName = className;
     }
 
 
-    MonoObject* ScriptEngine::ScriptClass::Instantiate(MonoDomain* domain)
+    Ref<ScriptEngine::ScriptInstance> ScriptEngine::ScriptClass::Instantiate(MonoDomain* domain)
     {
         LV_CORE_ASSERT(m_MonoClass != nullptr, "ScriptClass has not been initialized!");
 
-        MonoObject* instance = mono_object_new(domain, m_MonoClass);
-        mono_runtime_object_init(instance);
-        return instance;
+        return CreateRef<ScriptInstance>(this, domain);
     }
 
     size_t ScriptEngine::ScriptClass::RegisterMethod(std::string const& methodName, size_t numArgs)
@@ -194,9 +196,18 @@ namespace Limnova
         return m_Methods.at(methodNameHash);
     }
 
-    void ScriptEngine::ScriptClass::InvokeMethod(size_t methodNameHash, MonoObject* instance, void** arguments)
+
+    /*** ScriptEngine::ScriptInstance ***/
+
+    ScriptEngine::ScriptInstance::ScriptInstance(ScriptClass* scriptClass, MonoDomain* domain)
+        : m_ScriptClass(scriptClass)
     {
-        mono_runtime_invoke(m_Methods.at(methodNameHash), instance, arguments, nullptr);
+        m_Instance = mono_object_new(domain, scriptClass->GetMonoClass());
+    }
+
+    void ScriptEngine::ScriptInstance::InvokeMethod(size_t methodNameHash, void** arguments)
+    {
+        mono_runtime_invoke(m_ScriptClass->GetMethod(methodNameHash), m_Instance, arguments, nullptr);
     }
 
 }

@@ -29,16 +29,21 @@ namespace Limnova
         static MonoAssembly* LoadMonoAssembly(std::filesystem::path const& assemblyPath);
         static void PrintAssemblyTypes(MonoAssembly* assembly);
     public:
+        class ScriptInstance;
+
         class ScriptClass
         {
             friend class ScriptLibrary;
+
+            static std::hash<std::string> s_StringHasher;
+
+            std::string m_ClassName = "";
             MonoClass* m_MonoClass = nullptr;
             std::unordered_map<size_t, MonoMethod*> m_Methods = {};
-            static std::hash<std::string> s_StringHasher;
         public:
-            /// <summary> Constructs an un-initialized ScriptClass. </summary>
+            /// <summary> Constructs an un-initialized ScriptClass. Must be followed by a call to Initialize() before being used to store C# class attributes. </summary>
             ScriptClass() = default;
-            /// <summary> Constructs and initializes a ScriptClass. </summary>
+            /// <summary> Constructs and initializes a ScriptClass. Calling Initialize() on a ScriptClass instance constructed with this constructor will fail an assert! </summary>
             ScriptClass(std::string const& className);
 
             /// <summary> Initializes a ScriptClass object by creating (and storing a pointer to) its associated Mono object. </summary>
@@ -48,7 +53,7 @@ namespace Limnova
             MonoClass* GetMonoClass() { return m_MonoClass; }
 
             /// <summary> Creates (and returns the pointer to) a Mono object representing an instance of this ScriptClass. </summary>
-            MonoObject* Instantiate(MonoDomain* domain);
+            Ref<ScriptInstance> Instantiate(MonoDomain* domain);
 
             /// <summary> Registers a method in this class. </summary>
             /// <returns>The hash of the method name: the MonoMethod* associated with the registered method is stored in a map of string hashes (std::unordered_map size_t,MonoMethod* ).
@@ -57,14 +62,23 @@ namespace Limnova
 
             MonoMethod* GetMethod(size_t methodNameHash);
             MonoMethod* GetMethod(std::string const& methodName) { return GetMethod(s_StringHasher(methodName)); }
-
-            void InvokeMethod(size_t methodNameHash, MonoObject* instance, void** arguments = nullptr);
-            void InvokeMethod(std::string const& methodName, MonoObject* instance, void** arguments = nullptr) {
-                InvokeMethod(s_StringHasher(methodName), instance, arguments);
-            }
         public:
             /// <summary> Hashes the given string with the same std::hash object used internally to hash method names, and returns the hash. </summary>
             size_t GetHashedName(std::string const& methodName) { return s_StringHasher(methodName); }
+        };
+
+        class ScriptInstance
+        {
+            MonoObject* m_Instance = nullptr;
+            ScriptClass* m_ScriptClass = nullptr;
+        public:
+            ScriptInstance() = delete;
+            ScriptInstance(ScriptClass* scriptClass, MonoDomain* domain);
+
+            void InvokeMethod(size_t methodNameHash, void** arguments = nullptr);
+            void InvokeMethod(std::string const& methodName, void** arguments = nullptr) {
+                InvokeMethod(m_ScriptClass->GetHashedName(methodName), arguments);
+            }
         };
     private:
         struct ScriptEngineData
