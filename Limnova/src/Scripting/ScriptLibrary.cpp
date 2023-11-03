@@ -1,8 +1,13 @@
 #include "ScriptLibrary.h"
 
+#include "ScriptEngine.h"
+
 #include <mono/metadata/object.h>
 
 #include <Math/Math.h>
+#include <Core/UUID.h>
+#include <Scene/Scene.h>
+#include <Scene/Entity.h>
 
 #define LV_ADD_INTERNAL_CALL(func) mono_add_internal_call("Limnova.Native::" #func, InternalCall::func)
 
@@ -29,18 +34,32 @@ namespace Limnova
         {
             *res = lhs->Cross(*rhs);
         }
+
+        static void Entity_GetPosition(UUID entityId, Vector3* position)
+        {
+            Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
+            *position = entity.GetComponent<TransformComponent>().GetPosition();
+        }
+
+        static void Entity_SetPosition(UUID entityId, Vector3* position)
+        {
+            Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
+            entity.GetComponent<TransformComponent>().SetPosition(*position);
+        }
     }
 
 
     /*** Register internal call functions ***/
 
-    void ScriptLibrary::RegisterAllFunctions()
+    void ScriptLibrary::RegisterInternalFunctions()
     {
         LV_ADD_INTERNAL_CALL(LogInfo);
         LV_ADD_INTERNAL_CALL(LogTrace);
         LV_ADD_INTERNAL_CALL(LogWarn);
         LV_ADD_INTERNAL_CALL(LogError);
         LV_ADD_INTERNAL_CALL(CrossVec3);
+        LV_ADD_INTERNAL_CALL(Entity_GetPosition);
+        LV_ADD_INTERNAL_CALL(Entity_SetPosition);
     }
 
 }

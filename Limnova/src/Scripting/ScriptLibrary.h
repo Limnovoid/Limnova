@@ -7,7 +7,7 @@ namespace Limnova
     class ScriptLibrary
     {
     public:
-        static void RegisterAllFunctions();
+        static void RegisterInternalFunctions();
     };
 
 }

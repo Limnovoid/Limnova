@@ -4,6 +4,7 @@
 #include <Math/Math.h>
 #include <Renderer/Camera.h>
 #include <Orbital/OrbitalPhysics.h>
+#include <Scripting/ScriptEngine.h>
 
 #include <entt.hpp>
 
@@ -110,6 +111,15 @@ namespace Limnova
     public:
         HierarchyComponent() = default;
         HierarchyComponent(const HierarchyComponent&) = default;
+    };
+
+
+    struct ScriptComponent
+    {
+        std::string Name;
+        bool HasScriptInstance = false;
+        ScriptComponent() = default;
+        ScriptComponent(const ScriptComponent&) = default;
     };
 
 

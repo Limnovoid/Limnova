@@ -252,6 +252,17 @@ namespace Limnova
             out << YAML::EndMap; // TransformComponent
         }
 
+        if (entity.HasComponent<ScriptComponent>())
+        {
+            out << YAML::Key << "ScriptComponent";
+            out << YAML::BeginMap; // ScriptComponent
+
+            auto& script = entity.GetComponent<ScriptComponent>();
+            out << YAML::Key << "Name" << YAML::Value << script.Name;
+
+            out << YAML::EndMap; // ScriptComponent
+        }
+
         if (entity.HasComponent<CameraComponent>())
         {
             out << YAML::Key << "CameraComponent";
@@ -426,6 +437,12 @@ namespace Limnova
             tc.SetOrientation(  tcNode["Orientation"].as<Quaternion>());
             tc.SetEulerAngles(  tcNode["EulerAngles"].as<Vector3>());
             tc.SetScale(        tcNode["Scale"].as<Vector3>());
+        }
+
+        if (auto sNode = entityNode["ScriptComponent"])
+        {
+            auto& sc = entity.AddComponent<ScriptComponent>();
+            sc.Name = sNode["Name"].as<std::string>();
         }
 
         if (auto ccNode = entityNode["CameraComponent"])

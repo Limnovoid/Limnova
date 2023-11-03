@@ -105,17 +105,10 @@ namespace Limnova
 
     Entity OrbitalScene::DuplicateEntity(Entity entity)
     {
-        Entity newEntity = CreateEntityAsChild(GetParent(entity), entity.GetName() + " (copy)");
+        // Duplicate base Scene components
+        Entity newEntity = Scene::DuplicateEntity(entity);
 
-        CopyComponentIfExists<TransformComponent>(newEntity.m_EnttId, entity.m_EnttId);
-        /* DO NOT copy HierarchyComponent - sibling relationships must be different and should be handled by CreateEntity() */
-        CopyComponentIfExists<CameraComponent>(newEntity.m_EnttId, entity.m_EnttId);
-        CopyComponentIfExists<NativeScriptComponent>(newEntity.m_EnttId, entity.m_EnttId);
-        CopyComponentIfExists<SpriteRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
-        CopyComponentIfExists<BillboardSpriteRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
-        CopyComponentIfExists<CircleRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
-        CopyComponentIfExists<BillboardCircleRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
-        CopyComponentIfExists<EllipseRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+        // Duplicate OrbitalScene components
         CopyComponentIfExists<OrbitalHierarchyComponent>(newEntity.m_EnttId, entity.m_EnttId);
 
         if (entity.HasComponent<OrbitalComponent>()) {
@@ -338,6 +331,8 @@ namespace Limnova
 
     void OrbitalScene::OnUpdateEditor(Timestep dT)
     {
+        Scene::OnUpdateEditor(dT);
+
         UpdateOrbitalScene();
     }
 

@@ -6,6 +6,7 @@ project(LimnovaScriptCore
 
 add_library(${PROJECT_NAME} STATIC
     "Source/Main.cs"
+    "Source/Player.cs"
 )
 
 set_target_properties(${PROJECT_NAME}

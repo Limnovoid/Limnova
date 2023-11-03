@@ -68,4 +68,10 @@ namespace Limnova
         return std::make_unique<T>(std::forward<Args>(args) ... );
     }
 
+    template<typename T, typename U>
+    constexpr Ref<T> CastRef(Ref<U> rDerived)
+    {
+        return std::static_pointer_cast<T>(rDerived);
+    }
+
 }

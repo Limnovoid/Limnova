@@ -1,5 +1,8 @@
 #pragma once
 
+#include "Core/UUID.h"
+#include "Core/Timestep.h"
+
 #include <filesystem>
 
 extern "C" {
@@ -14,6 +17,8 @@ extern "C" {
 
 namespace Limnova
 {
+    class Scene;
+
     class ScriptEngine
     {
     public:
@@ -22,38 +27,77 @@ namespace Limnova
         static void Init();
         static void Shutdown();
 
+        class ScriptInstance;
+        class DynamicScriptInstance;
+        class EntityScriptInstance;
+
+        template<class T>
+        static Ref<T> RegisterScriptClass(std::string const& className)
+        {
+            Ref<T> rClass = CreateRef<T>(className);
+            s_SEData->ScriptClasses.emplace(className, CastRef<ScriptClass, T>(rClass));
+            return rClass;
+        }
+        static bool IsRegisteredScriptClass(std::string const& className);
+
+        static void OnSceneStart(Scene* scene);
+        static void OnSceneUpdate(Scene* scene, Timestep dT);
+        static void OnSceneStop();
+
+        static Scene* GetContext() { return s_SEData->SceneCtx; }
     private:
+        /// <summary>
+        /// Creates a script class instance and associates it to the given entity ID.
+        /// 'className' must be the valid name of a registered script class.
+        /// </summary>
+        /// <returns>true if a script class instance was created, otherwise false</returns>
+        static bool TryCreateEntityScript(UUID entityId, std::string const& className);
+
         static void InitMono();
         static void ShutdownMono();
 
         static MonoAssembly* LoadMonoAssembly(std::filesystem::path const& assemblyPath);
         static void PrintAssemblyTypes(MonoAssembly* assembly);
-    public:
-        class ScriptInstance;
+    private:
+        // -------------------------------------------------------------------------------------------------------------------------
 
         class ScriptClass
         {
-            friend class ScriptLibrary;
-
-            static std::hash<std::string> s_StringHasher;
-
+        public:
+            enum class Type
+            {
+                Dynamic,
+                Entity,
+                NUM
+            };
+        protected:
             std::string m_ClassName = "";
             MonoClass* m_MonoClass = nullptr;
-            std::unordered_map<size_t, MonoMethod*> m_Methods = {};
+            Type m_Type = Type::NUM;
         public:
-            /// <summary> Constructs an un-initialized ScriptClass. Must be followed by a call to Initialize() before being used to store C# class attributes. </summary>
-            ScriptClass() = default;
             /// <summary> Constructs and initializes a ScriptClass. Calling Initialize() on a ScriptClass instance constructed with this constructor will fail an assert! </summary>
             ScriptClass(std::string const& className);
-
-            /// <summary> Initializes a ScriptClass object by creating (and storing a pointer to) its associated Mono object. </summary>
-            void Initialize(std::string const& className);
-
             /// <summary> Returns the stored pointer to the Mono object associated with this ScriptClass. </summary>
-            MonoClass* GetMonoClass() { return m_MonoClass; }
+            MonoClass* GetMonoClass() const { return m_MonoClass; }
+
+            Type GetType() const { return m_Type; }
 
             /// <summary> Creates (and returns the pointer to) a Mono object representing an instance of this ScriptClass. </summary>
             Ref<ScriptInstance> Instantiate(MonoDomain* domain);
+        };
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        class DynamicScriptClass : public ScriptClass
+        {
+            static std::hash<std::string> s_StringHasher;
+
+            std::unordered_map<size_t, MonoMethod*> m_Methods = {};
+        public:
+            DynamicScriptClass(std::string const& className);
+
+            /// <summary> Creates (and returns the pointer to) a Mono object representing an instance of this ScriptClass. </summary>
+            Ref<DynamicScriptInstance> Instantiate(MonoDomain* domain);
 
             /// <summary> Registers a method in this class. </summary>
             /// <returns>The hash of the method name: the MonoMethod* associated with the registered method is stored in a map of string hashes (std::unordered_map size_t,MonoMethod* ).
@@ -62,25 +106,68 @@ namespace Limnova
 
             MonoMethod* GetMethod(size_t methodNameHash);
             MonoMethod* GetMethod(std::string const& methodName) { return GetMethod(s_StringHasher(methodName)); }
-        public:
+
             /// <summary> Hashes the given string with the same std::hash object used internally to hash method names, and returns the hash. </summary>
-            size_t GetHashedName(std::string const& methodName) { return s_StringHasher(methodName); }
+            static size_t GetHashedName(std::string const& methodName) { return s_StringHasher(methodName); }
         };
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        class EntityScriptClass : public ScriptClass
+        {
+            friend class EntityScriptInstance;
+
+            MonoMethod* m_OnCreate = nullptr;
+            MonoMethod* m_OnUpdate = nullptr;
+        public:
+            /// <summary> Constructs and initializes a ScriptClass. Calling Initialize() on a ScriptClass instance constructed with this constructor will fail an assert! </summary>
+            EntityScriptClass(std::string const& className);
+
+            /// <summary> Creates (and returns the pointer to) a Mono object representing an instance of this ScriptClass. </summary>
+            Ref<EntityScriptInstance> Instantiate(MonoDomain* domain);
+        };
+
+        // -------------------------------------------------------------------------------------------------------------------------
 
         class ScriptInstance
         {
-            MonoObject* m_Instance = nullptr;
-            ScriptClass* m_ScriptClass = nullptr;
         public:
-            ScriptInstance() = delete;
             ScriptInstance(ScriptClass* scriptClass, MonoDomain* domain);
+        protected:
+            MonoObject* m_Instance = nullptr;
+        };
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        class DynamicScriptInstance : public ScriptInstance
+        {
+        public:
+            DynamicScriptInstance(DynamicScriptClass* dynamicScriptClass, MonoDomain* domain);
 
             void InvokeMethod(size_t methodNameHash, void** arguments = nullptr);
             void InvokeMethod(std::string const& methodName, void** arguments = nullptr) {
-                InvokeMethod(m_ScriptClass->GetHashedName(methodName), arguments);
+                InvokeMethod(((DynamicScriptClass*)m_scriptClass)->GetHashedName(methodName), arguments);
             }
+        private:
+            DynamicScriptClass* m_scriptClass = nullptr;
         };
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        class EntityScriptInstance : public ScriptInstance
+        {
+        public:
+            EntityScriptInstance(EntityScriptClass* entityScriptClass, MonoDomain* domain);
+
+            void InvokeOnCreate(void** argId);
+            void InvokeOnUpdate(void** argTimestep);
+        private:
+            EntityScriptClass* m_scriptClass;
+        };
+
     private:
+        // -------------------------------------------------------------------------------------------------------------------------
+
         struct ScriptEngineData
         {
             MonoDomain* RootDomain = nullptr;
@@ -89,9 +176,17 @@ namespace Limnova
             MonoAssembly* CoreAssembly = nullptr;
             MonoImage* CoreAssemblyImage = nullptr;
 
+            std::unordered_map<std::string, Ref<ScriptClass>> ScriptClasses = {};
+
+            std::unordered_map<UUID, size_t> EntityScripts = {};
+            std::vector<Ref<EntityScriptInstance>> EntityScriptInstances = {};
+
+            Scene* SceneCtx = nullptr;
+
             // testing
-            ScriptClass ScriptClass_Main = {};
+            Ref<DynamicScriptClass> ScriptClass_Main;
         };
+
         static ScriptEngineData* s_SEData;
     };
 

@@ -21,6 +21,13 @@ namespace Limnova
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern static void CrossVec3(ref Vec3 lhs, ref Vec3 rhs, out Vec3 res);
+
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void Entity_GetPosition(ulong entityId, out Vec3 pos);
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void Entity_SetPosition(ulong entityId, ref Vec3 pos);
     }
 
 
@@ -64,6 +71,37 @@ namespace Limnova
         {
             Native.LogTrace($"PrintVec3: ({x}, {y}, {z})");
         }
+    }
+
+
+    public class Entity
+    {
+        private ulong EntityId;
+
+        public void OnCreate(ulong entityId)
+        {
+            EntityId = entityId;
+            Native.LogInfo($"C#.Limnova.Entity.OnCreate({entityId})");
+        }
+
+        public void OnUpdate(float dT)
+        {
+        }
+
+
+        public Vec3 Position
+        {
+            get
+            {
+                Native.Entity_GetPosition(EntityId, out Vec3 position);
+                return position;
+            }
+            set
+            {
+                Native.Entity_SetPosition(EntityId, ref value);
+            }
+        }
+
     }
 
 }

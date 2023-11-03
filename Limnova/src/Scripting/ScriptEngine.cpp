@@ -1,6 +1,7 @@
 #include "ScriptEngine.h"
 
 #include "ScriptLibrary.h"
+#include "Scene/Scene.h"
 
 #include <mono/jit/jit.h>
 #include <mono/metadata/assembly.h>
@@ -59,21 +60,27 @@ namespace Limnova
         LV_CORE_ASSERT(s_SEData == nullptr, "ScriptEngine is already initialized!");
         s_SEData = new ScriptEngineData;
         InitMono();
-        ScriptLibrary::RegisterAllFunctions();
-
+        ScriptLibrary::RegisterInternalFunctions();
 
         // testing
-        s_SEData->ScriptClass_Main.Initialize("Main");
-        size_t method_PrintVec3 = s_SEData->ScriptClass_Main.RegisterMethod("PrintVec3", 3);
+        s_SEData->ScriptClass_Main = RegisterScriptClass<DynamicScriptClass>("Main");
+        size_t method_PrintVec3 = s_SEData->ScriptClass_Main->RegisterMethod("PrintVec3", 3);
 
-        Ref<ScriptInstance> instance = s_SEData->ScriptClass_Main.Instantiate(s_SEData->AppDomain); // Main() constructor
+        Ref<DynamicScriptInstance> instance = s_SEData->ScriptClass_Main->Instantiate(s_SEData->AppDomain); // Main() constructor
 
         //float x = 0.1f, y = 2.3f, z = 4.5f;
         //float* vecParams[] = { &x, &y, &z };
         //s_SEData->ScriptClass_Main.InvokeMethod(method_PrintVec3, instance, (void**)vecParams);
         //instance->InvokeMethod(method_PrintVec3, (void**)vecParams);
 
-        LV_CORE_ASSERT(false, "debug");
+        RegisterScriptClass<EntityScriptClass>("Entity");
+
+        auto rPlayerClass = RegisterScriptClass<EntityScriptClass>("Player");
+
+        auto rPlayer = rPlayerClass->Instantiate(s_SEData->AppDomain);
+        UUID dummyId;
+        void* args[] = { &dummyId };
+        rPlayer->InvokeOnCreate(args);
     }
 
     void ScriptEngine::Shutdown()
@@ -83,6 +90,62 @@ namespace Limnova
         s_SEData = nullptr;
     }
 
+
+    bool ScriptEngine::IsRegisteredScriptClass(std::string const& className)
+    {
+        return s_SEData->ScriptClasses.contains(className);
+    }
+
+    void ScriptEngine::OnSceneStart(Scene* scene)
+    {
+        s_SEData->SceneCtx = scene;
+
+        scene->m_Registry.view<ScriptComponent>().each([=](auto entity, auto& sc)
+        {
+            IDComponent const& idc = scene->GetComponent<IDComponent>(entity);
+            sc.HasScriptInstance = TryCreateEntityScript(idc.ID, sc.Name);
+        });
+    }
+
+    void ScriptEngine::OnSceneUpdate(Scene* scene, Timestep dT)
+    {
+        void* pDT = (void*)&dT;
+        for (size_t s = 0; s < s_SEData->EntityScriptInstances.size(); s++)
+        {
+            s_SEData->EntityScriptInstances[s]->InvokeOnUpdate((void**)&pDT);
+        }
+    }
+
+    void ScriptEngine::OnSceneStop()
+    {
+        s_SEData->SceneCtx = nullptr;
+
+        /// TODO : delete Mono objects ???
+
+        s_SEData->EntityScriptInstances.clear();
+        s_SEData->EntityScripts.clear();
+    }
+
+    bool ScriptEngine::TryCreateEntityScript(UUID entityId, std::string const& className)
+    {
+        auto itScriptClass = s_SEData->ScriptClasses.find(className);
+        if (itScriptClass == s_SEData->ScriptClasses.end() ||
+            itScriptClass->second->GetType() != ScriptClass::Type::Entity)
+        {
+            return false;
+        }
+
+        LV_CORE_ASSERT(!s_SEData->EntityScripts.contains(entityId), "Entity already has a script!");
+
+        s_SEData->EntityScripts.emplace(entityId, s_SEData->EntityScriptInstances.size());
+        auto& rNewInstance = s_SEData->EntityScriptInstances.emplace_back(
+            CastRef<EntityScriptClass>(itScriptClass->second)->Instantiate(s_SEData->AppDomain)
+        );
+
+        void* arg[] = { &entityId };
+        rNewInstance->InvokeOnCreate(arg);
+        return true;
+    }
 
     void ScriptEngine::InitMono()
     {
@@ -156,21 +219,12 @@ namespace Limnova
 
     /*** ScriptEngine::ScriptClass ***/
 
-    std::hash<std::string> ScriptEngine::ScriptClass::s_StringHasher = {};
-
-
     ScriptEngine::ScriptClass::ScriptClass(std::string const& className)
-    {
-        Initialize(className);
-    }
-
-    void ScriptEngine::ScriptClass::Initialize(std::string const& className)
     {
         LV_CORE_ASSERT(m_MonoClass == nullptr, "ScriptClass instance is already initialized!");
         m_MonoClass = mono_class_from_name(s_SEData->CoreAssemblyImage, "Limnova", className.c_str());
         m_ClassName = className;
     }
-
 
     Ref<ScriptEngine::ScriptInstance> ScriptEngine::ScriptClass::Instantiate(MonoDomain* domain)
     {
@@ -179,7 +233,25 @@ namespace Limnova
         return CreateRef<ScriptInstance>(this, domain);
     }
 
-    size_t ScriptEngine::ScriptClass::RegisterMethod(std::string const& methodName, size_t numArgs)
+
+    /*** ScriptEngine::DynamicScriptClass ***/
+
+    std::hash<std::string> ScriptEngine::DynamicScriptClass::s_StringHasher = {};
+
+    ScriptEngine::DynamicScriptClass::DynamicScriptClass(std::string const& className)
+        : ScriptClass(className)
+    {
+        m_Type = Type::Dynamic;
+    }
+
+    Ref<ScriptEngine::DynamicScriptInstance> ScriptEngine::DynamicScriptClass::Instantiate(MonoDomain* domain)
+    {
+        LV_CORE_ASSERT(m_MonoClass != nullptr, "DynamicScriptClass has not been initialized!");
+
+        return CreateRef<DynamicScriptInstance>(this, domain);
+    }
+
+    size_t ScriptEngine::DynamicScriptClass::RegisterMethod(std::string const& methodName, size_t numArgs)
     {
         LV_CORE_ASSERT(m_MonoClass != nullptr, "ScriptClass has not been initialized!");
 
@@ -191,23 +263,72 @@ namespace Limnova
         return methodNameHash;
     }
 
-    MonoMethod* ScriptEngine::ScriptClass::GetMethod(size_t methodNameHash)
+    MonoMethod* ScriptEngine::DynamicScriptClass::GetMethod(size_t methodNameHash)
     {
         return m_Methods.at(methodNameHash);
+    }
+
+
+    /*** ScriptEngine::EntityScriptClass ***/
+
+    ScriptEngine::EntityScriptClass::EntityScriptClass(std::string const& className)
+        : ScriptClass(className)
+    {
+        m_Type = Type::Entity;
+
+        m_OnCreate = mono_class_get_method_from_name(m_MonoClass, "OnCreate", 1);
+        m_OnUpdate = mono_class_get_method_from_name(m_MonoClass, "OnUpdate", 1);
+
+        LV_CORE_ASSERT(m_OnCreate != nullptr && m_OnUpdate != nullptr,
+            "Could not find required method implementation in given class!");
+    }
+
+    Ref<ScriptEngine::EntityScriptInstance> ScriptEngine::EntityScriptClass::Instantiate(MonoDomain* domain)
+    {
+        LV_CORE_ASSERT(m_MonoClass != nullptr, "ScriptClass has not been initialized!");
+
+        return CreateRef<EntityScriptInstance>(this, domain);
     }
 
 
     /*** ScriptEngine::ScriptInstance ***/
 
     ScriptEngine::ScriptInstance::ScriptInstance(ScriptClass* scriptClass, MonoDomain* domain)
-        : m_ScriptClass(scriptClass)
     {
         m_Instance = mono_object_new(domain, scriptClass->GetMonoClass());
     }
 
-    void ScriptEngine::ScriptInstance::InvokeMethod(size_t methodNameHash, void** arguments)
+
+    /*** ScriptEngine::DynamicScriptInstance ***/
+
+    ScriptEngine::DynamicScriptInstance::DynamicScriptInstance(DynamicScriptClass* dynamicScriptClass, MonoDomain* domain) :
+        ScriptInstance((ScriptClass*)dynamicScriptClass, domain),
+        m_scriptClass(dynamicScriptClass)
     {
-        mono_runtime_invoke(m_ScriptClass->GetMethod(methodNameHash), m_Instance, arguments, nullptr);
+    }
+
+    void ScriptEngine::DynamicScriptInstance::InvokeMethod(size_t methodNameHash, void** arguments)
+    {
+        mono_runtime_invoke(m_scriptClass->GetMethod(methodNameHash), m_Instance, arguments, nullptr);
+    }
+
+
+    /*** ScriptEngine::EntityScriptInstance ***/
+
+    ScriptEngine::EntityScriptInstance::EntityScriptInstance(EntityScriptClass* entityScriptClass, MonoDomain* domain) :
+        ScriptInstance((ScriptClass*)entityScriptClass, domain),
+        m_scriptClass(entityScriptClass)
+    {
+    }
+
+    void ScriptEngine::EntityScriptInstance::InvokeOnCreate(void** argId)
+    {
+        mono_runtime_invoke(m_scriptClass->m_OnCreate, m_Instance, argId, nullptr);
+    }
+
+    void ScriptEngine::EntityScriptInstance::InvokeOnUpdate(void** argTimestep)
+    {
+        mono_runtime_invoke(m_scriptClass->m_OnUpdate, m_Instance, argTimestep, nullptr);
     }
 
 }
