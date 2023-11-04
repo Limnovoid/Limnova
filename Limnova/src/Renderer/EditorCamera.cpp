@@ -35,9 +35,9 @@ namespace Limnova
 
         // Camera control //
 
-        bool shift = Input::IsKeyPressed(LV_KEY_LEFT_SHIFT);
-        bool ctrl = Input::IsKeyPressed(LV_KEY_LEFT_CONTROL);
-        bool alt = Input::IsKeyPressed(LV_KEY_LEFT_ALT);
+        bool shift = Input::IsKeyPressed(KEY_LEFT_SHIFT);
+        bool ctrl = Input::IsKeyPressed(KEY_LEFT_CONTROL);
+        bool alt = Input::IsKeyPressed(KEY_LEFT_ALT);
 
         if (m_Dragging && !shift && !ctrl && !alt)
         {
@@ -77,13 +77,13 @@ namespace Limnova
         else if (m_IsViewportFocused && !m_IsEntitySelected)
         {
             // Key movement control
-            if (Input::IsKeyPressed(LV_KEY_A))
+            if (Input::IsKeyPressed(KEY_A))
                 moveDir += walkLeft;
-            if (Input::IsKeyPressed(LV_KEY_D))
+            if (Input::IsKeyPressed(KEY_D))
                 moveDir -= walkLeft;
-            if (Input::IsKeyPressed(LV_KEY_W))
+            if (Input::IsKeyPressed(KEY_W))
                 moveDir += walkForward;
-            if (Input::IsKeyPressed(LV_KEY_S))
+            if (Input::IsKeyPressed(KEY_S))
                 moveDir -= walkForward;
         }
         m_FocusPoint += moveDir.Normalized() * m_DragRate * dT;
@@ -104,7 +104,7 @@ namespace Limnova
 
     bool EditorCamera::OnMouseButtonPressed(MouseButtonPressedEvent& e)
     {
-        if (e.GetMouseButton() == LV_MOUSE_BUTTON_RIGHT)
+        if (e.GetMouseButton() == MOUSE_BUTTON_RIGHT)
         {
             if (m_IsViewportHovered) {
                 m_Dragging = true;
@@ -116,7 +116,7 @@ namespace Limnova
 
     bool EditorCamera::OnMouseButtonReleased(MouseButtonReleasedEvent& e)
     {
-        if (e.GetMouseButton() == LV_MOUSE_BUTTON_RIGHT)
+        if (e.GetMouseButton() == MOUSE_BUTTON_RIGHT)
         {
             m_Dragging = false;
         }

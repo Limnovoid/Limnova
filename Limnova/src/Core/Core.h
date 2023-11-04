@@ -69,9 +69,9 @@ namespace Limnova
     }
 
     template<typename T, typename U>
-    constexpr Ref<T> CastRef(Ref<U> rDerived)
+    constexpr Ref<T> CastRef(Ref<U> ref)
     {
-        return std::static_pointer_cast<T>(rDerived);
+        return std::static_pointer_cast<T>(ref);
     }
 
 }

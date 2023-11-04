@@ -20,7 +20,10 @@ namespace Limnova
 
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern static void CrossVec3(ref Vec3 lhs, ref Vec3 rhs, out Vec3 res);
+        internal extern static void Vector3_Cross(ref Vec3 lhs, ref Vec3 rhs, out Vec3 res);
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void Vector3_Normalized(ref Vec3 vec3, out Vec3 res);
 
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -28,6 +31,10 @@ namespace Limnova
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern static void Entity_SetPosition(ulong entityId, ref Vec3 pos);
+
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void Input_IsKeyPressed(KeyCode keyCode, out bool isPressed);
     }
 
 
@@ -42,9 +49,38 @@ namespace Limnova
 
         public Vec3 Cross(Vec3 rhs)
         {
-            Native.CrossVec3(ref this, ref rhs, out Vec3 res);
+            Native.Vector3_Cross(ref this, ref rhs, out Vec3 res);
             return res;
         }
+
+        public Vec3 Normalized()
+        {
+            Native.Vector3_Normalized(ref this, out Vec3 res);
+            return res;
+        }
+
+        // Operators ---------------------------------------------------------------------------------------------------------------
+
+        public static Vec3 operator +(Vec3 lhs, Vec3 rhs)
+        {
+            return new Vec3(lhs.X + rhs.X, lhs.Y + rhs.Y, lhs.Z + rhs.Z);
+        }
+
+        public static Vec3 operator -(Vec3 lhs, Vec3 rhs)
+        {
+            return new Vec3(lhs.X - rhs.X, lhs.Y - rhs.Y, lhs.Z - rhs.Z);
+        }
+
+        public static Vec3 operator *(Vec3 vec3, float scalar)
+        {
+            return new Vec3(vec3.X * scalar, vec3.Y * scalar, vec3.Z * scalar);
+        }
+
+        public static Vec3 operator *(float scalar, Vec3 vec3)
+        {
+            return new Vec3(vec3.X * scalar, vec3.Y * scalar, vec3.Z * scalar);
+        }
+
     }
 
 
@@ -88,7 +124,6 @@ namespace Limnova
         {
         }
 
-
         public Vec3 Position
         {
             get
@@ -101,7 +136,6 @@ namespace Limnova
                 Native.Entity_SetPosition(EntityId, ref value);
             }
         }
-
     }
 
 }

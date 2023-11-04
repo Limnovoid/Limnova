@@ -160,6 +160,7 @@ namespace Limnova
         void Destroy(entt::entity entity) {
             LV_CORE_ASSERT(Valid(entity), "Attempting to destroy invalid entity!");
             m_Registry.destroy(entity);
+            m_Entities.erase(GetComponent<IDComponent>(entity).ID);
         }
     protected:
         entt::registry m_Registry;

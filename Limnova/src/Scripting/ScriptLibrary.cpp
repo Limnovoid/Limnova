@@ -5,7 +5,11 @@
 #include <mono/metadata/object.h>
 
 #include <Math/Math.h>
+
 #include <Core/UUID.h>
+#include <Core/Input.h>
+#include <Core/KeyCodes.h>
+
 #include <Scene/Scene.h>
 #include <Scene/Entity.h>
 
@@ -30,9 +34,14 @@ namespace Limnova
         static void LogWarn(MonoString* message) { LV_WARN(ToString(message)); }
         static void LogError(MonoString* message) { LV_ERROR(ToString(message)); }
 
-        static void CrossVec3(Vector3* lhs, Vector3* rhs, Vector3* res)
+        static void Vector3_Cross(Vector3* lhs, Vector3* rhs, Vector3* res)
         {
             *res = lhs->Cross(*rhs);
+        }
+
+        static void Vector3_Normalized(Vector3* vec3, Vector3* res)
+        {
+            *res = vec3->Normalized();
         }
 
         static void Entity_GetPosition(UUID entityId, Vector3* position)
@@ -46,6 +55,11 @@ namespace Limnova
             Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
             entity.GetComponent<TransformComponent>().SetPosition(*position);
         }
+
+        static void Input_IsKeyPressed(KeyCode keyCode, bool* isPressed)
+        {
+            *isPressed = Input::IsKeyPressed(keyCode);
+        }
     }
 
 
@@ -57,9 +71,14 @@ namespace Limnova
         LV_ADD_INTERNAL_CALL(LogTrace);
         LV_ADD_INTERNAL_CALL(LogWarn);
         LV_ADD_INTERNAL_CALL(LogError);
-        LV_ADD_INTERNAL_CALL(CrossVec3);
+
+        LV_ADD_INTERNAL_CALL(Vector3_Cross);
+        LV_ADD_INTERNAL_CALL(Vector3_Normalized);
+
         LV_ADD_INTERNAL_CALL(Entity_GetPosition);
         LV_ADD_INTERNAL_CALL(Entity_SetPosition);
+
+        LV_ADD_INTERNAL_CALL(Input_IsKeyPressed);
     }
 
 }

@@ -23,17 +23,17 @@ namespace Limnova
 
             auto& transform = GetComponent<TransformComponent>();
             Vector3 moveDir{ 0.f };
-            if (Input::IsKeyPressed(LV_KEY_A))
+            if (Input::IsKeyPressed(KEY_A))
                 moveDir.x = -1.f;
-            if (Input::IsKeyPressed(LV_KEY_D))
+            if (Input::IsKeyPressed(KEY_D))
                 moveDir.x = 1.f;
-            if (Input::IsKeyPressed(LV_KEY_W))
+            if (Input::IsKeyPressed(KEY_W))
                 moveDir.y = 1.f;
-            if (Input::IsKeyPressed(LV_KEY_S))
+            if (Input::IsKeyPressed(KEY_S))
                 moveDir.y = -1.f;
-            if (Input::IsKeyPressed(LV_KEY_Q))
+            if (Input::IsKeyPressed(KEY_Q))
                 moveDir.z = 1.f;
-            if (Input::IsKeyPressed(LV_KEY_E))
+            if (Input::IsKeyPressed(KEY_E))
                 moveDir.z = -1.f;
             static constexpr float moveSpeed = 1.f;
             transform.SetPosition(transform.GetPosition() + (moveDir.Normalized() * moveSpeed * dT));
@@ -63,7 +63,7 @@ namespace Limnova
 
             if (!IsActiveCamera()) return;
 
-            if (Input::IsMouseButtonPressed(LV_MOUSE_BUTTON_RIGHT))
+            if (Input::IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
             {
                 m_Azimuth -= deltaX * m_MouseSens; /* Subtract so that left-mouse-drag produces counter-clockwise rotation about UP-axis */
                 m_Azimuth = Wrapf(m_Azimuth, 0.f, PI2f);
@@ -80,13 +80,13 @@ namespace Limnova
             Vector3 aimDirection = orientation.RotateVector(Vector3::Forward());
 
             Vector3 moveDir{ 0.f };
-            if (Input::IsKeyPressed(LV_KEY_A))
+            if (Input::IsKeyPressed(KEY_A))
                 moveDir += walkLeft;
-            if (Input::IsKeyPressed(LV_KEY_D))
+            if (Input::IsKeyPressed(KEY_D))
                 moveDir -= walkLeft;
-            if (Input::IsKeyPressed(LV_KEY_W))
+            if (Input::IsKeyPressed(KEY_W))
                 moveDir += walkForward;
-            if (Input::IsKeyPressed(LV_KEY_S))
+            if (Input::IsKeyPressed(KEY_S))
                 moveDir -= walkForward;
             m_FocusOffset += moveDir.Normalized() * m_OffsetSpeed * dT;
 

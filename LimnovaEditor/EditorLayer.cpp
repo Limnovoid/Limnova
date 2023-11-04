@@ -617,7 +617,7 @@ namespace Limnova
                 Matrix4 transform = tc.GetTransform();
 
                 // Snapping
-                bool snap = Input::IsKeyPressed(LV_KEY_LEFT_CONTROL);
+                bool snap = Input::IsKeyPressed(KEY_LEFT_CONTROL);
                 float snapValue = 0.f;
                 switch (m_ActiveGizmo) {
                 case ImGuizmo::OPERATION::TRANSLATE:    snapValue = m_SnapTranslate; break;
@@ -763,24 +763,24 @@ namespace Limnova
 
     bool EditorLayer::OnKeyPressed(KeyPressedEvent& e)
     {
-        bool ctrl = Input::IsKeyPressed(LV_KEY_LEFT_CONTROL) || Input::IsKeyPressed(LV_KEY_RIGHT_CONTROL);
-        bool shift = Input::IsKeyPressed(LV_KEY_LEFT_SHIFT) || Input::IsKeyPressed(LV_KEY_RIGHT_SHIFT);
+        bool ctrl = Input::IsKeyPressed(KEY_LEFT_CONTROL) || Input::IsKeyPressed(KEY_RIGHT_CONTROL);
+        bool shift = Input::IsKeyPressed(KEY_LEFT_SHIFT) || Input::IsKeyPressed(KEY_RIGHT_SHIFT);
 
         // Shortcuts
         switch (e.GetKeyCode())
         {
             // File
-        case LV_KEY_N:
+        case KEY_N:
             if (ctrl) {
                 NewScene();
             }
             break;
-        case LV_KEY_O:
+        case KEY_O:
             if (ctrl) {
                 OpenScene();
             }
             break;
-        case LV_KEY_S:
+        case KEY_S:
             if (ctrl && shift) {
                 SaveSceneAs();
             }
@@ -790,22 +790,22 @@ namespace Limnova
             break;
 
             // Scene
-        case LV_KEY_D:
+        case KEY_D:
             if (ctrl) {
                 OnDuplicateEntity();
             }
 
             // Gizmo
-        case LV_KEY_Q:
+        case KEY_Q:
             m_ActiveGizmo = -1;
             break;
-        case LV_KEY_W:
+        case KEY_W:
             m_ActiveGizmo = ImGuizmo::OPERATION::TRANSLATE;
             break;
-        case LV_KEY_E:
+        case KEY_E:
             m_ActiveGizmo = ImGuizmo::OPERATION::ROTATE;
             break;
-        case LV_KEY_R:
+        case KEY_R:
             m_ActiveGizmo = ImGuizmo::OPERATION::SCALE;
             break;
         }
@@ -815,7 +815,7 @@ namespace Limnova
 
     bool EditorLayer::OnMouseButtonPressed(MouseButtonPressedEvent& e)
     {
-        if (e.GetMouseButton() == LV_MOUSE_BUTTON_LEFT)
+        if (e.GetMouseButton() == MOUSE_BUTTON_LEFT)
         {
             if (CanMousePick()) {
                 m_SceneHierarchyPanel.SetSelectedEntity(m_HoveredEntity);
