@@ -5,8 +5,12 @@ project(LimnovaScriptCore
 )
 
 add_library(${PROJECT_NAME} STATIC
-    "Source/Main.cs"
     "Source/Input.cs"
+    "Source/Main.cs"
+    "Source/Math.cs"
+    "Source/Native.cs"
+
+    "Source/Scene/Entity.cs"
 
     "Source/Player.cs"
 )

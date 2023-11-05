@@ -29,6 +29,7 @@ namespace Limnova
         m_OrbitalReferenceNormal = m_OrbitalReferenceFrameOrientation.RotateVector(Vector3::Z());
 
         m_TrackingEntity = m_Root;
+        m_RelativeViewSpace = -1;
         m_ViewLSpace = OrbitalPhysics::GetRootLSpaceNode();
         m_ViewObject = OrbitalPhysics::GetRootObjectNode();
 
@@ -83,6 +84,7 @@ namespace Limnova
         newScene->m_PerifocalAxisArrowSize = scene->m_PerifocalAxisArrowSize;
 
         newScene->m_TrackingEntity = scene->m_TrackingEntity;
+        newScene->m_RelativeViewSpace = scene->m_RelativeViewSpace;
         newScene->m_ViewLSpace = scene->m_ViewLSpace;
         newScene->m_ViewObject = scene->m_ViewObject;
 
@@ -157,19 +159,22 @@ namespace Limnova
         return OrbitalPhysics::GetRootLSpaceNode().GetLSpace().MetersPerRadius;
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     void OrbitalScene::SetTrackingEntity(Entity entity)
     {
         m_TrackingEntity = entity.GetUUID();
 
-        m_ViewObject = GetEntityObject(entity.m_EnttId);
-        m_ViewLSpace = GetEntityLSpace(entity.m_EnttId);
-
-        // TODO : update relative view space index to keep the view space the same/as close as possible
+        m_RelativeViewSpace = -1; // TODO : update relative view space index to keep the view space the same/as close as possible
+        SetRelativeViewSpace(m_RelativeViewSpace);
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     void OrbitalScene::SetRelativeViewSpace(int relativeViewSpaceIndex)
     {
+        m_RelativeViewSpace = relativeViewSpaceIndex;
+
         entt::entity trackingEntt = m_Entities.at(m_TrackingEntity);
         m_ViewObject = GetEntityObject(trackingEntt);
 
@@ -191,11 +196,14 @@ namespace Limnova
         }
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     void OrbitalScene::SetParent(Entity entity, Entity parent)
     {
         SetParentAndLocalSpace(entity, parent, entity.HasComponent<OrbitalComponent>() ? 0 : -1);
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     void OrbitalScene::SetParentAndLocalSpace(Entity entity, Entity parent, int localSpaceRelativeToParent)
     {
@@ -228,6 +236,8 @@ namespace Limnova
         entity.GetComponent<OrbitalHierarchyComponent>().LocalSpaceRelativeToParent = localSpaceRelativeToParent;
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
+
     void OrbitalScene::SetLocalSpace(Entity entity, int localSpaceRelativeToParent)
     {
         LV_ASSERT(localSpaceRelativeToParent >= -1, "Invalid localSpaceRelativeToParent!");
@@ -251,11 +261,14 @@ namespace Limnova
         oc.Object.SetLocalSpace(newLsp);
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
+
     OrbitalPhysics::LSpaceNode OrbitalScene::GetLocalSpace(Entity entity)
     {
         return GetEntityLSpace(entity.m_EnttId);
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     /// <summary>
     /// Returns vector containing all orbital entities in local spaces belonging to the given entity, sorted in descending order of local spaces.
@@ -275,6 +288,8 @@ namespace Limnova
         }
         return secondaries;
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     /// <summary>
     /// Returns vector containing all orbital entities in local spaces belonging to or descended from the given primary. sprted in descending order of local spaces.
