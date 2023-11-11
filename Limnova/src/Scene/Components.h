@@ -330,4 +330,10 @@ namespace Limnova
         operator OrbitalPhysics::ObjectNode() const { return Object; }
     };
 
+
+    template<typename... Component>
+    struct ComponentGroup
+    {
+    };
+
 }

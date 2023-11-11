@@ -60,27 +60,24 @@ namespace Limnova
         LV_CORE_ASSERT(s_SEData == nullptr, "ScriptEngine is already initialized!");
         s_SEData = new ScriptEngineData;
         InitMono();
-        ScriptLibrary::RegisterInternalFunctions();
+
+        ScriptLibrary::RegisterComponentTypes(s_SEData->CoreAssemblyImage); // called after InitMono() has initialized CoreAssemblyImage
+        ScriptLibrary::RegisterInternalCalls();
 
         // testing
-        s_SEData->ScriptClass_Main = RegisterScriptClass<DynamicScriptClass>("Main");
-        size_t method_PrintVec3 = s_SEData->ScriptClass_Main->RegisterMethod("PrintVec3", 3);
+        auto rPlayerClass = RegisterScriptClass<EntityScriptClass>("Player");
 
-        Ref<DynamicScriptInstance> instance = s_SEData->ScriptClass_Main->Instantiate(s_SEData->AppDomain); // Main() constructor
+        //s_SEData->ScriptClass_Main = RegisterScriptClass<DynamicScriptClass>("Main");
+        //size_t method_PrintVec3 = s_SEData->ScriptClass_Main->RegisterMethod("PrintVec3", 3);
+
+        //Ref<DynamicScriptInstance> instance = s_SEData->ScriptClass_Main->Instantiate(s_SEData->AppDomain); // Main() constructor
 
         //float x = 0.1f, y = 2.3f, z = 4.5f;
         //float* vecParams[] = { &x, &y, &z };
         //s_SEData->ScriptClass_Main.InvokeMethod(method_PrintVec3, instance, (void**)vecParams);
         //instance->InvokeMethod(method_PrintVec3, (void**)vecParams);
 
-        RegisterScriptClass<EntityScriptClass>("Entity");
-
-        auto rPlayerClass = RegisterScriptClass<EntityScriptClass>("Player");
-
-        auto rPlayer = rPlayerClass->Instantiate(s_SEData->AppDomain);
-        UUID dummyId;
-        void* args[] = { &dummyId };
-        rPlayer->InvokeOnCreate(args);
+        //RegisterScriptClass<EntityScriptClass>("Entity");
     }
 
     void ScriptEngine::Shutdown()

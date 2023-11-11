@@ -11,6 +11,7 @@ add_library(${PROJECT_NAME} STATIC
     "Source/Native.cs"
 
     "Source/Scene/Entity.cs"
+    "Source/Scene/Components.cs"
 
     "Source/Player.cs"
 )

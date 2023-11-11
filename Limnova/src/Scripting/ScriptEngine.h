@@ -77,6 +77,7 @@ namespace Limnova
         public:
             /// <summary> Constructs and initializes a ScriptClass. Calling Initialize() on a ScriptClass instance constructed with this constructor will fail an assert! </summary>
             ScriptClass(std::string const& className);
+
             /// <summary> Returns the stored pointer to the Mono object associated with this ScriptClass. </summary>
             MonoClass* GetMonoClass() const { return m_MonoClass; }
 

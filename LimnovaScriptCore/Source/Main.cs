@@ -6,8 +6,6 @@ namespace Limnova
 
     public class Main
     {
-        public float FloatVar { get; set; }
-
         public Main()
         {
             Native.LogInfo("C#.Limnova.Main.Main()");
@@ -23,10 +21,6 @@ namespace Limnova
             //InternalCalls.Native_PrintVec3(ref v1Xv2);
         }
 
-        public void PrintVec3(float x, float y, float z)
-        {
-            Native.LogTrace($"PrintVec3: ({x}, {y}, {z})");
-        }
     }
 
 }

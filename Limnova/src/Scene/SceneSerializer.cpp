@@ -3,6 +3,7 @@
 #include "Entity.h"
 #include "Components.h"
 
+
 #define LV_YAML_SERIALIZE_NODE(outstream, stringkey, value)\
 outstream << YAML::Key << stringkey << YAML::Value << value;
 

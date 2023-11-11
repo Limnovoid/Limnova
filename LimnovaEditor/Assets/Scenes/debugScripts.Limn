@@ -162,8 +162,6 @@ Entities:
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
       Scale: [2.39999991e-07, 2.39999991e-07, 8.00000011e-10]
-    ScriptComponent:
-      Name: Player
     BillboardCircleRendererComponent:
       Color: [0, 0.445497751, 1, 1]
       Thickness: 1
