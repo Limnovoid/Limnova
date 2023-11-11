@@ -7,6 +7,7 @@ add_executable(${PROJECT_NAME}
     "NativeScripts/CameraScripts.h"
 
     "Panels/SceneHierarchyPanel.cpp"
+    "Panels/AssetBrowserPanel.cpp"
 )
 
 

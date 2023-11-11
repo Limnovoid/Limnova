@@ -774,7 +774,6 @@ namespace Limnova
         out << YAML::Key << "PerifocalAxisArrowSize"    << YAML::Value << scene->m_PerifocalAxisArrowSize;
 
         out << YAML::Key << "TrackingEntity"            << YAML::Value << (uint64_t)(scene->m_TrackingEntity);
-        out << YAML::Key << "ViewSpace"                 << YAML::Value << scene->m_ViewSpaceRelativeToTrackedEntity;
 
         out << YAML::Key << "RootScaling"               << YAML::Value << scene->GetRootScaling();
 
@@ -850,7 +849,6 @@ namespace Limnova
 
         // Editor view space
         scene->SetTrackingEntity(           scene->GetEntity(data["TrackingEntity"].as<uint64_t>()));
-        scene->SetRelativeViewSpace(        data["ViewSpace"].as<int>());
 
         return true;
     }

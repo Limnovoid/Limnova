@@ -26,7 +26,8 @@ namespace Limnova
 
         void SetTrackingEntity(Entity primary);
         void SetRelativeViewSpace(int viewSpaceRelativeToTrackingEntity = 0);
-        Entity GetViewPrimary();
+        OrbitalPhysics::LSpaceNode GetViewSpace() { return m_ViewLSpace; }
+        OrbitalPhysics::ObjectNode GetViewObject() { return m_ViewObject; }
 
         void SetParent(Entity entity, Entity parent) override;
         void SetParentAndLocalSpace(Entity entity, Entity parent, int localSpaceRelativeToParent);
@@ -50,7 +51,10 @@ namespace Limnova
         void UpdateOrbitalScene();
         void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, float cameraDistance);
 
+        void RenderLocalSpace(const Quaternion& cameraOrientation, float cameraDistance);
+
         OrbitalPhysics::LSpaceNode GetEntityLSpace(entt::entity entity);
+        OrbitalPhysics::ObjectNode GetEntityObject(entt::entity entity);
 
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
         void OnOrbitalComponentUpdate(entt::registry&, entt::entity);
@@ -83,8 +87,8 @@ namespace Limnova
         std::map<OrbitalPhysics::TNodeId, entt::entity> m_PhysicsToEnttIds;
 
         UUID m_TrackingEntity;
-        int m_ViewSpaceRelativeToTrackedEntity;
         OrbitalPhysics::LSpaceNode m_ViewLSpace;
+        OrbitalPhysics::ObjectNode m_ViewObject;
 
         Quaternion m_OrbitalReferenceFrameOrientation; /* Orientation of the orbital physics system's reference frame relative to the scene frame */
         Vector3 m_OrbitalReferenceX, m_OrbitalReferenceY, m_OrbitalReferenceNormal;

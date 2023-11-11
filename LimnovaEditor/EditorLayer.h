@@ -3,6 +3,7 @@
 #include <Limnova.h>
 
 #include "Panels/SceneHierarchyPanel.h"
+#include "Panels/AssetBrowserPanel.h"
 
 
 namespace Limnova
@@ -38,6 +39,7 @@ namespace Limnova
 
         void NewScene();
         void OpenScene();
+        void OpenScene(std::filesystem::path filepath);
         void SaveScene();
         void SaveSceneAs();
 
@@ -65,6 +67,7 @@ namespace Limnova
         bool m_ViewportFocused = false, m_ViewportHovered = false;
 
         SceneHierarchyPanel m_SceneHierarchyPanel;
+        AssetBrowserPanel m_AssetBrowserPanel;
 
         SceneState m_SceneState = SceneState::Edit;
         Ref<Texture2D> m_IconPlay;
@@ -77,6 +80,7 @@ namespace Limnova
 
         int m_ActiveGizmo = -1; /* from ImGuizmo::OPERATION */
         float m_SnapTranslate = 0.5f, m_SnapRotate = 45.f, m_SnapScale = 0.5f;
+
 
 #if defined(LV_DEBUG) && defined(LV_EDITOR_USE_ORBITAL)
     private:

@@ -292,8 +292,8 @@ namespace Limnova
 
         bool isRoot = entity.GetUUID() == m_Scene->m_Root;
         bool isOrbital = entity.HasComponent<OrbitalComponent>();
-        bool isOrbitalViewParent = isOrbital ? entity == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
-        bool isOrbitalViewObject = (!isRoot && isOrbital) ? entity.GetParent() == ((OrbitalScene*)m_Scene)->GetViewPrimary() : false;
+        bool isOrbitalViewParent = isOrbital ? entity.GetComponent<OrbitalComponent>().Object == ((OrbitalScene*)m_Scene)->m_ViewLSpace.ParentObj() : false;
+        bool isOrbitalViewObject = isOrbital ? entity.GetComponent<OrbitalComponent>().Object == ((OrbitalScene*)m_Scene)->m_ViewObject : false;
 
         ComponentInspector<TransformComponent>(entity, "Transform", false, [&]()
         {
@@ -520,11 +520,7 @@ namespace Limnova
 
             LimnGui::ColorEdit3("UI Color", orbital.UIColor);
 
-            auto& obj = orbital.Object.GetObj();
-            auto& state = orbital.Object.GetState();
-            auto& lsp = (orbital.Object.IsRoot() ? OrbitalPhysics::GetRootLSpaceNode() : orbital.Object.ParentLsp()).GetLSpace();
-
-            switch (obj.Validity)
+            switch (orbital.Object.GetObj().Validity)
             {
             case OrbitalPhysics::Validity::Valid:          ImGui::Text(                                "Validity: Valid");             break;
             case OrbitalPhysics::Validity::InvalidParent:  ImGui::TextColored({1.f, 0.f, 0.f, 0.8f},   "Validity: Invalid Parent!");   break;
@@ -566,7 +562,6 @@ namespace Limnova
                     ImGui::SameLine();
 
                     auto lspNode = orbital.LocalSpaces[l];
-                    auto& lsp = lspNode.GetLSpace();
 
                     bool isSoi = lspNode.IsSphereOfInfluence();
                     if (isSoi) { ImGui::Text("Sphere of Influence"); }
@@ -582,7 +577,7 @@ namespace Limnova
 
                     // Radius
                     {
-                        float localSpaceRadius = lsp.Radius;
+                        float localSpaceRadius = lspNode.GetLSpace().Radius;
                         LimnGui::InputConfig<float> config;
                         config.Speed = 0.0001f;
                         config.Precision = 4;
@@ -598,15 +593,16 @@ namespace Limnova
 
                     // Absolute radius
                     {
-                        double value = lsp.MetersPerRadius;
+                        double value = lspNode.GetLSpace().MetersPerRadius;
                         LimnGui::InputConfig<float> config;
+                        config.WidgetId = lspNode.Id();
                         config.ReadOnly = true;
                         LimnGui::InputScientific("Meters per radius", value);
                     }
 
                     // Local gravity parameter
                     {
-                        double grav = lsp.Grav;
+                        double grav = lspNode.GetLSpace().Grav;
                         LimnGui::InputConfig<double> config;
                         config.ReadOnly = true;
                         config.WidgetId = lspNode.Id();
@@ -661,7 +657,7 @@ namespace Limnova
                 ImGui::BeginDisabled(!(isOrbitalViewParent || isOrbitalViewObject));
 
                 // Mass
-                double mass = state.Mass;
+                double mass = orbital.Object.GetState().Mass;
                 if (LimnGui::InputScientific("Mass", mass))
                 {
                     orbital.Object.SetMass(mass);
@@ -674,21 +670,22 @@ namespace Limnova
 
                 static bool useAbsolute = false;
                 LimnGui::Checkbox("Use absolute values", useAbsolute);
+                double localAbsoluteScaling = orbital.Object.IsRoot() ? 1.0 : orbital.Object.ParentLsp().GetLSpace().MetersPerRadius;
 
                 // Position
                 if (useAbsolute)
                 {
-                    Vector3d position = (Vector3d)state.Position * lsp.MetersPerRadius;
+                    Vector3d position = (Vector3d)orbital.Object.GetState().Position * localAbsoluteScaling;
                     LimnGui::InputConfig<double> config;
                     config.Precision = 5;
                     config.Scientific = true;
                     if (LimnGui::InputVec3d("Position", position, config)) {
-                        orbital.Object.SetPosition((Vector3)(position / lsp.MetersPerRadius));
+                        orbital.Object.SetPosition((Vector3)(position / localAbsoluteScaling));
                     }
                 }
                 else
                 {
-                    Vector3 position = state.Position;
+                    Vector3 position = orbital.Object.GetState().Position;
                     LimnGui::InputConfig<float> config;
                     config.Speed = 0.0001f;
                     config.Precision = 4;
@@ -703,8 +700,10 @@ namespace Limnova
                 // Velocity
                 if (entity != m_Scene->GetRoot())
                 {
-                    Vector3d velocity = state.Velocity;
-                    if (useAbsolute) { velocity *= lsp.MetersPerRadius; }
+                    Vector3d velocity = orbital.Object.GetState().Velocity;
+                    if (useAbsolute) { velocity *= localAbsoluteScaling; }
+                    bool valueChanged = false;
+
                     LimnGui::InputConfig<double> config;
                     config.Speed = 0.0001;
                     config.FastSpeed = 0.01;
@@ -712,10 +711,7 @@ namespace Limnova
                     config.Scientific = true;
                     config.ResetValue = 0.f;
                     if (LimnGui::InputVec3d("Velocity", velocity, config)) {
-                        if (useAbsolute) {
-                            velocity /= lsp.MetersPerRadius;
-                        }
-                        orbital.Object.SetVelocity(velocity);
+                        valueChanged = true;
                     }
 
                     if (ImGui::Button("Circularize")) {
@@ -725,7 +721,15 @@ namespace Limnova
                     ImGui::SameLine();
 
                     if (ImGui::Button("Reverse")) {
-                        orbital.Object.SetVelocity(-velocity);
+                        velocity = -velocity;
+                        valueChanged = true;
+                    }
+
+                    if (valueChanged) {
+                        if (useAbsolute) {
+                            velocity /= localAbsoluteScaling;
+                        }
+                        orbital.Object.SetVelocity(velocity);
                     }
                 }
 
@@ -1204,7 +1208,7 @@ namespace Limnova
             formatStr = formatting.str();
         }
 
-        ImGuiInputTextFlags flags = 0;
+        ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;
         if (config.ReadOnly) flags |= ImGuiInputTextFlags_ReadOnly;
 
         // X
