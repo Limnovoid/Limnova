@@ -1899,6 +1899,9 @@ namespace Limnova
             m_Stats.ObjStats.resize(m_Objects.size(), ObjStats());*/
 #endif
 
+            if (m_Ctx->m_UpdateQueueFront.IsNull())
+                return;
+
             // Subtract elapsed time from all object timers
             ObjectNode objNode = m_Ctx->m_UpdateQueueFront;
             do {
