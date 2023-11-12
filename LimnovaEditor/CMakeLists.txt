@@ -4,10 +4,10 @@ add_executable(${PROJECT_NAME}
     "LimnovaEditorApp.cpp"
     "EditorLayer.cpp"
 
-    "NativeScripts/CameraScripts.h"
-
     "Panels/SceneHierarchyPanel.cpp"
     "Panels/AssetBrowserPanel.cpp"
+
+    "Resources/NativeScripts/CameraScripts.h"
 )
 
 

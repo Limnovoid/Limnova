@@ -49,9 +49,8 @@ namespace Limnova
         if (commandLineArgs.Count > 2)
         {
             std::string sceneFilePath = commandLineArgs[2];
-            if (!SceneSerializer::Deserialize(m_ActiveScene.get(), sceneFilePath)) {
+            if (!SceneSerializer::Deserialize(m_ActiveScene.get(), sceneFilePath))
                 LV_CORE_ERROR("Could not load default scene!");
-            }
         }
 
     #ifdef LV_DEBUG
