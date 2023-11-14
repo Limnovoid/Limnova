@@ -60,62 +60,61 @@ namespace Limnova
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow
             | ImGuiTreeNodeFlags_SpanAvailWidth;
 
-        if (forceExpanded) flags |= ImGuiTreeNodeFlags_DefaultOpen;
-        if (entity == m_SelectedEntity) flags |= ImGuiTreeNodeFlags_Selected;
+        if (forceExpanded)
+            flags |= ImGuiTreeNodeFlags_DefaultOpen;
+        if (entity == m_SelectedEntity)
+            flags |= ImGuiTreeNodeFlags_Selected;
 
         auto& tag = entity.GetComponent<TagComponent>();
         bool isRoot = entity.GetUUID() == m_Scene->m_Root;
 
         auto children = m_Scene->GetChildren(entity);
-        if (children.empty()) flags |= ImGuiTreeNodeFlags_Leaf;
+        if (children.empty())
+            flags |= ImGuiTreeNodeFlags_Leaf;
 
         bool expanded = ImGui::TreeNodeEx((void*)(uint64_t)(uint32_t)entity, flags, tag.Tag.c_str());
         bool deleteEntity = false;
         {
-            if (ImGui::IsItemClicked()) {
+            if (ImGui::IsItemClicked())
                 m_SelectedEntity = entity;
-            }
 
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
             {
                 // Handle double-clicks on entity node:
-
-                if (entity.HasComponent<OrbitalComponent>()) {
+                if (entity.HasComponent<OrbitalComponent>())
                     ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
-                }
             }
 
             if (ImGui::BeginPopupContextItem())
             {
-                if (ImGui::MenuItem("Create Child Entity")) {
+                if (ImGui::MenuItem("Create Child Entity"))
                     m_SelectedEntity = m_Scene->CreateEntityAsChild(entity, tag.Tag + " child");
-                }
 
                 if (!isRoot)
                 {
-                    if (ImGui::MenuItem("Duplicate Entity")) {
+                    if (ImGui::MenuItem("Duplicate Entity"))
                         m_Scene->DuplicateEntity(entity);
-                    }
 
-                    if (ImGui::BeginMenu("Reparent")) {
+                    if (ImGui::BeginMenu("Reparent"))
+                    {
                         Entity parent = entity.GetParent();
                         std::vector<Entity> tree = { m_Scene->GetRoot() };
                         for (size_t i = 0; i < m_Scene->GetTree(tree[0], tree) + 1; i++)
                         {
-                            if (entity == tree[i] || parent == tree[i]) continue;
-                            if (ImGui::MenuItem(tree[i].GetComponent<TagComponent>().Tag.c_str())) {
+                            if (entity == tree[i] || parent == tree[i])
+                                continue;
+                            if (ImGui::MenuItem(tree[i].GetComponent<TagComponent>().Tag.c_str()))
                                 entity.Parent(tree[i]);
-                            }
                         }
                         ImGui::EndMenu();
                     }
 
-                    if (ImGui::MenuItem("Delete Entity")) {
+                    if (ImGui::MenuItem("Delete Entity"))
+                    {
                         deleteEntity = true;
 
-                        if (m_SelectedEntity == entity) {
+                        if (m_SelectedEntity == entity)
                             m_SelectedEntity = Entity::Null;
-                        }
                     }
                 }
 
@@ -125,21 +124,25 @@ namespace Limnova
                 {
                     auto& oc = entity.GetComponent<OrbitalComponent>();
 
-                    if (ImGui::MenuItem("View")) {
+                    if (ImGui::MenuItem("View"))
                         ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
-                    }
 
-                    if (ImGui::BeginMenu("View Local Space")) {
-                        if (oc.LocalSpaces.size() == 0) {
-                            ImGui::TextDisabled("No local spaces"); // ?
+                    if (ImGui::BeginMenu("View Local Space"))
+                    {
+                        if (oc.LocalSpaces.size() == 0)
+                        {
+                            ImGui::TextDisabled("No local spaces");
                         }
-                        else {
+                        else
+                        {
                             for (size_t i = 0; i < oc.LocalSpaces.size(); i++)
                             {
-                                if (oc.LocalSpaces[i] == ((OrbitalScene*)m_Scene)->m_ViewLSpace) continue;
+                                if (oc.LocalSpaces[i] == ((OrbitalScene*)m_Scene)->m_ViewLSpace)
+                                    continue;
 
                                 std::ostringstream label; label << i;
-                                if (ImGui::MenuItem(label.str().c_str())) {
+                                if (ImGui::MenuItem(label.str().c_str()))
+                                {
                                     ((OrbitalScene*)m_Scene)->SetTrackingEntity(entity);
                                     ((OrbitalScene*)m_Scene)->SetRelativeViewSpace(i);
                                 }
@@ -158,16 +161,42 @@ namespace Limnova
 
         if (expanded)
         {
-            for (auto child : children)
+            // Display children subtree
+            if (entity.HasComponent<OrbitalComponent>())
             {
-                EntityNode(child);
+                // Organize the children by the local spaces they belong to
+                auto& oc = entity.GetComponent<OrbitalComponent>();
+
+                bool hasUndisplayedChildren = children.size() > 0;
+
+                for (int i = -1; i < (int)oc.LocalSpaces.size() && hasUndisplayedChildren; ++i)
+                {
+                    if (i > -1)
+                        ImGui::TextDisabled("Local Space %d %s", i,
+                            (oc.LocalSpaces[i].IsSphereOfInfluence() ? "(SOI)" :
+                                (oc.LocalSpaces[i].IsInfluencing() ? "(Influencing)" : "")));
+
+                    for (size_t k = 0; k < children.size(); ++k)
+                    {
+                        if (children[k].GetComponent<OrbitalHierarchyComponent>().LocalSpaceRelativeToParent == i)
+                        {
+                            EntityNode(children[k]);
+                            if (k == children.size() - 1)
+                                hasUndisplayedChildren = false;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (auto child : children)
+                    EntityNode(child);
             }
             ImGui::TreePop();
         }
 
-        if (deleteEntity) {
+        if (deleteEntity)
             m_Scene->DestroyEntity(entity);
-        }
     }
 
 
