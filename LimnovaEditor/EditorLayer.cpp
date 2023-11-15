@@ -52,6 +52,9 @@ namespace Limnova
             if (!SceneSerializer::Deserialize(m_ActiveScene.get(), sceneFilePath))
                 LV_CORE_ERROR("Could not load default scene!");
         }
+        else {
+            LV_WARN("No default scene specified!");
+        }
 
     #ifdef LV_DEBUG
         for (int i = 0; i < kUpdateDurationPlotSpan; i++) m_PhysicsUpdateDurations[i] = 0.f;
@@ -587,7 +590,7 @@ namespace Limnova
         // Scene drag & drop
         if (ImGui::BeginDragDropTarget())
         {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSERT_BROWSER_ITEM")) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_BROWSER_ITEM")) {
                 const wchar_t* path = (const wchar_t*)payload->Data;
                 OpenScene(s_AssetDirectoryPath / path);
             }
@@ -613,7 +616,7 @@ namespace Limnova
                 Matrix4 transform = tc.GetTransform();
 
                 // Snapping
-                bool snap = Input::IsKeyPressed(LV_KEY_LEFT_CONTROL);
+                bool snap = Input::IsKeyPressed(KEY_LEFT_CONTROL);
                 float snapValue = 0.f;
                 switch (m_ActiveGizmo) {
                 case ImGuizmo::OPERATION::TRANSLATE:    snapValue = m_SnapTranslate; break;
@@ -666,7 +669,11 @@ namespace Limnova
         auto& colorButtonActive = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ colorButtonActive.x, colorButtonActive.y, colorButtonActive.z, 0.5f });
 
-        ImGui::Begin("##toolbar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+#ifdef LV_RELEASE
+        flags |= ImGuiWindowFlags_NoMove;
+#endif
+        ImGui::Begin("##toolbar", nullptr, flags);
 
         // Play button
         float mid = ImGui::GetWindowContentRegionMax().x * 0.5f;
@@ -755,24 +762,24 @@ namespace Limnova
 
     bool EditorLayer::OnKeyPressed(KeyPressedEvent& e)
     {
-        bool ctrl = Input::IsKeyPressed(LV_KEY_LEFT_CONTROL) || Input::IsKeyPressed(LV_KEY_RIGHT_CONTROL);
-        bool shift = Input::IsKeyPressed(LV_KEY_LEFT_SHIFT) || Input::IsKeyPressed(LV_KEY_RIGHT_SHIFT);
+        bool ctrl = Input::IsKeyPressed(KEY_LEFT_CONTROL) || Input::IsKeyPressed(KEY_RIGHT_CONTROL);
+        bool shift = Input::IsKeyPressed(KEY_LEFT_SHIFT) || Input::IsKeyPressed(KEY_RIGHT_SHIFT);
 
         // Shortcuts
         switch (e.GetKeyCode())
         {
             // File
-        case LV_KEY_N:
+        case KEY_N:
             if (ctrl) {
                 NewScene();
             }
             break;
-        case LV_KEY_O:
+        case KEY_O:
             if (ctrl) {
                 OpenScene();
             }
             break;
-        case LV_KEY_S:
+        case KEY_S:
             if (ctrl && shift) {
                 SaveSceneAs();
             }
@@ -782,22 +789,22 @@ namespace Limnova
             break;
 
             // Scene
-        case LV_KEY_D:
+        case KEY_D:
             if (ctrl) {
                 OnDuplicateEntity();
             }
 
             // Gizmo
-        case LV_KEY_Q:
+        case KEY_Q:
             m_ActiveGizmo = -1;
             break;
-        case LV_KEY_W:
+        case KEY_W:
             m_ActiveGizmo = ImGuizmo::OPERATION::TRANSLATE;
             break;
-        case LV_KEY_E:
+        case KEY_E:
             m_ActiveGizmo = ImGuizmo::OPERATION::ROTATE;
             break;
-        case LV_KEY_R:
+        case KEY_R:
             m_ActiveGizmo = ImGuizmo::OPERATION::SCALE;
             break;
         }
@@ -807,7 +814,7 @@ namespace Limnova
 
     bool EditorLayer::OnMouseButtonPressed(MouseButtonPressedEvent& e)
     {
-        if (e.GetMouseButton() == LV_MOUSE_BUTTON_LEFT)
+        if (e.GetMouseButton() == MOUSE_BUTTON_LEFT)
         {
             if (CanMousePick()) {
                 m_SceneHierarchyPanel.SetSelectedEntity(m_HoveredEntity);

@@ -72,6 +72,10 @@ add_library(${PROJECT_NAME} STATIC
     "src/Scene/Scene.cpp"
     "src/Scene/Script.h"
     "src/Scene/SceneSerializer.cpp"
+
+    "src/Scripting/ScriptEngine.cpp"
+    "src/Scripting/ScriptLibrary.cpp"
+
     "src/Structures/Queue.h"
 
     "thirdparty/stb_image/stb_image.cpp"
@@ -134,6 +138,7 @@ target_include_directories(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/imgui"
         "${PROJECT_SOURCE_DIR}/thirdparty/imguizmo"
+        "${PROJECT_SOURCE_DIR}/thirdparty/mono/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/pcg-cpp/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
         "${PROJECT_SOURCE_DIR}/thirdparty/stb_image"
@@ -154,6 +159,9 @@ target_link_libraries(${PROJECT_NAME}
         opengl32.lib
         Glad
         GLFW
+
+        "${PROJECT_SOURCE_DIR}/thirdparty/mono/lib/$<IF:$<CONFIG:Debug>,Debug,Release>/libmono-static-sgen.lib"
+        $<${WIN32}:Ws2_32 Winmm Version Bcrypt> # Mono Windows
     PUBLIC
         ImGui
         ImGuizmo

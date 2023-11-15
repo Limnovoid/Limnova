@@ -56,7 +56,7 @@ namespace Limnova
             if (ImGui::BeginDragDropSource())
             {
                 const wchar_t* itemPath = assetRelativePath.c_str();
-                ImGui::SetDragDropPayload("ASSERT_BROWSER_ITEM", itemPath, (wcslen(itemPath) + 1) * sizeof(wchar_t));
+                ImGui::SetDragDropPayload("ASSET_BROWSER_ITEM", itemPath, (wcslen(itemPath) + 1) * sizeof(wchar_t));
                 ImGui::EndDragDropSource();
             }
 

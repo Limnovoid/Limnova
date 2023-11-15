@@ -3,7 +3,7 @@ project(LimnovaEditor)
 add_executable(${PROJECT_NAME}
     "LimnovaEditorApp.cpp"
     "EditorLayer.cpp"
-
+    
     "Panels/AssetBrowserPanel.cpp"
     "Panels/SceneHierarchyPanel.cpp"
 
@@ -36,6 +36,11 @@ set_property(TARGET ${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         Limnova
+)
+
+target_link_directories(${PROJECT_NAME}
+    PRIVATE
+        "${CMAKE_SOURCE_DIR}/Limnova/thirdparty/mono/lib/$<IF:$<CONFIG:Debug>,Debug,Release>"
 )
 
 add_compile_definitions(

@@ -87,6 +87,7 @@ namespace Limnova
         std::map<OrbitalPhysics::TNodeId, entt::entity> m_PhysicsToEnttIds;
 
         UUID m_TrackingEntity;
+        int m_RelativeViewSpace;
         OrbitalPhysics::LSpaceNode m_ViewLSpace;
         OrbitalPhysics::ObjectNode m_ViewObject;
 

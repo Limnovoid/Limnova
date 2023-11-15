@@ -468,7 +468,7 @@ namespace Limnova
 
             TNodeId Id() const { return m_NodeId; }
 
-            /* For OrbitalPhysics/internal use*/
+            /*** For OrbitalPhysics/internal use ***/
         private:
             Node const& Node() const { return m_Ctx->m_Tree[m_NodeId]; }
             int Height() const { return m_Ctx->m_Tree.Height(m_NodeId); }
@@ -484,7 +484,7 @@ namespace Limnova
                 return m_Ctx->m_OrbitSections[orbitId];
             }
 
-            /* For user application/external use */
+            /*** For user application/external use ***/
         public:
             static constexpr ObjectNode NNull() { return {}; }
             bool IsNull() const { return m_NodeId == OrbitalPhysics::NNull; }
@@ -498,7 +498,7 @@ namespace Limnova
             OrbitalPhysics::Motion const& GetMotion() const { return Motion(); }
             OrbitalPhysics::Dynamics const& GetDynamics() const { return Dynamics(); }
 
-            // Computes or updates the Orbit and returns its first section.
+            /// <summary> Computes or updates the Orbit and returns its first section. </summary>
             OrbitalPhysics::OrbitSection const& GetOrbit(size_t maxSections = 1) const
             {
                 auto& state = m_Ctx->m_States[m_NodeId];
@@ -614,10 +614,10 @@ namespace Limnova
 
             /// <summary>
             /// Set the continuous dynamic acceleration of the object.
-            /// The acceleration is applied to the object's motion as though it is constant, e.g, like acceleration due to engine thrust.
-            /// This is in addition to its acceleration due to gravity - it does not affect the simulation of gravity.
+            /// The acceleration is applied to the object's motion as though it is constant, like, e.g, acceleration due to engine thrust.
+            /// This is in addition to its acceleration due to gravity, i.e, calls to this function do not affect the simulation of gravity.
             /// </summary>
-            /// <param name="acceleration">Magnitude must be absolute (not scaled to the local space)</param>
+            /// <param name="acceleration">Magnitude is absolute (not scaled to the local space)</param>
             void SetContinuousAcceleration(Vector3d const& acceleration) const
             {
                 LV_ASSERT(IsDynamic(), "Cannot set dynamic acceleration on non-dynamic objects!");
@@ -799,6 +799,11 @@ namespace Limnova
                 lsp.MetersPerRadius = (double)radius * (Height() == 1
                     ? GetRootLSpaceNode().LSpace().MetersPerRadius
                     : m_Ctx->m_LSpaces[m_Ctx->m_Tree.GetGrandparent(m_NodeId)].MetersPerRadius);
+
+                // debug (TODO: remove assert)
+                LV_CORE_ASSERT(lsp.MetersPerRadius > 1e-50, "Absolute scale is too small!");
+                // /debug
+
                 if (isSoi || isInfluencing) {
                     lsp.Primary = *this; /* an influencing space is its own Primary space */
                 }
@@ -896,7 +901,7 @@ namespace Limnova
                     TryPrepareSubtree(ParentObj().m_NodeId); /* if SOI changed, update all sibling spaces */
                 }
                 else {
-                    TryPrepareSubtree(m_NodeId);
+                    TryPrepareSubtree(m_NodeId); /* otherwise, update only the objects in this local space */
                 }
             }
         };
@@ -1632,38 +1637,34 @@ namespace Limnova
 
             obj.Validity = Validity::Valid;
             if (!ValidParent(objNode)) {
-                return obj.Validity = Validity::InvalidParent;
+                obj.Validity = Validity::InvalidParent;
             }
             else if (!ValidSpace(objNode)) {
-                return obj.Validity = Validity::InvalidSpace;
+                obj.Validity = Validity::InvalidSpace;
             }
             else if (!ValidMass(objNode)) {
-                return obj.Validity = Validity::InvalidMass;
+                obj.Validity = Validity::InvalidMass;
             }
             else if (!ValidPosition(objNode)) {
-                return obj.Validity = Validity::InvalidPosition;
+                obj.Validity = Validity::InvalidPosition;
             }
 
-            if (objNode.IsRoot()) {
-                // Root object does not have motion or dynamically computed influence - we return Valid here
-                return Validity::Valid;
+            if (objNode.IsRoot() || obj.Validity != Validity::Valid) {
+                // Root object does not have motion or dynamically computed influence - we return the root here regardless of validity
+                return obj.Validity;
             }
 
-            // State is valid: prepare Motion
+            // By this point, state is known to be valid: prepare Motion and Influence
             ComputeMotion(objNode);
-
-            // Prepare Influence
             ComputeInfluence(objNode);
 
             if (!ValidMotion(objNode)) {
-                return obj.Validity = Validity::InvalidMotion;
+                obj.Validity = Validity::InvalidMotion;
             }
-
-            if (obj.Validity == Validity::Valid)
-            {
+            else {
+                // All tests passed: object can safely be simulated
                 UpdateQueuePushFront(objNode);
             }
-
             return obj.Validity;
         }
 
