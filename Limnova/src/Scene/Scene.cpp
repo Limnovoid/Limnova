@@ -4,6 +4,7 @@
 #include "Script.h"
 
 #include <Renderer/Renderer2D.h>
+#include <Scripting/ScriptEngine.h>
 
 
 namespace Limnova
@@ -60,6 +61,7 @@ namespace Limnova
 
         dst->CopyAllOfComponent<TransformComponent>(src->m_Registry);
         dst->CopyAllOfComponent<HierarchyComponent>(src->m_Registry);
+        dst->CopyAllOfComponent<ScriptComponent>(src->m_Registry);
         dst->CopyAllOfComponent<CameraComponent>(src->m_Registry);
         dst->CopyAllOfComponent<NativeScriptComponent>(src->m_Registry);
         dst->CopyAllOfComponent<SpriteRendererComponent>(src->m_Registry);
@@ -102,6 +104,7 @@ namespace Limnova
 
         CopyComponentIfExists<TransformComponent>(newEntity.m_EnttId, entity.m_EnttId);
         /* DO NOT copy HierarchyComponent - the original and copy entities' relationships are necessarily different and are handled by CreateEntity() */
+        CopyComponentIfExists<ScriptComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<CameraComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<NativeScriptComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<SpriteRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
@@ -274,6 +277,8 @@ namespace Limnova
     void Scene::OnStartRuntime()
     {
         // Scripts
+        ScriptEngine::OnSceneStart(this);
+
         m_Registry.view<NativeScriptComponent>().each([=](auto entity, auto& script)
         {
             if (script.InstantiateScript) {
@@ -292,6 +297,8 @@ namespace Limnova
     void Scene::OnUpdateRuntime(Timestep dT)
     {
         // Scripts
+        ScriptEngine::OnSceneUpdate(this, dT);
+
         m_Registry.view<NativeScriptComponent>().each([=](auto entity, auto& script)
         {
             if (script.Instance) {
@@ -333,7 +340,6 @@ namespace Limnova
         // Sprites
         {
             auto view = m_Registry.view<TransformComponent, SpriteRendererComponent>();
-
             for (auto entity : view)
             {
                 auto [transform, sprite] = view.get<TransformComponent, SpriteRendererComponent>(entity);
@@ -345,7 +351,6 @@ namespace Limnova
         // Billboard sprites
         {
             auto view = m_Registry.view<TransformComponent, BillboardSpriteRendererComponent>();
-
             for (auto entity : view)
             {
                 auto [tc, bsrc] = view.get<TransformComponent, BillboardSpriteRendererComponent>(entity);
@@ -371,7 +376,6 @@ namespace Limnova
         // Billboard circles
         {
             auto view = m_Registry.view<TransformComponent, BillboardCircleRendererComponent>();
-
             for (auto entity : view)
             {
                 auto [tc, bcrc] = view.get<TransformComponent, BillboardCircleRendererComponent>(entity);
@@ -403,15 +407,15 @@ namespace Limnova
     void Scene::OnStopRuntime()
     {
         // Scripts
+        ScriptEngine::OnSceneStop();
+
+        m_Registry.view<NativeScriptComponent>().each([=](auto entity, auto& script)
         {
-            m_Registry.view<NativeScriptComponent>().each([=](auto entity, auto& script)
+            if (script.Instance)
             {
-                if (script.Instance)
-                {
-                    script.DeleteScript(&script.Instance);
-                }
-            });
-        }
+                script.DeleteScript(&script.Instance);
+            }
+        });
     }
 
 

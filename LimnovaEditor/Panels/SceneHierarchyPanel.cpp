@@ -277,6 +277,12 @@ namespace Limnova
         }
         if (ImGui::BeginPopup("AddComponent"))
         {
+            if (!m_SelectedEntity.HasComponent<ScriptComponent>() &&
+                ImGui::MenuItem("Script"))
+            {
+                m_SelectedEntity.AddComponent<ScriptComponent>();
+                ImGui::CloseCurrentPopup();
+            }
             if (!m_SelectedEntity.HasComponent<CameraComponent>() &&
                 ImGui::MenuItem("Camera"))
             {
@@ -409,6 +415,29 @@ namespace Limnova
                 ImGui::Text("First child: %s", m_Scene->GetEntity(hierarchy.FirstChild).GetComponent<TagComponent>().Tag.c_str());
                 std::ostringstream oss; oss << (uint64_t)hierarchy.FirstChild;
                 LimnGui::HelpMarker(oss.str());
+            }
+        });
+
+        ComponentInspector<ScriptComponent>(entity, "Script", true, [&]()
+        {
+            auto& script = entity.GetComponent<ScriptComponent>();
+
+            bool scriptIsInvalid = !ScriptEngine::IsRegisteredScriptClass(script.Name);
+            if (scriptIsInvalid)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{ 1.f, 0.2f, 0.3f, 1.f });
+            }
+
+            static char nameBuf[64];
+            strncpy_s(nameBuf, script.Name.c_str(), sizeof(nameBuf));
+            if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf)))
+            {
+                script.Name = nameBuf;
+            }
+
+            if (scriptIsInvalid)
+            {
+                ImGui::PopStyleColor();
             }
         });
 

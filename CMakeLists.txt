@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(LimnovaEngine 
-    LANGUAGES CXX
+project(LimnovaEngine
+    LANGUAGES CXX CSharp
 )
 
 
@@ -13,6 +13,7 @@ add_compile_definitions(
 
 # Projects
 add_subdirectory(Limnova)
+add_subdirectory(LimnovaScriptCore)
 add_subdirectory(LimnovaEditor)
 #add_subdirectory(PlayApp)
 #add_subdirectory(Orbital)

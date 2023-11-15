@@ -4,6 +4,30 @@
 #include "Components.h"
 
 
+#define LV_YAML_SERIALIZE_NODE(outstream, stringkey, value)\
+outstream << YAML::Key << stringkey << YAML::Value << value;
+
+#define LV_YAML_DESERIALIZE_NODE(data, stringname, type, variable)              \
+if (auto node = data[stringname])                                               \
+{                                                                               \
+    variable = node.as<type>();                                                 \
+}                                                                               \
+else                                                                            \
+{                                                                               \
+    LV_CORE_ERROR("Failed to deserialize node: " stringname);                   \
+}
+
+#define LV_YAML_DESERIALIZE_NODE_WITH_SETTER(data, stringname, type, setter)    \
+if (auto node = data[stringname])                                               \
+{                                                                               \
+    setter(node.as<type>());                                                    \
+}                                                                               \
+else                                                                            \
+{                                                                               \
+    LV_CORE_ERROR("Failed to deserialize node: " stringname);                   \
+}
+
+
 namespace YAML
 {
 
@@ -209,7 +233,7 @@ namespace Limnova
     void SceneSerializer::SerializeEntity(Scene* scene, YAML::Emitter& out, Entity entity)
     {
         out << YAML::BeginMap; // Entity
-        out << YAML::Key << "Entity" << YAML::Value << (uint64_t)(entity.GetUUID());
+        LV_YAML_SERIALIZE_NODE(out, "Entity", (uint64_t)(entity.GetUUID()));
 
         bool isRootEntity;
         if (entity.HasComponent<TagComponent>())
@@ -218,7 +242,7 @@ namespace Limnova
             out << YAML::BeginMap; // TagComponent
 
             auto& tag = entity.GetComponent<TagComponent>();
-            out << YAML::Key << "Tag" << YAML::Value << tag.Tag;
+            LV_YAML_SERIALIZE_NODE(out, "Tag", tag.Tag);
 
             out << YAML::EndMap; // TagComponent
 
@@ -231,7 +255,8 @@ namespace Limnova
             out << YAML::BeginMap; // HierarchyComponent
 
             auto& hc = entity.GetComponent<HierarchyComponent>();
-            out << YAML::Key << "Parent" << YAML::Value << (uint64_t)hc.Parent;
+            LV_YAML_SERIALIZE_NODE(out, "Parent", (uint64_t)hc.Parent);
+
             /* Only store the parent: all other relationships (siblings/children) are implicitly serialised
              * by those entities which share this entity's parent or have this entity as their parent */
 
@@ -244,12 +269,23 @@ namespace Limnova
             out << YAML::BeginMap; // TransformComponent
 
             auto& transform = entity.GetComponent<TransformComponent>();
-            out << YAML::Key << "Position"      << YAML::Value << transform.GetPosition();
-            out << YAML::Key << "Orientation"   << YAML::Value << transform.GetOrientation();
-            out << YAML::Key << "EulerAngles"   << YAML::Value << transform.GetEulerAngles();
-            out << YAML::Key << "Scale"         << YAML::Value << transform.GetScale();
+            LV_YAML_SERIALIZE_NODE(out, "Position",     transform.GetPosition());
+            LV_YAML_SERIALIZE_NODE(out, "Orientation",  transform.GetOrientation());
+            LV_YAML_SERIALIZE_NODE(out, "EulerAngles",  transform.GetEulerAngles());
+            LV_YAML_SERIALIZE_NODE(out, "Scale",        transform.GetScale());
 
             out << YAML::EndMap; // TransformComponent
+        }
+
+        if (entity.HasComponent<ScriptComponent>())
+        {
+            out << YAML::Key << "ScriptComponent";
+            out << YAML::BeginMap; // ScriptComponent
+
+            auto& script = entity.GetComponent<ScriptComponent>();
+            LV_YAML_SERIALIZE_NODE(out, "Name", script.Name);
+
+            out << YAML::EndMap; // ScriptComponent
         }
 
         if (entity.HasComponent<CameraComponent>())
@@ -258,15 +294,15 @@ namespace Limnova
             out << YAML::BeginMap; // CameraComponent
 
             auto& camera = entity.GetComponent<CameraComponent>();
-            out << YAML::Key << "VerticalFov"           << YAML::Value << camera.VerticalFov;
-            out << YAML::Key << "OrthographicHeight"    << YAML::Value << camera.OrthographicHeight;
-            out << YAML::Key << "AspectRatio"           << YAML::Value << camera.AspectRatio;
-            out << YAML::Key << "OrthoNearClip"         << YAML::Value << camera.OrthoNearClip;
-            out << YAML::Key << "OrthoFarClip"          << YAML::Value << camera.OrthoFarClip;
-            out << YAML::Key << "PerspNearClip"         << YAML::Value << camera.PerspNearClip;
-            out << YAML::Key << "PerspFarClip"          << YAML::Value << camera.PerspFarClip;
-            out << YAML::Key << "TieAspectToView"       << YAML::Value << camera.TieAspectToView;
-            out << YAML::Key << "IsOrthographic"        << YAML::Value << camera.IsOrthographic;
+            LV_YAML_SERIALIZE_NODE(out, "VerticalFov",          camera.VerticalFov);
+            LV_YAML_SERIALIZE_NODE(out, "OrthographicHeight",   camera.OrthographicHeight);
+            LV_YAML_SERIALIZE_NODE(out, "AspectRatio",          camera.AspectRatio);
+            LV_YAML_SERIALIZE_NODE(out, "OrthoNearClip",        camera.OrthoNearClip);
+            LV_YAML_SERIALIZE_NODE(out, "OrthoFarClip",         camera.OrthoFarClip);
+            LV_YAML_SERIALIZE_NODE(out, "PerspNearClip",        camera.PerspNearClip);
+            LV_YAML_SERIALIZE_NODE(out, "PerspFarClip",         camera.PerspFarClip);
+            LV_YAML_SERIALIZE_NODE(out, "TieAspectToView",      camera.TieAspectToView);
+            LV_YAML_SERIALIZE_NODE(out, "IsOrthographic",       camera.IsOrthographic);
 
             out << YAML::EndMap; // CameraComponent
         }
@@ -277,7 +313,7 @@ namespace Limnova
             out << YAML::BeginMap; // NativeScriptComponent
 
             auto& script = entity.GetComponent<NativeScriptComponent>();
-            out << YAML::Key << "Script" << YAML::Value << 0; /* TODO : use asset ID */
+            LV_YAML_SERIALIZE_NODE(out, "Script", 0); /* TODO : use asset ID */
 
             out << YAML::EndMap; // NativeScriptComponent
         }
@@ -288,7 +324,7 @@ namespace Limnova
             out << YAML::BeginMap; // SpriteRendererComponent
 
             auto& src = entity.GetComponent<SpriteRendererComponent>();
-            out << YAML::Key << "Color" << YAML::Value << src.Color;
+            LV_YAML_SERIALIZE_NODE(out, "Color", src.Color);
 
             out << YAML::EndMap; // SpriteRendererComponent
         }
@@ -299,7 +335,7 @@ namespace Limnova
             out << YAML::BeginMap; // BillboardSpriteRendererComponent
 
             auto& bsrc = entity.GetComponent<BillboardSpriteRendererComponent>();
-            out << YAML::Key << "Color" << YAML::Value << bsrc.Color;
+            LV_YAML_SERIALIZE_NODE(out, "Color", bsrc.Color);
 
             out << YAML::EndMap; // BillboardSpriteRendererComponent
         }
@@ -310,9 +346,9 @@ namespace Limnova
             out << YAML::BeginMap; // CircleRendererComponent
 
             auto& crc = entity.GetComponent<CircleRendererComponent>();
-            out << YAML::Key << "Color"     << YAML::Value << crc.Color;
-            out << YAML::Key << "Thickness" << YAML::Value << crc.Thickness;
-            out << YAML::Key << "Fade"      << YAML::Value << crc.Fade;
+            LV_YAML_SERIALIZE_NODE(out, "Color",        crc.Color);
+            LV_YAML_SERIALIZE_NODE(out, "Thickness",    crc.Thickness);
+            LV_YAML_SERIALIZE_NODE(out, "Fade",         crc.Fade);
 
             out << YAML::EndMap; // CircleRendererComponent
         }
@@ -322,10 +358,10 @@ namespace Limnova
             out << YAML::Key << "BillboardCircleRendererComponent";
             out << YAML::BeginMap; // BillboardCircleRendererComponent
 
-            auto& crc = entity.GetComponent<BillboardCircleRendererComponent>();
-            out << YAML::Key << "Color"     << YAML::Value << crc.Color;
-            out << YAML::Key << "Thickness" << YAML::Value << crc.Thickness;
-            out << YAML::Key << "Fade"      << YAML::Value << crc.Fade;
+            auto& bcrc = entity.GetComponent<BillboardCircleRendererComponent>();
+            LV_YAML_SERIALIZE_NODE(out, "Color",        bcrc.Color);
+            LV_YAML_SERIALIZE_NODE(out, "Thickness",    bcrc.Thickness);
+            LV_YAML_SERIALIZE_NODE(out, "Fade",         bcrc.Fade);
 
             out << YAML::EndMap; // BillboardCircleRendererComponent
         }
@@ -336,9 +372,9 @@ namespace Limnova
             out << YAML::BeginMap; // EllipseRendererComponent
 
             auto& erc = entity.GetComponent<EllipseRendererComponent>();
-            out << YAML::Key << "Color"     << YAML::Value << erc.Color;
-            out << YAML::Key << "Thickness" << YAML::Value << erc.Thickness;
-            out << YAML::Key << "Fade"      << YAML::Value << erc.Fade;
+            LV_YAML_SERIALIZE_NODE(out, "Color",        erc.Color);
+            LV_YAML_SERIALIZE_NODE(out, "Thickness",    erc.Thickness);
+            LV_YAML_SERIALIZE_NODE(out, "Fade",         erc.Fade);
 
             out << YAML::EndMap; // EllipseRendererComponent
         }
@@ -349,8 +385,8 @@ namespace Limnova
             out << YAML::BeginMap; // OrbitalHierarchyComponent
 
             auto& ohc = entity.GetComponent<OrbitalHierarchyComponent>();
-            out << YAML::Key << "AbsoluteScale" << YAML::Value << ohc.AbsoluteScale;
-            out << YAML::Key << "LocalSpace"    << YAML::Value << ohc.LocalSpaceRelativeToParent;
+            LV_YAML_SERIALIZE_NODE(out, "AbsoluteScale",    ohc.AbsoluteScale);
+            LV_YAML_SERIALIZE_NODE(out, "LocalSpace",       ohc.LocalSpaceRelativeToParent);
 
             out << YAML::EndMap; // OrbitalHierarchyComponent
         }
@@ -361,19 +397,20 @@ namespace Limnova
             out << YAML::BeginMap; // OrbitalComponent
 
             auto& orbital = entity.GetComponent<OrbitalComponent>();
-            out << YAML::Key << "UIColor"               << YAML::Value << orbital.UIColor;
-            out << YAML::Key << "Albedo"                << YAML::Value << orbital.Albedo;
-            out << YAML::Key << "ShowMajorMinorAxes"    << YAML::Value << orbital.ShowMajorMinorAxes;
-            out << YAML::Key << "ShowNormal"            << YAML::Value << orbital.ShowNormal;
+            LV_YAML_SERIALIZE_NODE(out, "UIColor",              orbital.UIColor);
+            LV_YAML_SERIALIZE_NODE(out, "Albedo",               orbital.Albedo);
+            LV_YAML_SERIALIZE_NODE(out, "ShowMajorMinorAxes",   orbital.ShowMajorMinorAxes);
+            LV_YAML_SERIALIZE_NODE(out, "ShowNormal",           orbital.ShowNormal);
 
             out << YAML::Key << "Mass"                  << YAML::Value << orbital.Object.GetState().Mass;
-            if (!isRootEntity) {
-                out << YAML::Key << "Position" << YAML::Value << orbital.Object.GetState().Position;
-                out << YAML::Key << "Velocity" << YAML::Value << orbital.Object.GetState().Velocity;
+            if (!isRootEntity)
+            {
+                LV_YAML_SERIALIZE_NODE(out, "Position", orbital.Object.GetState().Position);
+                LV_YAML_SERIALIZE_NODE(out, "Velocity", orbital.Object.GetState().Velocity);
             }
-            if (orbital.Object.IsDynamic()) {
-                out << YAML::Key << "ContAcceleration" << YAML::Value << orbital.Object.GetDynamics().ContAcceleration;
-            }
+            if (orbital.Object.IsDynamic())
+                LV_YAML_SERIALIZE_NODE(out, "ContAcceleration", orbital.Object.GetDynamics().ContAcceleration);
+
 
             out << YAML::Key << "LocalSpaceRadii" << YAML::BeginSeq;
             for (auto lspNode : orbital.LocalSpaces)
@@ -394,23 +431,24 @@ namespace Limnova
 
     void SceneSerializer::DeserializeEntity(Scene* scene, YAML::Node entityNode)
     {
-        uint64_t uuid = entityNode["Entity"].as<uint64_t>();
+        uint64_t uuid = UUID::Null;
+        LV_YAML_DESERIALIZE_NODE(entityNode, "Entity", uint64_t, uuid);
 
         std::string name;
-        if (auto tagComponent = entityNode["TagComponent"]) {
-            name = tagComponent["Tag"].as<std::string>();
-        }
+        if (auto tagComponent = entityNode["TagComponent"])
+            LV_YAML_DESERIALIZE_NODE(tagComponent, "Tag", std::string, name);
+
         LV_CORE_TRACE("Deserializing entity '{0}'", name);
 
         UUID parentId = UUID::Null;
-        if (auto hcNode = entityNode["HierarchyComponent"]) {
-            parentId = hcNode["Parent"].as<uint64_t>();
-        }
+        if (auto hcNode = entityNode["HierarchyComponent"])
+            LV_YAML_DESERIALIZE_NODE(hcNode, "Parent", uint64_t, parentId);
 
         bool isRootEntity = parentId == UUID::Null;
 
         Entity entity;
-        if (isRootEntity) {
+        if (isRootEntity)
+        {
             entity = scene->GetRoot();
             scene->SetRootId(uuid);
         }
@@ -422,23 +460,30 @@ namespace Limnova
         {
             /* Scene gives every created entity a transform component */
             auto& tc = entity.GetComponent<TransformComponent>();
-            tc.SetPosition(     tcNode["Position"].as<Vector3>());
-            tc.SetOrientation(  tcNode["Orientation"].as<Quaternion>());
-            tc.SetEulerAngles(  tcNode["EulerAngles"].as<Vector3>());
-            tc.SetScale(        tcNode["Scale"].as<Vector3>());
+            LV_YAML_DESERIALIZE_NODE_WITH_SETTER(tcNode, "Position",    Vector3, tc.SetPosition);
+            LV_YAML_DESERIALIZE_NODE_WITH_SETTER(tcNode, "Orientation", Quaternion, tc.SetOrientation);
+            LV_YAML_DESERIALIZE_NODE_WITH_SETTER(tcNode, "EulerAngles", Vector3, tc.SetEulerAngles);
+            LV_YAML_DESERIALIZE_NODE_WITH_SETTER(tcNode, "Scale",       Vector3, tc.SetScale);
+        }
+
+        if (auto sNode = entityNode["ScriptComponent"])
+        {
+            auto& sc = entity.AddComponent<ScriptComponent>();
+            LV_YAML_DESERIALIZE_NODE(sNode, "Name", std::string, sc.Name);
         }
 
         if (auto ccNode = entityNode["CameraComponent"])
         {
             auto& cc = entity.AddComponent<CameraComponent>();
-            cc.VerticalFov          = ccNode["VerticalFov"].as<float>();
-            cc.OrthographicHeight   = ccNode["OrthographicHeight"].as<float>();
-            cc.OrthoNearClip        = ccNode["OrthoNearClip"].as<float>();
-            cc.OrthoFarClip         = ccNode["OrthoFarClip"].as<float>();
-            cc.PerspNearClip        = ccNode["PerspNearClip"].as<float>();
-            cc.PerspFarClip         = ccNode["PerspFarClip"].as<float>();
-            cc.TieAspectToView      = ccNode["TieAspectToView"].as<bool>();
-            cc.IsOrthographic       = ccNode["IsOrthographic"].as<bool>();
+
+            LV_YAML_DESERIALIZE_NODE(ccNode, "VerticalFov",         float,  cc.VerticalFov          );
+            LV_YAML_DESERIALIZE_NODE(ccNode, "OrthographicHeight",  float,  cc.OrthographicHeight   );
+            LV_YAML_DESERIALIZE_NODE(ccNode, "OrthoNearClip",       float,  cc.OrthoNearClip        );
+            LV_YAML_DESERIALIZE_NODE(ccNode, "OrthoFarClip",        float,  cc.OrthoFarClip         );
+            LV_YAML_DESERIALIZE_NODE(ccNode, "PerspNearClip",       float,  cc.PerspNearClip        );
+            LV_YAML_DESERIALIZE_NODE(ccNode, "PerspFarClip",        float,  cc.PerspFarClip         );
+            LV_YAML_DESERIALIZE_NODE(ccNode, "TieAspectToView",     bool,   cc.TieAspectToView      );
+            LV_YAML_DESERIALIZE_NODE(ccNode, "IsOrthographic",      bool,   cc.IsOrthographic       );
 
             cc.AspectRatio = cc.TieAspectToView
                 ? scene->m_ViewportAspectRatio
@@ -456,46 +501,44 @@ namespace Limnova
         if (auto srcNode = entityNode["SpriteRendererComponent"])
         {
             auto& src = entity.AddComponent<SpriteRendererComponent>();
-            src.Color = srcNode["Color"].as<Vector4>();
+            LV_YAML_DESERIALIZE_NODE(srcNode, "Color", Vector4, src.Color);
         }
 
-        if (auto srcNode = entityNode["BillboardSpriteRendererComponent"])
+        if (auto bsrcNode = entityNode["BillboardSpriteRendererComponent"])
         {
             auto& bsrc = entity.AddComponent<BillboardSpriteRendererComponent>();
-            bsrc.Color = srcNode["Color"].as<Vector4>();
+            LV_YAML_DESERIALIZE_NODE(bsrcNode, "Color", Vector4, bsrc.Color);
         }
 
         if (auto crcNode = entityNode["CircleRendererComponent"])
         {
             auto& crc = entity.AddComponent<CircleRendererComponent>();
-            crc.Color       = crcNode["Color"].as<Vector4>();
-            crc.Thickness   = crcNode["Thickness"].as<float>();
-            crc.Fade        = crcNode["Fade"].as<float>();
+            LV_YAML_DESERIALIZE_NODE(crcNode, "Color",      Vector4,    crc.Color       );
+            LV_YAML_DESERIALIZE_NODE(crcNode, "Thickness",  float,      crc.Thickness   );
+            LV_YAML_DESERIALIZE_NODE(crcNode, "Fade",       float,      crc.Fade        );
         }
 
-        if (auto crcNode = entityNode["BillboardCircleRendererComponent"])
+        if (auto bcrcNode = entityNode["BillboardCircleRendererComponent"])
         {
             auto& crc = entity.AddComponent<BillboardCircleRendererComponent>();
-            crc.Color       = crcNode["Color"].as<Vector4>();
-            crc.Thickness   = crcNode["Thickness"].as<float>();
-            crc.Fade        = crcNode["Fade"].as<float>();
+            LV_YAML_DESERIALIZE_NODE(bcrcNode,  "Color",        Vector4,    crc.Color);
+            LV_YAML_DESERIALIZE_NODE(bcrcNode,  "Thickness",    float,      crc.Thickness);
+            LV_YAML_DESERIALIZE_NODE(bcrcNode,  "Fade",         float,      crc.Fade);
         }
 
         if (auto ercNode = entityNode["EllipseRendererComponent"])
         {
             auto& erc = entity.AddComponent<EllipseRendererComponent>();
-
-            erc.Color       = ercNode["Color"].as<Vector4>();
-            erc.Thickness   = ercNode["Thickness"].as<float>();
-            erc.Fade        = ercNode["Fade"].as<float>();
+            LV_YAML_DESERIALIZE_NODE(ercNode,   "Color",        Vector4,    erc.Color);
+            LV_YAML_DESERIALIZE_NODE(ercNode,   "Thickness",    float,      erc.Thickness);
+            LV_YAML_DESERIALIZE_NODE(ercNode,   "Fade",         float,      erc.Fade);
         }
 
         if (auto ohcNode = entityNode["OrbitalHierarchyComponent"])
         {
             auto& ohc = entity.GetComponent<OrbitalHierarchyComponent>();
-
-            ohc.AbsoluteScale               = ohcNode["AbsoluteScale"].as<Vector3d>();
-            ohc.LocalSpaceRelativeToParent  = ohcNode["LocalSpace"].as<int>();
+            LV_YAML_DESERIALIZE_NODE(ohcNode, "AbsoluteScale",  Vector3d,   ohc.AbsoluteScale               );
+            LV_YAML_DESERIALIZE_NODE(ohcNode, "LocalSpace",     int,        ohc.LocalSpaceRelativeToParent  );
         }
 
         if (auto oNode = entityNode["OrbitalComponent"])
@@ -504,13 +547,15 @@ namespace Limnova
                 ? entity.GetComponent<OrbitalComponent>()
                 : entity.AddComponent<OrbitalComponent>();
 
-            if (!isRootEntity) {
-                oc.Object.SetPosition(     oNode["Position"].as<Vector3>());
-                oc.Object.SetVelocity(     oNode["Velocity"].as<Vector3d>());
+            if (!isRootEntity)
+            {
+                LV_YAML_DESERIALIZE_NODE_WITH_SETTER(oNode, "Position", Vector3,    oc.Object.SetPosition);
+                LV_YAML_DESERIALIZE_NODE_WITH_SETTER(oNode, "Velocity", Vector3d,   oc.Object.SetVelocity);
             }
             oc.Object.SetMass(             oNode["Mass"].as<double>());
 
-            if (auto contAcceleration = oNode["ContAcceleration"]) {
+            if (auto contAcceleration = oNode["ContAcceleration"])
+            {
                 oc.Object.SetDynamic(true);
                 oc.Object.SetContinuousAcceleration(contAcceleration.as<Vector3d>());
             }
@@ -522,10 +567,10 @@ namespace Limnova
             oc.LocalSpaces.clear();
             oc.Object.GetLocalSpaces(oc.LocalSpaces);
 
-            oc.UIColor      = oNode["UIColor"].as<Vector3>();
-            oc.Albedo       = oNode["Albedo"].as<float>();
-            oc.ShowMajorMinorAxes = oNode["ShowMajorMinorAxes"].as<bool>();
-            oc.ShowNormal   = oNode["ShowNormal"].as<bool>();
+            LV_YAML_DESERIALIZE_NODE(oNode, "UIColor",              Vector3,   oc.UIColor);
+            LV_YAML_DESERIALIZE_NODE(oNode, "Albedo",               float,     oc.Albedo);
+            LV_YAML_DESERIALIZE_NODE(oNode, "ShowMajorMinorAxes",   bool,      oc.ShowMajorMinorAxes);
+            LV_YAML_DESERIALIZE_NODE(oNode, "ShowNormal",           bool,      oc.ShowNormal);
 
             if (!isRootEntity) {
                 ((OrbitalScene*)scene)->m_PhysicsToEnttIds.insert({ oc.Object.Id(), entity.m_EnttId });
@@ -730,9 +775,8 @@ namespace Limnova
         std::string sceneName = data["Scene"].as<std::string>();
         LV_CORE_TRACE("Deserializing scene '{0}'", sceneName);
 
-        YAML::Node entitiesNode = data["Entities"];
-        if (entitiesNode) {
-            for (YAML::Node entityNode : entitiesNode) {
+        if (auto entitiesNode = data["Entities"]) {
+            for (auto entityNode : entitiesNode) {
                 DeserializeEntity(scene, entityNode);
             }
         }
@@ -755,27 +799,28 @@ namespace Limnova
         YAML::Emitter out;
         out << YAML::BeginMap; // Scene
 
-        out << YAML::Key << "OrbitalScene" << YAML::Value << std::filesystem::path(filepath).filename().string();
+        LV_YAML_SERIALIZE_NODE(out, "OrbitalScene", std::filesystem::path(filepath).filename().string());
 
-        out << YAML::Key << "LocalSpaceColor"           << YAML::Value << scene->m_LocalSpaceColor;
-        out << YAML::Key << "LocalSpaceThickness"       << YAML::Value << scene->m_LocalSpaceThickness;
-        out << YAML::Key << "LocalSpaceFade"            << YAML::Value << scene->m_LocalSpaceFade;
-        out << YAML::Key << "ShowViewSpace"             << YAML::Value << scene->m_ShowViewSpace;
-        out << YAML::Key << "OrbitThickness"            << YAML::Value << scene->m_OrbitThickness;
-        out << YAML::Key << "OrbitFade"                 << YAML::Value << scene->m_OrbitFade;
-        out << YAML::Key << "OrbitAlpha"                << YAML::Value << scene->m_OrbitAlpha;
-        out << YAML::Key << "OrbitPointRadius"          << YAML::Value << scene->m_OrbitPointRadius;
-        out << YAML::Key << "ShowReferenceAxes"         << YAML::Value << scene->m_ShowReferenceAxes;
-        out << YAML::Key << "ReferenceAxisColor"        << YAML::Value << scene->m_ReferenceAxisColor;
-        out << YAML::Key << "ReferenceAxisLength"       << YAML::Value << scene->m_ReferenceAxisLength;
-        out << YAML::Key << "ReferenceAxisThickness"    << YAML::Value << scene->m_ReferenceAxisThickness;
-        out << YAML::Key << "ReferenceAxisArrowSize"    << YAML::Value << scene->m_ReferenceAxisArrowSize;
-        out << YAML::Key << "PerifocalAxisThickness"    << YAML::Value << scene->m_PerifocalAxisThickness;
-        out << YAML::Key << "PerifocalAxisArrowSize"    << YAML::Value << scene->m_PerifocalAxisArrowSize;
+        LV_YAML_SERIALIZE_NODE(out, "LocalSpaceColor",           scene->m_LocalSpaceColor);
+        LV_YAML_SERIALIZE_NODE(out, "LocalSpaceThickness",       scene->m_LocalSpaceThickness);
+        LV_YAML_SERIALIZE_NODE(out, "LocalSpaceFade",            scene->m_LocalSpaceFade);
+        LV_YAML_SERIALIZE_NODE(out, "ShowViewSpace",             scene->m_ShowViewSpace);
+        LV_YAML_SERIALIZE_NODE(out, "OrbitThickness",            scene->m_OrbitThickness);
+        LV_YAML_SERIALIZE_NODE(out, "OrbitFade",                 scene->m_OrbitFade);
+        LV_YAML_SERIALIZE_NODE(out, "OrbitAlpha",                scene->m_OrbitAlpha);
+        LV_YAML_SERIALIZE_NODE(out, "OrbitPointRadius",          scene->m_OrbitPointRadius);
+        LV_YAML_SERIALIZE_NODE(out, "ShowReferenceAxes",         scene->m_ShowReferenceAxes);
+        LV_YAML_SERIALIZE_NODE(out, "ReferenceAxisColor",        scene->m_ReferenceAxisColor);
+        LV_YAML_SERIALIZE_NODE(out, "ReferenceAxisLength",       scene->m_ReferenceAxisLength);
+        LV_YAML_SERIALIZE_NODE(out, "ReferenceAxisThickness",    scene->m_ReferenceAxisThickness);
+        LV_YAML_SERIALIZE_NODE(out, "ReferenceAxisArrowSize",    scene->m_ReferenceAxisArrowSize);
+        LV_YAML_SERIALIZE_NODE(out, "PerifocalAxisThickness",    scene->m_PerifocalAxisThickness);
+        LV_YAML_SERIALIZE_NODE(out, "PerifocalAxisArrowSize",    scene->m_PerifocalAxisArrowSize);
 
-        out << YAML::Key << "TrackingEntity"            << YAML::Value << (uint64_t)(scene->m_TrackingEntity);
+        LV_YAML_SERIALIZE_NODE(out, "TrackingEntity",           (uint64_t)(scene->m_TrackingEntity));
+        LV_YAML_SERIALIZE_NODE(out, "RelativeViewSpace",        scene->m_RelativeViewSpace);
 
-        out << YAML::Key << "RootScaling"               << YAML::Value << scene->GetRootScaling();
+        LV_YAML_SERIALIZE_NODE(out, "RootScaling",              scene->GetRootScaling());
 
         out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
         // Serialise in descending scene hierarchy order,
@@ -816,39 +861,40 @@ namespace Limnova
         std::string sceneName = data["OrbitalScene"].as<std::string>();
         LV_CORE_TRACE("Deserializing orbital scene '{0}'", sceneName);
 
-        // Scene settings
-        scene->m_LocalSpaceColor            = data["LocalSpaceColor"].as<Vector4>();
-        scene->m_LocalSpaceThickness        = data["LocalSpaceThickness"].as<float>();
-        scene->m_LocalSpaceFade             = data["LocalSpaceFade"].as<float>();
-        scene->m_ShowViewSpace              = data["ShowViewSpace"].as<bool>();
-        scene->m_OrbitThickness             = data["OrbitThickness"].as<float>();
-        scene->m_OrbitFade                  = data["OrbitFade"].as<float>();
-        scene->m_OrbitAlpha                 = data["OrbitAlpha"].as<float>();
-        scene->m_OrbitPointRadius           = data["OrbitPointRadius"].as<float>();
-        scene->m_ShowReferenceAxes          = data["ShowReferenceAxes"].as<bool>();
-        scene->m_ReferenceAxisColor         = data["ReferenceAxisColor"].as<Vector4>();
-        scene->m_ReferenceAxisLength        = data["ReferenceAxisLength"].as<float>();
-        scene->m_ReferenceAxisThickness     = data["ReferenceAxisThickness"].as<float>();
-        scene->m_ReferenceAxisArrowSize     = data["ReferenceAxisArrowSize"].as<float>();
-        scene->m_PerifocalAxisThickness     = data["PerifocalAxisThickness"].as<float>();
-        scene->m_PerifocalAxisArrowSize     = data["PerifocalAxisArrowSize"].as<float>();
+        LV_YAML_DESERIALIZE_NODE(data, "LocalSpaceColor",            Vector4,    scene->m_LocalSpaceColor);
+        LV_YAML_DESERIALIZE_NODE(data, "LocalSpaceThickness",        float,      scene->m_LocalSpaceThickness);
+        LV_YAML_DESERIALIZE_NODE(data, "LocalSpaceFade",             float,      scene->m_LocalSpaceFade);
+        LV_YAML_DESERIALIZE_NODE(data, "ShowViewSpace",              bool,       scene->m_ShowViewSpace);
+        LV_YAML_DESERIALIZE_NODE(data, "OrbitThickness",             float,      scene->m_OrbitThickness);
+        LV_YAML_DESERIALIZE_NODE(data, "OrbitFade",                  float,      scene->m_OrbitFade);
+        LV_YAML_DESERIALIZE_NODE(data, "OrbitAlpha",                 float,      scene->m_OrbitAlpha);
+        LV_YAML_DESERIALIZE_NODE(data, "OrbitPointRadius",           float,      scene->m_OrbitPointRadius);
+        LV_YAML_DESERIALIZE_NODE(data, "ShowReferenceAxes",          bool,       scene->m_ShowReferenceAxes);
+        LV_YAML_DESERIALIZE_NODE(data, "ReferenceAxisColor",         Vector4,    scene->m_ReferenceAxisColor);
+        LV_YAML_DESERIALIZE_NODE(data, "ReferenceAxisLength",        float,      scene->m_ReferenceAxisLength);
+        LV_YAML_DESERIALIZE_NODE(data, "ReferenceAxisThickness",     float,      scene->m_ReferenceAxisThickness);
+        LV_YAML_DESERIALIZE_NODE(data, "ReferenceAxisArrowSize",     float,      scene->m_ReferenceAxisArrowSize);
+        LV_YAML_DESERIALIZE_NODE(data, "PerifocalAxisThickness",     float,      scene->m_PerifocalAxisThickness);
+        LV_YAML_DESERIALIZE_NODE(data, "PerifocalAxisArrowSize",     float,      scene->m_PerifocalAxisArrowSize);
 
         // Physics
         scene->m_Physics = OrbitalPhysics::Context(); /* reset physics context */
         scene->PhysicsUseContext();
-
-        scene->SetRootScaling(              data["RootScaling"].as<double>());
+        LV_YAML_DESERIALIZE_NODE_WITH_SETTER(data, "RootScaling", double, scene->SetRootScaling);
 
         // Entities
-        YAML::Node entitiesNode = data["Entities"];
-        if (entitiesNode) {
-            for (YAML::Node entityNode : entitiesNode) {
+        if (auto entitiesNode = data["Entities"]) {
+            for (auto entityNode : entitiesNode) {
                 DeserializeEntity(scene, entityNode);
             }
         }
 
         // Editor view space
-        scene->SetTrackingEntity(           scene->GetEntity(data["TrackingEntity"].as<uint64_t>()));
+        UUID trackingEntityId = UUID::Null;
+        LV_YAML_DESERIALIZE_NODE(data, "TrackingEntity", uint64_t, trackingEntityId);
+        if (trackingEntityId != UUID::Null)
+            scene->SetTrackingEntity(scene->GetEntity(trackingEntityId));
+        LV_YAML_DESERIALIZE_NODE_WITH_SETTER(data, "RelativeViewSpace", int, scene->SetRelativeViewSpace);
 
         return true;
     }
