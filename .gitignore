@@ -9,6 +9,10 @@ Profiling/
 LimnovaEditor/Assets/textures
 PlayApp/Assets/textures
 
+## Ignore Mono unnecessary binaries
+Limnova/thirdparty/mono/lib/Debug/ignore
+Limnova/thirdparty/mono/lib/Release/ignore
+
 ### Below is from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 ## Ignore Visual Studio temporary files, build results, and
