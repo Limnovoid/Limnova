@@ -20,6 +20,11 @@ namespace Limnova
         s_SceneUniformBuffer = UniformBuffer::Create(0, sizeof(Camera::Data));
     }
 
+    void Renderer::Shutdown()
+    {
+        LV_PROFILE_FUNCTION();
+    }
+
 
     void Renderer::OnWindowResize(uint32_t width, uint32_t height)
     {

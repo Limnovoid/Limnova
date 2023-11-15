@@ -58,31 +58,31 @@ namespace Limnova
 
             // Horizontal movement
             Vector3 cameraHorzLeft = Vector3::Cross({ 0.f, 1.f, 0.f }, m_AimDirection).Normalized();
-            if (Input::IsKeyPressed(LV_KEY_A))
+            if (Input::IsKeyPressed(KEY_A))
             {
                 cameraMovement += cameraHorzLeft;
             }
-            else if (Input::IsKeyPressed(LV_KEY_D))
+            else if (Input::IsKeyPressed(KEY_D))
             {
                 cameraMovement -= cameraHorzLeft;
             }
             Vector3 cameraHorzForward = cameraHorzLeft.Cross({ 0.f, 1.f, 0.f });
-            if (Input::IsKeyPressed(LV_KEY_W))
+            if (Input::IsKeyPressed(KEY_W))
             {
                 cameraMovement += cameraHorzForward;
             }
-            else if (Input::IsKeyPressed(LV_KEY_S))
+            else if (Input::IsKeyPressed(KEY_S))
             {
                 cameraMovement -= cameraHorzForward;
             }
             cameraMovement.Normalize();
 
             // Vertical movement
-            if (Input::IsKeyPressed(LV_KEY_SPACE))
+            if (Input::IsKeyPressed(KEY_SPACE))
             {
                 cameraMovement.y += 1.f;
             }
-            else if (Input::IsKeyPressed(LV_KEY_LEFT_SHIFT))
+            else if (Input::IsKeyPressed(KEY_LEFT_SHIFT))
             {
                 cameraMovement.y -= 1.f;
             }
@@ -117,7 +117,7 @@ namespace Limnova
 
         switch(e.GetMouseButton())
         {
-            case LV_MOUSE_BUTTON_RIGHT:
+            case MOUSE_BUTTON_RIGHT:
                 if (m_BeingControlled)
                 {
                     m_BeingControlled = false;
@@ -129,7 +129,7 @@ namespace Limnova
                     Application::Get().GetWindow().DisableCursor();
                 }
                 break;
-            case LV_MOUSE_BUTTON_MIDDLE:
+            case MOUSE_BUTTON_MIDDLE:
                 if (m_BeingControlled)
                 {
                     m_ZoomLevel = 1.f;
