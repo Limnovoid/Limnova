@@ -74,6 +74,16 @@ namespace Limnova
             entity.GetComponent<TransformComponent>().SetPosition(*position);
         }
 
+        // Physics ---------------------------------------------------------------------------------------------------------------------
+
+        static void OrbitalPhysics_SetThrust(UUID entityId, Vector3* thrust)
+        {
+            Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
+            if (!entity.HasComponent<OrbitalComponent>())
+                LV_CORE_WARN("Cannot set thrust on entity ({}) - does not have an orbital component!", entityId);
+
+            entity.GetComponent<OrbitalComponent>().Object.SetContinuousThrust(Vector3d(*thrust));
+        }
     }
 
     // Scripting registration ------------------------------------------------------------------------------------------------------

@@ -16,7 +16,7 @@ namespace Limnova
             base.OnUpdate(dT);
 
             // test
-            Vec3 direction = new Vec3();
+            Vec3<float> direction = new Vec3<float>();
             if (Input.IsKeyPressed(KeyCode.KEY_A))
                 direction.X = -1f;
             else if (Input.IsKeyPressed(KeyCode.KEY_D))
@@ -39,7 +39,7 @@ namespace Limnova
             //}
 
             TransformComponent transform = Transform;
-            Vec3 pos = transform.Position;
+            Vec3<float> pos = transform.Position;
             pos += direction * speed;
             transform.Position = pos;
 

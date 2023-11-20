@@ -120,8 +120,6 @@ target_precompile_headers(${PROJECT_NAME}
 
         "${PROJECT_SOURCE_DIR}/src/Core/Log.h"
         "${PROJECT_SOURCE_DIR}/src/Profiling/Instrumentor.h"
-
-        "${PROJECT_SOURCE_DIR}/thirdparty/doctest/doctest.h"
 )
 
 
@@ -171,7 +169,6 @@ target_link_libraries(${PROJECT_NAME}
 add_compile_definitions(
     GLFW_INCLUDE_NONE
     _CRT_SECURE_NO_WARNINGS
-    DOCTEST_CONFIG_IMPLEMENT
 )
 
 # Getting yaml to play nice
