@@ -15,6 +15,8 @@ namespace Limnova
 
         operator uint64_t() const { return m_Value; }
 
+        uint64_t& Get() { return m_Value; }
+
         bool operator==(const UUID rhs) { return m_Value == rhs.m_Value; }
         bool operator!=(const UUID rhs) { return m_Value != rhs.m_Value; }
 

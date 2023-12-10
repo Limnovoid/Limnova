@@ -192,6 +192,49 @@ Entities:
       Scale: [0.00999999978, 0.00999999978, 0.00999999978]
     ScriptComponent:
       Name: Player
+      Fields:
+        Speed:
+          Type: Float
+          Data: 0.100000001
+        MyFloat:
+          Type: Float
+          Data: 0.699999988
+        MyBool:
+          Type: Bool
+          Data: true
+        MyDouble:
+          Type: Double
+          Data: 1.0000000007000001
+        MyShort:
+          Type: Short
+          Data: 7
+        MyInt:
+          Type: Int
+          Data: 7
+        MyUshort:
+          Type: UShort
+          Data: 0
+        MyLong:
+          Type: Long
+          Data: 0
+        MyUint:
+          Type: UInt
+          Data: 0
+        MyUlong:
+          Type: ULong
+          Data: 0
+        MyVec2:
+          Type: Vector2
+          Data: [0, 0]
+        MyVec3:
+          Type: Vector3
+          Data: [1, 2, 3]
+        MyVec3d:
+          Type: Vector3d
+          Data: [0, 0, 0]
+        MyEntity:
+          Type: ScriptEntity
+          Data: 474739886008
     BillboardCircleRendererComponent:
       Color: [1, 0, 1, 1]
       Thickness: 1

@@ -8,6 +8,12 @@
 namespace Limnova
 {
 
+#define LV_ASCII_PRINTABLE_MIN 32
+#define LV_ASCII_0 48
+#define LV_ASCII_A 65
+#define LV_ASCII_a 97
+#define LV_ASCII_PRINTABLE_MAX 127
+
     class LIMNOVA_API Input
     {
     public:

@@ -1,5 +1,7 @@
 #include "SceneHierarchyPanel.h"
 
+#include "Utils/InputUtils.h"
+
 #include <imgui/imgui_internal.h>
 
 
@@ -66,7 +68,10 @@ namespace Limnova
             flags |= ImGuiTreeNodeFlags_Selected;
 
         auto& tag = entity.GetComponent<TagComponent>();
-        bool isRoot = entity.GetUUID() == m_Scene->m_Root;
+
+        UUID uuid = entity.GetUUID();
+
+        bool isRoot = uuid == m_Scene->m_Root;
 
         auto children = m_Scene->GetChildren(entity);
         if (children.empty())
@@ -156,7 +161,7 @@ namespace Limnova
             }
         }
 
-        std::ostringstream oss; oss << (uint32_t)entity << ", " << (uint64_t)entity.GetUUID();
+        std::ostringstream oss; oss << (uint32_t)entity << ", " << (uint64_t)uuid;
         LimnGui::HelpMarker(oss.str());
 
         if (expanded)
@@ -254,6 +259,8 @@ namespace Limnova
 
     void SceneHierarchyPanel::Inspector(Entity entity)
     {
+        UUID uuid = entity.GetUUID();
+
         if (entity.HasComponent<TagComponent>())
         {
             auto& tag = entity.GetComponent<TagComponent>();
@@ -325,7 +332,7 @@ namespace Limnova
         }
         ImGui::PopItemWidth();
 
-        bool isRoot = entity.GetUUID() == m_Scene->m_Root;
+        bool isRoot = uuid == m_Scene->m_Root;
         bool isOrbital = entity.HasComponent<OrbitalComponent>();
         bool isOrbitalViewParent = isOrbital ? entity.GetComponent<OrbitalComponent>().Object == ((OrbitalScene*)m_Scene)->m_ViewLSpace.ParentObj() : false;
         bool isOrbitalViewObject = isOrbital ? entity.GetComponent<OrbitalComponent>().Object == ((OrbitalScene*)m_Scene)->m_ViewObject : false;
@@ -422,22 +429,149 @@ namespace Limnova
         {
             auto& script = entity.GetComponent<ScriptComponent>();
 
-            bool scriptIsInvalid = !ScriptEngine::IsRegisteredScriptClass(script.Name);
-            if (scriptIsInvalid)
-            {
+            bool isScriptValid = script.HasInstance();
+
+            bool isTextRed = !isScriptValid;
+            if (isTextRed)
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{ 1.f, 0.2f, 0.3f, 1.f });
-            }
 
             static char nameBuf[64];
-            strncpy_s(nameBuf, script.Name.c_str(), sizeof(nameBuf));
-            if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf)))
-            {
-                script.Name = nameBuf;
-            }
+            strncpy_s(nameBuf, script.GetScriptName().c_str(), sizeof(nameBuf));
+            //if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
+            if (LimnGui::TextEdit("Name", nameBuf, sizeof(nameBuf)))
+                isScriptValid = script.SetScript(uuid, nameBuf);
 
-            if (scriptIsInvalid)
-            {
+            if (isTextRed)
                 ImGui::PopStyleColor();
+
+            // Fields
+            if (isScriptValid)
+            {
+                bool isTypeSupported = true;
+
+                auto &scriptInstance = script.GetScriptInstance(uuid);
+                for (auto &field : scriptInstance->GetFields())
+                {
+                    //ImGui::PushID(field.second->GetType());
+                    ImGui::BeginGroup();
+
+                    switch (field.second->GetType())
+                    {
+                    case ScriptEngine::SCRIPT_FIELD_TYPE_FLOAT:
+                    {
+                        float value;
+                        field.second->GetValue<float>(value);
+
+                        static const LimnGui::InputConfig<float> config;
+                        if (LimnGui::DragFloat(field.first, value, config))
+                            field.second->SetValue<float>(value);
+
+                        break;
+                    }
+                    case ScriptEngine::SCRIPT_FIELD_TYPE_DOUBLE:
+                    {
+                        double value;
+                        field.second->GetValue<double>(value);
+
+                        static const LimnGui::InputConfig<double> config = { 0.0, 0.1, 1.0, 0.0, 0.0, 10 };
+                        if (LimnGui::InputDouble(field.first, value, config))
+                            field.second->SetValue<double>(value);
+
+                        break;
+                    }
+                    case ScriptEngine::SCRIPT_FIELD_TYPE_BOOL:
+                    {
+                        bool value;
+                        field.second->GetValue<bool>(value);
+
+                        if (LimnGui::Checkbox(field.first, value))
+                            field.second->SetValue<bool>(value);
+
+                        break;
+                    }
+                    case ScriptEngine::SCRIPT_FIELD_TYPE_SHORT:
+                    {
+                        int16_t value;
+                        field.second->GetValue<int16_t>(value);
+
+                        int intValue = (int)value;
+
+                        static const LimnGui::InputConfig<int> config = LimnGui::InputConfig<int>(0, 1, 10, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max());
+                        if (LimnGui::DragInt(field.first, intValue, config))
+                        {
+                            value = (int16_t)intValue;
+                            field.second->SetValue<int16_t>(value);
+                        }
+
+                        break;
+                    }
+                    case ScriptEngine::SCRIPT_FIELD_TYPE_INT:
+                    {
+                        int value;
+                        field.second->GetValue<int>(value);
+
+                        static const LimnGui::InputConfig<int> config;
+                        if (LimnGui::DragInt(field.first, value, config))
+                            field.second->SetValue<int>(value);
+
+                        break;
+                    }
+                    case ScriptEngine::SCRIPT_FIELD_TYPE_VECTOR3:
+                    {
+                        Vector3 value;
+                        field.second->GetValue<Vector3>(value);
+
+                        static const LimnGui::InputConfig<float> config;
+                        if (LimnGui::DragVec3(field.first, value, config))
+                            field.second->SetValue<Vector3>(value);
+
+                        break;
+                    }
+                    case ScriptEngine::SCRIPT_FIELD_TYPE_VECTOR3D:
+                    {
+                        Vector3d value;
+                        field.second->GetValue<Vector3d>(value);
+
+                        static const LimnGui::InputConfig<double> config;
+                        if (LimnGui::InputVec3d(field.first, value, config))
+                            field.second->SetValue<Vector3d>(value);
+
+                        break;
+                    }
+                    case ScriptEngine::SCRIPT_FIELD_TYPE_ENTITY:
+                    {
+                        UUID value; // Entity wraps UUID wraps uint64_t
+                        field.second->GetValue<UUID>(value);
+
+                        static const LimnGui::InputConfig<uint64_t> config(
+                            0, 1, 1000, 0, 0, 0, false, false, 0, 100.f, 300.f /* widget width */ );
+
+                        if (LimnGui::InputUInt64(field.first, value.Get(), config))
+                            field.second->SetValue<UUID>(value);
+
+                        break;
+                    }
+
+                    default:
+                        ImGui::TextDisabled("%s", field.first.c_str());
+                        isTypeSupported = false;
+                        break;
+                    }
+
+                    ImGui::EndGroup();
+
+                    if (isTypeSupported)
+                    {
+                        LimnGui::ItemDescription(ScriptEngine::FieldTypeToString(field.second->GetType()));
+                    }
+                    else
+                    {
+                        LimnGui::ItemDescription(ScriptEngine::FieldTypeToString(field.second->GetType()) +
+                            std::string(" (unsupported)"));
+                    }
+
+                    //ImGui::PopID();
+                }
             }
         });
 
@@ -1034,6 +1168,18 @@ namespace Limnova
 
     // LimnGui /////////////////////////////////
 
+    void LimnGui::ItemDescription(const std::string &description)
+    {
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        {
+            ImGui::BeginTooltip();
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+            ImGui::TextUnformatted(description.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::EndTooltip();
+        }
+    }
+
     void LimnGui::HelpMarker(const std::string& description)
     {
         ImGui::SameLine();
@@ -1084,6 +1230,44 @@ namespace Limnova
         return valueChanged;
     }
 
+    int InputUInt64InputTextCallback(ImGuiInputTextCallbackData *pData)
+    {
+        if (pData->EventChar < LV_ASCII_0 || LV_ASCII_0 + 9 < pData->EventChar)
+            return 1;
+        return 0;
+    }
+
+    bool LimnGui::InputUInt64(const std::string &label, uint64_t &value, const InputConfig<uint64_t> &config)
+    {
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
+
+        ImGui::Columns(2);
+        ImGui::SetColumnWidth(0, config.LabelWidth);
+        ImGui::Text(label.c_str());
+
+        ImGui::NextColumn();
+        ImGui::SetColumnWidth(1, config.WidgetWidth);
+
+        char inputBuffer[21];
+        size_t resultDataLength;
+        Utils::ConvertUint64ToAsciiDecimal(value, inputBuffer, sizeof(inputBuffer), resultDataLength);
+        inputBuffer[resultDataLength] = '\0';
+
+        static constexpr ImGuiInputTextFlags flags = 
+            ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_EnterReturnsTrue/* | ImGuiInputTextFlags_CallbackCharFilter*/;
+
+        bool valueChanged = ImGui::InputText("##V", inputBuffer, sizeof(inputBuffer), flags/*, InputUInt64InputTextCallback*/);
+
+        if (valueChanged)
+            Utils::ConvertAsciiDecimalToUint64(inputBuffer, sizeof(inputBuffer), value);
+
+        ImGui::Columns(1);
+        ImGui::PopID();
+        return valueChanged;
+    }
+
     bool LimnGui::InputScientific(const std::string& label, double& value, float columnWidth)
     {
         ImGui::PushID(label.c_str());
@@ -1120,6 +1304,27 @@ namespace Limnova
         std::ostringstream formatting;
         formatting << "%." << config.Precision << "f";
         bool valueChanged = ImGui::InputDouble("##V", &value, config.Speed, config.FastSpeed, formatting.str().c_str(), flags);
+
+        ImGui::Columns(1);
+        ImGui::PopID();
+        return valueChanged;
+    }
+
+    bool LimnGui::DragInt(const std::string &label, int &value, const InputConfig<int> &config, float columnWidth)
+    {
+        ImGuiSliderFlags flags = ImGuiSliderFlags_AlwaysClamp;
+        if (config.ReadOnly) flags |= ImGuiSliderFlags_ReadOnly;
+
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
+
+        ImGui::Columns(2);
+        ImGui::SetColumnWidth(0, columnWidth);
+        ImGui::Text(label.c_str());
+        ImGui::NextColumn();
+
+        bool valueChanged = ImGui::DragInt("##V", &value, config.Speed, config.Min, config.Max, "%d", flags);
 
         ImGui::Columns(1);
         ImGui::PopID();
@@ -1406,6 +1611,25 @@ namespace Limnova
 
         ImGui::Columns(1);
         ImGui::EndGroup();
+        ImGui::PopID();
+        return valueChanged;
+    }
+
+
+    bool LimnGui::TextEdit(const std::string &label, char *textBuffer, size_t bufferSize, float columnWidth)
+    {
+        ImGui::PushID(label.c_str());
+
+        ImGui::Columns(2);
+        ImGui::SetColumnWidth(0, columnWidth);
+        ImGui::Text(label.c_str());
+        ImGui::NextColumn();
+
+        ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;
+
+        bool valueChanged = ImGui::InputText("##V", textBuffer, bufferSize, flags);
+
+        ImGui::Columns(1);
         ImGui::PopID();
         return valueChanged;
     }

@@ -116,10 +116,34 @@ namespace Limnova
 
     struct ScriptComponent
     {
-        std::string Name;
-        bool HasScriptInstance = false;
+    private:
+        std::string m_ScriptName;
+        bool m_HasInstance = false;
+    public:
         ScriptComponent() = default;
         ScriptComponent(const ScriptComponent&) = default;
+
+        const std::string &GetScriptName() const
+        {
+            return m_ScriptName;
+        }
+
+        bool SetScript(UUID entityId, const std::string &scriptClassName)
+        {
+            m_ScriptName = scriptClassName;
+            m_HasInstance = ScriptEngine::TryCreateEntityScript(entityId, scriptClassName);
+            return m_HasInstance;
+        }
+
+        bool HasInstance() const
+        {
+            return m_HasInstance;
+        }
+
+        const Ref<ScriptEngine::EntityScriptInstance> &GetScriptInstance(UUID entityId) const
+        {
+            return ScriptEngine::GetEntityScriptInstance(entityId);
+        }
     };
 
 

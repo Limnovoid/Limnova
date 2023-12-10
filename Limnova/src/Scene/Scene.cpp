@@ -10,8 +10,10 @@
 namespace Limnova
 {
 
-    static constexpr Vector3 kDefaultAim{ 0.f, 0.f, -1.f };
+#define LV_SCENE_COPY_ENTITY_SCRIPT_FIELDS(id, type, name, monoTypeName)  \
+case ScriptEngine::id: { type value; field.second->GetValue(value); dstFields.at(field.first)->SetValue(value); break; }
 
+    static constexpr Vector3 kDefaultAim{ 0.f, 0.f, -1.f };
 
     Scene::Scene()
     {
@@ -30,6 +32,12 @@ namespace Limnova
 
         m_Registry.on_construct<CameraComponent>().connect<&Scene::OnCameraComponentConstruction>(this);
         m_Registry.on_destroy<CameraComponent>().connect<&Scene::OnCameraComponentDestruction>(this);
+    }
+
+
+    void Scene::ScriptEngineUseContext()
+    {
+        ScriptEngine::SetContext(this);
     }
 
 
@@ -61,7 +69,6 @@ namespace Limnova
 
         dst->CopyAllOfComponent<TransformComponent>(src->m_Registry);
         dst->CopyAllOfComponent<HierarchyComponent>(src->m_Registry);
-        dst->CopyAllOfComponent<ScriptComponent>(src->m_Registry);
         dst->CopyAllOfComponent<CameraComponent>(src->m_Registry);
         dst->CopyAllOfComponent<NativeScriptComponent>(src->m_Registry);
         dst->CopyAllOfComponent<SpriteRendererComponent>(src->m_Registry);
@@ -69,6 +76,42 @@ namespace Limnova
         dst->CopyAllOfComponent<CircleRendererComponent>(src->m_Registry);
         dst->CopyAllOfComponent<BillboardCircleRendererComponent>(src->m_Registry);
         dst->CopyAllOfComponent<EllipseRendererComponent>(src->m_Registry);
+
+        // Copy script engine state
+        auto scriptView = srcRegistry.view<ScriptComponent>();
+        for (auto e : scriptView)
+        {
+            LV_CORE_ASSERT(srcRegistry.all_of<IDComponent>(e), "All entities must have UUID!");
+            UUID uuid = srcRegistry.get<IDComponent>(e).ID;
+            const ScriptComponent &srcScript = srcRegistry.get<ScriptComponent>(e);
+            LV_CORE_ASSERT(dst->m_Entities.find(uuid) != dst->m_Entities.end(), "Could not find entity with matching ID in the destination scene!");
+            ScriptComponent &dstScript = dst->m_Registry.emplace_or_replace<ScriptComponent>(dst->m_Entities.at(uuid), srcScript);
+
+            ScriptEngine::SetContext(dst.get()); // create script instance in destination scene's context
+            dstScript.SetScript(uuid, srcScript.GetScriptName());
+
+            if (srcScript.HasInstance())
+            {
+                LV_CORE_ASSERT(dstScript.HasInstance(), "Failed to replicate script instance!");
+                auto &dstScriptInstance = dstScript.GetScriptInstance(uuid);
+                auto &dstFields = dstScriptInstance->GetFields();
+
+                ScriptEngine::SetContext(src.get()); // get source fields from source scene's context
+                auto &srcScriptInstance = srcScript.GetScriptInstance(uuid);
+                auto &srcFields = srcScriptInstance->GetFields();
+                for (auto &field : srcFields)
+                {
+                    switch (field.second->GetType())
+                    {
+                        LV_SCRIPT_ENGINE_FIELD_LIST(LV_SCENE_COPY_ENTITY_SCRIPT_FIELDS)
+
+                    default:
+                        LV_CORE_ERROR("Unrecognised field type!");
+                    }
+                }
+            }
+        }
+        ScriptEngine::SetContext(src.get()); // return context to original state
     }
 
 
@@ -297,7 +340,7 @@ namespace Limnova
     void Scene::OnUpdateRuntime(Timestep dT)
     {
         // Scripts
-        ScriptEngine::OnSceneUpdate(this, dT);
+        ScriptEngine::OnSceneUpdate(dT);
 
         m_Registry.view<NativeScriptComponent>().each([=](auto entity, auto& script)
         {

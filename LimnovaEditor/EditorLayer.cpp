@@ -200,6 +200,7 @@ namespace Limnova
 
         m_EditorScene = m_ActiveScene;
 
+        ScriptEngine::SetContext(m_ActiveScene.get());
         m_SceneHierarchyPanel.SetContext(m_ActiveScene.get());
 
         m_IconPlay = Texture2D::Create(LV_EDITOR_RES_DIR"\\Icons\\PlayButton.png");
@@ -236,13 +237,14 @@ namespace Limnova
             {
                 m_EditorCamera.OnUpdate(dT);
                 m_ActiveScene->OnUpdateEditor(dT);
+
                 break;
             }
             case SceneState::Simulate:
             {
                 m_EditorCamera.OnUpdate(dT); /* Simulate uses editor camera so we update it */
                 dT = dT * m_SceneDTMultiplier;
-                // fallthrough to Play
+                // fallthrough
             }
             case SceneState::Play:
             {
@@ -896,9 +898,12 @@ namespace Limnova
 #else
         m_ActiveScene = Scene::Copy(m_EditorScene);
 #endif
-        m_ActiveScene->OnStartRuntime();
 
+        m_ActiveScene->ScriptEngineUseContext();
+        m_ActiveScene->PhysicsUseContext();
         m_SceneHierarchyPanel.SetContext(m_ActiveScene.get());
+
+        m_ActiveScene->OnStartRuntime();
     }
 
 
@@ -921,9 +926,12 @@ namespace Limnova
 #else
         m_ActiveScene = Scene::Copy(m_EditorScene);
 #endif
-        m_ActiveScene->OnStartRuntime();
 
+        m_ActiveScene->ScriptEngineUseContext();
+        m_ActiveScene->PhysicsUseContext();
         m_SceneHierarchyPanel.SetContext(m_ActiveScene.get());
+
+        m_ActiveScene->OnStartRuntime();
     }
 
 
@@ -935,8 +943,9 @@ namespace Limnova
 
         m_ActiveScene = m_EditorScene;
 
-        m_SceneHierarchyPanel.SetContext(m_EditorScene.get());
+        m_EditorScene->ScriptEngineUseContext();
         m_EditorScene->PhysicsUseContext();
+        m_SceneHierarchyPanel.SetContext(m_EditorScene.get());
     }
 
 

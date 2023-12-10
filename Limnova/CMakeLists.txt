@@ -78,6 +78,8 @@ add_library(${PROJECT_NAME} STATIC
 
     "src/Structures/Queue.h"
 
+    "src/Utils/InputUtils.cpp"
+
     "thirdparty/stb_image/stb_image.cpp"
 )
 

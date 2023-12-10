@@ -38,7 +38,7 @@ namespace Limnova
         m_Registry.on_destroy<OrbitalComponent>().connect<&OrbitalScene::OnOrbitalComponentDestruct>(this);
 
         // Physics callbacks
-        //m_Physics.m_LSpaceChangedCallback = [this](OrbitalPhysics::ObjectNode objNode) { this->OnParentLocalSpaceChange(objNode); };
+        //m_PhysicsContext.m_LSpaceChangedCallback = [this](OrbitalPhysics::ObjectNode objNode) { this->OnParentLocalSpaceChange(objNode); };
     }
 
 
@@ -50,9 +50,9 @@ namespace Limnova
         Scene::Copy(scene, newScene);
 
         // Copy OrbitalPhysics
-        newScene->m_Physics = scene->m_Physics; /* copies internal state of OrbitalPhysics, but callbacks have to be manually (re)pointed to the new OrbitalScene */
+        newScene->m_PhysicsContext = scene->m_PhysicsContext; /* copies internal state of OrbitalPhysics, but callbacks have to be manually (re)pointed to the new OrbitalScene */
         newScene->PhysicsUseContext();
-        //newScene->m_Physics.m_LSpaceChangedCallback = [newScene](OrbitalPhysics::ObjectNode objNode) { newScene->OnParentLocalSpaceChange(objNode); };
+        //newScene->m_PhysicsContext.m_LSpaceChangedCallback = [newScene](OrbitalPhysics::ObjectNode objNode) { newScene->OnParentLocalSpaceChange(objNode); };
 
         newScene->CopyAllOfComponent<OrbitalHierarchyComponent>(scene->m_Registry);
 
@@ -92,6 +92,8 @@ namespace Limnova
         newScene->m_OrbitalReferenceX = scene->m_OrbitalReferenceX;
         newScene->m_OrbitalReferenceY = scene->m_OrbitalReferenceY;
         newScene->m_OrbitalReferenceNormal = scene->m_OrbitalReferenceNormal;
+
+        scene->PhysicsUseContext(); // restore original physics context
 
         return newScene;
     }
@@ -142,9 +144,9 @@ namespace Limnova
 
     void OrbitalScene::PhysicsUseContext()
     {
-        OrbitalPhysics::SetContext(&m_Physics);
-        m_Physics.m_ParentLSpaceChangedCallback = [this](OrbitalPhysics::ObjectNode objNode) { this->OnParentLocalSpaceChange(objNode); };
-        m_Physics.m_ChildLSpacesChangedCallback = [this](OrbitalPhysics::ObjectNode objNode) { this->OnChildLocalSpacesChange(objNode); };
+        OrbitalPhysics::SetContext(&m_PhysicsContext);
+        m_PhysicsContext.m_ParentLSpaceChangedCallback = [this](OrbitalPhysics::ObjectNode objNode) { this->OnParentLocalSpaceChange(objNode); };
+        m_PhysicsContext.m_ChildLSpacesChangedCallback = [this](OrbitalPhysics::ObjectNode objNode) { this->OnChildLocalSpacesChange(objNode); };
     }
 
 
@@ -329,8 +331,6 @@ namespace Limnova
     void OrbitalScene::OnStartRuntime()
     {
         Scene::OnStartRuntime();
-
-        PhysicsUseContext();
     }
 
 

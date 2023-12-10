@@ -4,32 +4,55 @@
 #include "Components.h"
 
 
-#define LV_YAML_SERIALIZE_NODE(outstream, stringkey, value)\
-outstream << YAML::Key << stringkey << YAML::Value << value;
-
-#define LV_YAML_DESERIALIZE_NODE(data, stringname, type, variable)              \
-if (auto node = data[stringname])                                               \
-{                                                                               \
-    variable = node.as<type>();                                                 \
-}                                                                               \
-else                                                                            \
-{                                                                               \
-    LV_CORE_ERROR("Failed to deserialize node: " stringname);                   \
-}
-
-#define LV_YAML_DESERIALIZE_NODE_WITH_SETTER(data, stringname, type, setter)    \
-if (auto node = data[stringname])                                               \
-{                                                                               \
-    setter(node.as<type>());                                                    \
-}                                                                               \
-else                                                                            \
-{                                                                               \
-    LV_CORE_ERROR("Failed to deserialize node: " stringname);                   \
-}
-
-
 namespace YAML
 {
+
+    template<>
+    struct convert<Limnova::UUID>
+    {
+        static Node encode(const Limnova::UUID rhs)
+        {
+            Node node;
+            node.push_back((uint64_t)rhs);
+            return node;
+        }
+
+        static bool decode(const Node& node, Limnova::UUID rhs)
+        {
+            if (!node.IsScalar())
+                return false;
+
+            rhs = node.as<uint64_t>();
+            return true;
+        }
+    };
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    template<>
+    struct convert<Limnova::Vector2>
+    {
+        static Node encode(const Limnova::Vector2& rhs)
+        {
+            Node node;
+            node.push_back(rhs.x);
+            node.push_back(rhs.y);
+            return node;
+        }
+
+        static bool decode(const Node& node, Limnova::Vector2& rhs)
+        {
+            if (!node.IsSequence() || node.size() != 2)
+                return false;
+
+            rhs.x = node[0].as<float>();
+            rhs.y = node[1].as<float>();
+
+            return true;
+        }
+    };
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     template<>
     struct convert<Limnova::Vector3>
@@ -45,9 +68,8 @@ namespace YAML
 
         static bool decode(const Node& node, Limnova::Vector3& rhs)
         {
-            if (!node.IsSequence() || node.size() != 3) {
+            if (!node.IsSequence() || node.size() != 3)
                 return false;
-            }
 
             rhs.x = node[0].as<float>();
             rhs.y = node[1].as<float>();
@@ -57,6 +79,7 @@ namespace YAML
         }
     };
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     template<>
     struct convert<Limnova::Vector3d>
@@ -72,9 +95,8 @@ namespace YAML
 
         static bool decode(const Node& node, Limnova::Vector3d& rhs)
         {
-            if (!node.IsSequence() || node.size() != 3) {
+            if (!node.IsSequence() || node.size() != 3)
                 return false;
-            }
 
             rhs.x = node[0].as<double>();
             rhs.y = node[1].as<double>();
@@ -84,6 +106,7 @@ namespace YAML
         }
     };
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     template<>
     struct convert<Limnova::Vector4>
@@ -100,9 +123,8 @@ namespace YAML
 
         static bool decode(const Node& node, Limnova::Vector4& rhs)
         {
-            if (!node.IsSequence() || node.size() != 4) {
+            if (!node.IsSequence() || node.size() != 4)
                 return false;
-            }
 
             rhs.x = node[0].as<float>();
             rhs.y = node[1].as<float>();
@@ -113,6 +135,7 @@ namespace YAML
         }
     };
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     template<>
     struct convert<Limnova::Quaternion>
@@ -129,9 +152,8 @@ namespace YAML
 
         static bool decode(const Node& node, Limnova::Quaternion& rhs)
         {
-            if (!node.IsSequence() || node.size() != 4) {
+            if (!node.IsSequence() || node.size() != 4)
                 return false;
-            }
 
             rhs = Limnova::Quaternion{
                 node[0].as<float>(),
@@ -149,6 +171,76 @@ namespace YAML
 
 namespace Limnova
 {
+
+#define LV_YAML_SERIALIZE_NODE(outstream, stringkey, value)\
+outstream << YAML::Key << stringkey << YAML::Value << value
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+#define LV_YAML_DESERIALIZE_NODE(data, name, type, variable)        \
+if (auto node = data[name])                                         \
+{                                                                   \
+    variable = node.as<type>();                                     \
+}                                                                   \
+else                                                                \
+{                                                                   \
+    LV_CORE_ERROR("Failed to deserialize node: " name);             \
+}
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+#define LV_YAML_DESERIALIZE_NODE_STRING_CLASS(data, nameObject, type, variable)     \
+if (auto node = data[nameObject])                                                   \
+{                                                                                   \
+    variable = node.as<type>();                                                     \
+}                                                                                   \
+else                                                                                \
+{                                                                                   \
+    LV_CORE_ERROR("Failed to deserialize node: {}", nameObject);                    \
+}
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+#define LV_YAML_DESERIALIZE_NODE_WITH_SETTER(data, stringname, type, setter)    \
+if (auto node = data[stringname])                                               \
+{                                                                               \
+    setter(node.as<type>());                                                    \
+}                                                                               \
+else                                                                            \
+{                                                                               \
+    LV_CORE_ERROR("Failed to deserialize node: " stringname);                   \
+}
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+//#define LV_YAML_SERIALIZE_SCRIPT_FIELD(id, type, name, monoTypeName)    \
+    case ScriptEngine::id: { type value; field.second->GetValue(value); \
+    LV_YAML_SERIALIZE_NODE(out, field.first, value); break; }
+#define LV_YAML_SERIALIZE_SCRIPT_FIELD(id, type, name, monoTypeName)\
+    case ScriptEngine::id: { type value; field.second->GetValue(value); out << YAML::Value << value; break; }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+//#define LV_YAML_DESERIALIZE_SCRIPT_FIELD(id, type, name, monoTypeName)                  \
+case ScriptEngine::id: { type value;                                                    \
+    LV_YAML_DESERIALIZE_NODE_STRING_CLASS(scriptFieldsNode, field.first, type, value);  \
+    field.second->SetValue<type>(value); break; }
+//#define LV_YAML_DESERIALIZE_SCRIPT_FIELD(id, type, name, monoTypeName)  \
+    case ScriptEngine::id: { type value = fieldNode["Data"].as<type>();  \
+    field.second->SetValue<type>(value); break; }
+#define LV_YAML_DESERIALIZE_SCRIPT_FIELD(id, type, name, monoTypeName)  \
+    case ScriptEngine::id: { type value; LV_YAML_DESERIALIZE_NODE(fieldNode, "Data", type, value);\
+    field.second->SetValue<type>(value); isFieldDeserialized = true; break; }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    YAML::Emitter& operator<<(YAML::Emitter& out, const Vector2& vec)
+    {
+        out << YAML::Flow;
+        out << YAML::BeginSeq << vec.x << vec.y << YAML::EndSeq;
+        return out;
+    }
 
     YAML::Emitter& operator<<(YAML::Emitter& out, const Vector3& vec)
     {
@@ -229,11 +321,16 @@ namespace Limnova
     }
 #endif
 
+    // -----------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     void SceneSerializer::SerializeEntity(Scene* scene, YAML::Emitter& out, Entity entity)
     {
         out << YAML::BeginMap; // Entity
-        LV_YAML_SERIALIZE_NODE(out, "Entity", (uint64_t)(entity.GetUUID()));
+
+        UUID uuid = entity.GetUUID();
+
+        LV_YAML_SERIALIZE_NODE(out, "Entity", (uint64_t)uuid);
 
         bool isRootEntity;
         if (entity.HasComponent<TagComponent>())
@@ -283,8 +380,29 @@ namespace Limnova
             out << YAML::BeginMap; // ScriptComponent
 
             auto& script = entity.GetComponent<ScriptComponent>();
-            LV_YAML_SERIALIZE_NODE(out, "Name", script.Name);
+            if (script.HasInstance())
+            {
+                LV_YAML_SERIALIZE_NODE(out, "Name", script.GetScriptName());
 
+                out << YAML::Key << "Fields";
+                out << YAML::BeginMap; // Script fields
+
+                auto &fields = script.GetScriptInstance(uuid)->GetFields();
+                for (auto &field : fields)
+                {
+                    out << YAML::Key << field.first;
+                    out << YAML::BeginMap; // Field
+                    out << YAML::Key << "Type" << YAML::Value << ScriptEngine::FieldTypeToString(field.second->GetType());
+                    out << YAML::Key << "Data";
+                    switch (field.second->GetType())
+                    {
+                        LV_SCRIPT_ENGINE_FIELD_LIST(LV_YAML_SERIALIZE_SCRIPT_FIELD);
+                    }
+                    out << YAML::EndMap; // Field
+                }
+
+                out << YAML::EndMap; // Script fields
+            }
             out << YAML::EndMap; // ScriptComponent
         }
 
@@ -469,7 +587,44 @@ namespace Limnova
         if (auto sNode = entityNode["ScriptComponent"])
         {
             auto& sc = entity.AddComponent<ScriptComponent>();
-            LV_YAML_DESERIALIZE_NODE(sNode, "Name", std::string, sc.Name);
+
+            if (auto scriptNameNode = sNode["Name"])
+            {
+                if (!sc.SetScript(uuid, scriptNameNode.as<std::string>()))
+                {
+                    LV_CORE_ERROR("Failed to deserialize ScriptComponent: unrecognised entity script '{0}'", scriptNameNode.as<std::string>());
+                }
+                else
+                {
+
+                    if (auto scriptFieldsNode = sNode["Fields"];
+                        scriptFieldsNode && scriptFieldsNode.IsMap())
+                    {
+                        auto &fields = sc.GetScriptInstance(uuid)->GetFields();
+                        for (auto &field : fields)
+                        {
+                            bool isFieldDeserialized = false;
+
+                            if (auto fieldNode = scriptFieldsNode[field.first];
+                                fieldNode && fieldNode.IsMap())
+                            {
+                                auto fieldTypeNode = fieldNode["Type"];
+                                if (fieldTypeNode && fieldTypeNode.IsScalar() &&
+                                    fieldTypeNode.as<std::string>() == ScriptEngine::FieldTypeToString(field.second->GetType()))
+                                {
+                                    switch (field.second->GetType())
+                                    {
+                                        LV_SCRIPT_ENGINE_FIELD_LIST(LV_YAML_DESERIALIZE_SCRIPT_FIELD)
+                                    }
+                                }
+                            }
+
+                            if (!isFieldDeserialized)
+                                LV_CORE_ERROR("Failed to deserialize script field '{}'", field.first);
+                        }
+                    }
+                }
+            }
         }
 
         if (auto ccNode = entityNode["CameraComponent"])
@@ -485,9 +640,8 @@ namespace Limnova
             LV_YAML_DESERIALIZE_NODE(ccNode, "TieAspectToView",     bool,   cc.TieAspectToView      );
             LV_YAML_DESERIALIZE_NODE(ccNode, "IsOrthographic",      bool,   cc.IsOrthographic       );
 
-            cc.AspectRatio = cc.TieAspectToView
-                ? scene->m_ViewportAspectRatio
-                : ccNode["AspectRatio"].as<float>();
+            cc.AspectRatio = (cc.TieAspectToView) ?
+                scene->m_ViewportAspectRatio : ccNode["AspectRatio"].as<float>();
 
             cc.UpdateProjection();
         }
@@ -737,6 +891,9 @@ namespace Limnova
         out << YAML::BeginMap; // Scene
         out << YAML::Key << "Scene" << YAML::Value << std::filesystem::path(filepath).filename().string();
 
+        Scene *pScriptEngineInitialContext = ScriptEngine::GetContext();
+        scene->ScriptEngineUseContext();
+
         out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
         // Serialise in descending scene hierarchy order,
         // so each entity is deserialised after its parent and can be immediately parented
@@ -747,6 +904,8 @@ namespace Limnova
             SerializeEntity(scene, out, entity);
         }
         out << YAML::EndSeq;
+
+        pScriptEngineInitialContext->ScriptEngineUseContext();
 
         out << YAML::EndMap; // Scene
 
@@ -775,11 +934,16 @@ namespace Limnova
         std::string sceneName = data["Scene"].as<std::string>();
         LV_CORE_TRACE("Deserializing scene '{0}'", sceneName);
 
+        Scene *pScriptEngineInitialContext = ScriptEngine::GetContext();
+        scene->ScriptEngineUseContext();
+
         if (auto entitiesNode = data["Entities"]) {
             for (auto entityNode : entitiesNode) {
                 DeserializeEntity(scene, entityNode);
             }
         }
+
+        pScriptEngineInitialContext->ScriptEngineUseContext();
 
         return true;
     }
@@ -820,6 +984,11 @@ namespace Limnova
         LV_YAML_SERIALIZE_NODE(out, "TrackingEntity",           (uint64_t)(scene->m_TrackingEntity));
         LV_YAML_SERIALIZE_NODE(out, "RelativeViewSpace",        scene->m_RelativeViewSpace);
 
+        Scene *pScriptEngineInitialContext = ScriptEngine::GetContext();
+        scene->ScriptEngineUseContext();
+
+        scene->PhysicsUseContext();
+
         LV_YAML_SERIALIZE_NODE(out, "RootScaling",              scene->GetRootScaling());
 
         out << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
@@ -833,6 +1002,9 @@ namespace Limnova
             SerializeEntity(scene, out, entity);
         }
         out << YAML::EndSeq;
+
+        pScriptEngineInitialContext->ScriptEngineUseContext();
+        // TODO : restore initial physics context
 
         out << YAML::EndMap; // Scene
 
@@ -877,9 +1049,10 @@ namespace Limnova
         LV_YAML_DESERIALIZE_NODE(data, "PerifocalAxisThickness",     float,      scene->m_PerifocalAxisThickness);
         LV_YAML_DESERIALIZE_NODE(data, "PerifocalAxisArrowSize",     float,      scene->m_PerifocalAxisArrowSize);
 
-        // Physics
-        scene->m_Physics = OrbitalPhysics::Context(); /* reset physics context */
+        scene->ScriptEngineUseContext();
+        scene->m_PhysicsContext = OrbitalPhysics::Context(); /* reset physics context */
         scene->PhysicsUseContext();
+
         LV_YAML_DESERIALIZE_NODE_WITH_SETTER(data, "RootScaling", double, scene->SetRootScaling);
 
         // Entities
