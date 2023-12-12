@@ -81,7 +81,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Utils/InputUtils.cpp"
 
     "thirdparty/stb_image/stb_image.cpp"
-)
+ "src/Core/Typedefs.h")
 
 
 set_property(TARGET ${PROJECT_NAME}

@@ -6,7 +6,7 @@ namespace Limnova
 {
 	namespace Utils
 	{
-		bool ConvertAsciiDecimalToUint64(const char *pData, size_t length, uint64_t &value)
+		ResultCode ConvertAsciiDecimalToUint64(const char *pData, size_t length, uint64_t &value)
 		{
 			size_t i = 0;
 
@@ -20,14 +20,14 @@ namespace Limnova
 			while (i < length && (pData[i] != ' ' && pData[i] != '\0' && pData[i] != '\n'))
 			{
 				if (pData[i] < LV_ASCII_0 || LV_ASCII_0 + 9 < pData[i])
-					return false;
+					return RESULT_CODE_INVALID_FORMAT;
 
 				uint64_t nextDigit = pData[i] - LV_ASCII_0;
 
 				if ((tempValue > overflowLimit / 10) ||
 					(tempValue == overflowLimit / 10 && nextDigit > overflowLimit % 10))
 				{
-					return false;
+					return RESULT_CODE_OVERFLOW;
 				}
 
 				tempValue *= 10;
@@ -38,12 +38,12 @@ namespace Limnova
 
 			value = tempValue;
 
-			return true;
+			return RESULT_CODE_SUCCESS;
 		}
 
 		// -------------------------------------------------------------------------------------------------------------------------
 
-		bool ConvertUint64ToAsciiDecimal(uint64_t value, char *pBuffer, size_t bufferLength, size_t &dataLength)
+		ResultCode ConvertUint64ToAsciiDecimal(uint64_t value, char *pBuffer, size_t bufferLength, size_t &dataLength)
 		{
 			char tempBuffer[20];
 			memset(tempBuffer, ' ', sizeof(tempBuffer));
@@ -60,11 +60,11 @@ namespace Limnova
 			dataLength = sizeof(tempBuffer) - i;
 
 			if (dataLength > bufferLength)
-				return false;
+				return RESULT_CODE_OVERFLOW;
 
 			memcpy(pBuffer, &tempBuffer[i], dataLength);
 
-			return true;
+			return RESULT_CODE_SUCCESS;
 		}
 	}
 }

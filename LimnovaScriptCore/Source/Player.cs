@@ -22,7 +22,7 @@ namespace Limnova
         public Vec2     MyVec2 = new Vec2(1.0f, 2.0f);
         public Vec3     MyVec3 = new Vec3(1.0f, 2.0f, 3.0f );
         public Vec3d    MyVec3d = new Vec3d(1.0, 2.0, 3.0);
-        public Entity   MyEntity = 0;
+        public Entity   MyEntity = new Entity(0);
 
         public void OnCreate(ulong entityId)
         {
@@ -53,7 +53,7 @@ namespace Limnova
             pos += direction * distance;
             transform.Position = pos;
 
-            Native.LogInfo($"Entity ({m_Id}) position: {pos.ToString()}");
+            //Native.LogInfo($"Entity ({m_Id}) MyEntity: {MyEntity}");
         }
     }
 

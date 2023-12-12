@@ -516,6 +516,18 @@ namespace Limnova
 
                         break;
                     }
+                    case ScriptEngine::SCRIPT_FIELD_TYPE_ULONG:
+                    {
+                        uint64_t value;
+                        field.second->GetValue<uint64_t>(value);
+
+                        static const LimnGui::InputConfig<uint64_t> config(
+                            0, 1, 1000, 0, 0, 0, false, false, 0, 100.f, 300.f /* widget width */ );
+                        if (LimnGui::InputUInt64(field.first, value, config))
+                            field.second->SetValue<uint64_t>(value);
+
+                        break;
+                    }
                     case ScriptEngine::SCRIPT_FIELD_TYPE_VECTOR3:
                     {
                         Vector3 value;
@@ -532,7 +544,8 @@ namespace Limnova
                         Vector3d value;
                         field.second->GetValue<Vector3d>(value);
 
-                        static const LimnGui::InputConfig<double> config;
+                        static const LimnGui::InputConfig<double> config = LimnGui::InputConfig<double>(
+                            0.0, 1.0, 1000.0, 0.0, 0.0, 10 /* precision */ );
                         if (LimnGui::InputVec3d(field.first, value, config))
                             field.second->SetValue<Vector3d>(value);
 
@@ -1261,7 +1274,12 @@ namespace Limnova
         bool valueChanged = ImGui::InputText("##V", inputBuffer, sizeof(inputBuffer), flags/*, InputUInt64InputTextCallback*/);
 
         if (valueChanged)
-            Utils::ConvertAsciiDecimalToUint64(inputBuffer, sizeof(inputBuffer), value);
+        {
+            if (RESULT_CODE_OVERFLOW == Utils::ConvertAsciiDecimalToUint64(inputBuffer, sizeof(inputBuffer), value))
+                value = std::numeric_limits<uint64_t>::max();
+
+            value = std::clamp(value, config.Min, config.Max);
+        }
 
         ImGui::Columns(1);
         ImGui::PopID();
