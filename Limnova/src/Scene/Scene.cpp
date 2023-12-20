@@ -147,7 +147,6 @@ case ScriptEngine::id: { type value; field.second->GetValue(value); dstFields.at
 
         CopyComponentIfExists<TransformComponent>(newEntity.m_EnttId, entity.m_EnttId);
         /* DO NOT copy HierarchyComponent - the original and copy entities' relationships are necessarily different and are handled by CreateEntity() */
-        CopyComponentIfExists<ScriptComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<CameraComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<NativeScriptComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<SpriteRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
@@ -155,6 +154,34 @@ case ScriptEngine::id: { type value; field.second->GetValue(value); dstFields.at
         CopyComponentIfExists<CircleRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<BillboardCircleRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
         CopyComponentIfExists<EllipseRendererComponent>(newEntity.m_EnttId, entity.m_EnttId);
+
+        // Duplicate script component
+        if (entity.HasComponent<ScriptComponent>())
+        {
+            auto &dstComponent = newEntity.AddComponent<ScriptComponent>();
+
+            auto &srcComponent = entity.GetComponent<ScriptComponent>();
+            if (srcComponent.HasInstance())
+            {
+                dstComponent.SetScript(newEntity.GetUUID(), srcComponent.GetScriptName());
+
+                auto &dstScriptInstance = dstComponent.GetScriptInstance(newEntity.GetUUID());
+                auto &dstFields = dstScriptInstance->GetFields();
+
+                auto &srcScriptInstance = srcComponent.GetScriptInstance(entity.GetUUID());
+                auto &srcFields = srcScriptInstance->GetFields();
+                for (auto &field : srcFields)
+                {
+                    switch (field.second->GetType())
+                    {
+                        LV_SCRIPT_ENGINE_FIELD_LIST(LV_SCENE_COPY_ENTITY_SCRIPT_FIELDS)
+
+                    default:
+                        LV_CORE_ERROR("Unrecognised field type!");
+                    }
+                }
+            }
+        }
 
         return newEntity;
     }
@@ -165,6 +192,11 @@ case ScriptEngine::id: { type value; field.second->GetValue(value); dstFields.at
         Destroy(entity.m_EnttId);
     }
 
+
+    bool Scene::IsEntity(UUID uuid)
+    {
+        return m_Entities.find(uuid) != m_Entities.end();
+    }
 
     Entity Scene::GetEntity(UUID uuid)
     {

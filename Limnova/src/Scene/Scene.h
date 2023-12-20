@@ -32,7 +32,7 @@ namespace Limnova
         virtual Entity DuplicateEntity(Entity entity);
         void DestroyEntity(Entity entity);
 
-
+        bool IsEntity(UUID uuid);
         Entity GetEntity(UUID uuid);
 
         template<typename First, typename... Rest>

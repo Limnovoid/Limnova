@@ -7,23 +7,23 @@ namespace Limnova
     public class Entity
     {
         /* protected internal getter for access by Entity (sub)classes declared in user-defined assemblies */
-        public ulong m_Id { get; protected internal set; }
+        public ulong m_Id { get; protected internal set; } = 0;
 
         // -------------------------------------------------------------------------------------------------------------------------
 
         public Entity()
         {
-            m_Id = 0;
+            this.m_Id = 0;
         }
 
         public Entity(ref Entity entity)
         {
-            m_Id = entity.m_Id;
+            this.m_Id = entity.m_Id;
         }
 
         public Entity(ulong id)
         {
-            m_Id = id;
+            this.m_Id = id;
         }
 
         // -------------------------------------------------------------------------------------------------------------------------

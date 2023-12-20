@@ -73,15 +73,17 @@ namespace Limnova
                 ResetValue(resetValue),
                 Speed(speed),
                 FastSpeed(fastSpeed),
-                Min(min),
-                Max(max),
+                Min(min == 0 ? std::numeric_limits<T>::min() : min),
+                Max(max == 0 ? std::numeric_limits<T>::max() : max),
                 Precision(precision),
                 Scientific(scientific),
                 ReadOnly(readOnly),
                 WidgetId(widgetId),
                 LabelWidth(labelWidth),
                 WidgetWidth(widgetWidth),
-                HelpMarker(helpMarker) {}
+                HelpMarker(helpMarker)
+            {
+            }
         };
 
         bool Checkbox(const std::string& label, bool& value, float columnWidth = 100.f);

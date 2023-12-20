@@ -23,20 +23,20 @@ extern "C" {
 namespace Limnova
 {
 
-#define LV_SCRIPT_ENGINE_FIELD_LIST(d)                                                 \
-    d(SCRIPT_FIELD_TYPE_FLOAT,        float,        Float,          "System.Single"     )\
-    d(SCRIPT_FIELD_TYPE_DOUBLE,       double,       Double,         "System.Double"     )\
-    d(SCRIPT_FIELD_TYPE_BOOL,         bool,         Bool,           "System.Boolean"    )\
-    d(SCRIPT_FIELD_TYPE_SHORT,        int16_t,      Short,          "System.Int16"      )\
-    d(SCRIPT_FIELD_TYPE_INT,          int32_t,      Int,            "System.Int32"      )\
-    d(SCRIPT_FIELD_TYPE_LONG,         int64_t,      Long,           "System.Int64"      )\
-    d(SCRIPT_FIELD_TYPE_USHORT,       uint16_t,     UShort,         "System.UInt16"     )\
-    d(SCRIPT_FIELD_TYPE_UINT,         uint32_t,     UInt,           "System.UInt32"     )\
-    d(SCRIPT_FIELD_TYPE_ULONG,        uint64_t,     ULong,          "System.UInt64"     )\
-    d(SCRIPT_FIELD_TYPE_VECTOR2,      Vector2,      Vector2,        "Limnova.Vec2"      )\
-    d(SCRIPT_FIELD_TYPE_VECTOR3,      Vector3,      Vector3,        "Limnova.Vec3"      )\
-    d(SCRIPT_FIELD_TYPE_VECTOR3D,     Vector3d,     Vector3d,       "Limnova.Vec3d"     )\
-    d(SCRIPT_FIELD_TYPE_ENTITY,       UUID,         ScriptEntity,   "Limnova.Entity"    )
+#define LV_SCRIPT_ENGINE_FIELD_LIST(d)                                                          \
+    d(SCRIPT_FIELD_TYPE_FLOAT,        float,        Float,          "System.Single"             )\
+    d(SCRIPT_FIELD_TYPE_DOUBLE,       double,       Double,         "System.Double"             )\
+    d(SCRIPT_FIELD_TYPE_BOOL,         bool,         Bool,           "System.Boolean"            )\
+    d(SCRIPT_FIELD_TYPE_SHORT,        int16_t,      Short,          "System.Int16"              )\
+    d(SCRIPT_FIELD_TYPE_INT,          int32_t,      Int,            "System.Int32"              )\
+    d(SCRIPT_FIELD_TYPE_LONG,         int64_t,      Long,           "System.Int64"              )\
+    d(SCRIPT_FIELD_TYPE_USHORT,       uint16_t,     UShort,         "System.UInt16"             )\
+    d(SCRIPT_FIELD_TYPE_UINT,         uint32_t,     UInt,           "System.UInt32"             )\
+    d(SCRIPT_FIELD_TYPE_ULONG,        uint64_t,     ULong,          "System.UInt64"             )\
+    d(SCRIPT_FIELD_TYPE_VECTOR2,      Vector2,      Vector2,        "Limnova.Vec2"              )\
+    d(SCRIPT_FIELD_TYPE_VECTOR3,      Vector3,      Vector3,        "Limnova.Vec3"              )\
+    d(SCRIPT_FIELD_TYPE_VECTOR3D,     Vector3d,     Vector3d,       "Limnova.Vec3d"             )\
+    d(SCRIPT_FIELD_TYPE_ENTITY,       UUID,         ScriptEntity,   "Limnova.EntityReference"   )
 //    d(SCRIPT_FIELD_TYPE_BYTE,         uint8_t,      Byte,           "System.Byte"       )\
     d(SCRIPT_FIELD_TYPE_CHAR,         char16_t,     Char,           "System.Char"       )
 
@@ -106,7 +106,6 @@ namespace Limnova
         static bool TryDeleteEntityScript(UUID entityId);
 
         static const char *FieldTypeToString(ScriptFieldType fieldType);
-
     private:
         static size_t GetFreeScriptInstanceIndex();
 

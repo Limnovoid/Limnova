@@ -217,12 +217,15 @@ Entities:
         MyLong:
           Type: Long
           Data: 0
+        OtherEntitySpeed:
+          Type: Float
+          Data: 0.100000001
         MyUint:
           Type: UInt
           Data: 0
         MyUlong:
           Type: ULong
-          Data: 0
+          Data: 18446744073709551610
         MyVec2:
           Type: Vector2
           Data: [0, 0]
@@ -232,11 +235,28 @@ Entities:
         MyVec3d:
           Type: Vector3d
           Data: [0, 0, 0]
-        MyEntity:
+        OtherEntity:
           Type: ScriptEntity
-          Data: 474739886008
+          Data: 17799055047151977821
     BillboardCircleRendererComponent:
       Color: [1, 0, 1, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [12499999.906867739, 12499999.906867739, 12499999.906867739]
+      LocalSpace: 2
+  - Entity: 17799055047151977821
+    TagComponent:
+      Tag: Player (copy)
+    HierarchyComponent:
+      Parent: 9141901405295799733
+    TransformComponent:
+      Position: [0, 0, -0.150000006]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.00999999978, 0.00999999978, 0.00999999978]
+    BillboardCircleRendererComponent:
+      Color: [0, 1, 0.0189573765, 1]
       Thickness: 1
       Fade: 0.00499999989
     OrbitalHierarchyComponent:

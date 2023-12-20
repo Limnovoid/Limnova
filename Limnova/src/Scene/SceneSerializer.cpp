@@ -17,7 +17,7 @@ namespace YAML
             return node;
         }
 
-        static bool decode(const Node& node, Limnova::UUID rhs)
+        static bool decode(const Node& node, Limnova::UUID &rhs)
         {
             if (!node.IsScalar())
                 return false;
@@ -229,8 +229,9 @@ case ScriptEngine::id: { type value;                                            
     case ScriptEngine::id: { type value = fieldNode["Data"].as<type>();  \
     field.second->SetValue<type>(value); break; }
 #define LV_YAML_DESERIALIZE_SCRIPT_FIELD(id, type, name, monoTypeName)  \
-    case ScriptEngine::id: { type value; LV_YAML_DESERIALIZE_NODE(fieldNode, "Data", type, value);\
-    field.second->SetValue<type>(value); isFieldDeserialized = true; break; }
+    case ScriptEngine::id: { type value;\
+    if (auto dataNode = fieldNode["Data"]) { value = dataNode.as<type>(); field.second->SetValue<type>(value); isFieldDeserialized = true; }\
+    break; }
 
     // -----------------------------------------------------------------------------------------------------------------------------
     // -----------------------------------------------------------------------------------------------------------------------------
@@ -596,7 +597,6 @@ case ScriptEngine::id: { type value;                                            
                 }
                 else
                 {
-
                     if (auto scriptFieldsNode = sNode["Fields"];
                         scriptFieldsNode && scriptFieldsNode.IsMap())
                     {
@@ -614,7 +614,7 @@ case ScriptEngine::id: { type value;                                            
                                 {
                                     switch (field.second->GetType())
                                     {
-                                        LV_SCRIPT_ENGINE_FIELD_LIST(LV_YAML_DESERIALIZE_SCRIPT_FIELD)
+                                    LV_SCRIPT_ENGINE_FIELD_LIST(LV_YAML_DESERIALIZE_SCRIPT_FIELD)
                                     }
                                 }
                             }

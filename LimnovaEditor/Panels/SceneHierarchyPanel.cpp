@@ -95,6 +95,15 @@ namespace Limnova
                 if (ImGui::MenuItem("Create Child Entity"))
                     m_SelectedEntity = m_Scene->CreateEntityAsChild(entity, tag.Tag + " child");
 
+                if (ImGui::MenuItem("Copy UUID"))
+                {
+                    size_t numCharacters = 0;
+                    char buffer[21];
+                    Utils::ConvertUint64ToAsciiDecimal(entity.GetUUID().Get(), buffer, sizeof(buffer), numCharacters);
+                    buffer[numCharacters] = '\0';
+                    ImGui::SetClipboardText(buffer);
+                }
+
                 if (!isRoot)
                 {
                     if (ImGui::MenuItem("Duplicate Entity"))
