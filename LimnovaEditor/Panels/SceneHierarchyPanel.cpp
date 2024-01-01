@@ -59,8 +59,8 @@ namespace Limnova
 
     void SceneHierarchyPanel::EntityNode(Entity entity, bool forceExpanded)
     {
-        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow
-            | ImGuiTreeNodeFlags_SpanAvailWidth;
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow |
+            ImGuiTreeNodeFlags_AllowItemOverlap;
 
         if (forceExpanded)
             flags |= ImGuiTreeNodeFlags_DefaultOpen;
@@ -71,17 +71,38 @@ namespace Limnova
 
         UUID uuid = entity.GetUUID();
 
-        bool isRoot = uuid == m_Scene->m_Root;
+        bool isRoot = (uuid == m_Scene->m_Root);
 
         auto children = m_Scene->GetChildren(entity);
         if (children.empty())
             flags |= ImGuiTreeNodeFlags_Leaf;
 
-        bool expanded = ImGui::TreeNodeEx((void*)(uint64_t)(uint32_t)entity, flags, tag.Tag.c_str());
+        bool expanded = ImGui::TreeNodeEx((void*)(uint64_t)uuid, flags, "");
         bool deleteEntity = false;
         {
-            if (ImGui::IsItemClicked())
+            ImGui::SameLine();
+            ImVec2 buttonSize(ImGui::GetContentRegionAvail().x, ImGui::GetItemRectSize().y);
+
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+
+            if (ImGui::Button(tag.Tag.c_str(), buttonSize))
                 m_SelectedEntity = entity;
+
+            ImGui::PopStyleVar(); // ImGuiStyleVar_FramePadding
+            ImGui::PopStyleVar(); // ImGuiStyleVar_ButtonTextAlign
+            ImGui::PopStyleColor(); // ImGuiCol_Button
+
+            if (ImGui::BeginDragDropSource())
+            {
+                ImGui::SetDragDropPayload("ENTITY", &uuid, sizeof(UUID));
+
+                std::string payloadDescription = tag.Tag + " (" + uuid.ToString() + ")";
+                ImGui::Text(payloadDescription.c_str());
+
+                ImGui::EndDragDropSource();
+            }
 
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
             {
@@ -97,8 +118,8 @@ namespace Limnova
 
                 if (ImGui::MenuItem("Copy UUID"))
                 {
-                    size_t numCharacters = 0;
-                    char buffer[21];
+                    char buffer[Utils::MaxAsciiCharacters<uint64_t>() + 1];
+                    size_t numCharacters;
                     Utils::ConvertUint64ToAsciiDecimal(entity.GetUUID().Get(), buffer, sizeof(buffer), numCharacters);
                     buffer[numCharacters] = '\0';
                     ImGui::SetClipboardText(buffer);
@@ -562,13 +583,28 @@ namespace Limnova
                     }
                     case ScriptEngine::SCRIPT_FIELD_TYPE_ENTITY:
                     {
-                        UUID value; // Entity wraps UUID wraps uint64_t
+                        // Note: Entity wraps a UUID which wraps a uint64_t
+
+                        UUID value;
                         field.second->GetValue<UUID>(value);
 
                         static const LimnGui::InputConfig<uint64_t> config(
-                            0, 1, 1000, 0, 0, 0, false, false, 0, 100.f, 300.f /* widget width */ );
+                            0, 1, 1000, 0, 0, 0, false, false, 0, 100.f, 300.f /* WidgetWidth */, field.first /* HelpMarker */,
+                            true /* IsDragDropTarget */, "ENTITY" /* DragDropTypeName */);
 
-                        if (LimnGui::InputUInt64(field.first, value.Get(), config))
+                        bool valueChanged = LimnGui::InputUInt64(field.first, value.Get(), config);
+
+                        /*if (ImGui::BeginDragDropTarget())
+                        {
+                            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY"))
+                            {
+                                value = *(static_cast<UUID*>(payload->Data));
+                                valueChanged = true;
+                            }
+                            ImGui::EndDragDropTarget();
+                        }*/
+
+                        if (valueChanged)
                             field.second->SetValue<UUID>(value);
 
                         break;
@@ -1289,9 +1325,22 @@ namespace Limnova
 
             value = std::clamp(value, config.Min, config.Max);
         }
+        else if (config.IsDragDropTarget)
+        {
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(config.DragDropTypeName.c_str()))
+                {
+                    value = *(static_cast<uint64_t*>(payload->Data));
+                    valueChanged = true;
+                }
+                ImGui::EndDragDropTarget();
+            }
+        }
 
         ImGui::Columns(1);
         ImGui::PopID();
+
         return valueChanged;
     }
 

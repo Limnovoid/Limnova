@@ -54,6 +54,8 @@ namespace Limnova
             float LabelWidth = 100.f;
             float WidgetWidth = 100.f;
             std::string HelpMarker = {};
+            bool IsDragDropTarget = false;
+            std::string DragDropTypeName = {};
 
             InputConfig() = default;
             InputConfig(
@@ -68,7 +70,9 @@ namespace Limnova
                 size_t widgetId = 0,
                 float labelWidth = 100.f,
                 float widgetWidth = 100.f,
-                std::string helpMarker = {}
+                std::string helpMarker = {},
+                bool isDragDropTarget = false,
+                std::string dragDropTypeName = {}
             ) :
                 ResetValue(resetValue),
                 Speed(speed),
@@ -81,7 +85,9 @@ namespace Limnova
                 WidgetId(widgetId),
                 LabelWidth(labelWidth),
                 WidgetWidth(widgetWidth),
-                HelpMarker(helpMarker)
+                HelpMarker(helpMarker),
+                IsDragDropTarget(isDragDropTarget),
+                DragDropTypeName(dragDropTypeName)
             {
             }
         };

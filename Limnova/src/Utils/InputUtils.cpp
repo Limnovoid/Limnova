@@ -6,6 +6,7 @@ namespace Limnova
 {
 	namespace Utils
 	{
+
 		ResultCode ConvertAsciiDecimalToUint64(const char *pData, size_t length, uint64_t &value)
 		{
 			size_t i = 0;
@@ -45,7 +46,7 @@ namespace Limnova
 
 		ResultCode ConvertUint64ToAsciiDecimal(uint64_t value, char *pBuffer, size_t bufferLength, size_t &dataLength)
 		{
-			char tempBuffer[20];
+			char tempBuffer[MaxAsciiCharacters<uint64_t>()];
 			memset(tempBuffer, ' ', sizeof(tempBuffer));
 
 			size_t i = sizeof(tempBuffer);
