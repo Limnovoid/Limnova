@@ -1,5 +1,7 @@
 #include "UUID.h"
 
+#include "Utils/InputUtils.h"
+
 #include <random>
 #include <pcg_random.hpp>
 
@@ -25,6 +27,15 @@ namespace Limnova
     UUID::UUID(uint64_t value)
         : m_Value(value)
     {
+    }
+
+
+    std::string UUID::ToString() const
+    {
+        char buffer[Utils::MaxAsciiCharacters<uint64_t>()];
+        size_t length;
+        Utils::ConvertUint64ToAsciiDecimal(m_Value, buffer, sizeof(buffer), length);
+        return std::string(buffer, length);
     }
 
 

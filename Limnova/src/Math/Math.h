@@ -13,16 +13,7 @@
 
 namespace Limnova
 {
-
-    // Constants ///////////////////////////
-
-    constexpr float kEps = std::numeric_limits<float>::epsilon(); /* std::numeric_limits<float>::epsilon() */
-    constexpr double kEpsd = std::numeric_limits<double>::epsilon(); /* std::numeric_limits<double>::epsilon() */
-    constexpr float kDotProductEpsilon = 1e-5f; /* Minimum permissible magnitude of the dot product of two non-perpendicular unit vectors */
-    constexpr float kParallelDotProductLimit = 1.f - 1e-5f; /* Maximum permissible magnitude of the dot product of two non-parallel unit vectors */
-
-
-    // Basic numerical operations /////////////
+    // Basic numerical operations --------------------------------------------------------------------------------------------------
 
     inline double Radians(double degrees) { return degrees * PI / 180.0; }
     inline float Radiansf(float degrees) { return degrees * PIf / 180.f; }
@@ -44,7 +35,7 @@ namespace Limnova
     }
 
     /// <summary>
-    /// Wraps 'x' in the range [0, upperBound).
+    /// Wraps 'x' in the range [0, upperBound). Assumes x > 0.
     /// </summary>
     inline float Wrapf(float x, float upperBound)
     {
@@ -99,8 +90,30 @@ namespace Limnova
         return c * pow(10.0, e);
     }
 
+    /// <summary>
+    /// Equivalent to abs(signedVariable) > unsignedConstant.
+    /// </summary>
+    inline bool AbsGreaterThan(float signedLhs, float unsignedRhs)
+    {
+        if (signedLhs < 0.f)
+            signedLhs = -signedLhs;
+        return signedLhs > unsignedRhs;
+    }
 
-    // Vector operations ///////////////////
+    /// <summary>
+    /// Equivalent to abs(lhs) > abs(rhs).
+    /// </summary>
+    inline bool AbsGreaterThan2(float lhs, float rhs)
+    {
+        if (lhs < 0.f)
+            lhs = -lhs;
+        if (rhs < 0.f)
+            rhs = -rhs;
+        return lhs > rhs;
+    }
+
+
+    // Vector operations -----------------------------------------------------------------------------------------------------------
 
     /// <summary>
     /// Rotate a vector by a given angle about a given axis.
@@ -129,10 +142,31 @@ namespace Limnova
     }
 
 
-
-
-    // Matrix operations ///////////////////
+    // Matrix operations -----------------------------------------------------------------------------------------------------------
 
     bool DecomposeTransform(const Matrix4& transform, Vector3& position, Quaternion& orientation, Vector3& scale);
+
+
+    // Numerical solving -----------------------------------------------------------------------------------------------------------
+
+    inline float SolveNetwon(std::function<float(float)> function, std::function<float(float)> functionFirstDerivative, float initialX, float tolerance, size_t nMaxIterations)
+    {
+        LV_CORE_ASSERT(functionFirstDerivative(initialX) != 0.f, "Invalid initialX: first derivative resolves to 0!");
+
+        size_t nIterations = 0;
+        float x = initialX;
+        float fx = function(initialX);
+        while(AbsGreaterThan(fx, tolerance) && nIterations < nMaxIterations)
+        {
+            float f_1dx = functionFirstDerivative(x);
+            LV_CORE_ASSERT(f_1dx != 0.f, "Newton solver found a non-root stationary point!");
+            x = x - fx / f_1dx;
+            fx = function(x);
+
+            ++nIterations;
+        }
+        return x;
+    }
+
 
 }

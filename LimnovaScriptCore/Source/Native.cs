@@ -26,17 +26,26 @@ namespace Limnova
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern static void Input_IsKeyPressed(KeyCode keyCode, out bool isPressed);
 
-        // Components --------------------------------------------------------------------------------------------------------------
+        // Entity ------------------------------------------------------------------------------------------------------------------
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void Entity_IsValid(ulong entityId, out bool isValid);
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern static void Entity_HasComponent(ulong entityId, Type componentType, out bool hasComponent);
 
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern static void TransformComponent_GetPosition(ulong entityId, out Vec3 pos);
+        // Components --------------------------------------------------------------------------------------------------------------
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern static void TransformComponent_SetPosition(ulong entityId, ref Vec3 pos);
+        internal extern static void TransformComponent_GetPosition(ulong entityId, out Vec3<float> pos);
 
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void TransformComponent_SetPosition(ulong entityId, ref Vec3<float> pos);
+
+        // Physics -----------------------------------------------------------------------------------------------------------------
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void OrbitalPhysics_SetThrust(ulong entityId, ref Vec3<double> thrust);
     }
 
 }

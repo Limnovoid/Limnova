@@ -657,6 +657,22 @@ namespace Limnova
 
             // -------------------------------------------------------------------------------------------------------------------------
 
+            /// <summary>
+            /// Set the continuous dynamic thrust of the object.
+            /// The thrust is applied to the object's motion as though it is constant, like, e.g, engine thrust.
+            /// This is in addition to its acceleration due to gravity, i.e, calls to this function do not affect the simulation of gravity.
+            /// </summary>
+            /// <param name="thrust">Magnitude is absolute (not scaled to the local space)</param>
+            void SetContinuousThrust(Vector3d const& thrust) const
+            {
+                LV_ASSERT(IsDynamic(), "Cannot set dynamic acceleration on non-dynamic objects!");
+
+                Vector3d acceleration = thrust / State().Mass;
+                SetContinuousAcceleration(acceleration);
+            }
+
+            // -------------------------------------------------------------------------------------------------------------------------
+
             LSpaceNode AddLocalSpace(float radius = kDefaultLSpaceRadius)
             {
                 return NewLSpaceNode(*this, radius);
@@ -984,6 +1000,8 @@ namespace Limnova
             case Validity::InvalidMotion:   return "InvalidMotion";
             case Validity::Valid:           return "Valid";
             }
+            LV_CORE_ASSERT(false, "Unknown Validity");
+            return "";
         }
 
         // -------------------------------------------------------------------------------------------------------------------------
@@ -1061,7 +1079,7 @@ namespace Limnova
         {
         public:
             double H = 0.0;             /* Orbital specific angular momentum */
-            float E = { 0.f };          /* Eccentricity */
+            float E = 0.f;              /* Eccentricity */
             double VConstant = 0.f;     /* Constant factor of orbital velocity:     mu / h      */
 
             OrbitType Type = OrbitType::Circle; /* Type of orbit - defined by eccentricity, indicates the type of shape which describes the orbit path */
@@ -1108,6 +1126,41 @@ namespace Limnova
                 }
                 return trueAnomaly;
             }
+
+            /// <summary> Compute the time since periapsis of a given true anomaly. </summary>
+            float ComputeTimeSincePeriapsis(float trueAnomaly) const
+            {
+                float eccentricAnomaly =
+                    2.f * atanf(sqrtf((1.f - trueAnomaly) / (1.f + trueAnomaly)) * tanf(0.5f * trueAnomaly));
+                float meanAnomaly = eccentricAnomaly - E * sinf(eccentricAnomaly);
+                return meanAnomaly * (float)T * OverPI2f;
+            }
+
+            /// <summary> Solve for true anomaly given the time since last periapse passage. </summary>
+            float SolveTrueAnomaly(float timeSincePeriapsis, float tolerance = 0.001f, size_t nMaxIterations = 100) const
+            {
+                float meanAnomaly = PI2f * timeSincePeriapsis / (float)T;
+                auto f = [=](float eccentricAnomaly) -> float
+                {
+                    return eccentricAnomaly - E * sinf(eccentricAnomaly) - meanAnomaly;
+                };
+                auto f_1d = [=](float eccentricAnomaly) -> float
+                {
+                    return 1.f - E * cosf(eccentricAnomaly);
+                };
+                float eccentricAnomalyInitialGuess = 0.f;
+                float eccentricAnomaly = SolveNetwon(f, f_1d, eccentricAnomalyInitialGuess, tolerance, nMaxIterations);
+                return Wrapf(2.f * atanf(tanf(0.5f * eccentricAnomaly) / sqrtf((1.f - E) / (1.f + E))), 0.f, PI2f);
+            }
+
+            /// <summary> Solve for a final true anomaly given an initial true anomaly and a time separation between them. </summary>
+            /// <param name="timeSeparation">Time in seconds between the initial and final true anomalies</param>
+            float SolveFinalTrueAnomaly(float initialTrueAnomaly, float timeSeparation)
+            {
+                float initialTimeSincePeriapsis = ComputeTimeSincePeriapsis(initialTrueAnomaly);
+                float finalTimeSincePeriapsis = Wrapf(initialTimeSincePeriapsis + timeSeparation, T);
+                return SolveTrueAnomaly(finalTimeSincePeriapsis);
+            }
         };
 
         // -------------------------------------------------------------------------------------------------------------------------
@@ -1119,7 +1172,7 @@ namespace Limnova
             Elements Elements;          // Orbital motion description (shape, duration, etc)
             float TaEntry   = 0.f;      // True anomaly of orbit's point of entry into the local space (if the section escapes the local space, otherwise has value 0)
             float TaExit    = PI2f;     // True anomaly of orbit's point of escape from the local space (if the section escapes the local space, otherwise has value 2Pi)
-            TId Next = NNull;           // Reference to next orbit section which will describe the object's motion after escaping this, or entering a new, local space (if this section escapes its local space or intersects another, otherwise has value NNull)
+            TId Next = NNull;           // Reference to next orbit section which will describe the object's motion after escaping this, or entering a new, local space (or NNull if neither of these events occur)
 
         public:
             Vector3 LocalPositionAt(float trueAnomaly) const
@@ -2520,8 +2573,6 @@ namespace Limnova
             }
             return vDir * CircularOrbitSpeed(lspNode, rMag);
         }
-
-        // -------------------------------------------------------------------------------------------------------------------------
 
     };
 

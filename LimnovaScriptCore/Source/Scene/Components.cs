@@ -14,11 +14,11 @@ namespace Limnova
     {
         public Entity Entity { get; set; }
 
-        public Vec3 Position
+        public Vec3<float> Position
         {
             get
             {
-                Native.TransformComponent_GetPosition(Entity.m_Id, out Vec3 position);
+                Native.TransformComponent_GetPosition(Entity.m_Id, out Vec3<float> position);
                 return position;
             }
             set

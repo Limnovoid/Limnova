@@ -46,7 +46,14 @@ namespace Limnova
             *isPressed = Input::IsKeyPressed(keyCode);
         }
 
-        // Components --------------------------------------------------------------------------------------------------------------
+        // Entity ------------------------------------------------------------------------------------------------------------------
+
+        static void Entity_IsValid(UUID entityId, bool *isValid)
+        {
+            *isValid = ScriptEngine::GetContext()->IsEntity(entityId);
+        }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
 
         static void Entity_HasComponent(UUID entityId, MonoReflectionType* componentType, bool* hasComponent)
         {
@@ -58,7 +65,7 @@ namespace Limnova
             *hasComponent = ScriptLibrary::GetEntityHasComponentFuncs().at(managedType)(entity);
         }
 
-        // -----------------------------------------------------------------------------------------------------------------------------
+        // Components --------------------------------------------------------------------------------------------------------------
 
         static void TransformComponent_GetPosition(UUID entityId, Vector3* position)
         {
@@ -74,6 +81,16 @@ namespace Limnova
             entity.GetComponent<TransformComponent>().SetPosition(*position);
         }
 
+        // Physics ---------------------------------------------------------------------------------------------------------------------
+
+        static void OrbitalPhysics_SetThrust(UUID entityId, Vector3* thrust)
+        {
+            Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
+            if (!entity.HasComponent<OrbitalComponent>())
+                LV_CORE_WARN("Cannot set thrust on entity ({}) - does not have an orbital component!", entityId);
+
+            entity.GetComponent<OrbitalComponent>().Object.SetContinuousThrust(Vector3d(*thrust));
+        }
     }
 
     // Scripting registration ------------------------------------------------------------------------------------------------------
@@ -129,6 +146,7 @@ namespace Limnova
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(LogWarn);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(LogError);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(Input_IsKeyPressed);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(Entity_IsValid);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(Entity_HasComponent);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_GetPosition);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_SetPosition);

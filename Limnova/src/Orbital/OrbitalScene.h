@@ -45,7 +45,7 @@ namespace Limnova
         void OnStopRuntime() override;
 
 #ifdef LV_DEBUG
-        //OrbitalPhysics::Stats const& GetPhysicsStats() { return m_Physics.GetStats(); }
+        //OrbitalPhysics::Stats const& GetPhysicsStats() { return m_PhysicsContext.GetStats(); }
 #endif
     private:
         void UpdateOrbitalScene();
@@ -83,7 +83,7 @@ namespace Limnova
         float m_PerifocalAxisThickness = 0.006f;
         float m_PerifocalAxisArrowSize = 0.024f;
     private:
-        OrbitalPhysics::Context m_Physics;
+        OrbitalPhysics::Context m_PhysicsContext;
         std::map<OrbitalPhysics::TNodeId, entt::entity> m_PhysicsToEnttIds;
 
         UUID m_TrackingEntity;

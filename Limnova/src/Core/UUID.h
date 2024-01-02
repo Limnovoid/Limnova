@@ -10,10 +10,13 @@ namespace Limnova
     {
     public:
         UUID();
-        UUID(const UUID&) = default;
         UUID(uint64_t value);
 
         operator uint64_t() const { return m_Value; }
+
+        uint64_t& Get() { return m_Value; }
+
+        std::string ToString() const;
 
         bool operator==(const UUID rhs) { return m_Value == rhs.m_Value; }
         bool operator!=(const UUID rhs) { return m_Value != rhs.m_Value; }
@@ -23,9 +26,7 @@ namespace Limnova
         uint64_t m_Value;
     };
 
-
     const std::ostream& operator<<(const std::ostream& ostr, const UUID uuid);
-
 }
 
 
