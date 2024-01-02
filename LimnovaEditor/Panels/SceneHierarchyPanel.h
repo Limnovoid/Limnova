@@ -27,17 +27,29 @@ namespace Limnova
 
     namespace LimnGui
     {
+
+        enum TooltipDelay
+        {
+            LIMNGUI_TOOLTIP_DELAY_NONE,
+            LIMNGUI_TOOLTIP_DELAY_SHORT  = ImGuiHoveredFlags_DelayShort,
+            LIMNGUI_TOOLTIP_DELAY_NORMAL = ImGuiHoveredFlags_DelayNormal,
+
+            LIMNGUI_TOOLTIP_DELAY_0  = LIMNGUI_TOOLTIP_DELAY_NONE,
+            LIMNGUI_TOOLTIP_DELAY_10 = LIMNGUI_TOOLTIP_DELAY_SHORT,
+            LIMNGUI_TOOLTIP_DELAY_30 = LIMNGUI_TOOLTIP_DELAY_NORMAL
+        };
+
         /// <summary>
-        /// If previous item is hovered, displays a tooltip with the text contained in 'description'.
+        /// If previous item is hovered, displays a tooltip.
         /// </summary>
-        /// <param name="info">The information string to display in the tooltip</param>
-        void ItemDescription(const std::string &description);
+        /// <param name="description">Contains the text to display in the tooltip</param>
+        void ItemDescription(const std::string &description, TooltipDelay delay = LIMNGUI_TOOLTIP_DELAY_NORMAL);
 
         /// <summary>
         /// On the same line as the previous item, displays a greyed-out (disabled) "(?)" which, when hovered, displays a tooltip with the text contained in 'description'.
         /// </summary>
         /// <param name="description">The text to display in the tooltip</param>
-        void HelpMarker(const std::string& description);
+        void HelpMarker(const std::string& description, TooltipDelay delay = LIMNGUI_TOOLTIP_DELAY_NORMAL);
 
         template<typename T>
         struct InputConfig
@@ -54,7 +66,6 @@ namespace Limnova
             float LabelWidth = 100.f;
             float WidgetWidth = 100.f;
             std::string HelpMarker = {};
-            bool IsDragDropTarget = false;
             std::string DragDropTypeName = {};
 
             InputConfig() = default;
@@ -71,7 +82,6 @@ namespace Limnova
                 float labelWidth = 100.f,
                 float widgetWidth = 100.f,
                 std::string helpMarker = {},
-                bool isDragDropTarget = false,
                 std::string dragDropTypeName = {}
             ) :
                 ResetValue(resetValue),
@@ -86,7 +96,6 @@ namespace Limnova
                 LabelWidth(labelWidth),
                 WidgetWidth(widgetWidth),
                 HelpMarker(helpMarker),
-                IsDragDropTarget(isDragDropTarget),
                 DragDropTypeName(dragDropTypeName)
             {
             }

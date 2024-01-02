@@ -36,7 +36,7 @@ namespace Limnova
     d(SCRIPT_FIELD_TYPE_VECTOR2,      Vector2,      Vector2,        "Limnova.Vec2"              )\
     d(SCRIPT_FIELD_TYPE_VECTOR3,      Vector3,      Vector3,        "Limnova.Vec3"              )\
     d(SCRIPT_FIELD_TYPE_VECTOR3D,     Vector3d,     Vector3d,       "Limnova.Vec3d"             )\
-    d(SCRIPT_FIELD_TYPE_ENTITY,       UUID,         ScriptEntity,   "Limnova.EntityReference"   )
+    d(SCRIPT_FIELD_TYPE_ENTITY,       UUID,         EntityReference,"Limnova.EntityReference"   )
 //    d(SCRIPT_FIELD_TYPE_BYTE,         uint8_t,      Byte,           "System.Byte"       )\
     d(SCRIPT_FIELD_TYPE_CHAR,         char16_t,     Char,           "System.Char"       )
 
