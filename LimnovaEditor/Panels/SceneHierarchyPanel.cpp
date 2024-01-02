@@ -81,7 +81,9 @@ namespace Limnova
         bool deleteEntity = false;
         {
             ImGui::SameLine();
-            ImVec2 buttonSize(ImGui::GetContentRegionAvail().x, ImGui::GetItemRectSize().y);
+
+            static const float helpMarkerWidth = 10.f;
+            ImVec2 buttonSize(ImGui::GetContentRegionAvail().x - helpMarkerWidth, ImGui::GetItemRectSize().y);
 
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
             ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0, 0));
@@ -93,6 +95,9 @@ namespace Limnova
             ImGui::PopStyleVar(); // ImGuiStyleVar_FramePadding
             ImGui::PopStyleVar(); // ImGuiStyleVar_ButtonTextAlign
             ImGui::PopStyleColor(); // ImGuiCol_Button
+
+            std::ostringstream oss; oss << (uint32_t)entity << ", " << (uint64_t)uuid;
+            LimnGui::ItemDescription(oss.str());
 
             if (ImGui::BeginDragDropSource())
             {
@@ -190,9 +195,6 @@ namespace Limnova
                 ImGui::EndPopup();
             }
         }
-
-        std::ostringstream oss; oss << (uint32_t)entity << ", " << (uint64_t)uuid;
-        LimnGui::HelpMarker(oss.str());
 
         if (expanded)
         {
@@ -482,9 +484,6 @@ namespace Limnova
                 auto &scriptInstance = script.GetScriptInstance(uuid);
                 for (auto &field : scriptInstance->GetFields())
                 {
-                    //ImGui::PushID(field.second->GetType());
-                    ImGui::BeginGroup();
-
                     switch (field.second->GetType())
                     {
                     case ScriptEngine::SCRIPT_FIELD_TYPE_FLOAT:
@@ -492,7 +491,9 @@ namespace Limnova
                         float value;
                         field.second->GetValue<float>(value);
 
-                        static const LimnGui::InputConfig<float> config;
+                        static const LimnGui::InputConfig<float> config(0.f, 1, 10, 0, 0, 6, false, false, 0, 100.f, 100.f,
+                            ScriptEngine::FieldTypeToString(field.second->GetType()) /* helpMarker */ );
+
                         if (LimnGui::DragFloat(field.first, value, config))
                             field.second->SetValue<float>(value);
 
@@ -589,8 +590,8 @@ namespace Limnova
                         field.second->GetValue<UUID>(value);
 
                         static const LimnGui::InputConfig<uint64_t> config(
-                            0, 1, 1000, 0, 0, 0, false, false, 0, 100.f, 300.f /* WidgetWidth */, field.first /* HelpMarker */,
-                            true /* IsDragDropTarget */, "ENTITY" /* DragDropTypeName */);
+                            0, 1, 1000, 0, 0, 0, false, false, 0, 100.f, 300.f /* WidgetWidth */,
+                            field.first /* HelpMarker */, "ENTITY" /* DragDropTypeName */);
 
                         bool valueChanged = LimnGui::InputUInt64(field.first, value.Get(), config);
 
@@ -614,18 +615,6 @@ namespace Limnova
                         ImGui::TextDisabled("%s", field.first.c_str());
                         isTypeSupported = false;
                         break;
-                    }
-
-                    ImGui::EndGroup();
-
-                    if (isTypeSupported)
-                    {
-                        LimnGui::ItemDescription(ScriptEngine::FieldTypeToString(field.second->GetType()));
-                    }
-                    else
-                    {
-                        LimnGui::ItemDescription(ScriptEngine::FieldTypeToString(field.second->GetType()) +
-                            std::string(" (unsupported)"));
                     }
 
                     //ImGui::PopID();
@@ -1226,9 +1215,9 @@ namespace Limnova
 
     // LimnGui /////////////////////////////////
 
-    void LimnGui::ItemDescription(const std::string &description)
+    void LimnGui::ItemDescription(const std::string &description, TooltipDelay delay)
     {
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        if (ImGui::IsItemHovered(delay))
         {
             ImGui::BeginTooltip();
             ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
@@ -1238,11 +1227,11 @@ namespace Limnova
         }
     }
 
-    void LimnGui::HelpMarker(const std::string& description)
+    void LimnGui::HelpMarker(const std::string& description, TooltipDelay delay)
     {
         ImGui::SameLine();
         ImGui::TextDisabled("(?)");
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+        if (ImGui::IsItemHovered(delay))
         {
             ImGui::BeginTooltip();
             ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
@@ -1288,13 +1277,6 @@ namespace Limnova
         return valueChanged;
     }
 
-    int InputUInt64InputTextCallback(ImGuiInputTextCallbackData *pData)
-    {
-        if (pData->EventChar < LV_ASCII_0 || LV_ASCII_0 + 9 < pData->EventChar)
-            return 1;
-        return 0;
-    }
-
     bool LimnGui::InputUInt64(const std::string &label, uint64_t &value, const InputConfig<uint64_t> &config)
     {
         std::ostringstream idOss;
@@ -1305,6 +1287,9 @@ namespace Limnova
         ImGui::SetColumnWidth(0, config.LabelWidth);
         ImGui::Text(label.c_str());
 
+        if (!config.HelpMarker.empty())
+            HelpMarker(config.HelpMarker);
+
         ImGui::NextColumn();
         ImGui::SetColumnWidth(1, config.WidgetWidth);
 
@@ -1314,9 +1299,9 @@ namespace Limnova
         inputBuffer[resultDataLength] = '\0';
 
         static constexpr ImGuiInputTextFlags flags = 
-            ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_EnterReturnsTrue/* | ImGuiInputTextFlags_CallbackCharFilter*/;
+            ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_EnterReturnsTrue;
 
-        bool valueChanged = ImGui::InputText("##V", inputBuffer, sizeof(inputBuffer), flags/*, InputUInt64InputTextCallback*/);
+        bool valueChanged = ImGui::InputText("##V", inputBuffer, sizeof(inputBuffer), flags);
 
         if (valueChanged)
         {
@@ -1325,7 +1310,7 @@ namespace Limnova
 
             value = std::clamp(value, config.Min, config.Max);
         }
-        else if (config.IsDragDropTarget)
+        else if (!config.DragDropTypeName.empty())
         {
             if (ImGui::BeginDragDropTarget())
             {
