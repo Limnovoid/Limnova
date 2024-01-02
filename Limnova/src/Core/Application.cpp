@@ -30,7 +30,7 @@ namespace Limnova
         // TODO - build definition to select renderer ??? or leave initialisation up to user application ??
         Renderer::Init();
         Renderer2D::Init();
-        ScriptEngine::Init();
+        ScriptEngine::Initialize();
 
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);

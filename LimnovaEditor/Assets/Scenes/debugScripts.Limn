@@ -192,8 +192,71 @@ Entities:
       Scale: [0.00999999978, 0.00999999978, 0.00999999978]
     ScriptComponent:
       Name: Player
+      Fields:
+        Speed:
+          Type: Float
+          Data: 0.100000001
+        MyFloat:
+          Type: Float
+          Data: 0.699999988
+        MyBool:
+          Type: Bool
+          Data: true
+        MyDouble:
+          Type: Double
+          Data: 1.0000000007000001
+        MyShort:
+          Type: Short
+          Data: 7
+        MyInt:
+          Type: Int
+          Data: 7
+        MyUshort:
+          Type: UShort
+          Data: 0
+        MyLong:
+          Type: Long
+          Data: 0
+        OtherEntitySpeed:
+          Type: Float
+          Data: 0.100000001
+        MyUint:
+          Type: UInt
+          Data: 0
+        MyUlong:
+          Type: ULong
+          Data: 18446744073709551610
+        MyVec2:
+          Type: Vector2
+          Data: [0, 0]
+        MyVec3:
+          Type: Vector3
+          Data: [1, 2, 3]
+        MyVec3d:
+          Type: Vector3d
+          Data: [0, 0, 0]
+        OtherEntity:
+          Type: ScriptEntity
+          Data: 17799055047151977821
     BillboardCircleRendererComponent:
       Color: [1, 0, 1, 1]
+      Thickness: 1
+      Fade: 0.00499999989
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [12499999.906867739, 12499999.906867739, 12499999.906867739]
+      LocalSpace: 2
+  - Entity: 17799055047151977821
+    TagComponent:
+      Tag: Player (copy)
+    HierarchyComponent:
+      Parent: 9141901405295799733
+    TransformComponent:
+      Position: [0, 0, -0.150000006]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.00999999978, 0.00999999978, 0.00999999978]
+    BillboardCircleRendererComponent:
+      Color: [0, 1, 0.0189573765, 1]
       Thickness: 1
       Fade: 0.00499999989
     OrbitalHierarchyComponent:

@@ -76,7 +76,7 @@ namespace Limnova
 
         static Entity Null;
     public:
-        operator bool() const { return m_Scene == nullptr ? false : m_Scene->m_Registry.valid(m_EnttId); }
+        operator bool() const { return (m_Scene == nullptr) ? false : m_Scene->m_Registry.valid(m_EnttId); }
         operator uint32_t() const { return (uint32_t)m_EnttId; }
 
         bool operator==(const Entity& rhs) { return m_EnttId == rhs.m_EnttId && m_Scene == rhs.m_Scene; }

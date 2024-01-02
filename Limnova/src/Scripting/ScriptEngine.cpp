@@ -1,12 +1,14 @@
 #include "ScriptEngine.h"
 
 #include "ScriptLibrary.h"
+
 #include "Scene/Scene.h"
 
 #include <mono/jit/jit.h>
-#include <mono/metadata/assembly.h>
 
-#include <string>
+#include <mono/metadata/assembly.h>
+#include <mono/metadata/attrdefs.h>
+#include <mono/metadata/object.h>
 
 // path to ScriptCoreAssembly.dll
 #define SCRIPT_CORE_ASSEMBLY_PATH_BASE LV_DIR"/LimnovaEditor/Resources/lib/Scripting/"
@@ -51,98 +53,224 @@ namespace Limnova
         }
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
 
-    ScriptEngine::ScriptEngineData* ScriptEngine::s_SEData = nullptr;
+    ScriptEngine::StaticData* ScriptEngine::s_pData = nullptr;
+    ScriptEngine::Context* ScriptEngine::s_pContext = nullptr;
+    Scene* ScriptEngine::s_pScene = nullptr;
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
-    void ScriptEngine::Init()
+    void ScriptEngine::Initialize()
     {
-        LV_CORE_ASSERT(s_SEData == nullptr, "ScriptEngine is already initialized!");
-        s_SEData = new ScriptEngineData;
+        LV_CORE_ASSERT(s_pData == nullptr, "ScriptEngine is already initialized!");
+        s_pData = new StaticData;
         InitMono();
 
-        ScriptLibrary::RegisterComponentTypes(s_SEData->CoreAssemblyImage); // called after InitMono() has initialized CoreAssemblyImage
+        ScriptLibrary::RegisterComponentTypes(s_pData->CoreAssemblyImage); // called after InitMono() has initialized CoreAssemblyImage
         ScriptLibrary::RegisterInternalCalls();
+
+        LV_SCRIPT_ENGINE_FIELD_LIST(LV_SCRIPT_ENGINE_MAP_MONO_TYPE_NAME_TO_SCRIPT_FIELD_TYPE);
 
         // testing
         auto rPlayerClass = RegisterScriptClass<EntityScriptClass>("Player");
-
-        //s_SEData->ScriptClass_Main = RegisterScriptClass<DynamicScriptClass>("Main");
-        //size_t method_PrintVec3 = s_SEData->ScriptClass_Main->RegisterMethod("PrintVec3", 3);
-
-        //Ref<DynamicScriptInstance> instance = s_SEData->ScriptClass_Main->Instantiate(s_SEData->AppDomain); // Main() constructor
-
-        //float x = 0.1f, y = 2.3f, z = 4.5f;
-        //float* vecParams[] = { &x, &y, &z };
-        //s_SEData->ScriptClass_Main.InvokeMethod(method_PrintVec3, instance, (void**)vecParams);
-        //instance->InvokeMethod(method_PrintVec3, (void**)vecParams);
-
-        //RegisterScriptClass<EntityScriptClass>("Entity");
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     void ScriptEngine::Shutdown()
     {
         ShutdownMono();
-        delete s_SEData;
-        s_SEData = nullptr;
+        s_pScene = nullptr;
+        s_pContext = nullptr;
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     bool ScriptEngine::IsRegisteredScriptClass(std::string const& className)
     {
-        return s_SEData->ScriptClasses.contains(className);
+        return s_pData->ScriptClasses.contains(className);
     }
 
-    void ScriptEngine::OnSceneStart(Scene* scene)
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    void ScriptEngine::SetContext(Scene *pScene)
     {
-        s_SEData->SceneCtx = scene;
-
-        scene->m_Registry.view<ScriptComponent>().each([=](auto entity, auto& sc)
-        {
-            IDComponent const& idc = scene->GetComponent<IDComponent>(entity);
-            sc.HasScriptInstance = TryCreateEntityScript(idc.ID, sc.Name);
-        });
+        s_pScene = pScene;
+        s_pContext = &pScene->m_ScriptContext;
     }
 
-    void ScriptEngine::OnSceneUpdate(Scene* scene, Timestep dT)
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    Scene *ScriptEngine::GetContext()
+    {
+        return s_pScene;
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    const Ref<ScriptEngine::EntityScriptInstance> &ScriptEngine::GetEntityScriptInstance(UUID entityId)
+    {
+        auto itEntityScriptIndex = s_pContext->EntityScriptIndices.find(entityId);
+        if (itEntityScriptIndex == s_pContext->EntityScriptIndices.end())
+            return nullptr;
+
+        return s_pContext->EntityScriptInstances[itEntityScriptIndex->second];
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    void ScriptEngine::OnSceneStart(Scene* pScene)
+    {
+        SetContext(pScene);
+        CompressScriptInstanceVector();
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    void ScriptEngine::OnSceneUpdate(Timestep dT)
     {
         void* pDT = (void*)&dT;
-        for (size_t s = 0; s < s_SEData->EntityScriptInstances.size(); s++)
+        for (size_t s = 0; s < s_pContext->EntityScriptInstances.size(); s++)
         {
-            s_SEData->EntityScriptInstances[s]->InvokeOnUpdate((void**)&pDT);
+            s_pContext->EntityScriptInstances[s]->InvokeOnUpdate((void**)&pDT);
         }
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
+
     void ScriptEngine::OnSceneStop()
     {
-        s_SEData->SceneCtx = nullptr;
-
-        /// TODO : delete Mono objects ???
-
-        s_SEData->EntityScriptInstances.clear();
-        s_SEData->EntityScripts.clear();
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     bool ScriptEngine::TryCreateEntityScript(UUID entityId, std::string const& className)
     {
-        auto itScriptClass = s_SEData->ScriptClasses.find(className);
-        if (itScriptClass == s_SEData->ScriptClasses.end() ||
+        auto itScriptClass = s_pData->ScriptClasses.find(className);
+        if (itScriptClass == s_pData->ScriptClasses.end() ||
             itScriptClass->second->GetType() != ScriptClass::Type::Entity)
         {
             return false;
         }
 
-        LV_CORE_ASSERT(!s_SEData->EntityScripts.contains(entityId), "Entity already has a script!");
+        size_t scriptIndex;
 
-        s_SEData->EntityScripts.emplace(entityId, s_SEData->EntityScriptInstances.size());
-        auto& rNewInstance = s_SEData->EntityScriptInstances.emplace_back(
-            CastRef<EntityScriptClass>(itScriptClass->second)->Instantiate(s_SEData->AppDomain)
-        );
+        if (auto itScriptIndex = s_pContext->EntityScriptIndices.find(entityId);
+            itScriptIndex != s_pContext->EntityScriptIndices.end())
+        {
+            scriptIndex = itScriptIndex->second;
+        }
+        else
+        {
+            scriptIndex = GetFreeScriptInstanceIndex();
+            s_pContext->EntityScriptIndices.emplace(entityId, scriptIndex);
+        }
+
+        s_pContext->EntityScriptInstances[scriptIndex] = CastRef<EntityScriptClass>(itScriptClass->second)->Instantiate(s_pData->AppDomain);
 
         void* arg[] = { &entityId };
-        rNewInstance->InvokeOnCreate(arg);
+        s_pContext->EntityScriptInstances[scriptIndex]->InvokeOnCreate(arg);
         return true;
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    bool ScriptEngine::TryDeleteEntityScript(UUID entityId)
+    {
+        auto itScriptIndex = s_pContext->EntityScriptIndices.find(entityId);
+        if (itScriptIndex == s_pContext->EntityScriptIndices.end())
+            return false;
+
+        s_pContext->EntityScriptInstances[itScriptIndex->second] = nullptr;
+        s_pContext->FreeScriptIndices.insert(itScriptIndex->second);
+        s_pContext->EntityScriptIndices.erase(itScriptIndex);
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    const char *ScriptEngine::FieldTypeToString(ScriptFieldType fieldType)
+    {
+        switch (fieldType)
+        {
+            LV_SCRIPT_ENGINE_FIELD_LIST(LV_SCRIPT_ENGINE_FIELD_TYPE_TO_STRING)
+        }
+        LV_CORE_ERROR("Unknown field type!");
+        return "Unknown";
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    size_t ScriptEngine::GetFreeScriptInstanceIndex()
+    {
+        size_t freeIndex;
+        if (s_pContext->FreeScriptIndices.size() != 0)
+        {
+            auto itFreeIndex = s_pContext->FreeScriptIndices.begin();
+            freeIndex = *itFreeIndex;
+            s_pContext->FreeScriptIndices.erase(itFreeIndex);
+        }
+        else
+        {
+            freeIndex = s_pContext->EntityScriptInstances.size();
+            s_pContext->EntityScriptInstances.emplace_back(nullptr);
+        }
+        return freeIndex;
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    void ScriptEngine::CompressScriptInstanceVector()
+    {
+        if (s_pContext->EntityScriptInstances.size() == 0)
+            return;
+
+        size_t lastNotFreeIndex = FindLastNotFreeScriptInstanceIndex(s_pContext->EntityScriptInstances.size() - 1);
+
+        for (auto itFreeIndex = s_pContext->FreeScriptIndices.begin(); itFreeIndex != s_pContext->FreeScriptIndices.end(); ++itFreeIndex)
+        {
+            if (lastNotFreeIndex == 0 || lastNotFreeIndex < *itFreeIndex)
+                break;
+
+            LV_CORE_ASSERT(s_pContext->EntityScriptInstances[*itFreeIndex] == nullptr &&
+                s_pContext->EntityScriptInstances[lastNotFreeIndex] != nullptr,
+                "Invalid swap!");
+
+            s_pContext->EntityScriptInstances[*itFreeIndex].swap(s_pContext->EntityScriptInstances[lastNotFreeIndex]);
+
+            // Update entity mapping to script index
+            auto itScriptIndices = s_pContext->EntityScriptIndices.begin();
+            while (itScriptIndices->second != lastNotFreeIndex)
+                ++itScriptIndices;
+            UUID entityUuid = itScriptIndices->first;
+            itScriptIndices->second = *itFreeIndex;
+
+            LV_CORE_ASSERT(s_pContext->EntityScriptInstances[*itFreeIndex] != nullptr &&
+                s_pContext->EntityScriptInstances[lastNotFreeIndex] == nullptr,
+                "Swap failed!");
+
+            lastNotFreeIndex = FindLastNotFreeScriptInstanceIndex(lastNotFreeIndex - 1);
+        }
+
+        s_pContext->EntityScriptInstances.resize(s_pContext->EntityScriptInstances.size() - s_pContext->FreeScriptIndices.size());
+        s_pContext->FreeScriptIndices.clear();
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    size_t ScriptEngine::FindLastNotFreeScriptInstanceIndex(size_t initialIndex)
+    {
+        size_t i = (initialIndex < s_pContext->EntityScriptInstances.size()) ?
+            initialIndex : s_pContext->EntityScriptInstances.size() - 1;
+
+        while (i > 0 && s_pContext->EntityScriptInstances[i] == nullptr)
+            --i;
+
+        return i;
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     void ScriptEngine::InitMono()
     {
@@ -150,24 +278,28 @@ namespace Limnova
 
         MonoDomain* rootDomain = mono_jit_init("LimnovaJITRuntime");
         LV_CORE_ASSERT(rootDomain, "Failed to initialize JIT!");
-        s_SEData->RootDomain = rootDomain;
+        s_pData->RootDomain = rootDomain;
 
         static char appDomainName[] = "LimnovaScriptRuntime";
-        s_SEData->AppDomain = mono_domain_create_appdomain(appDomainName, nullptr);
-        mono_domain_set(s_SEData->AppDomain, true);
+        s_pData->AppDomain = mono_domain_create_appdomain(appDomainName, nullptr);
+        mono_domain_set(s_pData->AppDomain, true);
 
-        s_SEData->CoreAssembly = LoadMonoAssembly(LV_SCRIPT_CORE_ASSEMBLY_PATH);
-        s_SEData->CoreAssemblyImage = mono_assembly_get_image(s_SEData->CoreAssembly);
+        s_pData->CoreAssembly = LoadMonoAssembly(LV_SCRIPT_CORE_ASSEMBLY_PATH);
+        s_pData->CoreAssemblyImage = mono_assembly_get_image(s_pData->CoreAssembly);
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     void ScriptEngine::ShutdownMono()
     {
-        mono_domain_unload(s_SEData->AppDomain);
-        s_SEData->AppDomain = nullptr;
+        mono_domain_unload(s_pData->AppDomain);
+        s_pData->AppDomain = nullptr;
 
-        //mono_jit_cleanup(s_SEData->RootDomain); // TODO : make work ?
-        s_SEData->RootDomain = nullptr;
+        //mono_jit_cleanup(s_pContext->RootDomain); // TODO : make work ?
+        s_pData->RootDomain = nullptr;
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     MonoAssembly* ScriptEngine::LoadMonoAssembly(std::filesystem::path const& assemblyPath)
     {
@@ -194,6 +326,7 @@ namespace Limnova
         return assembly;
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     void ScriptEngine::PrintAssemblyTypes(MonoAssembly* assembly)
     {
@@ -213,15 +346,52 @@ namespace Limnova
         }
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
-    /*** ScriptEngine::ScriptClass ***/
+    ScriptEngine::ScriptFieldType ScriptEngine::GetScriptFieldType(MonoType *pMonoType)
+    {
+        std::string typeName = mono_type_get_name(pMonoType);
+
+        auto fieldTypeIterator = s_pData->ScriptFieldTypes.find(typeName);
+        if (fieldTypeIterator == s_pData->ScriptFieldTypes.end())
+            return ScriptFieldType::SCRIPT_FIELD_TYPE_NUM;
+
+        return fieldTypeIterator->second;
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     ScriptEngine::ScriptClass::ScriptClass(std::string const& className)
     {
         LV_CORE_ASSERT(m_MonoClass == nullptr, "ScriptClass instance is already initialized!");
-        m_MonoClass = mono_class_from_name(s_SEData->CoreAssemblyImage, "Limnova", className.c_str());
+        m_MonoClass = mono_class_from_name(s_pData->CoreAssemblyImage, "Limnova", className.c_str());
         m_ClassName = className;
+
+        // Get fields
+        int nFields = mono_class_num_fields(m_MonoClass);
+        LV_CORE_INFO("Class {0} has {1} fields", m_ClassName, nFields);
+
+        void *pMonoFieldIterator = nullptr;
+        MonoClassField *pMonoField = nullptr;
+        while (nullptr != (pMonoField = mono_class_get_fields(m_MonoClass, &pMonoFieldIterator)))
+        {
+            uint32_t flags = mono_field_get_flags(pMonoField);
+            if (flags & MONO_FIELD_ATTR_PUBLIC)
+            {
+                const char *monoFieldName = mono_field_get_name(pMonoField);
+
+                MonoType *pMonoFieldType = mono_field_get_type(pMonoField);
+                ScriptFieldType fieldType = GetScriptFieldType(pMonoFieldType);
+
+                m_Fields.emplace(monoFieldName, std::move(CreateRef<FieldClass>(fieldType, pMonoField)));
+
+                LV_CORE_INFO(" - {} ({})", monoFieldName, FieldTypeToString(fieldType));
+            }
+        }
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     Ref<ScriptEngine::ScriptInstance> ScriptEngine::ScriptClass::Instantiate(MonoDomain* domain)
     {
@@ -230,8 +400,8 @@ namespace Limnova
         return CreateRef<ScriptInstance>(this, domain);
     }
 
-
-    /*** ScriptEngine::DynamicScriptClass ***/
+    // -----------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     std::hash<std::string> ScriptEngine::DynamicScriptClass::s_StringHasher = {};
 
@@ -241,12 +411,16 @@ namespace Limnova
         m_Type = Type::Dynamic;
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
+
     Ref<ScriptEngine::DynamicScriptInstance> ScriptEngine::DynamicScriptClass::Instantiate(MonoDomain* domain)
     {
         LV_CORE_ASSERT(m_MonoClass != nullptr, "DynamicScriptClass has not been initialized!");
 
         return CreateRef<DynamicScriptInstance>(this, domain);
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     size_t ScriptEngine::DynamicScriptClass::RegisterMethod(std::string const& methodName, size_t numArgs)
     {
@@ -260,13 +434,15 @@ namespace Limnova
         return methodNameHash;
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
+
     MonoMethod* ScriptEngine::DynamicScriptClass::GetMethod(size_t methodNameHash)
     {
         return m_Methods.at(methodNameHash);
     }
 
-
-    /*** ScriptEngine::EntityScriptClass ***/
+    // -----------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     ScriptEngine::EntityScriptClass::EntityScriptClass(std::string const& className)
         : ScriptClass(className)
@@ -280,6 +456,8 @@ namespace Limnova
             "Could not find required method implementation in given class!");
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
+
     Ref<ScriptEngine::EntityScriptInstance> ScriptEngine::EntityScriptClass::Instantiate(MonoDomain* domain)
     {
         LV_CORE_ASSERT(m_MonoClass != nullptr, "ScriptClass has not been initialized!");
@@ -287,43 +465,75 @@ namespace Limnova
         return CreateRef<EntityScriptInstance>(this, domain);
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
 
-    /*** ScriptEngine::ScriptInstance ***/
-
-    ScriptEngine::ScriptInstance::ScriptInstance(ScriptClass* scriptClass, MonoDomain* domain)
+    void ScriptEngine::FieldInstance::GetValueInternal(void *pValue) const
     {
-        m_Instance = mono_object_new(domain, scriptClass->GetMonoClass());
+        mono_field_get_value(m_ScriptInstance.GetMonoObject(), m_FieldClass.GetMonoField(), pValue);
     }
 
+    // -----------------------------------------------------------------------------------------------------------------------------
 
-    /*** ScriptEngine::DynamicScriptInstance ***/
+    void ScriptEngine::FieldInstance::SetValueInternal(void *pValue) const
+    {
+        mono_field_set_value(m_ScriptInstance.GetMonoObject(), m_FieldClass.GetMonoField(), pValue);
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    ScriptEngine::ScriptInstance::ScriptInstance(ScriptClass* scriptClass, MonoDomain* domain) :
+        m_Instance(mono_object_new(domain, scriptClass->GetMonoClass()))
+    {
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    void ScriptEngine::ScriptInstance::InitializeFields()
+    {
+        auto &fieldClasses = GetScriptClass()->GetFields();
+        for (auto &fieldClass : fieldClasses)
+            m_Fields.emplace(fieldClass.first, std::move(CreateRef<FieldInstance>(*(fieldClass.second.get()), *this)));
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     ScriptEngine::DynamicScriptInstance::DynamicScriptInstance(DynamicScriptClass* dynamicScriptClass, MonoDomain* domain) :
         ScriptInstance((ScriptClass*)dynamicScriptClass, domain),
         m_scriptClass(dynamicScriptClass)
     {
+        ScriptInstance::InitializeFields();
     }
+
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     void ScriptEngine::DynamicScriptInstance::InvokeMethod(size_t methodNameHash, void** arguments)
     {
         mono_runtime_invoke(m_scriptClass->GetMethod(methodNameHash), m_Instance, arguments, nullptr);
     }
 
-
-    /*** ScriptEngine::EntityScriptInstance ***/
+    // -----------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
 
     ScriptEngine::EntityScriptInstance::EntityScriptInstance(EntityScriptClass* entityScriptClass, MonoDomain* domain) :
         ScriptInstance((ScriptClass*)entityScriptClass, domain),
         m_scriptClass(entityScriptClass)
     {
+        ScriptInstance::InitializeFields();
     }
 
-    void ScriptEngine::EntityScriptInstance::InvokeOnCreate(void** argId)
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    void ScriptEngine::EntityScriptInstance::InvokeOnCreate(void** argId) const
     {
         mono_runtime_invoke(m_scriptClass->m_OnCreate, m_Instance, argId, nullptr);
     }
 
-    void ScriptEngine::EntityScriptInstance::InvokeOnUpdate(void** argTimestep)
+    // -----------------------------------------------------------------------------------------------------------------------------
+
+    void ScriptEngine::EntityScriptInstance::InvokeOnUpdate(void** argTimestep) const
     {
         mono_runtime_invoke(m_scriptClass->m_OnUpdate, m_Instance, argTimestep, nullptr);
     }

@@ -4,6 +4,8 @@ project(LimnovaScriptCore
     LANGUAGES CSharp
 )
 
+set(CMAKE_CSharp_FLAGS "/langversion:default")
+
 add_library(${PROJECT_NAME} STATIC
     "Source/Input.cs"
     "Source/Main.cs"
@@ -11,6 +13,7 @@ add_library(${PROJECT_NAME} STATIC
     "Source/Native.cs"
 
     "Source/Scene/Entity.cs"
+    "Source/Scene/EntityReference.cs"
     "Source/Scene/Components.cs"
 
     "Source/Player.cs"
