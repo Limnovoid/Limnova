@@ -24,13 +24,15 @@ namespace Limnova
         static Ref<Scene> Copy(Ref<Scene> scene);
         static void Copy(Ref<Scene> src, Ref<Scene> dst);
 
+        void ScriptEngineUseContext();
+
         virtual Entity CreateEntityFromUUID(UUID uuid, const std::string& name = std::string(), UUID parent = UUID::Null);
         Entity CreateEntity(const std::string& name = std::string());
         Entity CreateEntityAsChild(Entity parent, const std::string& name = std::string());
         virtual Entity DuplicateEntity(Entity entity);
         void DestroyEntity(Entity entity);
 
-
+        bool IsEntity(UUID uuid);
         Entity GetEntity(UUID uuid);
 
         template<typename First, typename... Rest>
@@ -169,6 +171,8 @@ namespace Limnova
         UUID m_Root = UUID::Null; /* Scene hierarchy root entity */
         UUID m_ActiveCamera = UUID::Null;
         float m_ViewportAspectRatio = 16.f / 9.f;
+
+        ScriptEngine::Context m_ScriptContext;
 
         friend class Entity;
         friend class SceneHierarchyPanel;
