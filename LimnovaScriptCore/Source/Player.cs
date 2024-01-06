@@ -26,12 +26,12 @@ namespace Limnova
         public EntityReference  OtherEntity;
         public float            OtherEntitySpeed;
 
-        public void OnCreate(ulong entityId)
+        public override void OnCreate(ulong entityId)
         {
             base.OnCreate(entityId);
         }
 
-        public void OnUpdate(float dT)
+        public override void OnUpdate(float dT)
         {
             base.OnUpdate(dT);
 

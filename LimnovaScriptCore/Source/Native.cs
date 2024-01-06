@@ -37,15 +37,15 @@ namespace Limnova
         // Components --------------------------------------------------------------------------------------------------------------
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern static void TransformComponent_GetPosition(ulong entityId, out Vec3<float> pos);
+        internal extern static void TransformComponent_GetPosition(ulong entityId, out Vec3 pos);
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern static void TransformComponent_SetPosition(ulong entityId, ref Vec3<float> pos);
+        internal extern static void TransformComponent_SetPosition(ulong entityId, ref Vec3 pos);
 
         // Physics -----------------------------------------------------------------------------------------------------------------
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern static void OrbitalPhysics_SetThrust(ulong entityId, ref Vec3<double> thrust);
+        internal extern static void OrbitalPhysics_SetThrust(ulong entityId, ref Vec3d thrust);
     }
 
 }
