@@ -38,7 +38,7 @@ namespace Limnova
     d(SCRIPT_FIELD_TYPE_VECTOR3D,     Vector3d,     Vector3d,       "Limnova.Vec3d"             )\
     d(SCRIPT_FIELD_TYPE_ENTITY,       UUID,         EntityReference,"Limnova.EntityReference"   )
 //    d(SCRIPT_FIELD_TYPE_BYTE,         uint8_t,      Byte,           "System.Byte"       )\
-    d(SCRIPT_FIELD_TYPE_CHAR,         char16_t,     Char,           "System.Char"       )
+//    d(SCRIPT_FIELD_TYPE_CHAR,         char16_t,     Char,           "System.Char"       )
 
 #define LV_SCRIPT_ENGINE_DECLARE_SCRIPT_FIELD_TYPES(id, type, name, monoTypeName) id,
 
