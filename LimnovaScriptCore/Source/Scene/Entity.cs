@@ -34,7 +34,7 @@ namespace Limnova
 
         // -------------------------------------------------------------------------------------------------------------------------
 
-        public void OnCreate(ulong entityId)
+        public virtual void OnCreate(ulong entityId)
         {
             m_Id = entityId;
             Native.LogInfo($"C#.Limnova.Entity.OnCreate({entityId})");
@@ -42,7 +42,7 @@ namespace Limnova
 
         // -------------------------------------------------------------------------------------------------------------------------
 
-        public void OnUpdate(float dT)
+        public virtual void OnUpdate(float dT)
         {
         }
 

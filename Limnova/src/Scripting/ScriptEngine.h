@@ -355,7 +355,7 @@ namespace Limnova
         struct Context
         {
             std::unordered_map<UUID, size_t> EntityScriptIndices = {};
-            std::set<size_t> FreeScriptIndices = {};
+            std::unordered_set<size_t> FreeScriptIndices = {};
             std::vector<Ref<EntityScriptInstance>> EntityScriptInstances = {};
 
             // testing

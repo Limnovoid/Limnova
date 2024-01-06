@@ -186,6 +186,7 @@ namespace Limnova
         s_pContext->EntityScriptInstances[itScriptIndex->second] = nullptr;
         s_pContext->FreeScriptIndices.insert(itScriptIndex->second);
         s_pContext->EntityScriptIndices.erase(itScriptIndex);
+        return true;
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------

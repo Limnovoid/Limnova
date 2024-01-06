@@ -325,6 +325,7 @@ namespace Limnova
             if (oc.LocalSpaces[i] == lspNode) return i;
         }
         LV_CORE_ASSERT(false, "LocalSpaces is invalid - it is missing the given lspNode and should have been updated before now!");
+        return -1;
     }
 
 
