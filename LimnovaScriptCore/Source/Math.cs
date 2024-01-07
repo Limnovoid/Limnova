@@ -89,6 +89,8 @@ namespace Limnova
 
         public Vec3(float value) => (X, Y, Z) = (value, value, value);
 
+        public Vec3(Vec2 vec2) => (X, Y, Z) = (vec2.X, vec2.Y, 0.0f);
+
         // -------------------------------------------------------------------------------------------------------------------------
 
         public static readonly Vec3 Zero = new Vec3(0.0f);
@@ -168,6 +170,10 @@ namespace Limnova
         public Vec3d(double x, double y, double z) => (X, Y, Z) = (x, y, z);
 
         public Vec3d(double value) => (X, Y, Z) = (value, value, value);
+
+        public Vec3d(Vec3 vec3) => (X, Y, Z) = ((double)vec3.X, (double)vec3.Y, (double)vec3.Z);
+
+        public Vec3d(Vec2 vec2) => (X, Y, Z) = ((double)vec2.X, (double)vec2.Y, 0.0);
 
         // -------------------------------------------------------------------------------------------------------------------------
 

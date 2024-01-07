@@ -608,6 +608,41 @@ namespace Limnova
                         if (valueChanged)
                             field.second->SetValue<UUID>(value);
 
+                        // testing OrbitalPhysics::ComputeLocalSeparation
+                        if (value != UUID::Null)
+                        {
+                            float separationMagnitude = 0.f;
+                            double separationMagnitudeAbs = 0.0, relativeVelocityMagnitude = 0.0,
+                                relativeVelocityMagnitudeAbs = 0.0;
+
+                            if (Entity otherEntity = m_Scene->GetEntity(value))
+                            {
+                                if (entity.HasComponent<OrbitalComponent>() && otherEntity.HasComponent<OrbitalComponent>())
+                                {
+                                    OrbitalPhysics::ObjectNode objectNode = entity.GetComponent<OrbitalComponent>().Object,
+                                        otherObjectNode = otherEntity.GetComponent<OrbitalComponent>().Object;
+
+                                    Vector3 separation = OrbitalPhysics::ComputeLocalSeparation(objectNode, otherObjectNode);
+                                    float separationMagnitude = sqrtf(separation.SqrMagnitude());
+
+                                    const OrbitalPhysics::LSpaceNode lspNode = objectNode.ParentLsp();
+                                    double metersPerRadius = lspNode.GetLSpace().MetersPerRadius;
+
+                                    separationMagnitudeAbs = (double)separationMagnitude * metersPerRadius;
+
+                                    Vector3d relativeVelocity = OrbitalPhysics::ComputeLocalVelocity(otherObjectNode, lspNode) -
+                                        objectNode.GetState().Velocity;
+
+                                    relativeVelocityMagnitude = sqrt(relativeVelocity.SqrMagnitude());
+                                    relativeVelocityMagnitudeAbs = relativeVelocityMagnitude * metersPerRadius;
+                                }
+                            }
+                            ImGui::Text("Local separation:   %f", separationMagnitude);
+                            ImGui::Text("Abs.  separation:   %f", separationMagnitudeAbs);
+                            ImGui::Text("Rel. velocity:      %f", relativeVelocityMagnitude);
+                            ImGui::Text("Abs. rel. velocity: %f", relativeVelocityMagnitudeAbs);
+                        }
+
                         break;
                     }
 

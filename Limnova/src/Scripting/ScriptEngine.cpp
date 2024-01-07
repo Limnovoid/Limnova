@@ -74,7 +74,8 @@ namespace Limnova
         LV_SCRIPT_ENGINE_FIELD_LIST(LV_SCRIPT_ENGINE_MAP_MONO_TYPE_NAME_TO_SCRIPT_FIELD_TYPE);
 
         // testing
-        auto rPlayerClass = RegisterScriptClass<EntityScriptClass>("Player");
+        RegisterScriptClass<EntityScriptClass>("Player");
+        RegisterScriptClass<EntityScriptClass>("Missile");
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------

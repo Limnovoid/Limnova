@@ -2574,6 +2574,134 @@ namespace Limnova
             return vDir * CircularOrbitSpeed(lspNode, rMag);
         }
 
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        /// <summary> Compute the vector from one object to another, parameterised by the first object's local space radius. </summary>
+        static Vector3 ComputeLocalSeparation(ObjectNode fromObject, ObjectNode toObject)
+        {
+            float fromLspLocalRadius = 1.f, toLspNonlocalRadius = 1.f;
+            float fromToRadiusRatio = static_cast<float>(
+                toObject.ParentLsp().LSpace().MetersPerRadius / fromObject.ParentLsp().LSpace().MetersPerRadius);
+
+            ObjectNode toParent = toObject.ParentObj(), fromParent = fromObject.ParentObj();
+            Vector3 localFromOffset(fromObject.State().Position), nonlocalToOffset(toObject.State().Position);
+
+            int heightDifference = toParent.Height() - fromParent.Height();
+            while (heightDifference < 0)
+            {
+                fromLspLocalRadius /= fromObject.ParentLsp().LSpace().Radius;
+                fromObject = fromParent;
+                fromParent = fromObject.ParentObj();
+                localFromOffset += fromObject.State().Position * fromLspLocalRadius;
+
+                heightDifference += 2;
+            }
+            while (heightDifference > 0)
+            {
+                toLspNonlocalRadius /= toObject.ParentLsp().LSpace().Radius;
+                toObject = toParent;
+                toParent = toObject.ParentObj();
+                nonlocalToOffset += toObject.State().Position * toLspNonlocalRadius;
+
+                heightDifference -= 2;
+            }
+
+            while (fromParent != toParent)
+            {
+                fromLspLocalRadius /= fromObject.ParentLsp().LSpace().Radius;
+                fromObject = fromParent;
+                fromParent = fromObject.ParentObj();
+                localFromOffset += fromObject.State().Position * fromLspLocalRadius;
+
+                toLspNonlocalRadius /= toObject.ParentLsp().LSpace().Radius;
+                toObject = toParent;
+                toParent = toObject.ParentObj();
+                nonlocalToOffset += toObject.State().Position * toLspNonlocalRadius;
+            }
+
+            Vector3 localToOffset = nonlocalToOffset * fromToRadiusRatio;
+
+            return localToOffset - localFromOffset;
+        }
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        /// <summary> Compute the velocity of an object relative to a given local space, parameterised by that local space's radius. </summary>
+        static Vector3d ComputeLocalVelocity(ObjectNode object, LSpaceNode lsp)
+        {
+            float objectLspNonlocalRadius = 1.f, lspLocalRadius = 1.f;
+
+            LSpaceNode objLsp = object.ParentLsp();
+            Vector3d objNonlocalVelocity = object.State().Velocity, lspLocalVelocity(0.0);
+
+            double radiusRatio = objLsp.LSpace().MetersPerRadius / lsp.LSpace().MetersPerRadius;
+
+            int heightDifference = lsp.Height() - objLsp.Height();
+            while (heightDifference < 0)
+            {
+                objectLspNonlocalRadius /= objLsp.LSpace().Radius;
+
+                ObjectNode objLspParent = objLsp.ParentObj();
+                objNonlocalVelocity += objLspParent.State().Velocity * static_cast<double>(objectLspNonlocalRadius);
+
+                objLsp = objLspParent.ParentLsp();
+                heightDifference += 2;
+            }
+            while (heightDifference > 0)
+            {
+                lspLocalRadius /= lsp.LSpace().Radius;
+
+                ObjectNode lspParent = lsp.ParentObj();
+                lspLocalVelocity += lspParent.State().Velocity * static_cast<double>(lspLocalRadius);
+
+                lsp = lspParent.ParentLsp();
+                heightDifference -= 2;
+            }
+
+            while (lsp != objLsp)
+            {
+                objectLspNonlocalRadius /= objLsp.LSpace().Radius;
+                ObjectNode objLspParent = objLsp.ParentObj();
+                objNonlocalVelocity += objLspParent.State().Velocity * static_cast<double>(objectLspNonlocalRadius);
+                objLsp = objLspParent.ParentLsp();
+
+                lspLocalRadius /= lsp.LSpace().Radius;
+                ObjectNode lspParent = lsp.ParentObj();
+                lspLocalVelocity += lspParent.State().Velocity * static_cast<double>(lspLocalRadius);
+                lsp = lspParent.ParentLsp();
+            }
+
+            Vector3d objLocalVelocity = objNonlocalVelocity * radiusRatio;
+
+            return objLocalVelocity - lspLocalVelocity;
+        }
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Solve for approximate point at which the missile object intercepts the target object, assuming constant thrust.
+        /// </summary>
+        static Vector3 SolveMissileIntercept(ObjectNode missileObject, ObjectNode targetObject, double thrust)
+        {
+            double acceleration = thrust / missileObject.State().Mass;
+            double initialVelocity = sqrt((ComputeLocalVelocity(targetObject, missileObject.ParentLsp()) -
+                missileObject.State().Velocity).SqrMagnitude());
+
+            float distance = sqrtf(ComputeLocalSeparation(missileObject, targetObject).SqrMagnitude());
+
+            typedef std::function<double(double)> F;
+            F func = [=](double t) -> double
+            {
+                return 0.5f * acceleration * t * t + initialVelocity * t - static_cast<double>(distance);
+            };
+            F func_1d = [=](double t) -> double
+            {
+                return acceleration * t + initialVelocity;
+            };
+
+            // ...
+        }
+
     };
 
 }

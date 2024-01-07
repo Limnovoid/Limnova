@@ -46,6 +46,10 @@ namespace Limnova
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern static void OrbitalPhysics_SetThrust(ulong entityId, ref Vec3d thrust);
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void OrbitalPhysics_ComputeSeparation(ulong thisEntityId, ulong otherEntityId, out Vec3 direction,
+            out double distance);
     }
 
 }
