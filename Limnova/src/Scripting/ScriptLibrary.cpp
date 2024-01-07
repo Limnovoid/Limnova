@@ -83,13 +83,34 @@ namespace Limnova
 
         // Physics ---------------------------------------------------------------------------------------------------------------------
 
-        static void OrbitalPhysics_SetThrust(UUID entityId, Vector3* thrust)
+        static void OrbitalPhysics_SetThrust(UUID entityId, Vector3d* thrust)
         {
             Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
             if (!entity.HasComponent<OrbitalComponent>())
                 LV_CORE_WARN("Cannot set thrust on entity ({}) - does not have an orbital component!", entityId);
 
-            entity.GetComponent<OrbitalComponent>().Object.SetContinuousThrust(Vector3d(*thrust));
+            entity.GetComponent<OrbitalComponent>().Object.SetContinuousThrust(*thrust);
+        }
+
+        static void OrbitalPhysics_ComputeSeparation(UUID thisEntityId, UUID otherEntityId, Vector3* direction, double* distance)
+        {
+            Entity entity = ScriptEngine::GetContext()->GetEntity(thisEntityId);
+            Entity otherEntity = ScriptEngine::GetContext()->GetEntity(otherEntityId);
+
+            if (entity && otherEntity)
+            {
+                if (entity.HasComponent<OrbitalComponent>() && otherEntity.HasComponent<OrbitalComponent>())
+                {
+                    OrbitalPhysics::ObjectNode thisObjectNode = entity.GetComponent<OrbitalComponent>().Object;
+                    Vector3 localSeparation = OrbitalPhysics::ComputeLocalSeparation(thisObjectNode,
+                        otherEntity.GetComponent<OrbitalComponent>().Object);
+
+                    float localDistance = sqrtf(localSeparation.SqrMagnitude());
+                    *distance = localDistance * thisObjectNode.ParentLsp().GetLSpace().MetersPerRadius;
+
+                    *direction = localSeparation.Normalized();
+                }
+            }
         }
     }
 
@@ -150,6 +171,8 @@ namespace Limnova
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(Entity_HasComponent);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_GetPosition);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_SetPosition);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_SetThrust);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_ComputeSeparation);
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------

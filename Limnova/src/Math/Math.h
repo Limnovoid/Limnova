@@ -159,14 +159,15 @@ namespace Limnova
         while(AbsGreaterThan(fx, tolerance) && nIterations < nMaxIterations)
         {
             float f_1dx = functionFirstDerivative(x);
-            LV_CORE_ASSERT(f_1dx != 0.f, "Newton solver found a non-root stationary point!");
-            x = x - fx / f_1dx;
+            if (f_1dx == 0.f)
+                x -= -tolerance;
+            else
+                x = x - fx / f_1dx;
             fx = function(x);
 
             ++nIterations;
         }
         return x;
     }
-
 
 }
