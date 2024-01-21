@@ -247,9 +247,15 @@ Entities:
         EngineThrust:
           Type: Double
           Data: 100
+        TargetingTolerance:
+          Type: Float
+          Data: 0
         Target:
           Type: EntityReference
           Data: 16270305809423256537
+        TargetingReticle:
+          Type: EntityReference
+          Data: 0
     BillboardCircleRendererComponent:
       Color: [0, 0.10426569, 1, 1]
       Thickness: 1
@@ -286,10 +292,16 @@ Entities:
           Data: true
         EngineThrust:
           Type: Double
-          Data: 100
+          Data: 1000000
+        TargetingTolerance:
+          Type: Float
+          Data: 1000
         Target:
           Type: EntityReference
           Data: 16270305809423256537
+        TargetingReticle:
+          Type: EntityReference
+          Data: 16345902679776668512
     BillboardCircleRendererComponent:
       Color: [0.0663506985, 1, 0, 1]
       Thickness: 0.180000007
@@ -302,7 +314,7 @@ Entities:
       Albedo: 0
       ShowMajorMinorAxes: false
       ShowNormal: true
-      Mass: 100
+      Mass: 5000
       Position: [0.0555133894, 0, 0]
       Velocity: [0, 0, 0.0003282044806007542]
       ContAcceleration: [0, 0, 0]
@@ -336,3 +348,20 @@ Entities:
       ContAcceleration: [0, 0, 0]
       LocalSpaceRadii:
         []
+  - Entity: 16345902679776668512
+    TagComponent:
+      Tag: Targeting Reticle
+    HierarchyComponent:
+      Parent: 4016432063625339705
+    TransformComponent:
+      Position: [0, 0, 0]
+      Orientation: [0, 0, 0, 1]
+      EulerAngles: [0, 0, 0]
+      Scale: [0.039983891, 0.039983891, 1.99919441e-06]
+    BillboardCircleRendererComponent:
+      Color: [0.976303339, 1, 0, 1]
+      Thickness: 0.0500000007
+      Fade: 0.0160000008
+    OrbitalHierarchyComponent:
+      AbsoluteScale: [20000, 20000, 1]
+      LocalSpace: 0

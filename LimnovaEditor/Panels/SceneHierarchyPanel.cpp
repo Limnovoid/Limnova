@@ -623,7 +623,7 @@ namespace Limnova
                                         otherObjectNode = otherEntity.GetComponent<OrbitalComponent>().Object;
 
                                     Vector3 separation = OrbitalPhysics::ComputeLocalSeparation(objectNode, otherObjectNode);
-                                    float separationMagnitude = sqrtf(separation.SqrMagnitude());
+                                    separationMagnitude = sqrtf(separation.SqrMagnitude());
 
                                     const OrbitalPhysics::LSpaceNode lspNode = objectNode.ParentLsp();
                                     double metersPerRadius = lspNode.GetLSpace().MetersPerRadius;
@@ -637,10 +637,10 @@ namespace Limnova
                                     relativeVelocityMagnitudeAbs = relativeVelocityMagnitude * metersPerRadius;
                                 }
                             }
-                            ImGui::Text("Local separation:   %f", separationMagnitude);
-                            ImGui::Text("Abs.  separation:   %f", separationMagnitudeAbs);
-                            ImGui::Text("Rel. velocity:      %f", relativeVelocityMagnitude);
-                            ImGui::Text("Abs. rel. velocity: %f", relativeVelocityMagnitudeAbs);
+                            ImGui::Text("Local separation:  %f", separationMagnitude);
+                            ImGui::Text("Abs.  separation:  %f", separationMagnitudeAbs);
+                            ImGui::Text("Rel. speed:        %f", relativeVelocityMagnitude);
+                            ImGui::Text("Abs. rel. speed:   %f", relativeVelocityMagnitudeAbs);
                         }
 
                         break;
@@ -1165,6 +1165,9 @@ namespace Limnova
                 {
                     orbital.Object.SetContinuousAcceleration(acc);
                 }
+
+                Vector3 position = entity.GetComponent<TransformComponent>().GetPosition();
+                Renderer2D::DrawArrow(position, position + (0.1f * Vector3(acc).Normalized()), Vector4(1.f, 0.f, 1.f, 1.f), 0.001f, 0.01f);
 
                 ImGui::TreePop();
             }

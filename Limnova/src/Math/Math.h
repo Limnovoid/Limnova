@@ -93,7 +93,8 @@ namespace Limnova
     /// <summary>
     /// Equivalent to abs(signedVariable) > unsignedConstant.
     /// </summary>
-    inline bool AbsGreaterThan(float signedLhs, float unsignedRhs)
+    template<typename T>
+    bool AbsGreaterThan(T signedLhs, T unsignedRhs)
     {
         if (signedLhs < 0.f)
             signedLhs = -signedLhs;
@@ -103,7 +104,8 @@ namespace Limnova
     /// <summary>
     /// Equivalent to abs(lhs) > abs(rhs).
     /// </summary>
-    inline bool AbsGreaterThan2(float lhs, float rhs)
+    template<typename T>
+    bool AbsGreaterThan2(T lhs, T rhs)
     {
         if (lhs < 0.f)
             lhs = -lhs;
@@ -149,7 +151,7 @@ namespace Limnova
 
     // Numerical solving -----------------------------------------------------------------------------------------------------------
 
-    inline float SolveNetwon(std::function<float(float)> function, std::function<float(float)> functionFirstDerivative, float initialX, float tolerance, size_t nMaxIterations)
+    /*inline float SolveNetwon(std::function<float(float)> function, std::function<float(float)> functionFirstDerivative, float initialX, float tolerance, size_t nMaxIterations)
     {
         LV_CORE_ASSERT(functionFirstDerivative(initialX) != 0.f, "Invalid initialX: first derivative resolves to 0!");
 
@@ -168,6 +170,27 @@ namespace Limnova
             ++nIterations;
         }
         return x;
-    }
+    }*/
 
+    template<typename T>
+    T SolveNetwon(std::function<T(T)> function, std::function<T(T)> functionFirstDerivative, T initialX, T tolerance, size_t nMaxIterations)
+    {
+        LV_CORE_ASSERT(functionFirstDerivative(initialX) != 0.f, "Invalid initialX: first derivative resolves to 0!");
+
+        size_t nIterations = 0;
+        T x = initialX;
+        T fx = function(initialX);
+        while(AbsGreaterThan(fx, tolerance) && nIterations < nMaxIterations)
+        {
+            T f_1dx = functionFirstDerivative(x);
+            if (f_1dx == 0.f)
+                x -= -tolerance;
+            else
+                x = x - fx / f_1dx;
+            fx = function(x);
+
+            ++nIterations;
+        }
+        return x;
+    }
 }
