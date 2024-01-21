@@ -50,6 +50,20 @@ namespace Limnova
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern static void OrbitalPhysics_ComputeSeparation(ulong thisEntityId, ulong otherEntityId, out Vec3 direction,
             out double distance);
+
+        /// <summary>
+        /// Solve for point at which a 'missile' entity intercepts a 'target' entity, assuming constant thrust.
+        /// Returned value is relative to the missile entity.
+        /// </summary>
+        /// <param name="thisEntityId">ID of missile entity</param>
+        /// <param name="otherEntityId">ID of target entity</param>
+        /// <param name="thrust">Magnitude of missile's engine thrust</param>
+        /// <param name="targetingTolerance">Permissible difference between solved intercept and actual intercept</param>
+        /// <param name="intercept">Storage for return value</param>
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void OrbitalPhysics_SolveMissileIntercept(ulong thisEntityId, ulong otherEntityId, double thrust,
+            float targetingTolerance, out Vec3 intercept);
+
     }
 
 }

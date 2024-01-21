@@ -649,8 +649,12 @@ namespace Limnova
         ImGui::PopStyleVar();
 
         // Panels
+        m_Framebuffer->Bind();                              // debug rendering
+        Renderer2D::BeginScene(m_EditorCamera.GetCamera()); // debug rendering
         m_SceneHierarchyPanel.OnImGuiRender();
         m_AssetBrowserPanel.OnImGuiRender();
+        Renderer2D::EndScene();                             // debug rendering
+        m_Framebuffer->Unbind();                            // debug rendering
 
         UI_Toolbar();
 

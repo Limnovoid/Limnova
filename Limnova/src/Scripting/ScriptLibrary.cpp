@@ -51,6 +51,7 @@ namespace Limnova
         static void Entity_IsValid(UUID entityId, bool *isValid)
         {
             *isValid = ScriptEngine::GetContext()->IsEntity(entityId);
+            LV_CORE_INFO("Entity_IsValid({}) = {}", entityId, (*isValid ? "true" : "false"));
         }
 
         // -----------------------------------------------------------------------------------------------------------------------------
@@ -109,6 +110,29 @@ namespace Limnova
                     *distance = localDistance * thisObjectNode.ParentLsp().GetLSpace().MetersPerRadius;
 
                     *direction = localSeparation.Normalized();
+                }
+            }
+        }
+
+        static void OrbitalPhysics_SolveMissileIntercept(UUID missileEntityId, UUID targetEntityId, double thrust, float targetingTolerance,
+            Vector3 *intercept)
+        {
+            Entity missileEntity = ScriptEngine::GetContext()->GetEntity(missileEntityId);
+            Entity targetEntity = ScriptEngine::GetContext()->GetEntity(targetEntityId);
+
+            if (missileEntity && targetEntity)
+            {
+                if (missileEntity.HasComponent<OrbitalComponent>() && targetEntity.HasComponent<OrbitalComponent>())
+                {
+                    OrbitalPhysics::ObjectNode missileObjectNode = missileEntity.GetComponent<OrbitalComponent>().Object;
+                    OrbitalPhysics::ObjectNode targetObjectNode = targetEntity.GetComponent<OrbitalComponent>().Object;
+
+                    double localMetersPerRadius = missileObjectNode.ParentLsp().GetLSpace().MetersPerRadius;
+                    double localThrust = thrust / localMetersPerRadius;
+                    float localTolerance = targetingTolerance / localMetersPerRadius;
+                    Vector3 localIntercept = OrbitalPhysics::SolveMissileIntercept(missileObjectNode, targetObjectNode, localThrust, localTolerance);
+
+                    *intercept = localIntercept - missileObjectNode.GetState().Position;
                 }
             }
         }
@@ -173,6 +197,7 @@ namespace Limnova
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_SetPosition);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_SetThrust);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_ComputeSeparation);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_SolveMissileIntercept);
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------
