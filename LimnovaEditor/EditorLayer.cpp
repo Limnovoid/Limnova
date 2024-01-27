@@ -1,17 +1,17 @@
 #include "EditorLayer.h"
 
+#include "Config.h"
+
 #include "Resources/NativeScripts/CameraScripts.h"
 
 #include <Scene/SceneSerializer.h>
 #include <Utils/PlatformUtils.h>
 #include <imguizmo/ImGuizmo.h>
 
-#define LV_EDITOR_RES_DIR "C:\\Programming\\source\\Limnova\\LimnovaEditor\\Resources"
-
-
 namespace Limnova
 {
-    extern const std::filesystem::path s_AssetDirectoryPath;
+    extern const std::filesystem::path s_AssetDirectoryPath = LV_EDITOR_DIRECTORY "\\Assets";
+    extern const std::filesystem::path s_ResourcesDirectoryPath = LV_EDITOR_DIRECTORY "\\Resources";
 
 
     EditorLayer::EditorLayer()
@@ -203,9 +203,9 @@ namespace Limnova
         ScriptEngine::SetContext(m_ActiveScene.get());
         m_SceneHierarchyPanel.SetContext(m_ActiveScene.get());
 
-        m_IconPlay = Texture2D::Create(LV_EDITOR_RES_DIR"\\Icons\\PlayButton.png");
-        m_IconPause = Texture2D::Create(LV_EDITOR_RES_DIR"\\Icons\\PauseButton.png");
-        m_IconStop = Texture2D::Create(LV_EDITOR_RES_DIR"\\Icons\\StopButton.png");
+        m_IconPlay = Texture2D::Create(s_ResourcesDirectoryPath / "Icons\\PlayButton.png");
+        m_IconPause = Texture2D::Create(s_ResourcesDirectoryPath / "Icons\\PauseButton.png");
+        m_IconStop = Texture2D::Create(s_ResourcesDirectoryPath / "Icons\\StopButton.png");
     }
 
 

@@ -1,6 +1,9 @@
 ## Ignore builds.
 build/
 
+## Ignore configured files
+/Limnova/src/Core/Core.h
+
 ## Ignore profiling data
 Profiling/
 !src/Profiling/ #un-ignore profiling source
