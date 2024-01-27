@@ -41,6 +41,10 @@ target_link_libraries(${PROJECT_NAME}
         Limnova
 )
 
+add_dependencies(${PROJECT_NAME}
+    LimnovaScriptCore
+)
+
 target_link_directories(${PROJECT_NAME}
     PRIVATE
         "${CMAKE_SOURCE_DIR}/Limnova/thirdparty/mono/lib/$<IF:$<CONFIG:Debug>,Debug,Release>"
