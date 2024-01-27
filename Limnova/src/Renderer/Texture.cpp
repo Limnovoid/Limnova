@@ -30,4 +30,9 @@ namespace Limnova
         return nullptr;
     }
 
+    Ref<Texture2D> Texture2D::Create(const std::filesystem::path& path, const WrapMode wrap)
+    {
+        return Create(path.string(), wrap);
+    }
+
 }

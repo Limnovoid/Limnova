@@ -35,6 +35,7 @@ namespace Limnova
 
         static Ref<Texture2D> Create(const uint32_t width, const uint32_t height);
         static Ref<Texture2D> Create(const std::string& path, const WrapMode wrap = WrapMode::Tile);
+        static Ref<Texture2D> Create(const std::filesystem::path &path, const WrapMode wrap = WrapMode::Tile);
     };
 
 }

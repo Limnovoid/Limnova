@@ -7,6 +7,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Core/Layer.cpp"
     "src/Core/LayerStack.cpp"
     "src/Core/Timer.h"
+    "src/Core/Typedefs.h"
     "src/Core/UUID.cpp"
 
     "src/Events/Event.h"
@@ -18,7 +19,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/ImGui/ImGuiLayer.h"
     "src/ImGui/ImGuiLayer.cpp"
 
-    "src/Profiling/DataRecording.h"
+    #"src/Profiling/DataRecording.h"
     "src/Profiling/Instrumentor.h"
 
     "src/Math/glm.h"
@@ -81,7 +82,7 @@ add_library(${PROJECT_NAME} STATIC
     "src/Utils/InputUtils.cpp"
 
     "thirdparty/stb_image/stb_image.cpp"
- "src/Core/Typedefs.h")
+)
 
 
 set_property(TARGET ${PROJECT_NAME}
