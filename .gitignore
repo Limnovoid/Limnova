@@ -3,6 +3,7 @@ build/
 
 ## Ignore configured files
 /Limnova/src/Core/Core.h
+/LimnovaEditor/Config.h
 
 ## Ignore profiling data
 Profiling/
