@@ -1,10 +1,11 @@
-#include "AssetBrowserPanel.h"
+#include "Config.h"
 
+#include "AssetBrowserPanel.h"
 
 namespace Limnova
 {
 
-    extern const std::filesystem::path s_AssetDirectoryPath = "C:\\Programming\\source\\Limnova\\LimnovaEditor\\Assets";
+    extern const std::filesystem::path s_AssetDirectoryPath;
 
 
     AssetBrowserPanel::AssetBrowserPanel()

@@ -16,6 +16,9 @@ set_property(TARGET ${PROJECT_NAME}
 )
 
 
+configure_file("${PROJECT_SOURCE_DIR}/Config.h.in" "${PROJECT_SOURCE_DIR}/Config.h")
+
+
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         "${PROJECT_SOURCE_DIR}"
