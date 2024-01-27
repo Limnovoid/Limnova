@@ -16,7 +16,7 @@ namespace Limnova
 
     void AssetBrowserPanel::OnImGuiRender()
     {
-        ImGui::Begin("Asset Browser");
+        ImGui::Begin("Asset Browser", NULL, ImGuiWindowFlags_NoMove);
 
         if (m_CurrentDirectoryPath != s_AssetDirectoryPath)
         {
