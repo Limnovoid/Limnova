@@ -401,7 +401,7 @@ namespace Limnova
 
         /*** Scene ***/
         
-        ImGui::Begin("Scene Properties");
+        ImGui::Begin("Scene Properties", NULL, ImGuiWindowFlags_NoMove);
 
         if (Entity activeCamera = m_ActiveScene->GetActiveCamera())
         {
@@ -482,7 +482,7 @@ namespace Limnova
         ImGui::End(); // Scene Properties
 
 
-        ImGui::Begin("Renderer2D Statistics");
+        ImGui::Begin("Renderer2D Statistics", NULL, ImGuiWindowFlags_NoMove);
         auto& stats = Renderer2D::GetStatistics();
         ImGui::Text("Draw Calls:    %d", stats.DrawCalls);
         ImGui::Text("Quads:         %d", stats.QuadCount);
@@ -492,7 +492,7 @@ namespace Limnova
 
 
 #if defined(LV_DEBUG) && defined(LV_EDITOR_USE_ORBITAL) && defined(TEMP_EXCLUDE)
-        ImGui::Begin("OrbitalPhysics Statistics");
+        ImGui::Begin("OrbitalPhysics Statistics", NULL, ImGuiWindowFlags_NoMove);
         auto& orbitalStats = m_ActiveScene->GetPhysicsStats();
         {
             bool update = m_SceneState == SceneState::Play || m_SceneState == SceneState::Simulate;
@@ -565,7 +565,7 @@ namespace Limnova
         // Viewport //
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0.f, 0.f });
-        ImGui::Begin("Viewport");
+        ImGui::Begin("Viewport", NULL, ImGuiWindowFlags_NoMove);
 
         // Viewport bounds in screen space
         auto viewportRegionMin = ImGui::GetWindowContentRegionMin();
@@ -680,7 +680,7 @@ namespace Limnova
         auto& colorButtonActive = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ colorButtonActive.x, colorButtonActive.y, colorButtonActive.z, 0.5f });
 
-        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove;
 #ifdef LV_RELEASE
         flags |= ImGuiWindowFlags_NoMove;
 #endif

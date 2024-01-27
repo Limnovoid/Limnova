@@ -17,6 +17,9 @@ PlayApp/Assets/textures
 Limnova/thirdparty/mono/lib/Debug/ignore
 Limnova/thirdparty/mono/lib/Release/ignore
 
+## Ignore LimnovaEditor imgui.ini - the file is in the repo, but we don't need to update it e.g. every time we resize a panel
+/LimnovaEditor/Resources/imgui.ini
+
 ### Below is from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 ## Ignore Visual Studio temporary files, build results, and

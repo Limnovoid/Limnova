@@ -29,7 +29,7 @@ namespace Limnova
 
     void SceneHierarchyPanel::OnImGuiRender()
     {
-        ImGui::Begin("Scene Hierarchy");
+        ImGui::Begin("Scene Hierarchy", NULL, ImGuiWindowFlags_NoMove);
 
         EntityNode(m_Scene->GetRoot(), true);
 
@@ -47,7 +47,7 @@ namespace Limnova
 
         ImGui::End(); // Scene Hierarchy
 
-        ImGui::Begin("Inspector");
+        ImGui::Begin("Inspector", NULL, ImGuiWindowFlags_NoMove);
 
         if (m_SelectedEntity) {
             Inspector(m_SelectedEntity);
