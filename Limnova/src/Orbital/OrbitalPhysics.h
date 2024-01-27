@@ -2843,7 +2843,7 @@ namespace Limnova
         }
 #endif
 
-        Vector3 SolveMissileIntercept(ObjectNode missileObject, ObjectNode targetObject, double thrust,
+        static Vector3 SolveMissileIntercept(ObjectNode missileObject, ObjectNode targetObject, double thrust,
             float targetingTolerance, size_t maxIterations = 5)
         {
             Vector3 targetPositionAtIntercept; // variable to solve and return
