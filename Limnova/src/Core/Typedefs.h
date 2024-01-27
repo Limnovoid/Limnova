@@ -12,4 +12,6 @@ namespace Limnova
 		RESULT_CODE_INVALID_FORMAT
 	};
 
+	typedef std::filesystem::path Filepath;
+
 }
