@@ -10,8 +10,10 @@
 
 namespace Limnova
 {
-    extern const std::filesystem::path s_AssetDirectoryPath = LV_EDITOR_DIRECTORY "\\Assets";
-    extern const std::filesystem::path s_ResourcesDirectoryPath = LV_EDITOR_DIRECTORY "\\Resources";
+
+    extern const Filepath s_AssetDirectoryPath      = Filepath(LV_EDITOR_DIRECTORY "/Assets").lexically_normal();
+    extern const Filepath s_ResourcesDirectoryPath  = Filepath(LV_EDITOR_DIRECTORY "/Resources").lexically_normal();
+    extern const Filepath s_ImGuiIniFilePath        = Filepath(s_ResourcesDirectoryPath / "imgui.ini").lexically_normal();
 
 
     EditorLayer::EditorLayer()
@@ -28,6 +30,9 @@ namespace Limnova
          * the camera controller
          */
         Application::Get().GetImGuiLayer()->SetBlockEvents(false);
+
+        Application::Get().GetImGuiLayer()->SetIniFilePath(s_ImGuiIniFilePath);
+        Application::Get().GetImGuiLayer()->LoadSettingsFromIniFile();
 
         FramebufferSpecification fbSpec;
         fbSpec.Width = 1600;
@@ -395,7 +400,7 @@ namespace Limnova
 
 
         /*** Scene ***/
-
+        
         ImGui::Begin("Scene Properties");
 
         if (Entity activeCamera = m_ActiveScene->GetActiveCamera())

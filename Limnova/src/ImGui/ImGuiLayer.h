@@ -33,10 +33,15 @@ namespace Limnova
 
         void SetBlockEvents(bool block) { m_BlockEvents = block; }
 
+        void SetIniFilePath(const std::filesystem::path& iniFilePath);
+
+        void LoadSettingsFromIniFile();
+
         void SetDarkTheme();
     private:
         bool m_BlockEvents = true;
         float m_Time = 0.f;
+        char m_IniFilePathBuffer[256];
     };
 
 }

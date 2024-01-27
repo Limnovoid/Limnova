@@ -128,6 +128,23 @@ namespace Limnova
     }
 
 
+    void ImGuiLayer::SetIniFilePath(const std::filesystem::path& iniFilePath)
+    {
+        LV_CORE_ASSERT(iniFilePath.string().size() < sizeof(m_IniFilePathBuffer), "ImGui iniFilePath length ({}) is greater than buffer size ({})", iniFilePath.string().size(), sizeof(m_IniFilePathBuffer));
+
+        sprintf_s(m_IniFilePathBuffer, sizeof(m_IniFilePathBuffer), "%s", iniFilePath.string().c_str());
+
+        ImGuiIO& io = ImGui::GetIO();
+        io.IniFilename = m_IniFilePathBuffer;
+    }
+
+
+    void ImGuiLayer::LoadSettingsFromIniFile()
+    {
+        ImGui::LoadIniSettingsFromDisk(m_IniFilePathBuffer);
+    }
+
+
     void ImGuiLayer::SetDarkTheme()
     {
         auto& colors = ImGui::GetStyle().Colors;
