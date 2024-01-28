@@ -13,7 +13,7 @@ namespace Limnova
 
     extern const Filepath s_AssetDirectoryPath      = Filepath(LV_EDITOR_DIRECTORY "/Assets").lexically_normal();
     extern const Filepath s_ResourcesDirectoryPath  = Filepath(LV_EDITOR_DIRECTORY "/Resources").lexically_normal();
-    extern const Filepath s_ImGuiIniFilePath        = Filepath(s_ResourcesDirectoryPath / "imgui.ini").lexically_normal();
+    extern const Filepath s_ImGuiIniFilePath        = Filepath(s_ResourcesDirectoryPath / "ImguiDefaultLayout.ini").lexically_normal();
 
 
     EditorLayer::EditorLayer()
@@ -31,8 +31,7 @@ namespace Limnova
          */
         Application::Get().GetImGuiLayer()->SetBlockEvents(false);
 
-        Application::Get().GetImGuiLayer()->SetIniFilePath(s_ImGuiIniFilePath);
-        Application::Get().GetImGuiLayer()->LoadSettingsFromIniFile();
+        Application::Get().GetImGuiLayer()->LoadSettingsFromIniFile(s_ImGuiIniFilePath);
 
         FramebufferSpecification fbSpec;
         fbSpec.Width = 1600;
