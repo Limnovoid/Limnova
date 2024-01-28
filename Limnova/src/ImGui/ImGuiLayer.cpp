@@ -63,6 +63,11 @@ namespace Limnova
         // Setup Platform/Renderer bindings
         ImGui_ImplGlfw_InitForOpenGL(window, true);
         ImGui_ImplOpenGL3_Init("#version 410");
+
+        // Initialize cached settings file path to ImGui's default so our cached value is always valid.
+        // ImGui's default ends up in the bin folder so it won't get tracked.
+        sprintf_s(m_IniFilePathBuffer, sizeof(m_IniFilePathBuffer), "%s", io.IniFilename);
+        m_shouldSaveRuntimeSettings = true; // False would imply that ImGui's path is NULL, which we don't want to do here, so we set to true
     }
 
 
@@ -125,6 +130,55 @@ namespace Limnova
             e.Handled |= e.IsInCategory(EventCategoryMouse) & io.WantCaptureMouse;
             e.Handled |= e.IsInCategory(EventCategoryKeyboard) & io.WantCaptureKeyboard;
         }
+    }
+
+
+    void ImGuiLayer::SetIniFilePath(const std::filesystem::path& iniFilePath)
+    {
+        LV_CORE_ASSERT(iniFilePath.string().size() < sizeof(m_IniFilePathBuffer), "ImGui iniFilePath length ({}) is greater than buffer size ({})", iniFilePath.string().size(), sizeof(m_IniFilePathBuffer));
+
+        sprintf_s(m_IniFilePathBuffer, sizeof(m_IniFilePathBuffer), "%s", iniFilePath.string().c_str());
+
+        if (m_shouldSaveRuntimeSettings)
+        {
+            ImGuiIO& io = ImGui::GetIO();
+            io.IniFilename = m_IniFilePathBuffer;
+        }
+    }
+
+
+    void ImGuiLayer::LoadSettingsFromIniFile(const std::filesystem::path& iniFilePath)
+    {
+        const char* iniFilePathCStr;
+        char tempBuffer[256];
+
+        if (iniFilePath.empty())
+        {
+            iniFilePathCStr = m_IniFilePathBuffer;
+        }
+        else
+        {
+            LV_CORE_ASSERT(iniFilePath.string().size() < sizeof(tempBuffer), "ImGui iniFilePath length ({}) is greater than buffer size ({})", iniFilePath.string().size(), sizeof(tempBuffer));
+
+            sprintf_s(tempBuffer, sizeof(tempBuffer), "%s", iniFilePath.string().c_str());
+
+            iniFilePathCStr = tempBuffer;
+        }
+
+        ImGui::LoadIniSettingsFromDisk(iniFilePathCStr);
+    }
+
+
+    void ImGuiLayer::ShouldSaveRuntimeSettings(bool value)
+    {
+        m_shouldSaveRuntimeSettings = value;
+
+        ImGuiIO& io = ImGui::GetIO();
+
+        if (value)
+            io.IniFilename = m_IniFilePathBuffer;
+        else
+            io.IniFilename = NULL;
     }
 
 
