@@ -247,6 +247,9 @@ Entities:
         EngineThrust:
           Type: Double
           Data: 100
+        SeekMaxIterations:
+          Type: UInt
+          Data: 0
         TargetingTolerance:
           Type: Float
           Data: 0
@@ -293,6 +296,9 @@ Entities:
         EngineThrust:
           Type: Double
           Data: 1000000
+        SeekMaxIterations:
+          Type: UInt
+          Data: 1
         TargetingTolerance:
           Type: Float
           Data: 1000
@@ -357,11 +363,11 @@ Entities:
       Position: [0, 0, 0]
       Orientation: [0, 0, 0, 1]
       EulerAngles: [0, 0, 0]
-      Scale: [0.039983891, 0.039983891, 1.99919441e-06]
+      Scale: [0.399838895, 0.399838895, 1.99919441e-06]
     BillboardCircleRendererComponent:
       Color: [0.976303339, 1, 0, 1]
       Thickness: 0.0500000007
       Fade: 0.0160000008
     OrbitalHierarchyComponent:
-      AbsoluteScale: [20000, 20000, 1]
+      AbsoluteScale: [200000, 200000, 1]
       LocalSpace: 0
