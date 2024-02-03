@@ -62,9 +62,18 @@ Entities:
         EngineThrust:
           Type: Double
           Data: 1e-10
-        SeekMaxIterations:
+        SeekMax:
           Type: UInt
-          Data: 5
+          Data: 3
+        SeekRecompFactor:
+          Type: Float
+          Data: 0.100000001
+        PropConstant:
+          Type: Float
+          Data: 4
+        PropNavBias:
+          Type: Float
+          Data: 0
         TargetingTolerance:
           Type: Float
           Data: 1
@@ -74,9 +83,6 @@ Entities:
         TargetingReticle:
           Type: EntityReference
           Data: 10187542003849083601
-        AimingReticle:
-          Type: EntityReference
-          Data: 15137652213651853432
     BillboardCircleRendererComponent:
       Color: [0.151658893, 1, 0, 1]
       Thickness: 1
@@ -135,23 +141,6 @@ Entities:
       Scale: [0.100000001, 0.100000001, 1]
     BillboardCircleRendererComponent:
       Color: [1, 0.938388586, 0, 1]
-      Thickness: 0.0700000003
-      Fade: 0.00499999989
-    OrbitalHierarchyComponent:
-      AbsoluteScale: [0.10000000000000001, 0.10000000000000001, 1]
-      LocalSpace: -1
-  - Entity: 15137652213651853432
-    TagComponent:
-      Tag: Aiming Reticle
-    HierarchyComponent:
-      Parent: 4530757844564627104
-    TransformComponent:
-      Position: [0, 0, 0]
-      Orientation: [0, 0, 0, 1]
-      EulerAngles: [0, 0, 0]
-      Scale: [0.100000001, 0.100000001, 1]
-    BillboardCircleRendererComponent:
-      Color: [1, 0.341232181, 0, 1]
       Thickness: 0.0700000003
       Fade: 0.00499999989
     OrbitalHierarchyComponent:

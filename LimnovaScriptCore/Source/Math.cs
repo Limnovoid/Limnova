@@ -4,6 +4,15 @@ using System.Runtime.CompilerServices;
 namespace Limnova
 {
 
+    public class Math<T> where T : IComparable
+    {
+        public static T Clamp(T value, T min, T max)
+        {
+            return ((value.CompareTo(min) < 0) ? min :
+                ((value.CompareTo(max) > 0) ? max : value));
+        }
+    }
+
     // Vec2 ------------------------------------------------------------------------------------------------------------------------
 
     public struct Vec2

@@ -2954,6 +2954,27 @@ namespace Limnova
             }
             while ((iteration < maxIterations) && (targetingToleranceSqrd < targetingDeltaSqrd));
         }
+
+        static Vector3d ComputeProportionalNavigationAcceleration(Vector3 targetRelativePosition, Vector3d targetRelativeVelocity, Vector3d missileVelocityDirection,
+            double proportionalityConstant = 4.0)
+        {
+            Vector3d targetRotationVector = ((Vector3d)targetRelativePosition).Cross(targetRelativeVelocity) / (double)(targetRelativePosition.SqrMagnitude());
+
+            double targetRelativeVelocityMagnitude = sqrt(targetRelativeVelocity.SqrMagnitude());
+
+            return -proportionalityConstant * targetRelativeVelocityMagnitude * missileVelocityDirection.Cross(targetRotationVector);
+        }
+
+        static Vector3d ComputeProportionalNavigationAcceleration(ObjectNode missileObject, ObjectNode targetObject, double proportionalityConstant = 4.0)
+        {
+            const State& missileState = missileObject.GetState();
+
+            Vector3 targetRelativePosition = ComputeLocalSeparation(missileObject, targetObject);
+            Vector3d targetRelativeVelocity = ComputeLocalVelocity(targetObject, missileObject.ParentLsp()) - missileState.Velocity;
+            Vector3d missileVelocityDirection = missileState.Velocity.Normalized();
+
+            return ComputeProportionalNavigationAcceleration(targetRelativePosition, targetRelativeVelocity, missileVelocityDirection, proportionalityConstant);
+        }
     };
 
 }
