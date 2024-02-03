@@ -49,11 +49,13 @@ namespace Limnova
         m_ActiveScene = CreateRef<OrbitalScene>();
 
         auto commandLineArgs = Application::Get().GetCommandLineArgs();
-        if (commandLineArgs.Count > 2)
+        if (commandLineArgs.Count > 1)
         {
-            std::string sceneFilePath = commandLineArgs[2];
-            if (!SceneSerializer::Deserialize(m_ActiveScene.get(), sceneFilePath))
-                LV_CORE_ERROR("Could not load default scene!");
+            std::string sceneFilePath = commandLineArgs[1];
+            if (SceneSerializer::Deserialize(m_ActiveScene.get(), sceneFilePath))
+                m_EditorScenePath = sceneFilePath;
+            else
+                LV_CORE_ERROR("Could not load default scene \"{}\"!", sceneFilePath);
         }
         else {
             LV_WARN("No default scene specified!");
@@ -802,6 +804,7 @@ namespace Limnova
             if (ctrl) {
                 OnDuplicateEntity();
             }
+            break;
 
             // Gizmo
         case KEY_Q:
