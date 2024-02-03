@@ -95,6 +95,18 @@ namespace Limnova
 
         // -----------------------------------------------------------------------------------------------------------------------------
 
+        static void OrbitalPhysics_ComputeLocalAcceleration(UUID entityId, double thrust, double *pLocalAcceleration)
+        {
+            Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
+            if (!entity.HasComponent<OrbitalComponent>())
+                LV_CORE_WARN("Cannot set thrust on entity ({}) - does not have an orbital component!", entityId);
+
+            OrbitalPhysics::ObjectNode objectNode = entity.GetComponent<OrbitalComponent>().Object;
+            *pLocalAcceleration = thrust / objectNode.ParentLsp().GetLSpace().MetersPerRadius / objectNode.GetState().Mass;
+        }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
+
         static void OrbitalPhysics_SetThrust(UUID entityId, Vector3d* pThrust)
         {
             Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
@@ -103,6 +115,8 @@ namespace Limnova
 
             entity.GetComponent<OrbitalComponent>().Object.SetContinuousThrust(*pThrust);
         }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
 
         static void OrbitalPhysics_ComputeSeparation(UUID thisEntityId, UUID otherEntityId, Vector3* direction, double* distance)
         {
@@ -124,6 +138,8 @@ namespace Limnova
                 }
             }
         }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
 
         static void OrbitalPhysics_SolveMissileIntercept(UUID missileEntityId, UUID targetEntityId, double thrust, float targetingTolerance,
             uint32_t maxIterations, Vector3 *pIntercept, float *pTimeToIntercept)
@@ -147,6 +163,28 @@ namespace Limnova
                         localIntercept, *pTimeToIntercept, maxIterations);
 
                     *pIntercept = localIntercept - missileObjectNode.GetState().Position;
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
+
+        static void OrbitalPhysics_ComputeProportionalNavigationAcceleration(UUID missileEntityId, UUID targetEntityId, float proportionalityConstant,
+            Vector3d *pProportionalAcceleration)
+        {
+            Entity missileEntity = ScriptEngine::GetContext()->GetEntity(missileEntityId);
+            Entity targetEntity = ScriptEngine::GetContext()->GetEntity(targetEntityId);
+
+            if (missileEntity && targetEntity)
+            {
+                if (missileEntity.HasComponent<OrbitalComponent>() && targetEntity.HasComponent<OrbitalComponent>())
+                {
+                    OrbitalPhysics::ObjectNode missileObjectNode = missileEntity.GetComponent<OrbitalComponent>().Object;
+                    OrbitalPhysics::ObjectNode targetObjectNode = targetEntity.GetComponent<OrbitalComponent>().Object;
+
+                    double localMetersPerRadius = missileObjectNode.ParentLsp().GetLSpace().MetersPerRadius;
+
+                    *pProportionalAcceleration = OrbitalPhysics::ComputeProportionalNavigationAcceleration(missileObjectNode, targetObjectNode, proportionalityConstant);
                 }
             }
         }
@@ -210,9 +248,11 @@ namespace Limnova
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_GetPosition);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_SetPosition);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_GetVelocity);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_ComputeLocalAcceleration);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_SetThrust);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_ComputeSeparation);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_SolveMissileIntercept);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_ComputeProportionalNavigationAcceleration);
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------
