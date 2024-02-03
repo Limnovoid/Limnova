@@ -1080,7 +1080,8 @@ namespace Limnova
         public:
             double H = 0.0;             /* Orbital specific angular momentum */
             float E = 0.f;              /* Eccentricity */
-            double VConstant = 0.f;     /* Constant factor of orbital velocity:     mu / h      */
+            double VConstant = 0.f;     /* Constant factor of orbital velocity:             mu / h          */
+            double MConstant = 0.f;     /* Constant factor of mean anomaly for e >= 1:      mu^2 / h^3      */
 
             OrbitType Type = OrbitType::Circle; /* Type of orbit - defined by eccentricity, indicates the type of shape which describes the orbit path */
 
@@ -1134,19 +1135,40 @@ namespace Limnova
             /// <summary> Compute the time since periapsis of a given true anomaly. </summary>
             float ComputeTimeSincePeriapsis(float trueAnomaly) const
             {
+                float meanAnomaly;
+
+                if (E < 1.f)        // Elliptical
+                {
                 float eccentricAnomaly =
                     2.f * atanf(sqrtf((1.f - E) / (1.f + E)) * tanf(0.5f * trueAnomaly));
                 if (eccentricAnomaly < 0.f)
                     eccentricAnomaly += PI2f;
 
-                float meanAnomaly = eccentricAnomaly - E * sinf(eccentricAnomaly);
+                    meanAnomaly = eccentricAnomaly - E * sinf(eccentricAnomaly);
+                }
+                else if (E > 1.f)   // Hyperbolic
+                {
+                    float eccentricAnomaly =
+                        2.f * atanhf(sqrtf((E - 1.f) / (E + 1.f)) * tanf(0.5f * trueAnomaly));
+
+                    meanAnomaly = E * sinhf(eccentricAnomaly) - eccentricAnomaly;
+                }
+                else                // Parabolic
+                {
+                    meanAnomaly = (0.5f * tanf(0.5f * trueAnomaly)) + ((1.f / 6.f) * powf(tanf(0.5f * trueAnomaly), 3.f));
+                }
+
                 return meanAnomaly * (float)T * OverPI2f;
             }
 
             /// <summary> Solve for true anomaly given the time since last periapse passage. </summary>
             float SolveTrueAnomaly(float timeSincePeriapsis, float tolerance = 0.001f, size_t nMaxIterations = 100) const
             {
-                float meanAnomaly = PI2f * timeSincePeriapsis / (float)T;
+                float trueAnomaly;
+
+                if (E < 1.f)        // Elliptical
+                {
+                    float meanAnomaly = PI2f * timeSincePeriapsis / static_cast<float>(T);
 
                 typedef std::function<float(float)> F;
                 F f = [=](float eccentricAnomaly) -> float
@@ -1160,7 +1182,36 @@ namespace Limnova
                 float eccentricAnomalyInitialGuess = meanAnomaly; // this relationship is true in circular orbits so it's a good place to start
                 float eccentricAnomaly = SolveNetwon<float>(f, f_1d, eccentricAnomalyInitialGuess, tolerance, nMaxIterations);
 
-                float trueAnomaly = 2.f * atanf(tanf(0.5f * eccentricAnomaly) / sqrtf((1.f - E) / (1.f + E)));
+                    trueAnomaly = 2.f * atanf(tanf(0.5f * eccentricAnomaly) / sqrtf((1.f - E) / (1.f + E)));
+                }
+                else if (E > 1.f)   // Hyperbolic
+                {
+                    float meanAnomaly = MConstant * powf((E * E) - 1.f, 1.5f) * timeSincePeriapsis;
+
+                    typedef std::function<float(float)> F;
+                    F f = [=](float eccentricAnomaly) -> float
+                        {
+                            return E * sinhf(eccentricAnomaly) - eccentricAnomaly - meanAnomaly;
+                        };
+                    F f_1d = [=](float eccentricAnomaly) -> float
+                        {
+                            return E * coshf(eccentricAnomaly) - 1.f;
+                        };
+                    float mLog10 = log10f(meanAnomaly);
+                    float eccentricAnomalyInitialGuess = std::max(1.f, 2.f * mLog10);
+                    float eccentricAnomaly = SolveNetwon<float>(f, f_1d, eccentricAnomalyInitialGuess, tolerance, nMaxIterations);
+
+                    trueAnomaly = 2.f * atanf(tanhf(0.5f * eccentricAnomaly) / sqrtf((E - 1.f) / (E + 1.f)));
+                }
+                else                // Parabolic
+                {
+                    float meanAnomaly = MConstant * timeSincePeriapsis;
+
+                    float meanAnomalyFactor = cbrtf(3.f * meanAnomaly + sqrtf(1.f + (9.f * meanAnomaly * meanAnomaly)));
+
+                    trueAnomaly = 2.f * atanf(meanAnomalyFactor - (1.f / meanAnomalyFactor));
+                }
+
                 if (trueAnomaly < 0.f)
                     trueAnomaly += PI2f;
 
@@ -1496,6 +1547,7 @@ namespace Limnova
             /* Loss of precision due to casting is acceptable: semi-latus rectum is on the order of 1 in all common cases, due to distance parameterisation */
             elems.P = (float)(H2 / lsp.Grav);
             elems.VConstant = lsp.Grav / elems.H;
+            elems.MConstant = pow(lsp.Grav, 2.0) / pow(elems.H, 3.0);
 
             /* Loss of precision due to casting is acceptable: result of vector division (V x H / Grav) is on the order of 1 */
             Vector3 posDir = positionFromPrimary.Normalized();
