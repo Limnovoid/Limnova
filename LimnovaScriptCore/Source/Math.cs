@@ -234,6 +234,13 @@ namespace Limnova
             return new Vec3d(vec3.X / scalar, vec3.Y / scalar, vec3.Z / scalar);
         }
 
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        public static explicit operator Vec3(Vec3d vec3d)
+        {
+            return new Vec3((float)vec3d.X, (float)vec3d.Y, (float)vec3d.Z);
+        }
+
         // ToString ----------------------------------------------------------------------------------------------------------------
 
         public override string ToString()

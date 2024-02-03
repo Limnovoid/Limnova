@@ -37,12 +37,15 @@ namespace Limnova
         // Components --------------------------------------------------------------------------------------------------------------
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern static void TransformComponent_GetPosition(ulong entityId, out Vec3 pos);
+        internal extern static void TransformComponent_GetPosition(ulong entityId, out Vec3 position);
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern static void TransformComponent_SetPosition(ulong entityId, ref Vec3 pos);
+        internal extern static void TransformComponent_SetPosition(ulong entityId, ref Vec3 position);
 
         // Physics -----------------------------------------------------------------------------------------------------------------
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void OrbitalPhysics_GetVelocity(ulong entityId, out Vec3d velocity);
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern static void OrbitalPhysics_SetThrust(ulong entityId, ref Vec3d thrust);
@@ -62,7 +65,7 @@ namespace Limnova
         /// <param name="intercept">Storage for return value</param>
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern static void OrbitalPhysics_SolveMissileIntercept(ulong thisEntityId, ulong otherEntityId, double thrust,
-            float targetingTolerance, out Vec3 intercept);
+            float targetingTolerance, uint maxIterations, out Vec3 intercept, out float timeToIntercept);
 
     }
 

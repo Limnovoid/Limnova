@@ -51,7 +51,6 @@ namespace Limnova
         static void Entity_IsValid(UUID entityId, bool *isValid)
         {
             *isValid = ScriptEngine::GetContext()->IsEntity(entityId);
-            LV_CORE_INFO("Entity_IsValid({}) = {}", entityId, (*isValid ? "true" : "false"));
         }
 
         // -----------------------------------------------------------------------------------------------------------------------------
@@ -63,34 +62,46 @@ namespace Limnova
 
             MonoType* managedType = mono_reflection_type_get_type(componentType);
             LV_CORE_ASSERT(ScriptLibrary::GetEntityHasComponentFuncs().contains(managedType), "Component has not been registered!");
+
             *hasComponent = ScriptLibrary::GetEntityHasComponentFuncs().at(managedType)(entity);
         }
 
         // Components --------------------------------------------------------------------------------------------------------------
 
-        static void TransformComponent_GetPosition(UUID entityId, Vector3* position)
+        static void TransformComponent_GetPosition(UUID entityId, Vector3* pPosition)
         {
             Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
-            *position = entity.GetComponent<TransformComponent>().GetPosition();
+            *pPosition = entity.GetComponent<TransformComponent>().GetPosition();
         }
 
         // -----------------------------------------------------------------------------------------------------------------------------
 
-        static void TransformComponent_SetPosition(UUID entityId, Vector3* position)
+        static void TransformComponent_SetPosition(UUID entityId, Vector3* pPosition)
         {
             Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
-            entity.GetComponent<TransformComponent>().SetPosition(*position);
+            entity.GetComponent<TransformComponent>().SetPosition(*pPosition);
         }
 
         // Physics ---------------------------------------------------------------------------------------------------------------------
 
-        static void OrbitalPhysics_SetThrust(UUID entityId, Vector3d* thrust)
+        static void OrbitalPhysics_GetVelocity(UUID entityId, Vector3d* pVelocity)
         {
             Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
             if (!entity.HasComponent<OrbitalComponent>())
                 LV_CORE_WARN("Cannot set thrust on entity ({}) - does not have an orbital component!", entityId);
 
-            entity.GetComponent<OrbitalComponent>().Object.SetContinuousThrust(*thrust);
+            *pVelocity = entity.GetComponent<OrbitalComponent>().Object.GetState().Velocity;
+        }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
+
+        static void OrbitalPhysics_SetThrust(UUID entityId, Vector3d* pThrust)
+        {
+            Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
+            if (!entity.HasComponent<OrbitalComponent>())
+                LV_CORE_WARN("Cannot set thrust on entity ({}) - does not have an orbital component!", entityId);
+
+            entity.GetComponent<OrbitalComponent>().Object.SetContinuousThrust(*pThrust);
         }
 
         static void OrbitalPhysics_ComputeSeparation(UUID thisEntityId, UUID otherEntityId, Vector3* direction, double* distance)
@@ -115,7 +126,7 @@ namespace Limnova
         }
 
         static void OrbitalPhysics_SolveMissileIntercept(UUID missileEntityId, UUID targetEntityId, double thrust, float targetingTolerance,
-            Vector3 *intercept)
+            uint32_t maxIterations, Vector3 *pIntercept, float *pTimeToIntercept)
         {
             Entity missileEntity = ScriptEngine::GetContext()->GetEntity(missileEntityId);
             Entity targetEntity = ScriptEngine::GetContext()->GetEntity(targetEntityId);
@@ -130,9 +141,12 @@ namespace Limnova
                     double localMetersPerRadius = missileObjectNode.ParentLsp().GetLSpace().MetersPerRadius;
                     double localThrust = thrust / localMetersPerRadius;
                     float localTolerance = targetingTolerance / localMetersPerRadius;
-                    Vector3 localIntercept = OrbitalPhysics::SolveMissileIntercept(missileObjectNode, targetObjectNode, localThrust, localTolerance);
 
-                    *intercept = localIntercept - missileObjectNode.GetState().Position;
+                    Vector3 localIntercept;
+                    OrbitalPhysics::SolveMissileIntercept(missileObjectNode, targetObjectNode, localThrust, localTolerance,
+                        localIntercept, *pTimeToIntercept, maxIterations);
+
+                    *pIntercept = localIntercept - missileObjectNode.GetState().Position;
                 }
             }
         }
@@ -195,6 +209,7 @@ namespace Limnova
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(Entity_HasComponent);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_GetPosition);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_SetPosition);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_GetVelocity);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_SetThrust);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_ComputeSeparation);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_SolveMissileIntercept);

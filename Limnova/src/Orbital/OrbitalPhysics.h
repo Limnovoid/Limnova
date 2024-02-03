@@ -499,7 +499,7 @@ namespace Limnova
             OrbitalPhysics::Dynamics const& GetDynamics() const { return Dynamics(); }
 
             // -------------------------------------------------------------------------------------------------------------------------
-            
+
             /// <summary> Computes or updates the Orbit and returns its first section. </summary>
             OrbitalPhysics::OrbitSection const& GetOrbit(size_t maxSections = 1) const
             {
@@ -1139,10 +1139,10 @@ namespace Limnova
 
                 if (E < 1.f)        // Elliptical
                 {
-                float eccentricAnomaly =
-                    2.f * atanf(sqrtf((1.f - E) / (1.f + E)) * tanf(0.5f * trueAnomaly));
-                if (eccentricAnomaly < 0.f)
-                    eccentricAnomaly += PI2f;
+                    float eccentricAnomaly =
+                        2.f * atanf(sqrtf((1.f - E) / (1.f + E)) * tanf(0.5f * trueAnomaly));
+                    if (eccentricAnomaly < 0.f)
+                        eccentricAnomaly += PI2f;
 
                     meanAnomaly = eccentricAnomaly - E * sinf(eccentricAnomaly);
                 }
@@ -1170,17 +1170,17 @@ namespace Limnova
                 {
                     float meanAnomaly = PI2f * timeSincePeriapsis / static_cast<float>(T);
 
-                typedef std::function<float(float)> F;
-                F f = [=](float eccentricAnomaly) -> float
-                {
-                    return eccentricAnomaly - E * sinf(eccentricAnomaly) - meanAnomaly;
-                };
-                F f_1d = [=](float eccentricAnomaly) -> float
-                {
-                    return 1.f - E * cosf(eccentricAnomaly);
-                };
-                float eccentricAnomalyInitialGuess = meanAnomaly; // this relationship is true in circular orbits so it's a good place to start
-                float eccentricAnomaly = SolveNetwon<float>(f, f_1d, eccentricAnomalyInitialGuess, tolerance, nMaxIterations);
+                    typedef std::function<float(float)> F;
+                    F f = [=](float eccentricAnomaly) -> float
+                        {
+                            return eccentricAnomaly - E * sinf(eccentricAnomaly) - meanAnomaly;
+                        };
+                    F f_1d = [=](float eccentricAnomaly) -> float
+                        {
+                            return 1.f - E * cosf(eccentricAnomaly);
+                        };
+                    float eccentricAnomalyInitialGuess = meanAnomaly; // this relationship is true in circular orbits so it's a good place to start
+                    float eccentricAnomaly = SolveNetwon<float>(f, f_1d, eccentricAnomalyInitialGuess, tolerance, nMaxIterations);
 
                     trueAnomaly = 2.f * atanf(tanf(0.5f * eccentricAnomaly) / sqrtf((1.f - E) / (1.f + E)));
                 }
@@ -2895,11 +2895,9 @@ namespace Limnova
         }
 #endif
 
-        static Vector3 SolveMissileIntercept(ObjectNode missileObject, ObjectNode targetObject, double thrust,
-            float targetingTolerance, size_t maxIterations = 5)
+        static void SolveMissileIntercept(ObjectNode missileObject, ObjectNode targetObject, double thrust,
+            float targetingTolerance, Vector3 &localIntercept, float &timeToIntercept, size_t maxIterations = 5)
         {
-            Vector3 targetPositionAtIntercept; // variable to solve and return
-
             const Vector3 missilePosition = missileObject.GetState().Position;
             const Vector3d missileVelocity = missileObject.GetState().Velocity;
             LSpaceNode missileLsp = missileObject.ParentLsp(), targetLsp = targetObject.ParentLsp();
@@ -2910,7 +2908,10 @@ namespace Limnova
             Vector3 separationVector = ComputeLocalSeparation(missileObject, targetObject);
             double acceleration = thrust / missileObject.GetState().Mass;
 
-            float targetingDelta; // variable to minimise
+            if (separationVector.IsZero() || acceleration <= 0.0)
+                return;
+
+            float targetingDeltaSqrd, targetingToleranceSqrd = targetingTolerance * targetingTolerance; // variable to minimise
             size_t iteration = 0;
             do
             {
@@ -2933,27 +2934,25 @@ namespace Limnova
                 {
                     return acceleration * t + initialApproachSpeed;
                 };
-                float initialGuess = separation / abs(initialApproachSpeed); // very rough ballpark estimate
+                float initialGuess = 0.5f * separation / (initialApproachSpeed + sqrtf(initialApproachSpeed * initialApproachSpeed + 2.f * acceleration * separation)); // very rough ballpark estimate
                 float timeTolerance = 0.01 * initialGuess; // very rough ballpark estimate
-                float timeToTarget = SolveNetwon<float>(func, func_1d, initialGuess, timeTolerance, 5); // low iteration count - favour speed over accuracy
+                timeToIntercept = SolveNetwon<float>(func, func_1d, initialGuess, timeTolerance, 5); // low iteration count - favour speed over accuracy
 
                 // Solve for target's actual position at solved time of intercept
-                trueAnomalyAtIntercept = targetOrbitElements.SolveFinalTrueAnomaly(targetTrueAnomaly, timeToTarget);
-                targetPositionAtIntercept = ComputeLocalPosition(missileLsp, targetLsp,
+                trueAnomalyAtIntercept = targetOrbitElements.SolveFinalTrueAnomaly(targetTrueAnomaly, timeToIntercept);
+                localIntercept = ComputeLocalPosition(missileLsp, targetLsp,
                     targetOrbitElements.PositionAt(trueAnomalyAtIntercept));
 
                 // Compute targeting delta - the change in solved target position at estimated time of intercept
-                Vector3 newSeparationVector = targetPositionAtIntercept - missilePosition;
+                Vector3 newSeparationVector = localIntercept - missilePosition;
 
-                targetingDelta = sqrtf((newSeparationVector - separationVector).SqrMagnitude());
+                targetingDeltaSqrd = (newSeparationVector - separationVector).SqrMagnitude();
 
                 separationVector = newSeparationVector;
 
                 ++iteration;
             }
-            while ((iteration < maxIterations) && (targetingTolerance < targetingDelta));
-
-            return targetPositionAtIntercept;
+            while ((iteration < maxIterations) && (targetingToleranceSqrd < targetingDeltaSqrd));
         }
     };
 
