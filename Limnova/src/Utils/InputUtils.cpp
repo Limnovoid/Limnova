@@ -4,10 +4,12 @@
 
 namespace Limnova
 {
-	namespace Utils
+
+	namespace
 	{
 
-		ResultCode ConvertAsciiDecimalToUint64(const char *pData, size_t length, uint64_t &value)
+		template<typename NUMERIC>
+		ResultCode AsciiDecimalToUIntImpl(const char* pData, size_t length, NUMERIC& value)
 		{
 			size_t i = 0;
 
@@ -15,15 +17,15 @@ namespace Limnova
 			while (i < length && pData[i] == ' ')
 				++i;
 
-			uint64_t tempValue = 0;
-			static constexpr uint64_t overflowLimit = std::numeric_limits<uint64_t>::max(); // 18446744073709551615
+			NUMERIC tempValue = 0;
+			static constexpr NUMERIC overflowLimit = std::numeric_limits<NUMERIC>::max();
 
 			while (i < length && (pData[i] != ' ' && pData[i] != '\0' && pData[i] != '\n'))
 			{
 				if (pData[i] < LV_ASCII_0 || LV_ASCII_0 + 9 < pData[i])
 					return RESULT_CODE_INVALID_FORMAT;
 
-				uint64_t nextDigit = pData[i] - LV_ASCII_0;
+				NUMERIC nextDigit = pData[i] - LV_ASCII_0;
 
 				if ((tempValue > overflowLimit / 10) ||
 					(tempValue == overflowLimit / 10 && nextDigit > overflowLimit % 10))
@@ -44,9 +46,10 @@ namespace Limnova
 
 		// -------------------------------------------------------------------------------------------------------------------------
 
-		ResultCode ConvertUint64ToAsciiDecimal(uint64_t value, char *pBuffer, size_t bufferLength, size_t &dataLength)
+		template<typename NUMERIC>
+		ResultCode UIntToAsciiDecimalImpl(NUMERIC value, char* pBuffer, size_t bufferLength, size_t& dataLength)
 		{
-			char tempBuffer[MaxAsciiCharacters<uint64_t>()];
+			char tempBuffer[Utils::MaxAsciiCharacters<NUMERIC>()];
 			memset(tempBuffer, ' ', sizeof(tempBuffer));
 
 			size_t i = sizeof(tempBuffer);
@@ -55,8 +58,7 @@ namespace Limnova
 			{
 				tempBuffer[--i] = LV_ASCII_0 + (value % 10);
 				value /= 10;
-			}
-			while (value != 0);
+			} while (value != 0);
 
 			dataLength = sizeof(tempBuffer) - i;
 
@@ -67,5 +69,39 @@ namespace Limnova
 
 			return RESULT_CODE_SUCCESS;
 		}
+
+	}
+
+	namespace Utils
+	{
+
+		template<>
+		ResultCode AsciiDecimalToUInt<uint64_t>(const char* pData, size_t length, uint64_t& value)
+		{
+			return AsciiDecimalToUIntImpl(pData, length, value);
+		}
+
+		// -------------------------------------------------------------------------------------------------------------------------
+
+		template<>
+		ResultCode AsciiDecimalToUInt<uint32_t>(const char* pData, size_t length, uint32_t& value)
+		{
+			return AsciiDecimalToUIntImpl(pData, length, value);
+		}
+
+		// -------------------------------------------------------------------------------------------------------------------------
+
+		template<> ResultCode UIntToAsciiDecimal<uint64_t>(uint64_t value, char* pBuffer, size_t bufferLength, size_t& dataLength)
+		{
+			return UIntToAsciiDecimalImpl(value, pBuffer, bufferLength, dataLength);
+		}
+
+		// -------------------------------------------------------------------------------------------------------------------------
+
+		template<> ResultCode UIntToAsciiDecimal<uint32_t>(uint32_t value, char* pBuffer, size_t bufferLength, size_t& dataLength)
+		{
+			return UIntToAsciiDecimalImpl(value, pBuffer, bufferLength, dataLength);
+		}
+
 	}
 }

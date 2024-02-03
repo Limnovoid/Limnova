@@ -125,7 +125,7 @@ namespace Limnova
                 {
                     char buffer[Utils::MaxAsciiCharacters<uint64_t>() + 1];
                     size_t numCharacters;
-                    Utils::ConvertUint64ToAsciiDecimal(entity.GetUUID().Get(), buffer, sizeof(buffer), numCharacters);
+                    Utils::UIntToAsciiDecimal<uint64_t>(entity.GetUUID().Get(), buffer, sizeof(buffer), numCharacters);
                     buffer[numCharacters] = '\0';
                     ImGui::SetClipboardText(buffer);
                 }
@@ -1333,7 +1333,7 @@ namespace Limnova
 
         char inputBuffer[21];
         size_t resultDataLength;
-        Utils::ConvertUint64ToAsciiDecimal(value, inputBuffer, sizeof(inputBuffer), resultDataLength);
+        Utils::UIntToAsciiDecimal<uint64_t>(value, inputBuffer, sizeof(inputBuffer), resultDataLength);
         inputBuffer[resultDataLength] = '\0';
 
         static constexpr ImGuiInputTextFlags flags = 
@@ -1343,7 +1343,7 @@ namespace Limnova
 
         if (valueChanged)
         {
-            if (RESULT_CODE_OVERFLOW == Utils::ConvertAsciiDecimalToUint64(inputBuffer, sizeof(inputBuffer), value))
+            if (RESULT_CODE_OVERFLOW == Utils::AsciiDecimalToUInt<uint64_t>(inputBuffer, sizeof(inputBuffer), value))
                 value = std::numeric_limits<uint64_t>::max();
 
             value = std::clamp(value, config.Min, config.Max);

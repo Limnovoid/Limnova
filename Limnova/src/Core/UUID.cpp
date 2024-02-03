@@ -34,7 +34,7 @@ namespace Limnova
     {
         char buffer[Utils::MaxAsciiCharacters<uint64_t>()];
         size_t length;
-        Utils::ConvertUint64ToAsciiDecimal(m_Value, buffer, sizeof(buffer), length);
+        Utils::UIntToAsciiDecimal<uint64_t>(m_Value, buffer, sizeof(buffer), length);
         return std::string(buffer, length);
     }
 
