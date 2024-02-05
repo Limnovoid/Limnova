@@ -57,10 +57,6 @@ namespace Limnova
         internal extern static void OrbitalPhysics_ComputeSeparation(ulong thisEntityId, ulong otherEntityId, out Vec3 direction,
             out double distance);
 
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern static void OrbitalPhysics_ComputeProportionalNavigationAcceleration(ulong thisEntityId, ulong otherEntityId,
-            float proportionalityConstant, out Vec3d proportionalAcceleration);
-
         /// <summary>
         /// Solve for point at which a 'missile' entity intercepts a 'target' entity, assuming constant thrust.
         /// Returned value is relative to the missile entity.
@@ -74,6 +70,14 @@ namespace Limnova
         internal extern static void OrbitalPhysics_SolveMissileIntercept(ulong thisEntityId, ulong otherEntityId, double thrust,
             float targetingTolerance, uint maxIterations, out Vec3 intercept, out float timeToIntercept);
 
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void OrbitalPhysics_ComputeProportionalNavigationAcceleration(ulong thisEntityId, ulong otherEntityId,
+            float proportionalityConstant, out Vec3d proportionalAcceleration);
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern static void OrbitalPhysics_SolveMissileInterceptVector(ulong missileEntityId, ulong targetEntityId, double thrust,
+            float targetingTolerance, uint maxIterations, float proportionalityConstant, out Vec3 interceptVector, out Vec3 intercept,
+            out float timeToIntercept);
     }
 
 }

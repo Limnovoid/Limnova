@@ -2895,7 +2895,7 @@ namespace Limnova
         }
 #endif
 
-        static void SolveMissileIntercept(ObjectNode missileObject, ObjectNode targetObject, double thrust,
+        static void SolveMissileIntercept(ObjectNode missileObject, ObjectNode targetObject, double acceleration,
             float targetingTolerance, Vector3 &localIntercept, float &timeToIntercept, size_t maxIterations = 5)
         {
             const Vector3 missilePosition = missileObject.GetState().Position;
@@ -2906,7 +2906,6 @@ namespace Limnova
             float trueAnomalyAtIntercept = targetTrueAnomaly;
 
             Vector3 separationVector = ComputeLocalSeparation(missileObject, targetObject);
-            double acceleration = thrust / missileObject.GetState().Mass;
 
             if (separationVector.IsZero() || acceleration <= 0.0)
                 return;
@@ -2974,6 +2973,36 @@ namespace Limnova
             Vector3d missileVelocityDirection = missileState.Velocity.Normalized();
 
             return ComputeProportionalNavigationAcceleration(targetRelativePosition, targetRelativeVelocity, missileVelocityDirection, proportionalityConstant);
+        }
+
+        /// <summary>
+        /// Solve for the vector that a missile object should accelerate along in order to intercept a target object, given a constant magnitude of engine thrust.
+        /// Assumes the target object will not change its current orbit.
+        /// NOTE: the solved value is a unit direction vector, not the actual thrust vector the missile object should apply.
+        /// </summary>
+        /// <param name="missileObject">The object intending to intercept the target.</param>
+        /// <param name="targetObject">The target object.</param>
+        /// <param name="localThrust">The constant engine thrust magnitude of the missile object, in localized units.</param>
+        /// <param name="targetingTolerance">Tolerance used when solving for the point of intercept somewhere on the target's orbital path.</param>
+        /// <param name="interceptVector">Storage for the solved intercept vector.</param>
+        /// <param name="interceptPosition">Storage for the approximate location of intercept in the missile's local space.</param>
+        /// <param name="timeToIntercept">Storage for the approximate time of flight to the point of intercept.</param>
+        /// <param name="proportionalityConstant">Parameter for computing the missile's proportional navigation.</param>
+        /// <param name="maxIterations">Maximum number of iterations to use when solving.</param>
+        static void SolveMissileInterceptVector(ObjectNode missileObject, ObjectNode targetObject, double localAcceleration, float targetingTolerance,
+             Vector3 &interceptVector, Vector3 &interceptPosition, float &timeToIntercept, float proportionalityConstant = 4.f, size_t maxIterations = 5)
+        {
+            SolveMissileIntercept(missileObject, targetObject, localAcceleration, targetingTolerance, interceptPosition, timeToIntercept, maxIterations);
+
+            Vector3 relativeIntercept = interceptPosition - missileObject.GetState().Position;
+
+            Vector3 proportionalNavigationAcceleration =
+                Vector3(ComputeProportionalNavigationAcceleration(missileObject, targetObject, static_cast<double>(proportionalityConstant)));
+
+            float proportionalNavigationBias = std::clamp(sqrtf(proportionalNavigationAcceleration.SqrMagnitude()) / static_cast<float>(localAcceleration), 0.0f, 1.0f);
+
+            interceptVector = ((1.0f - proportionalNavigationBias) * relativeIntercept.Normalized()) +
+                (proportionalNavigationBias * proportionalNavigationAcceleration.Normalized());
         }
     };
 
