@@ -4,6 +4,15 @@ using System.Runtime.CompilerServices;
 namespace Limnova
 {
 
+    public class Math<T> where T : IComparable
+    {
+        public static T Clamp(T value, T min, T max)
+        {
+            return ((value.CompareTo(min) < 0) ? min :
+                ((value.CompareTo(max) > 0) ? max : value));
+        }
+    }
+
     // Vec2 ------------------------------------------------------------------------------------------------------------------------
 
     public struct Vec2
@@ -89,6 +98,8 @@ namespace Limnova
 
         public Vec3(float value) => (X, Y, Z) = (value, value, value);
 
+        public Vec3(Vec2 vec2) => (X, Y, Z) = (vec2.X, vec2.Y, 0.0f);
+
         // -------------------------------------------------------------------------------------------------------------------------
 
         public static readonly Vec3 Zero = new Vec3(0.0f);
@@ -169,6 +180,10 @@ namespace Limnova
 
         public Vec3d(double value) => (X, Y, Z) = (value, value, value);
 
+        public Vec3d(Vec3 vec3) => (X, Y, Z) = ((double)vec3.X, (double)vec3.Y, (double)vec3.Z);
+
+        public Vec3d(Vec2 vec2) => (X, Y, Z) = ((double)vec2.X, (double)vec2.Y, 0.0);
+
         // -------------------------------------------------------------------------------------------------------------------------
 
         public static readonly Vec3d Zero = new Vec3d(0.0f);
@@ -226,6 +241,13 @@ namespace Limnova
                 return Vec3d.Zero;
 
             return new Vec3d(vec3.X / scalar, vec3.Y / scalar, vec3.Z / scalar);
+        }
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        public static explicit operator Vec3(Vec3d vec3d)
+        {
+            return new Vec3((float)vec3d.X, (float)vec3d.Y, (float)vec3d.Z);
         }
 
         // ToString ----------------------------------------------------------------------------------------------------------------

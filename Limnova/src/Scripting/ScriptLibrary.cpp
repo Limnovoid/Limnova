@@ -62,34 +62,156 @@ namespace Limnova
 
             MonoType* managedType = mono_reflection_type_get_type(componentType);
             LV_CORE_ASSERT(ScriptLibrary::GetEntityHasComponentFuncs().contains(managedType), "Component has not been registered!");
+
             *hasComponent = ScriptLibrary::GetEntityHasComponentFuncs().at(managedType)(entity);
         }
 
         // Components --------------------------------------------------------------------------------------------------------------
 
-        static void TransformComponent_GetPosition(UUID entityId, Vector3* position)
+        static void TransformComponent_GetPosition(UUID entityId, Vector3* pPosition)
         {
             Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
-            *position = entity.GetComponent<TransformComponent>().GetPosition();
+            *pPosition = entity.GetComponent<TransformComponent>().GetPosition();
         }
 
         // -----------------------------------------------------------------------------------------------------------------------------
 
-        static void TransformComponent_SetPosition(UUID entityId, Vector3* position)
+        static void TransformComponent_SetPosition(UUID entityId, Vector3* pPosition)
         {
             Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
-            entity.GetComponent<TransformComponent>().SetPosition(*position);
+            entity.GetComponent<TransformComponent>().SetPosition(*pPosition);
         }
 
         // Physics ---------------------------------------------------------------------------------------------------------------------
 
-        static void OrbitalPhysics_SetThrust(UUID entityId, Vector3* thrust)
+        static void OrbitalPhysics_GetVelocity(UUID entityId, Vector3d* pVelocity)
         {
             Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
             if (!entity.HasComponent<OrbitalComponent>())
                 LV_CORE_WARN("Cannot set thrust on entity ({}) - does not have an orbital component!", entityId);
 
-            entity.GetComponent<OrbitalComponent>().Object.SetContinuousThrust(Vector3d(*thrust));
+            *pVelocity = entity.GetComponent<OrbitalComponent>().Object.GetState().Velocity;
+        }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
+
+        static void OrbitalPhysics_ComputeLocalAcceleration(UUID entityId, double thrust, double *pLocalAcceleration)
+        {
+            Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
+            if (!entity.HasComponent<OrbitalComponent>())
+                LV_CORE_WARN("Cannot set thrust on entity ({}) - does not have an orbital component!", entityId);
+
+            OrbitalPhysics::ObjectNode objectNode = entity.GetComponent<OrbitalComponent>().Object;
+            *pLocalAcceleration = thrust / objectNode.ParentLsp().GetLSpace().MetersPerRadius / objectNode.GetState().Mass;
+        }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
+
+        static void OrbitalPhysics_SetThrust(UUID entityId, Vector3d* pThrust)
+        {
+            Entity entity = ScriptEngine::GetContext()->GetEntity(entityId);
+            if (!entity.HasComponent<OrbitalComponent>())
+                LV_CORE_WARN("Cannot set thrust on entity ({}) - does not have an orbital component!", entityId);
+
+            entity.GetComponent<OrbitalComponent>().Object.SetContinuousThrust(*pThrust);
+        }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
+
+        static void OrbitalPhysics_ComputeSeparation(UUID thisEntityId, UUID otherEntityId, Vector3* direction, double* distance)
+        {
+            Entity entity = ScriptEngine::GetContext()->GetEntity(thisEntityId);
+            Entity otherEntity = ScriptEngine::GetContext()->GetEntity(otherEntityId);
+
+            if (entity && otherEntity)
+            {
+                if (entity.HasComponent<OrbitalComponent>() && otherEntity.HasComponent<OrbitalComponent>())
+                {
+                    OrbitalPhysics::ObjectNode thisObjectNode = entity.GetComponent<OrbitalComponent>().Object;
+                    Vector3 localSeparation = OrbitalPhysics::ComputeLocalSeparation(thisObjectNode,
+                        otherEntity.GetComponent<OrbitalComponent>().Object);
+
+                    float localDistance = sqrtf(localSeparation.SqrMagnitude());
+                    *distance = localDistance * thisObjectNode.ParentLsp().GetLSpace().MetersPerRadius;
+
+                    *direction = localSeparation.Normalized();
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
+
+        static void OrbitalPhysics_SolveMissileIntercept(UUID missileEntityId, UUID targetEntityId, double thrust, float targetingTolerance,
+            uint32_t maxIterations, Vector3 *pIntercept, float *pTimeToIntercept)
+        {
+            Entity missileEntity = ScriptEngine::GetContext()->GetEntity(missileEntityId);
+            Entity targetEntity = ScriptEngine::GetContext()->GetEntity(targetEntityId);
+
+            if (missileEntity && targetEntity)
+            {
+                if (missileEntity.HasComponent<OrbitalComponent>() && targetEntity.HasComponent<OrbitalComponent>())
+                {
+                    OrbitalPhysics::ObjectNode missileObjectNode = missileEntity.GetComponent<OrbitalComponent>().Object;
+                    OrbitalPhysics::ObjectNode targetObjectNode = targetEntity.GetComponent<OrbitalComponent>().Object;
+
+                    double localMetersPerRadius = missileObjectNode.ParentLsp().GetLSpace().MetersPerRadius;
+                    double localAcceleration = thrust / localMetersPerRadius / missileObjectNode.GetState().Mass;
+                    float localTolerance = targetingTolerance / localMetersPerRadius;
+
+                    Vector3 localIntercept;
+                    OrbitalPhysics::SolveMissileIntercept(missileObjectNode, targetObjectNode, localAcceleration, localTolerance,
+                        localIntercept, *pTimeToIntercept, maxIterations);
+
+                    *pIntercept = localIntercept - missileObjectNode.GetState().Position;
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
+
+        static void OrbitalPhysics_ComputeProportionalNavigationAcceleration(UUID missileEntityId, UUID targetEntityId, float proportionalityConstant,
+            Vector3d *pProportionalAcceleration)
+        {
+            Entity missileEntity = ScriptEngine::GetContext()->GetEntity(missileEntityId);
+            Entity targetEntity = ScriptEngine::GetContext()->GetEntity(targetEntityId);
+
+            if (missileEntity && targetEntity)
+            {
+                if (missileEntity.HasComponent<OrbitalComponent>() && targetEntity.HasComponent<OrbitalComponent>())
+                {
+                    OrbitalPhysics::ObjectNode missileObjectNode = missileEntity.GetComponent<OrbitalComponent>().Object;
+                    OrbitalPhysics::ObjectNode targetObjectNode = targetEntity.GetComponent<OrbitalComponent>().Object;
+
+                    double localMetersPerRadius = missileObjectNode.ParentLsp().GetLSpace().MetersPerRadius;
+
+                    *pProportionalAcceleration = OrbitalPhysics::ComputeProportionalNavigationAcceleration(missileObjectNode, targetObjectNode, proportionalityConstant);
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------------------------------------------------------------------
+
+        static void OrbitalPhysics_SolveMissileInterceptVector(UUID missileEntityId, UUID targetEntityId, double thrust, float targetingTolerance,
+            uint32_t maxIterations, float proportionalityConstant, Vector3* pInterceptVector, Vector3* pIntercept, float* pTimeToIntercept)
+        {
+            Entity missileEntity = ScriptEngine::GetContext()->GetEntity(missileEntityId);
+            Entity targetEntity = ScriptEngine::GetContext()->GetEntity(targetEntityId);
+
+            if (missileEntity && targetEntity)
+            {
+                if (missileEntity.HasComponent<OrbitalComponent>() && targetEntity.HasComponent<OrbitalComponent>())
+                {
+                    OrbitalPhysics::ObjectNode missileObjectNode = missileEntity.GetComponent<OrbitalComponent>().Object;
+                    OrbitalPhysics::ObjectNode targetObjectNode = targetEntity.GetComponent<OrbitalComponent>().Object;
+
+                    double localMetersPerRadius = missileObjectNode.ParentLsp().GetLSpace().MetersPerRadius;
+                    double localAcceleration = thrust / localMetersPerRadius / missileObjectNode.GetState().Mass;
+                    float localTolerance = targetingTolerance / localMetersPerRadius;
+
+                    OrbitalPhysics::SolveMissileInterceptVector(missileObjectNode, targetObjectNode, localAcceleration, localTolerance,
+                        *pInterceptVector, *pIntercept, *pTimeToIntercept, proportionalityConstant, maxIterations);
+                }
+            }
         }
     }
 
@@ -150,6 +272,13 @@ namespace Limnova
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(Entity_HasComponent);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_GetPosition);
         LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(TransformComponent_SetPosition);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_GetVelocity);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_ComputeLocalAcceleration);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_SetThrust);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_ComputeSeparation);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_SolveMissileIntercept);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_ComputeProportionalNavigationAcceleration);
+        LV_SCRIPT_LIBRARY_REGISTER_INTERNAL_CALL(OrbitalPhysics_SolveMissileInterceptVector);
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------

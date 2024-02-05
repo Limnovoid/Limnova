@@ -499,7 +499,7 @@ namespace Limnova
             OrbitalPhysics::Dynamics const& GetDynamics() const { return Dynamics(); }
 
             // -------------------------------------------------------------------------------------------------------------------------
-            
+
             /// <summary> Computes or updates the Orbit and returns its first section. </summary>
             OrbitalPhysics::OrbitSection const& GetOrbit(size_t maxSections = 1) const
             {
@@ -1080,7 +1080,8 @@ namespace Limnova
         public:
             double H = 0.0;             /* Orbital specific angular momentum */
             float E = 0.f;              /* Eccentricity */
-            double VConstant = 0.f;     /* Constant factor of orbital velocity:     mu / h      */
+            double VConstant = 0.f;     /* Constant factor of orbital velocity:             mu / h          */
+            double MConstant = 0.f;     /* Constant factor of mean anomaly for e >= 1:      mu^2 / h^3      */
 
             OrbitType Type = OrbitType::Circle; /* Type of orbit - defined by eccentricity, indicates the type of shape which describes the orbit path */
 
@@ -1108,9 +1109,13 @@ namespace Limnova
 
             Vector3 PositionAt(float trueAnomaly) const
             {
-                Vector3 directionAtTrueAnomaly = cosf(trueAnomaly) * PerifocalX
-                    + sinf(trueAnomaly) * PerifocalY;
+                Vector3 directionAtTrueAnomaly = cosf(trueAnomaly) * PerifocalX + sinf(trueAnomaly) * PerifocalY;
                 return RadiusAt(trueAnomaly) * directionAtTrueAnomaly;
+            }
+
+            Vector3d VelocityAt(float trueAnomaly) const
+            {
+                return VConstant * (Vector3d)((E + cosf(trueAnomaly)) * PerifocalY - sinf(trueAnomaly) * PerifocalX);
             }
 
             float TrueAnomalyOf(Vector3 const& positionDirection) const
@@ -1130,32 +1135,92 @@ namespace Limnova
             /// <summary> Compute the time since periapsis of a given true anomaly. </summary>
             float ComputeTimeSincePeriapsis(float trueAnomaly) const
             {
-                float eccentricAnomaly =
-                    2.f * atanf(sqrtf((1.f - trueAnomaly) / (1.f + trueAnomaly)) * tanf(0.5f * trueAnomaly));
-                float meanAnomaly = eccentricAnomaly - E * sinf(eccentricAnomaly);
+                float meanAnomaly;
+
+                if (E < 1.f)        // Elliptical
+                {
+                    float eccentricAnomaly =
+                        2.f * atanf(sqrtf((1.f - E) / (1.f + E)) * tanf(0.5f * trueAnomaly));
+                    if (eccentricAnomaly < 0.f)
+                        eccentricAnomaly += PI2f;
+
+                    meanAnomaly = eccentricAnomaly - E * sinf(eccentricAnomaly);
+                }
+                else if (E > 1.f)   // Hyperbolic
+                {
+                    float eccentricAnomaly =
+                        2.f * atanhf(sqrtf((E - 1.f) / (E + 1.f)) * tanf(0.5f * trueAnomaly));
+
+                    meanAnomaly = E * sinhf(eccentricAnomaly) - eccentricAnomaly;
+                }
+                else                // Parabolic
+                {
+                    meanAnomaly = (0.5f * tanf(0.5f * trueAnomaly)) + ((1.f / 6.f) * powf(tanf(0.5f * trueAnomaly), 3.f));
+                }
+
                 return meanAnomaly * (float)T * OverPI2f;
             }
 
             /// <summary> Solve for true anomaly given the time since last periapse passage. </summary>
             float SolveTrueAnomaly(float timeSincePeriapsis, float tolerance = 0.001f, size_t nMaxIterations = 100) const
             {
-                float meanAnomaly = PI2f * timeSincePeriapsis / (float)T;
-                auto f = [=](float eccentricAnomaly) -> float
+                float trueAnomaly;
+
+                if (E < 1.f)        // Elliptical
                 {
-                    return eccentricAnomaly - E * sinf(eccentricAnomaly) - meanAnomaly;
-                };
-                auto f_1d = [=](float eccentricAnomaly) -> float
+                    float meanAnomaly = PI2f * timeSincePeriapsis / static_cast<float>(T);
+
+                    typedef std::function<float(float)> F;
+                    F f = [=](float eccentricAnomaly) -> float
+                        {
+                            return eccentricAnomaly - E * sinf(eccentricAnomaly) - meanAnomaly;
+                        };
+                    F f_1d = [=](float eccentricAnomaly) -> float
+                        {
+                            return 1.f - E * cosf(eccentricAnomaly);
+                        };
+                    float eccentricAnomalyInitialGuess = meanAnomaly; // this relationship is true in circular orbits so it's a good place to start
+                    float eccentricAnomaly = SolveNetwon<float>(f, f_1d, eccentricAnomalyInitialGuess, tolerance, nMaxIterations);
+
+                    trueAnomaly = 2.f * atanf(tanf(0.5f * eccentricAnomaly) / sqrtf((1.f - E) / (1.f + E)));
+                }
+                else if (E > 1.f)   // Hyperbolic
                 {
-                    return 1.f - E * cosf(eccentricAnomaly);
-                };
-                float eccentricAnomalyInitialGuess = 0.f;
-                float eccentricAnomaly = SolveNetwon(f, f_1d, eccentricAnomalyInitialGuess, tolerance, nMaxIterations);
-                return Wrapf(2.f * atanf(tanf(0.5f * eccentricAnomaly) / sqrtf((1.f - E) / (1.f + E))), 0.f, PI2f);
+                    float meanAnomaly = MConstant * powf((E * E) - 1.f, 1.5f) * timeSincePeriapsis;
+
+                    typedef std::function<float(float)> F;
+                    F f = [=](float eccentricAnomaly) -> float
+                        {
+                            return E * sinhf(eccentricAnomaly) - eccentricAnomaly - meanAnomaly;
+                        };
+                    F f_1d = [=](float eccentricAnomaly) -> float
+                        {
+                            return E * coshf(eccentricAnomaly) - 1.f;
+                        };
+                    float mLog10 = log10f(meanAnomaly);
+                    float eccentricAnomalyInitialGuess = std::max(1.f, 2.f * mLog10);
+                    float eccentricAnomaly = SolveNetwon<float>(f, f_1d, eccentricAnomalyInitialGuess, tolerance, nMaxIterations);
+
+                    trueAnomaly = 2.f * atanf(tanhf(0.5f * eccentricAnomaly) / sqrtf((E - 1.f) / (E + 1.f)));
+                }
+                else                // Parabolic
+                {
+                    float meanAnomaly = MConstant * timeSincePeriapsis;
+
+                    float meanAnomalyFactor = cbrtf(3.f * meanAnomaly + sqrtf(1.f + (9.f * meanAnomaly * meanAnomaly)));
+
+                    trueAnomaly = 2.f * atanf(meanAnomalyFactor - (1.f / meanAnomalyFactor));
+                }
+
+                if (trueAnomaly < 0.f)
+                    trueAnomaly += PI2f;
+
+                return trueAnomaly;
             }
 
             /// <summary> Solve for a final true anomaly given an initial true anomaly and a time separation between them. </summary>
             /// <param name="timeSeparation">Time in seconds between the initial and final true anomalies</param>
-            float SolveFinalTrueAnomaly(float initialTrueAnomaly, float timeSeparation)
+            float SolveFinalTrueAnomaly(float initialTrueAnomaly, float timeSeparation) const
             {
                 float initialTimeSincePeriapsis = ComputeTimeSincePeriapsis(initialTrueAnomaly);
                 float finalTimeSincePeriapsis = Wrapf(initialTimeSincePeriapsis + timeSeparation, T);
@@ -1482,6 +1547,7 @@ namespace Limnova
             /* Loss of precision due to casting is acceptable: semi-latus rectum is on the order of 1 in all common cases, due to distance parameterisation */
             elems.P = (float)(H2 / lsp.Grav);
             elems.VConstant = lsp.Grav / elems.H;
+            elems.MConstant = pow(lsp.Grav, 2.0) / pow(elems.H, 3.0);
 
             /* Loss of precision due to casting is acceptable: result of vector division (V x H / Grav) is on the order of 1 */
             Vector3 posDir = positionFromPrimary.Normalized();
@@ -2574,6 +2640,370 @@ namespace Limnova
             return vDir * CircularOrbitSpeed(lspNode, rMag);
         }
 
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        /// <summary> Compute the vector from one object to another, parameterised by the first object's local space radius. </summary>
+        static Vector3 ComputeLocalSeparation(ObjectNode fromObject, ObjectNode toObject)
+        {
+            float fromLspLocalRadius = 1.f, toLspNonlocalRadius = 1.f;
+            float fromToRadiusRatio = static_cast<float>(
+                toObject.ParentLsp().LSpace().MetersPerRadius / fromObject.ParentLsp().LSpace().MetersPerRadius);
+
+            ObjectNode toParent = toObject.ParentObj(), fromParent = fromObject.ParentObj();
+            Vector3 localFromOffset(fromObject.State().Position), nonlocalToOffset(toObject.State().Position);
+
+            int heightDifference = toParent.Height() - fromParent.Height();
+            while (heightDifference < 0)
+            {
+                fromLspLocalRadius /= fromObject.ParentLsp().LSpace().Radius;
+                fromObject = fromParent;
+                fromParent = fromObject.ParentObj();
+                localFromOffset += fromObject.State().Position * fromLspLocalRadius;
+
+                heightDifference += 2;
+            }
+            while (heightDifference > 0)
+            {
+                toLspNonlocalRadius /= toObject.ParentLsp().LSpace().Radius;
+                toObject = toParent;
+                toParent = toObject.ParentObj();
+                nonlocalToOffset += toObject.State().Position * toLspNonlocalRadius;
+
+                heightDifference -= 2;
+            }
+
+            while (fromParent != toParent)
+            {
+                fromLspLocalRadius /= fromObject.ParentLsp().LSpace().Radius;
+                fromObject = fromParent;
+                fromParent = fromObject.ParentObj();
+                localFromOffset += fromObject.State().Position * fromLspLocalRadius;
+
+                toLspNonlocalRadius /= toObject.ParentLsp().LSpace().Radius;
+                toObject = toParent;
+                toParent = toObject.ParentObj();
+                nonlocalToOffset += toObject.State().Position * toLspNonlocalRadius;
+            }
+
+            Vector3 localToOffset = nonlocalToOffset * fromToRadiusRatio;
+
+            return localToOffset - localFromOffset;
+        }
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        /// <summary> Compute a position vector relative to a given local space, given its position in another local space. </summary>
+        static Vector3 ComputeLocalPosition(LSpaceNode fromLsp, LSpaceNode toLsp, Vector3 toPosition)
+        {
+            float fromLspLocalRadius = 1.f, toLspNonlocalRadius = 1.f;
+            float fromToRadiusRatio = static_cast<float>(
+                fromLsp.LSpace().MetersPerRadius / toLsp.LSpace().MetersPerRadius);
+
+            Vector3 localFromOffset(0.f), nonlocalToOffset(toPosition);
+
+            int heightDifference = toLsp.Height() - fromLsp.Height();
+            while (heightDifference < 0)
+            {
+                fromLspLocalRadius /= fromLsp.LSpace().Radius;
+
+                ObjectNode fromLspParent = fromLsp.ParentObj();
+                localFromOffset += fromLspParent.State().Position * fromLspLocalRadius;
+
+                fromLsp = fromLspParent.ParentLsp();
+                heightDifference += 2;
+            }
+            while (heightDifference > 0)
+            {
+                toLspNonlocalRadius /= toLsp.LSpace().Radius;
+
+                ObjectNode toLspParent = toLsp.ParentObj();
+                nonlocalToOffset += toLspParent.State().Position * toLspNonlocalRadius;
+
+                toLsp = toLspParent.ParentLsp();
+                heightDifference -= 2;
+            }
+
+            while (fromLsp != toLsp)
+            {
+                fromLspLocalRadius /= fromLsp.LSpace().Radius;
+                ObjectNode fromLspParent = fromLsp.ParentObj();
+                localFromOffset += fromLspParent.State().Position * fromLspLocalRadius;
+                fromLsp = fromLspParent.ParentLsp();
+
+                toLspNonlocalRadius /= toLsp.LSpace().Radius;
+                ObjectNode toLspParent = toLsp.ParentObj();
+                nonlocalToOffset += toLspParent.State().Position * toLspNonlocalRadius;
+                toLsp = toLspParent.ParentLsp();
+            }
+
+            Vector3 localToOffset = nonlocalToOffset * fromToRadiusRatio;
+
+            return localToOffset - localFromOffset;
+        }
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        /// <summary> Compute the velocity of an object relative to a given local space, parameterised by that local space's radius. </summary>
+        static Vector3d ComputeLocalVelocity(ObjectNode object, LSpaceNode lsp)
+        {
+            return ComputeLocalVelocity(object.GetState().Velocity, object.ParentLsp(), lsp);
+        }
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        /// <summary> Compute the velocity of an object relative to a given local space, parameterised by that local space's radius. </summary>
+        static Vector3d ComputeLocalVelocity(Vector3d objVelocity, LSpaceNode objLsp, LSpaceNode lsp)
+        {
+            float objectLspNonlocalRadius = 1.f, lspLocalRadius = 1.f;
+
+            Vector3d objNonlocalVelocity = objVelocity, lspLocalVelocity(0.0);
+
+            double radiusRatio = objLsp.LSpace().MetersPerRadius / lsp.LSpace().MetersPerRadius;
+
+            int heightDifference = lsp.Height() - objLsp.Height();
+            while (heightDifference < 0)
+            {
+                objectLspNonlocalRadius /= objLsp.LSpace().Radius;
+
+                ObjectNode objLspParent = objLsp.ParentObj();
+                objNonlocalVelocity += objLspParent.State().Velocity * static_cast<double>(objectLspNonlocalRadius);
+
+                objLsp = objLspParent.ParentLsp();
+                heightDifference += 2;
+            }
+            while (heightDifference > 0)
+            {
+                lspLocalRadius /= lsp.LSpace().Radius;
+
+                ObjectNode lspParent = lsp.ParentObj();
+                lspLocalVelocity += lspParent.State().Velocity * static_cast<double>(lspLocalRadius);
+
+                lsp = lspParent.ParentLsp();
+                heightDifference -= 2;
+            }
+
+            while (lsp != objLsp)
+            {
+                objectLspNonlocalRadius /= objLsp.LSpace().Radius;
+                ObjectNode objLspParent = objLsp.ParentObj();
+                objNonlocalVelocity += objLspParent.State().Velocity * static_cast<double>(objectLspNonlocalRadius);
+                objLsp = objLspParent.ParentLsp();
+
+                lspLocalRadius /= lsp.LSpace().Radius;
+                ObjectNode lspParent = lsp.ParentObj();
+                lspLocalVelocity += lspParent.State().Velocity * static_cast<double>(lspLocalRadius);
+                lsp = lspParent.ParentLsp();
+            }
+
+            Vector3d objLocalVelocity = objNonlocalVelocity * radiusRatio;
+
+            return objLocalVelocity - lspLocalVelocity;
+        }
+
+        // -------------------------------------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Solve for the position at which the missile object intercepts the target object, assuming constant thrust.
+        /// All arguments in local units.
+        /// </summary>
+        /// <returns> Position vector of intercept relative to missile's local space. </returns>
+#ifdef EXCLUDE_OLD
+        static Vector3 SolveMissileIntercept(ObjectNode missileObject, ObjectNode targetObject, double thrust, float tolerance,
+            size_t maxIterations = 5)
+        {
+            double acceleration = thrust / missileObject.GetState().Mass;
+
+            // Separation vector from missile to target (in missile's local space)
+            Vector3 separationVector = ComputeLocalSeparation(missileObject, targetObject);
+            float separation = sqrtf(separationVector.SqrMagnitude());
+
+            // Velocity of missile relative to target (in missile's local space)
+            Vector3d initialRelativeVelocity = missileObject.GetState().Velocity -
+                ComputeLocalVelocity(targetObject, missileObject.ParentLsp());
+
+            // Magnitude of velocity along the separation vector
+            double initialApproachSpeed = initialRelativeVelocity.Dot(Vector3d(separationVector.Normalized()));
+
+            typedef std::function<double(double)> F;
+            F func = [=](double t) -> double
+            {
+                return 0.5f * acceleration * t * t + initialApproachSpeed * t - static_cast<double>(separation);
+            };
+            F func_1d = [=](double t) -> double
+            {
+                return acceleration * t + initialApproachSpeed;
+            };
+
+            // Solve for time to target
+            double initialGuess = separation / static_cast<float>(abs(initialApproachSpeed)); // very rough ballpark estimate
+            double timeTolerance = 0.01 * initialGuess; // very rough ballpark estimate
+
+            double timeToTarget = SolveNetwon(func, func_1d, initialGuess, timeTolerance, 5);
+
+            // Solve for target's position at this time
+            const Elements &targetOrbitElements = targetObject.GetOrbit().Elements;
+
+            float trueAnomalyAtIntercept = targetOrbitElements.SolveFinalTrueAnomaly(
+                static_cast<float>(targetObject.GetMotion().TrueAnomaly), static_cast<float>(timeToTarget));
+
+            Vector3 targetPositionAtIntercept = ComputeLocalPosition(missileObject.ParentLsp(),
+                targetObject.ParentLsp(), targetOrbitElements.PositionAt(trueAnomalyAtIntercept));
+
+            Vector3 newSeparationVector = targetPositionAtIntercept - missileObject.GetState().Position;
+
+            // Iteratively improve...
+            float targetingDelta = sqrtf((newSeparationVector - separationVector).SqrMagnitude());
+
+            while (targetingDelta > tolerance)
+            {
+                separationVector = newSeparationVector;
+                separation = sqrtf(separationVector.SqrMagnitude());
+
+                Vector3d targetVelocity = targetOrbitElements.VelocityAt(trueAnomalyAtIntercept);
+
+                initialRelativeVelocity = missileObject.GetState().Velocity -
+                    ComputeLocalVelocity(targetVelocity, targetObject.ParentLsp(), missileObject.ParentLsp());
+
+                double initialApproachSpeed = initialRelativeVelocity.Dot(Vector3d(separationVector.Normalized()));
+
+                func = [=](double t) -> double
+                {
+                    return 0.5f * acceleration * t * t + initialApproachSpeed * t - static_cast<double>(separation);
+                };
+                func_1d = [=](double t) -> double
+                {
+                    return acceleration * t + initialApproachSpeed;
+                };
+
+                initialGuess = separation / static_cast<float>(abs(initialApproachSpeed)); // very rough ballpark estimate
+                timeTolerance = 0.01 * initialGuess; // very rough ballpark estimate
+
+                timeToTarget = SolveNetwon(func, func_1d, initialGuess, timeTolerance, 5);
+
+                trueAnomalyAtIntercept = targetOrbitElements.SolveFinalTrueAnomaly(
+                    static_cast<float>(targetObject.GetMotion().TrueAnomaly), static_cast<float>(timeToTarget));
+
+                targetPositionAtIntercept = ComputeLocalPosition(missileObject.ParentLsp(),
+                    targetObject.ParentLsp(), targetOrbitElements.PositionAt(trueAnomalyAtIntercept));
+
+                newSeparationVector = targetPositionAtIntercept - missileObject.GetState().Position;
+
+                targetingDelta = sqrtf((newSeparationVector - separationVector).SqrMagnitude());
+            }
+
+            return targetPositionAtIntercept;
+        }
+#endif
+
+        static void SolveMissileIntercept(ObjectNode missileObject, ObjectNode targetObject, double acceleration,
+            float targetingTolerance, Vector3 &localIntercept, float &timeToIntercept, size_t maxIterations = 5)
+        {
+            const Vector3 missilePosition = missileObject.GetState().Position;
+            const Vector3d missileVelocity = missileObject.GetState().Velocity;
+            LSpaceNode missileLsp = missileObject.ParentLsp(), targetLsp = targetObject.ParentLsp();
+            const Elements &targetOrbitElements = targetObject.GetOrbit().Elements;
+            float targetTrueAnomaly = targetObject.GetMotion().TrueAnomaly;
+            float trueAnomalyAtIntercept = targetTrueAnomaly;
+
+            Vector3 separationVector = ComputeLocalSeparation(missileObject, targetObject);
+
+            if (separationVector.IsZero() || acceleration <= 0.0)
+                return;
+
+            float targetingDeltaSqrd, targetingToleranceSqrd = targetingTolerance * targetingTolerance; // variable to minimise
+            size_t iteration = 0;
+            do
+            {
+                float separation = sqrtf(separationVector.SqrMagnitude());
+
+                Vector3d targetVelocity = targetOrbitElements.VelocityAt(trueAnomalyAtIntercept);
+
+                Vector3d initialRelativeVelocity = missileVelocity -
+                    ComputeLocalVelocity(targetVelocity, targetLsp, missileLsp);
+
+                float initialApproachSpeed = static_cast<float>(initialRelativeVelocity.Dot(Vector3d(separationVector.Normalized())));
+
+                // Solve for time to target with constant acceleration
+                typedef std::function <float(float)> F;
+                F func = [=](float t) -> float
+                {
+                    return 0.5f * acceleration * t * t + initialApproachSpeed * t - separation;
+                };
+                F func_1d = [=](float t) -> float
+                {
+                    return acceleration * t + initialApproachSpeed;
+                };
+                float initialGuess = 0.5f * separation / (initialApproachSpeed + sqrtf(initialApproachSpeed * initialApproachSpeed + 2.f * acceleration * separation)); // very rough ballpark estimate
+                float timeTolerance = 0.01 * initialGuess; // very rough ballpark estimate
+                timeToIntercept = SolveNetwon<float>(func, func_1d, initialGuess, timeTolerance, 5); // low iteration count - favour speed over accuracy
+
+                // Solve for target's actual position at solved time of intercept
+                trueAnomalyAtIntercept = targetOrbitElements.SolveFinalTrueAnomaly(targetTrueAnomaly, timeToIntercept);
+                localIntercept = ComputeLocalPosition(missileLsp, targetLsp,
+                    targetOrbitElements.PositionAt(trueAnomalyAtIntercept));
+
+                // Compute targeting delta - the change in solved target position at estimated time of intercept
+                Vector3 newSeparationVector = localIntercept - missilePosition;
+
+                targetingDeltaSqrd = (newSeparationVector - separationVector).SqrMagnitude();
+
+                separationVector = newSeparationVector;
+
+                ++iteration;
+            }
+            while ((iteration < maxIterations) && (targetingToleranceSqrd < targetingDeltaSqrd));
+        }
+
+        static Vector3d ComputeProportionalNavigationAcceleration(Vector3 targetRelativePosition, Vector3d targetRelativeVelocity, Vector3d missileVelocityDirection,
+            double proportionalityConstant = 4.0)
+        {
+            Vector3d targetRotationVector = ((Vector3d)targetRelativePosition).Cross(targetRelativeVelocity) / (double)(targetRelativePosition.SqrMagnitude());
+
+            double targetRelativeVelocityMagnitude = sqrt(targetRelativeVelocity.SqrMagnitude());
+
+            return -proportionalityConstant * targetRelativeVelocityMagnitude * missileVelocityDirection.Cross(targetRotationVector);
+        }
+
+        static Vector3d ComputeProportionalNavigationAcceleration(ObjectNode missileObject, ObjectNode targetObject, double proportionalityConstant = 4.0)
+        {
+            const State& missileState = missileObject.GetState();
+
+            Vector3 targetRelativePosition = ComputeLocalSeparation(missileObject, targetObject);
+            Vector3d targetRelativeVelocity = ComputeLocalVelocity(targetObject, missileObject.ParentLsp()) - missileState.Velocity;
+            Vector3d missileVelocityDirection = missileState.Velocity.Normalized();
+
+            return ComputeProportionalNavigationAcceleration(targetRelativePosition, targetRelativeVelocity, missileVelocityDirection, proportionalityConstant);
+        }
+
+        /// <summary>
+        /// Solve for the vector that a missile object should accelerate along in order to intercept a target object, given a constant magnitude of engine thrust.
+        /// Assumes the target object will not change its current orbit.
+        /// NOTE: the solved value is a unit direction vector, not the actual thrust vector the missile object should apply.
+        /// </summary>
+        /// <param name="missileObject">The object intending to intercept the target.</param>
+        /// <param name="targetObject">The target object.</param>
+        /// <param name="localThrust">The constant engine thrust magnitude of the missile object, in localized units.</param>
+        /// <param name="targetingTolerance">Tolerance used when solving for the point of intercept somewhere on the target's orbital path.</param>
+        /// <param name="interceptVector">Storage for the solved intercept vector.</param>
+        /// <param name="interceptPosition">Storage for the approximate location of intercept in the missile's local space.</param>
+        /// <param name="timeToIntercept">Storage for the approximate time of flight to the point of intercept.</param>
+        /// <param name="proportionalityConstant">Parameter for computing the missile's proportional navigation.</param>
+        /// <param name="maxIterations">Maximum number of iterations to use when solving.</param>
+        static void SolveMissileInterceptVector(ObjectNode missileObject, ObjectNode targetObject, double localAcceleration, float targetingTolerance,
+             Vector3 &interceptVector, Vector3 &interceptPosition, float &timeToIntercept, float proportionalityConstant = 4.f, size_t maxIterations = 5)
+        {
+            SolveMissileIntercept(missileObject, targetObject, localAcceleration, targetingTolerance, interceptPosition, timeToIntercept, maxIterations);
+
+            Vector3 relativeIntercept = interceptPosition - missileObject.GetState().Position;
+
+            Vector3 proportionalNavigationAcceleration =
+                Vector3(ComputeProportionalNavigationAcceleration(missileObject, targetObject, static_cast<double>(proportionalityConstant)));
+
+            float proportionalNavigationBias = std::clamp(sqrtf(proportionalNavigationAcceleration.SqrMagnitude()) / static_cast<float>(localAcceleration), 0.0f, 1.0f);
+
+            interceptVector = ((1.0f - proportionalNavigationBias) * relativeIntercept.Normalized()) +
+                (proportionalNavigationBias * proportionalNavigationAcceleration.Normalized());
+        }
     };
 
 }

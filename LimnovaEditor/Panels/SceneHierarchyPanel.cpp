@@ -125,7 +125,7 @@ namespace Limnova
                 {
                     char buffer[Utils::MaxAsciiCharacters<uint64_t>() + 1];
                     size_t numCharacters;
-                    Utils::ConvertUint64ToAsciiDecimal(entity.GetUUID().Get(), buffer, sizeof(buffer), numCharacters);
+                    Utils::UIntToAsciiDecimal<uint64_t>(entity.GetUUID().Get(), buffer, sizeof(buffer), numCharacters);
                     buffer[numCharacters] = '\0';
                     ImGui::SetClipboardText(buffer);
                 }
@@ -374,7 +374,7 @@ namespace Limnova
             auto& transform = entity.GetComponent<TransformComponent>();
 
             // Position
-            ImGui::BeginDisabled(isOrbital && !isOrbitalViewObject);
+            //ImGui::BeginDisabled(isOrbital && !isOrbitalViewObject);
             {
                 LimnGui::InputConfig<float> config;
                 config.Speed = 0.01f;
@@ -391,11 +391,11 @@ namespace Limnova
                         oc.Object.GetLocalSpaces(oc.LocalSpaces);
                     }
                 }
-                ImGui::EndDisabled();
+                //ImGui::EndDisabled();
             }
 
             // Rotation
-            ImGui::BeginDisabled(isOrbital && !(isOrbitalViewParent || isOrbitalViewObject));
+            //ImGui::BeginDisabled(isOrbital && !(isOrbitalViewParent || isOrbitalViewObject));
             {
                 Vector3 eulerAngles = DegreesVec3(transform.GetEulerAngles());
                 eulerAngles.x = Wrapf(eulerAngles.x, 0.f, 360.f);
@@ -409,11 +409,11 @@ namespace Limnova
                 {
                     transform.SetEulerAngles(RadiansVec3(eulerAngles));
                 }
-                ImGui::EndDisabled();
+                //ImGui::EndDisabled();
             }
 
             // Scale
-            ImGui::BeginDisabled(isOrbital && !isOrbitalViewParent);
+            //ImGui::BeginDisabled(isOrbital && !isOrbitalViewParent);
             {
                 LimnGui::InputConfig<float> config;
                 config.Speed = 0.01f;
@@ -428,7 +428,7 @@ namespace Limnova
                         ((OrbitalScene*)m_Scene)->GetLocalSpace(entity).GetLSpace().MetersPerRadius * (Vector3d)transform.Scale;
 #endif
                 }
-                ImGui::EndDisabled();
+                //ImGui::EndDisabled();
             }
         });
 
@@ -484,6 +484,8 @@ namespace Limnova
                 auto &scriptInstance = script.GetScriptInstance(uuid);
                 for (auto &field : scriptInstance->GetFields())
                 {
+                    std::string typeName = ScriptEngine::FieldTypeToString(field.second->GetType());
+
                     switch (field.second->GetType())
                     {
                     case ScriptEngine::SCRIPT_FIELD_TYPE_FLOAT:
@@ -492,7 +494,7 @@ namespace Limnova
                         field.second->GetValue<float>(value);
 
                         static const LimnGui::InputConfig<float> config(0.f, 1, 10, 0, 0, 6, false, false, 0, 100.f, 100.f,
-                            ScriptEngine::FieldTypeToString(field.second->GetType()) /* helpMarker */ );
+                            typeName /* helpMarker */ );
 
                         if (LimnGui::DragFloat(field.first, value, config))
                             field.second->SetValue<float>(value);
@@ -504,7 +506,7 @@ namespace Limnova
                         double value;
                         field.second->GetValue<double>(value);
 
-                        static const LimnGui::InputConfig<double> config = { 0.0, 0.1, 1.0, 0.0, 0.0, 10 };
+                        static const LimnGui::InputConfig<double> config(0.0, 0.1, 1.0, 0.0, 0.0, 10);
                         if (LimnGui::InputDouble(field.first, value, config))
                             field.second->SetValue<double>(value);
 
@@ -544,6 +546,18 @@ namespace Limnova
                         static const LimnGui::InputConfig<int> config;
                         if (LimnGui::DragInt(field.first, value, config))
                             field.second->SetValue<int>(value);
+
+                        break;
+                    }
+                    case ScriptEngine::SCRIPT_FIELD_TYPE_UINT:
+                    {
+                        uint32_t value;
+                        field.second->GetValue<uint32_t>(value);
+
+                        static const LimnGui::InputConfig<uint32_t> config(
+                            0, 1, 100, 0, 0, 0, false, false, 0, 100.f, 300.f /* widget width */, typeName /* helpMarker */);
+                        if (LimnGui::InputUInt32(field.first, value, config))
+                            field.second->SetValue<uint32_t>(value);
 
                         break;
                     }
@@ -591,7 +605,7 @@ namespace Limnova
 
                         static const LimnGui::InputConfig<uint64_t> config(
                             0, 1, 1000, 0, 0, 0, false, false, 0, 100.f, 300.f /* WidgetWidth */,
-                            field.first /* HelpMarker */, "ENTITY" /* DragDropTypeName */);
+                            typeName /* HelpMarker */, "ENTITY" /* DragDropTypeName */);
 
                         bool valueChanged = LimnGui::InputUInt64(field.first, value.Get(), config);
 
@@ -607,6 +621,41 @@ namespace Limnova
 
                         if (valueChanged)
                             field.second->SetValue<UUID>(value);
+
+                        // testing OrbitalPhysics::ComputeLocalSeparation
+                        if (value != UUID::Null)
+                        {
+                            float separationMagnitude = 0.f;
+                            double separationMagnitudeAbs = 0.0, relativeVelocityMagnitude = 0.0,
+                                relativeVelocityMagnitudeAbs = 0.0;
+
+                            if (Entity otherEntity = m_Scene->GetEntity(value))
+                            {
+                                if (entity.HasComponent<OrbitalComponent>() && otherEntity.HasComponent<OrbitalComponent>())
+                                {
+                                    OrbitalPhysics::ObjectNode objectNode = entity.GetComponent<OrbitalComponent>().Object,
+                                        otherObjectNode = otherEntity.GetComponent<OrbitalComponent>().Object;
+
+                                    Vector3 separation = OrbitalPhysics::ComputeLocalSeparation(objectNode, otherObjectNode);
+                                    separationMagnitude = sqrtf(separation.SqrMagnitude());
+
+                                    const OrbitalPhysics::LSpaceNode lspNode = objectNode.ParentLsp();
+                                    double metersPerRadius = lspNode.GetLSpace().MetersPerRadius;
+
+                                    separationMagnitudeAbs = (double)separationMagnitude * metersPerRadius;
+
+                                    Vector3d relativeVelocity = OrbitalPhysics::ComputeLocalVelocity(otherObjectNode, lspNode) -
+                                        objectNode.GetState().Velocity;
+
+                                    relativeVelocityMagnitude = sqrt(relativeVelocity.SqrMagnitude());
+                                    relativeVelocityMagnitudeAbs = relativeVelocityMagnitude * metersPerRadius;
+                                }
+                            }
+                            ImGui::Text("Local separation:  %f", separationMagnitude);
+                            ImGui::Text("Abs.  separation:  %f", separationMagnitudeAbs);
+                            ImGui::Text("Rel. speed:        %f", relativeVelocityMagnitude);
+                            ImGui::Text("Abs. rel. speed:   %f", relativeVelocityMagnitudeAbs);
+                        }
 
                         break;
                     }
@@ -893,7 +942,7 @@ namespace Limnova
             // State
             if (ImGui::TreeNode("State"))
             {
-                ImGui::BeginDisabled(!(isOrbitalViewParent || isOrbitalViewObject));
+                //ImGui::BeginDisabled(!(isOrbitalViewParent || isOrbitalViewObject));
 
                 // Mass
                 double mass = orbital.Object.GetState().Mass;
@@ -902,10 +951,10 @@ namespace Limnova
                     orbital.Object.SetMass(mass);
                 }
 
-                ImGui::EndDisabled();
+                //ImGui::EndDisabled();
 
                 ImGui::Separator();
-                ImGui::BeginDisabled(!isOrbitalViewObject);
+                //ImGui::BeginDisabled(!isOrbitalViewObject);
 
                 static bool useAbsolute = false;
                 LimnGui::Checkbox("Use absolute values", useAbsolute);
@@ -972,7 +1021,7 @@ namespace Limnova
                     }
                 }
 
-                ImGui::EndDisabled(); // (isOrbital && !isOrbitalViewSecondary)
+                //ImGui::EndDisabled(); // (isOrbital && !isOrbitalViewSecondary)
 
                 ImGui::TreePop();
             }
@@ -1131,6 +1180,9 @@ namespace Limnova
                     orbital.Object.SetContinuousAcceleration(acc);
                 }
 
+                Vector3 position = entity.GetComponent<TransformComponent>().GetPosition();
+                Renderer2D::DrawArrow(position, position + (0.1f * Vector3(acc).Normalized()), Vector4(1.f, 0.f, 1.f, 1.f), 0.001f, 0.01f);
+
                 ImGui::TreePop();
             }
         });
@@ -1274,6 +1326,59 @@ namespace Limnova
 
         ImGui::Columns(1);
         ImGui::PopID();
+
+        return valueChanged;
+    }
+
+    bool LimnGui::InputUInt32(const std::string& label, uint32_t& value, const InputConfig<uint32_t>& config)
+    {
+        std::ostringstream idOss;
+        idOss << label << config.WidgetId;
+        ImGui::PushID(idOss.str().c_str());
+
+        ImGui::Columns(2);
+        ImGui::SetColumnWidth(0, config.LabelWidth);
+        ImGui::Text(label.c_str());
+
+        if (!config.HelpMarker.empty())
+            HelpMarker(config.HelpMarker);
+
+        ImGui::NextColumn();
+        ImGui::SetColumnWidth(1, config.WidgetWidth);
+
+        char inputBuffer[Utils::MaxAsciiCharacters<uint32_t>() + 1];
+        size_t resultDataLength;
+        Utils::UIntToAsciiDecimal(value, inputBuffer, sizeof(inputBuffer), resultDataLength);
+        inputBuffer[resultDataLength] = '\0';
+
+        static constexpr ImGuiInputTextFlags flags =
+            ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_EnterReturnsTrue;
+
+        bool valueChanged = ImGui::InputText("##V", inputBuffer, sizeof(inputBuffer), flags);
+
+        if (valueChanged)
+        {
+            if (RESULT_CODE_OVERFLOW == Utils::AsciiDecimalToUInt(inputBuffer, sizeof(inputBuffer), value))
+                value = std::numeric_limits<uint32_t>::max();
+
+            value = std::clamp(value, config.Min, (config.Max == 0 ? std::numeric_limits<uint32_t>::max() : config.Max));
+        }
+        else if (!config.DragDropTypeName.empty())
+        {
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(config.DragDropTypeName.c_str()))
+                {
+                    value = *(static_cast<uint32_t*>(payload->Data));
+                    valueChanged = true;
+                }
+                ImGui::EndDragDropTarget();
+            }
+        }
+
+        ImGui::Columns(1);
+        ImGui::PopID();
+
         return valueChanged;
     }
 
@@ -1293,22 +1398,22 @@ namespace Limnova
         ImGui::NextColumn();
         ImGui::SetColumnWidth(1, config.WidgetWidth);
 
-        char inputBuffer[21];
+        char inputBuffer[Utils::MaxAsciiCharacters<uint64_t>() + 1];
         size_t resultDataLength;
-        Utils::ConvertUint64ToAsciiDecimal(value, inputBuffer, sizeof(inputBuffer), resultDataLength);
+        Utils::UIntToAsciiDecimal<uint64_t>(value, inputBuffer, sizeof(inputBuffer), resultDataLength);
         inputBuffer[resultDataLength] = '\0';
 
-        static constexpr ImGuiInputTextFlags flags = 
+        static constexpr ImGuiInputTextFlags flags =
             ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_EnterReturnsTrue;
 
         bool valueChanged = ImGui::InputText("##V", inputBuffer, sizeof(inputBuffer), flags);
 
         if (valueChanged)
         {
-            if (RESULT_CODE_OVERFLOW == Utils::ConvertAsciiDecimalToUint64(inputBuffer, sizeof(inputBuffer), value))
+            if (RESULT_CODE_OVERFLOW == Utils::AsciiDecimalToUInt<uint64_t>(inputBuffer, sizeof(inputBuffer), value))
                 value = std::numeric_limits<uint64_t>::max();
 
-            value = std::clamp(value, config.Min, config.Max);
+            value = std::clamp(value, config.Min, (config.Max == 0 ? std::numeric_limits<uint64_t>::max() : config.Max));
         }
         else if (!config.DragDropTypeName.empty())
         {

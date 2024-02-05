@@ -33,8 +33,6 @@ namespace Limnova
 
         public override void OnUpdate(float dT)
         {
-            base.OnUpdate(dT);
-
             bool isControllingOtherEntity =
                 OtherEntity.IsReferenceValid() && Input.IsKeyPressed(KeyCode.KEY_LEFT_SHIFT);
 

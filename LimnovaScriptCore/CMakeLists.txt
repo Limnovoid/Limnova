@@ -17,6 +17,7 @@ add_library(${PROJECT_NAME} STATIC
     "Source/Scene/Components.cs"
 
     "Source/Player.cs"
+    "Source/Missile.cs"
 )
 
 set_target_properties(${PROJECT_NAME}

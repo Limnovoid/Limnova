@@ -39,36 +39,38 @@ namespace Limnova
             LIMNGUI_TOOLTIP_DELAY_30 = LIMNGUI_TOOLTIP_DELAY_NORMAL
         };
 
-        /// <summary>
-        /// If previous item is hovered, displays a tooltip.
-        /// </summary>
-        /// <param name="description">Contains the text to display in the tooltip</param>
-        void ItemDescription(const std::string &description, TooltipDelay delay = LIMNGUI_TOOLTIP_DELAY_NORMAL);
-
-        /// <summary>
-        /// On the same line as the previous item, displays a greyed-out (disabled) "(?)" which, when hovered, displays a tooltip with the text contained in 'description'.
-        /// </summary>
-        /// <param name="description">The text to display in the tooltip</param>
-        void HelpMarker(const std::string& description, TooltipDelay delay = LIMNGUI_TOOLTIP_DELAY_NORMAL);
-
         template<typename T>
         struct InputConfig
         {
-            T ResetValue = 0;
-            T Speed = 1;
-            T FastSpeed = 10;
-            T Min = 0;
-            T Max = 0;
-            uint32_t Precision = 3;
-            bool Scientific = false;
-            bool ReadOnly = false;
-            size_t WidgetId = 0;
-            float LabelWidth = 100.f;
-            float WidgetWidth = 100.f;
-            std::string HelpMarker = {};
-            std::string DragDropTypeName = {};
+            T ResetValue;
+            T Speed;
+            T FastSpeed;
+            T Min;
+            T Max;
+            uint32_t Precision;
+            bool Scientific;
+            bool ReadOnly;
+            size_t WidgetId;
+            float LabelWidth;
+            float WidgetWidth;
+            std::string HelpMarker;
+            std::string DragDropTypeName;
 
-            InputConfig() = default;
+            InputConfig() :
+                ResetValue(0),
+                Speed(1),
+                FastSpeed(10),
+                Min(0),
+                Max(0),
+                Precision(3),
+                Scientific(false),
+                ReadOnly(false),
+                WidgetId(0),
+                LabelWidth(100.f),
+                WidgetWidth(100.f)
+            {
+            }
+
             InputConfig(
                 T resetValue,
                 T speed = 1,
@@ -87,8 +89,8 @@ namespace Limnova
                 ResetValue(resetValue),
                 Speed(speed),
                 FastSpeed(fastSpeed),
-                Min(min == 0 ? std::numeric_limits<T>::min() : min),
-                Max(max == 0 ? std::numeric_limits<T>::max() : max),
+                Min(min),
+                Max(max),
                 Precision(precision),
                 Scientific(scientific),
                 ReadOnly(readOnly),
@@ -101,8 +103,21 @@ namespace Limnova
             }
         };
 
+        /// <summary>
+        /// If previous item is hovered, displays a tooltip.
+        /// </summary>
+        /// <param name="description">Contains the text to display in the tooltip</param>
+        void ItemDescription(const std::string &description, TooltipDelay delay = LIMNGUI_TOOLTIP_DELAY_NORMAL);
+
+        /// <summary>
+        /// On the same line as the previous item, displays a greyed-out (disabled) "(?)" which, when hovered, displays a tooltip with the text contained in 'description'.
+        /// </summary>
+        /// <param name="description">The text to display in the tooltip</param>
+        void HelpMarker(const std::string& description, TooltipDelay delay = LIMNGUI_TOOLTIP_DELAY_NORMAL);
+
         bool Checkbox(const std::string& label, bool& value, float columnWidth = 100.f);
         bool InputInt(const std::string& label, int& value, const InputConfig<int>& config = {});
+        bool InputUInt32(const std::string& label, uint32_t& value, const InputConfig<uint32_t>& config = {});
         bool InputUInt64(const std::string& label, uint64_t& value, const InputConfig<uint64_t>& config = {});
         bool InputScientific(const std::string& label, double& value, float columnWidth = 100.f);
         bool InputDouble(const std::string& label, double& value, const InputConfig<double>& config, float columnWidth = 100.f);
