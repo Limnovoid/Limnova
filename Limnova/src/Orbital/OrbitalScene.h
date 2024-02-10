@@ -56,6 +56,8 @@ namespace Limnova
         OrbitalPhysics::LSpaceNode GetEntityLSpace(entt::entity entity);
         OrbitalPhysics::ObjectNode GetEntityObject(entt::entity entity);
 
+        Entity GetPhysicsObjectEntity(const OrbitalPhysics::ObjectNode objectNode);
+
         void OnOrbitalComponentConstruct(entt::registry&, entt::entity);
         void OnOrbitalComponentUpdate(entt::registry&, entt::entity);
         void OnOrbitalComponentDestruct(entt::registry&, entt::entity);

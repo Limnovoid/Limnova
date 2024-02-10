@@ -573,6 +573,17 @@ namespace Limnova
     }
 
 
+    Entity OrbitalScene::GetPhysicsObjectEntity(const OrbitalPhysics::ObjectNode objectNode)
+    {
+        PhysicsEnttIdMap::const_iterator iterator = m_PhysicsToEnttIds.find(objectNode.Id());
+
+        if (m_PhysicsToEnttIds.cend() != iterator)
+            return Entity(iterator->second, this);
+
+        return Entity::Null;
+    }
+
+
     void OrbitalScene::OnOrbitalComponentConstruct(entt::registry&, entt::entity entity)
     {
         auto[oc, hc, tc, ohc] = GetComponents<OrbitalComponent, HierarchyComponent, TransformComponent, OrbitalHierarchyComponent>(entity);
