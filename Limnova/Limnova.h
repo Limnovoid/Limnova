@@ -4,6 +4,7 @@
 // For Limnova applications --------------------
 #include <src/Core/Application.h>
 #include <src/Core/Layer.h>
+#include <src/Core/Typedefs.h>
 
 #include <src/Core/Log.h>
 //#include <src/Profiling/DataRecording.h>
