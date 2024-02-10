@@ -39,6 +39,9 @@ namespace Limnova
 
         inline Camera& GetCamera() { return m_Camera; }
         inline const Camera& GetCamera() const { return m_Camera; }
+
+        Vector3 GetPosition();
+
     private:
         bool OnMouseButtonPressed(MouseButtonPressedEvent& e);
         bool OnMouseButtonReleased(MouseButtonReleasedEvent& e);

@@ -49,7 +49,7 @@ namespace Limnova
 #endif
     private:
         void UpdateOrbitalScene();
-        void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, float cameraDistance);
+        void RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, const Vector3& cameraPosition);
 
         void RenderLocalSpace(const Quaternion& cameraOrientation, float cameraDistance);
 
@@ -85,8 +85,10 @@ namespace Limnova
         float m_PerifocalAxisThickness = 0.006f;
         float m_PerifocalAxisArrowSize = 0.024f;
     private:
+        typedef std::map<OrbitalPhysics::TNodeId, entt::entity> PhysicsEnttIdMap;
+
         OrbitalPhysics::Context m_PhysicsContext;
-        std::map<OrbitalPhysics::TNodeId, entt::entity> m_PhysicsToEnttIds;
+        PhysicsEnttIdMap m_PhysicsToEnttIds;
 
         UUID m_TrackingEntity;
         int m_RelativeViewSpace;

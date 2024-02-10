@@ -388,7 +388,7 @@ namespace Limnova
 
         // TODO : place non-orbital children (down to hierarchy leaves):
         //      : a non-orbital entity cannot have orbital children so it is
-        //      : guaranteed to be purely for extending a parent entity in the 
+        //      : guaranteed to be purely for extending a parent entity in the
         //      : scene without affecting orbital behaviour.
     }
 
@@ -403,18 +403,17 @@ namespace Limnova
         auto [camera, camTransform] = GetComponents<CameraComponent, TransformComponent>(m_Entities[m_ActiveCamera]);
         camera.Camera.SetView(camTransform.GetTransform().Inverse());
 
-        float cameraDistance = sqrtf(camTransform.GetPosition().SqrMagnitude());
-        RenderOrbitalScene(camera.Camera, camTransform.GetOrientation(), cameraDistance);
+        RenderOrbitalScene(camera.Camera, camTransform.GetOrientation(), camTransform.GetPosition());
     }
 
 
     void OrbitalScene::OnRenderEditor(EditorCamera& camera)
     {
-        RenderOrbitalScene(camera.GetCamera(), camera.GetOrientation(), camera.GetDistance());
+        RenderOrbitalScene(camera.GetCamera(), camera.GetOrientation(), camera.GetPosition());
     }
 
 
-    void OrbitalScene::RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, float cameraDistance)
+    void OrbitalScene::RenderOrbitalScene(Camera& camera, const Quaternion& cameraOrientation, const Vector3& cameraPosition)
     {
         Scene::RenderScene(camera, cameraOrientation);
 
@@ -424,6 +423,7 @@ namespace Limnova
 
         Renderer2D::BeginScene(camera);
 
+        float cameraDistance = abs(cameraPosition.Dot(Vector3::Up()));
         RenderLocalSpace(cameraOrientation, cameraDistance);
 
         // TODO : draw tertiaries as point lights orbiting secondaries
@@ -469,7 +469,7 @@ namespace Limnova
             Renderer2D::DrawCircle(lsTransform, lsColor, lsThickness, m_LocalSpaceFade);
         }
 
-        float orbitDrawingThickness = m_OrbitThickness * cameraDistance;
+        float orbitDrawingThickness = m_OrbitThickness * sqrtf(cameraDistance);
 
         for (auto viewObjNode : viewObjs)
         {

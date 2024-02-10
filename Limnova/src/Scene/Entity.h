@@ -20,7 +20,7 @@ namespace Limnova
             : m_EnttId(id), m_Scene(scene) {}
 
         template<typename T>
-        bool HasComponent()
+        bool HasComponent() const
         {
             return m_Scene->m_Registry.all_of<T>(m_EnttId);
         }
@@ -40,6 +40,13 @@ namespace Limnova
 
         template<typename T>
         T& GetComponent()
+        {
+            LV_CORE_ASSERT(m_Scene->m_Registry.all_of<T>(m_EnttId), "Entity does not have component!");
+            return m_Scene->m_Registry.get<T>(m_EnttId);
+        }
+
+        template<typename T>
+        const T& GetComponent() const
         {
             LV_CORE_ASSERT(m_Scene->m_Registry.all_of<T>(m_EnttId), "Entity does not have component!");
             return m_Scene->m_Registry.get<T>(m_EnttId);

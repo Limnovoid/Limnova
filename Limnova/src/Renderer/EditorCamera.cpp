@@ -102,6 +102,14 @@ namespace Limnova
     }
 
 
+    Vector3 EditorCamera::GetPosition()
+    {
+        const Vector3 aimDirection = m_Orientation.RotateVector(Vector3::Forward());
+
+        return (m_FocusPoint - (aimDirection * m_FocusDistance));
+    }
+
+
     bool EditorCamera::OnMouseButtonPressed(MouseButtonPressedEvent& e)
     {
         if (e.GetMouseButton() == MOUSE_BUTTON_RIGHT)
