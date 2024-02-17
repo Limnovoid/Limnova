@@ -25,3 +25,6 @@
 [submodule "Limnova/thirdparty/pcg-cpp"]
 	path = Limnova/thirdparty/pcg-cpp
 	url = https://github.com/imneme/pcg-cpp.git
+[submodule "OrbitalPhysics/source/glm"]
+	path = OrbitalPhysics/source/glm
+	url = https://github.com/g-truc/glm.git

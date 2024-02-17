@@ -22,17 +22,6 @@ add_library(${PROJECT_NAME} STATIC
     #"src/Profiling/DataRecording.h"
     "src/Profiling/Instrumentor.h"
 
-    "src/Math/glm.h"
-    "src/Math/Math.cpp"
-    "src/Math/BigFloat.cpp"
-    "src/Math/BigVector2.cpp"
-    "src/Math/Matrix4.cpp"
-    "src/Math/Vector2.cpp"
-    "src/Math/Vector3.cpp"
-    "src/Math/Vector4.cpp"
-    "src/Math/Quaternion.cpp"
-
-    "src/Orbital/OrbitalPhysics.h"
     "src/Orbital/OrbitalScene.cpp"
 
     # TODO - platform specific
@@ -96,6 +85,26 @@ add_compile_definitions(
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         "${PROJECT_SOURCE_DIR}/src"
+        "C:/Dev/Limnova/OrbitalPhysics/include"
+
+        "${PROJECT_SOURCE_DIR}/thirdparty"
+        "${PROJECT_SOURCE_DIR}/thirdparty/entt/include"
+        "${PROJECT_SOURCE_DIR}/thirdparty/glad/include"
+        "${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
+        "${PROJECT_SOURCE_DIR}/thirdparty/imgui"
+        "${PROJECT_SOURCE_DIR}/thirdparty/imguizmo"
+        "${PROJECT_SOURCE_DIR}/thirdparty/mono/include"
+        "${PROJECT_SOURCE_DIR}/thirdparty/pcg-cpp/include"
+        "${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
+        "${PROJECT_SOURCE_DIR}/thirdparty/stb_image"
+        "${PROJECT_SOURCE_DIR}/thirdparty/yaml-cpp/include"
+
+        ${Vulkan_INCLUDE_DIR}
+)
+
+target_link_libraries(${PROJECT_NAME}
+    PRIVATE
+        OrbitalPhysics
 )
 
 target_precompile_headers(${PROJECT_NAME}
@@ -131,20 +140,23 @@ configure_file("${PROJECT_SOURCE_DIR}/src/Core/Core.h.in" "${PROJECT_SOURCE_DIR}
 
 
 # Third party libs:
-target_include_directories(${PROJECT_NAME}
-    PRIVATE
-        "${PROJECT_SOURCE_DIR}/thirdparty"
-        "${PROJECT_SOURCE_DIR}/thirdparty/entt/include"
-        "${PROJECT_SOURCE_DIR}/thirdparty/glad/include"
-        "${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
-        "${PROJECT_SOURCE_DIR}/thirdparty/imgui"
-        "${PROJECT_SOURCE_DIR}/thirdparty/imguizmo"
-        "${PROJECT_SOURCE_DIR}/thirdparty/mono/include"
-        "${PROJECT_SOURCE_DIR}/thirdparty/pcg-cpp/include"
-        "${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
-        "${PROJECT_SOURCE_DIR}/thirdparty/stb_image"
-        "${PROJECT_SOURCE_DIR}/thirdparty/yaml-cpp/include"
-)
+#target_include_directories(${PROJECT_NAME}
+#    PRIVATE
+#        "${PROJECT_SOURCE_DIR}/thirdparty"
+#        "${PROJECT_SOURCE_DIR}/thirdparty/entt/include"
+#        "${PROJECT_SOURCE_DIR}/thirdparty/glad/include"
+#        "${PROJECT_SOURCE_DIR}/thirdparty/glfw/include"
+#        "${PROJECT_SOURCE_DIR}/thirdparty/imgui"
+#        "${PROJECT_SOURCE_DIR}/thirdparty/imguizmo"
+#        "${PROJECT_SOURCE_DIR}/thirdparty/mono/include"
+#        "${PROJECT_SOURCE_DIR}/thirdparty/pcg-cpp/include"
+#        "${PROJECT_SOURCE_DIR}/thirdparty/spdlog/include"
+#        "${PROJECT_SOURCE_DIR}/thirdparty/stb_image"
+#        "${PROJECT_SOURCE_DIR}/thirdparty/yaml-cpp/include"
+#
+#    PRIVATE
+#        ${Vulkan_INCLUDE_DIR}
+#)
 
 add_subdirectory(thirdparty)
 add_subdirectory(thirdparty/glad)
@@ -196,10 +208,10 @@ find_package(Vulkan 1.3 REQUIRED
     glslc
 )
 
-target_include_directories(${PROJECT_NAME}
-    PRIVATE
-        ${Vulkan_INCLUDE_DIR}
-)
+#target_include_directories(${PROJECT_NAME}
+#    PRIVATE
+#        ${Vulkan_INCLUDE_DIR}
+#)
 
 get_filename_component(Vulkan_Lib ${Vulkan_LIBRARY} DIRECTORY)
 target_link_libraries(${PROJECT_NAME}

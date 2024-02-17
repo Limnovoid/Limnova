@@ -1,6 +1,5 @@
 #pragma once
 
-
 // For Limnova applications --------------------
 #include <src/Core/Application.h>
 #include <src/Core/Layer.h>
@@ -19,15 +18,11 @@
 #include <src/ImGui/ImGuiLayer.h>
 #include <imgui/imgui.h>
 
-#include <src/Math/glm.h>
-#include <src/Math/Math.h>
-
 #include <src/Scene/Scene.h>
 #include <src/Scene/Entity.h>
 #include <src/Scene/Components.h>
 #include <src/Scene/Script.h>
 
-#include <src/Orbital/OrbitalPhysics.h>
 #include <src/Orbital/OrbitalScene.h>
 
 // Renderer ------------

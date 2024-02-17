@@ -1,5 +1,7 @@
 #pragma once
 
+#include "${CMAKE_SOURCE_DIR}/OrbitalPhysics/include/Math/Math.h"
+
 // Platform detection using predefined macros
 #ifdef _WIN32
     // Windows x64/x86
