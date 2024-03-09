@@ -5,15 +5,9 @@
 namespace Limnova
 {
 
-	Vector4 Matrix4::operator*(const Vector4& rhs) const
-	{
-		return Vector4(this->mat * rhs.glm_vec4());
-	}
-
-
-	Matrix4 Matrix4::operator*(const Matrix4& rhs) const
-	{
-		return Matrix4(this->mat * rhs.mat);
-	}
+Matrix4::Matrix4(Quaternion const& quaternion) :
+	m_mat4(glm::toMat4(glm::quat(quaternion.m_scalar, quaternion.m_vector.x, quaternion.m_vector.y, quaternion.m_vector.z)))
+{
+}
 
 }

@@ -14,9 +14,9 @@ namespace Limnova
         {
             Matrix4 ViewProj;
             Vector3 Position;
-        /*--pad 1byte-------------------------*/private: float pad0; public:
+        /*--pad 4 bytes-------------------------*/private: float pad0; public:
             Vector3 AimDirection;
-        /*--pad 1byte-------------------------*/private: float pad1; public:
+        /*--pad 4 bytes-------------------------*/private: float pad1; public:
 
             Data() = default;
             Data(const Matrix4& viewProj, const Vector3& position, const Vector3& aimDirection)

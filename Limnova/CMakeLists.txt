@@ -85,7 +85,8 @@ add_compile_definitions(
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         "${PROJECT_SOURCE_DIR}/src"
-        "C:/Dev/Limnova/OrbitalPhysics/include"
+
+        "${CMAKE_SOURCE_DIR}/OrbitalPhysics/include"
 
         "${PROJECT_SOURCE_DIR}/thirdparty"
         "${PROJECT_SOURCE_DIR}/thirdparty/entt/include"
@@ -106,6 +107,8 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE
         OrbitalPhysics
 )
+
+add_compile_definitions(_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING) # silence checked_array_iterator deprecation warning
 
 target_precompile_headers(${PROJECT_NAME}
     PRIVATE
@@ -133,7 +136,6 @@ target_precompile_headers(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/src/Core/Log.h"
         "${PROJECT_SOURCE_DIR}/src/Profiling/Instrumentor.h"
 )
-
 
 # Core.h config
 configure_file("${PROJECT_SOURCE_DIR}/src/Core/Core.h.in" "${PROJECT_SOURCE_DIR}/src/Core/Core.h")

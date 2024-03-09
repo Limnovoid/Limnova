@@ -14,9 +14,11 @@ add_library(${PROJECT_NAME} STATIC
 	"source/Math/Vector4.cpp"
 	"source/Math/Quaternion.cpp"
 
-	"include/Util/Storage.h"
-	"source/Util/Util.cpp"
+	"source/Util/Format.cpp"
+	"source/Util/MappedStorage.cpp"
 	"source/Util/NTree.cpp"
+	"source/Util/Storage.cpp"
+	"source/Util/Util.cpp"
 	)
 
 set_property(TARGET ${PROJECT_NAME}
@@ -27,7 +29,7 @@ target_compile_definitions(${PROJECT_NAME}
 	PRIVATE
 		LV_CXX20
 		LV_MSVC
-)
+	)
 
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
@@ -38,8 +40,10 @@ target_include_directories(${PROJECT_NAME}
 target_precompile_headers(${PROJECT_NAME}
 	PRIVATE
 		<cmath>
+		<limits>
 		<utility>
 		<iostream>
+		<vector>
 		<unordered_set>
 	)
 

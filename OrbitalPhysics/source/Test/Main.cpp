@@ -8,7 +8,7 @@ namespace Test
 
 	void Main()
 	{
-		LV_LOG(Fmt::Format("Hello from OrbitalPhysicsTest!"));
+		LV_LOG("Hello from OrbitalPhysicsTest!");
 	}
 
 }

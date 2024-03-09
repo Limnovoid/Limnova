@@ -23,6 +23,8 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
         "${PROJECT_SOURCE_DIR}"
 
+        "${CMAKE_SOURCE_DIR}/OrbitalPhysics/include"
+
         "${CMAKE_SOURCE_DIR}/Limnova"
         "${CMAKE_SOURCE_DIR}/Limnova/src"
         "${CMAKE_SOURCE_DIR}/Limnova/thirdparty"

@@ -35,6 +35,6 @@ namespace Limnova
 // Client log macros
 #define LV_TRACE(...)           ::Limnova::Log::GetClientLogger()->trace(__VA_ARGS__)
 #define LV_INFO(...)            ::Limnova::Log::GetClientLogger()->info(__VA_ARGS__)
-#define LV_WARN(...)            ::Limnova::Log::GetClientLogger()->warn(__VA_ARGS__)
+//#define LV_WARN(...)            ::Limnova::Log::GetClientLogger()->warn(__VA_ARGS__)
 #define LV_ERROR(...)           ::Limnova::Log::GetClientLogger()->error(__VA_ARGS__)
 #define LV_CRITICAL(...)        ::Limnova::Log::GetClientLogger()->critical(__VA_ARGS__)

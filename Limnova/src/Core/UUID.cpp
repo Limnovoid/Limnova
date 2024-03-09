@@ -41,7 +41,7 @@ namespace Limnova
 
     const std::ostream& operator<<(const std::ostream& ostr, const UUID uuid)
     {
-        return ostr << (uint64_t)uuid;
+        return ostr << static_cast<uint64_t>(uuid);
     }
 
 }

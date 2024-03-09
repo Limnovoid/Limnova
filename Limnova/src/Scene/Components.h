@@ -1,10 +1,11 @@
 #pragma once
 
 #include <Core/UUID.h>
-#include <Math/Math.h>
 #include <Renderer/Camera.h>
-#include <Orbital/OrbitalPhysics.h>
 #include <Scripting/ScriptEngine.h>
+
+#include <Math/Math.h>
+#include <OrbitalPhysics/OrbitalPhysics.h>
 
 #include <entt.hpp>
 

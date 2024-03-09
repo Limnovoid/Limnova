@@ -11,21 +11,32 @@ namespace Limnova
 	class Fmt
 	{
 	public:
-		template<class... Args>
-		static std::string Format(const char *pMessage, Args... args);
+		template<typename... Args>
+		static std::string Format(char const* pFormat, Args... args);
+
+		template<typename... Args>
+		static std::string Format(std::string const& string, Args... args);
 	};
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
-	template<class... Args>
-	inline std::string Fmt::Format(const char *pMessage, Args... args)
+	template<typename... Args>
+	std::string Fmt::Format(char const* pFormat, Args... args)
 	{
 #if defined(LV_CXX20)
-		return std::format(pMessage, args...);
+		return std::vformat(pFormat, std::make_format_args(std::forward<Args>(args)...));
 #else
-		LV_ASSERT(false, "Fmt::Format is not supported below C++20");
-		return std::string();
+		std::cerr << "Fmt::Format is not supported below C++20." << std::endl;
+		return std::string(pFormat);
 #endif
+	}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+	template<typename... Args>
+	std::string Fmt::Format(std::string const& string, Args... args)
+	{
+		return Format<Args...>(string.c_str(), std::forward(args)...);
 	}
 
 }

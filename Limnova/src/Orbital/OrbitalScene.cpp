@@ -187,7 +187,7 @@ namespace Limnova
             {
                 LV_CORE_ASSERT(!m_ViewLSpace.IsRoot(), "Local space relative index is out of bounds!");
                 m_ViewObject = m_ViewLSpace.ParentObj();
-                m_ViewLSpace = m_ViewLSpace.UpperLSpace();
+                m_ViewLSpace = m_ViewLSpace.OuterLSpace();
                 relativeViewSpaceIndex++;
             }
         }

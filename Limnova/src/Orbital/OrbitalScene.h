@@ -1,6 +1,6 @@
 #pragma once
 
-#include "OrbitalPhysics.h"
+#include "OrbitalPhysics/OrbitalPhysics.h"
 
 #include <Scene/Scene.h>
 

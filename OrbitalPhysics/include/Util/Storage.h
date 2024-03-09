@@ -1,9 +1,13 @@
 #ifndef LV_STORAGE_H
 #define LV_STORAGE_H
 
+#include "Log.h"
+
+#include <vector>
+#include <unordered_set>
+
 namespace Limnova
 {
-
 
 /// <summary> Dynamic array-based storage class intended for efficient re-use of allocated memory. </summary>
 /// <typeparam name="T">Type of item to store.</typeparam>
@@ -11,173 +15,232 @@ template<typename T>
 class Storage
 {
 public:
-    using TId = uint32_t;
+	using TId						= uint32_t;								/// Type of item ID.
 
-    static constexpr TId IdNull = ::std::numeric_limits<TId>::max();
+	static constexpr TId IdNull		= ~TId(0);								/// The Null ID.
 
-    Storage() = default;
-    Storage(const Storage&) = default;
+	Storage();
 
-    /// <summary> Get number of in-use items (total storage minus recycled items). </summary>
-    size_t Size() const;
+	/// <summary> Get number of in-use items (total storage minus recycled items). </summary>
+	size_t Size() const;
 
-    /// <summary> Check if ID is of an item currently in-use (item is allocated and not recycled). </summary>
-    bool Has(TId id) const;
+	/// <summary> Check if ID is of an item currently in-use (item is allocated and not recycled). </summary>
+	bool Has(TId const id) const;
 
-    /// <summary> Get a new item. Re-uses ID of a previously allocated item or, if none of those exists, constructs new. </summary>
-    /// <returns>ID of new item.</returns>
-    TId New();
+	/// <summary> Get a new item. Re-uses ID of a previously allocated item or, if none of those exists, constructs new. </summary>
+	/// <returns>ID of new item.</returns>
+	TId New();
 
-    /// <summary> Get reference to stored item. </summary>
-    T& Get(TId id);
+	/// <summary> Get a new item. Re-uses ID of a previously allocated item or, if none of those exists, constructs new. </summary>
+	/// <param name="pItem">Storage for a pointer to the new item.</param>
+	/// <returns>ID of new item.</returns>
+	TId New(T*& pItem);
 
-    /// <summary> Get item by const reference. </summary>
-    T const& Get(TId id) const;
+	/// <summary> Get reference to stored item. </summary>
+	T& Get(TId id);
 
-    /// <summary> Reset the item to default state and recycle it for future use (keeps item in internal memory and stores ID for future distribution). </summary>
-    /// <param name="id">ID of item to erase.</param>
-    void Erase(TId id);
+	/// <summary> Get item by const reference. </summary>
+	T const& Get(TId const id) const;
 
-    /// <summary> If an item with the given ID exists, erase it. </summary>
-    /// <param name="id">ID of item to erase.</param>
-    /// <returns>True if item was erased, false if no item with ID was found.</returns>
-    bool TryErase(TId id);
+	/// <summary> Reset the item to default state and recycle it for future use (keeps item in internal memory and stores ID for future distribution). </summary>
+	/// <param name="id">ID of item to erase.</param>
+	void Erase(TId const id);
 
-    /// <summary> Clear all internal storage. </summary>
-    void Clear();
+	/// <summary> If an item with the given ID exists, erase it. </summary>
+	/// <param name="id">ID of item to erase.</param>
+	/// <returns>True if item was erased, false if no item with ID was found.</returns>
+	bool TryErase(TId const id);
 
-    T& operator[](TId id);
-    T const& operator[](TId id) const;
+	/// <summary> Clear all internal storage. </summary>
+	void Clear();
+
+	T& operator[](TId const id);
+	T const& operator[](TId const id) const;
 
 private:
-    /// <summary> Get ID of an unused allocated item or, if none of those exists, the ID of a newly constructed item. </summary>
-    /// <returns>ID of item in internal storage.</returns>
-    TId GetEmpty();
+	using ItemList					= std::vector<T>;						/// Type of item storage.
+	using EmptiesSet				= std::unordered_set<TId>;				/// Type of set of empty items' IDs.
 
-    /// <summary> Reset the item with the given ID to default its state (assign default constructor values) and save the ID for future re-use. </summary>
-    /// <param name="id">ID of item to recycle.</param>
-    void Recycle(TId id);
+	/// <summary> Get ID of an unused allocated item or, if none of those exists, the ID of a newly constructed item. </summary>
+	/// <returns>ID of item in internal storage.</returns>
+	TId GetEmpty();
 
-    std::vector<T> m_Items;
-    std::unordered_set<TId> m_Empties;
+	/// <summary> Get ID of an unused allocated item or, if none of those exists, the ID of a newly constructed item. </summary>
+	/// <param name="pItem">Storage for a pointer to the empty item.</param>
+	/// <returns>ID of item in internal storage.</returns>
+	TId GetEmpty(T*& pItem);
+
+	/// <summary> Reset the item with the given ID to default its state (assign default constructor values) and save the ID for future re-use. </summary>
+	/// <param name="id">ID of item to recycle.</param>
+	void Recycle(TId const id);
+
+	ItemList						m_items;								/// Item storage.
+	EmptiesSet						m_empties;								/// Set of empty items' IDs.
 };
 
 // ---------------------------------------------------------------------------------------------------------------------------------
-// ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline size_t Storage<T>::Size() const
+Storage<T>::Storage()
 {
-    return m_Items.size() - m_Empties.size();
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline bool Storage<T>::Has(TId id) const
+size_t Storage<T>::Size() const
 {
-    return id < m_Items.size() && !m_Empties.contains(id);
+	return m_items.size() - m_empties.size();
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline Storage<T>::TId Storage<T>::New()
+bool Storage<T>::Has(TId const id) const
 {
-    return GetEmpty();
+	return ((m_items.size() > id) && !m_empties.contains(id));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline T& Storage<T>::Get(TId id)
+Storage<T>::TId Storage<T>::New()
 {
-    LV_CORE_ASSERT(Has(id), "Invalid ID!");
-    return m_Items[id];
+	return GetEmpty();
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline T const& Storage<T>::Get(TId id) const
+Storage<T>::TId Storage<T>::New(T*& pItem)
 {
-    LV_CORE_ASSERT(Has(id), "Invalid ID!");
-    return m_Items[id];
+	return GetEmpty(pItem);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline void Storage<T>::Erase(TId id)
+T& Storage<T>::Get(TId const id)
 {
-    LV_CORE_ASSERT(Has(id), "Invalid ID!");
-    Recycle(id);
+	LV_ASSERT(Has(id), "Invalid ID.");
+
+	return m_items[id];
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline bool Storage<T>::TryErase(TId id)
+T const& Storage<T>::Get(TId const id) const
 {
-    if (Has(id)) {
-        Recycle(m_Items[id]);
-        return true;
-    }
-    return false;
+	LV_ASSERT(Has(id), "Invalid ID.");
+
+	return m_items[id];
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline void Storage<T>::Clear()
+void Storage<T>::Erase(TId const id)
 {
-    m_Items.clear();
-    m_Empties.clear();
+	LV_ASSERT(Has(id), "Invalid ID!");
+
+	Recycle(id);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline T& Storage<T>::operator[](TId id)
+bool Storage<T>::TryErase(TId const id)
 {
-    LV_CORE_ASSERT(Has(id), "Invalid ID!");
-    return m_Items[id];
+	if (Has(id))
+	{
+		Recycle(m_items[id]);
+		return true;
+	}
+
+	return false;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline T const& Storage<T>::operator[](TId id) const
+void Storage<T>::Clear()
 {
-    LV_CORE_ASSERT(Has(id), "Invalid ID!");
-    return m_Items[id];
+	m_items.clear();
+	m_empties.clear();
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline Storage<T>::TId Storage<T>::GetEmpty()
+T& Storage<T>::operator[](TId const id)
 {
-    TId emptyId;
-    if (m_Empties.empty()) {
-        emptyId = m_Items.size();
-        m_Items.emplace_back();
-    }
-    else {
-        auto it = m_Empties.begin();
-        emptyId = *it;
-        m_Empties.erase(it);
-    }
-    return emptyId;
+	LV_ASSERT(Has(id), "Invalid ID.");
+
+	return m_items[id];
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 template<typename T>
-inline void Storage<T>::Recycle(TId id)
+T const& Storage<T>::operator[](TId const id) const
 {
-    m_Items[id] = T();
-    m_Empties.insert(id);
+	LV_ASSERT(Has(id), "Invalid ID.");
+	return m_items[id];
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+template<typename T>
+Storage<T>::TId Storage<T>::GetEmpty()
+{
+	TId emptyId;
+
+	if (m_empties.empty())
+	{
+		emptyId = m_items.size();
+		m_items.emplace_back();
+	}
+	else
+	{
+		EmptiesSet::const_iterator it = m_empties.begin();
+		emptyId = *it;
+		m_empties.erase(it);
+	}
+
+	return emptyId;
+}
+
+template<typename T>
+Storage<T>::TId Storage<T>::GetEmpty(T*& pItem)
+{
+	TId emptyId;
+
+	if (m_empties.empty())
+	{
+		emptyId = m_items.size();
+		pItem = &(m_items.emplace_back());
+	}
+	else
+	{
+		EmptiesSet::const_iterator it = m_empties.begin();
+
+		emptyId = *it;
+		pItem = &(m_items[emptyId]);
+
+		m_empties.erase(it);
+	}
+
+	return emptyId;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+template<typename T>
+void Storage<T>::Recycle(TId const id)
+{
+	m_items[id] = T();
+	m_empties.insert(id);
 }
 
 }

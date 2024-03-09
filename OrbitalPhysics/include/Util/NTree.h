@@ -3,6 +3,9 @@
 
 #include "Storage.h"
 
+#include <vector>
+#include <limits>
+
 namespace Limnova
 {
 
@@ -15,221 +18,146 @@ namespace Limnova
 class NTree
 {
 public:
-    using TNodeId = uint32_t;
+	using TNodeId					= uint32_t;								/// Type of tree node ID;
+	using THeight					= uint32_t;								/// Type of tree node height.
 
-    static constexpr TNodeId NNull = ::std::numeric_limits<TNodeId>::max();
+	static constexpr TNodeId NNull	= std::numeric_limits<TNodeId>::max();	/// The Null node ID;
 
-    /// <summary> Node class from which the NTree is constructed - its members are Node IDs describing its relationships with adjacent Nodes. </summary>
-    struct Node
-    {
-        TNodeId Parent = NNull;
-        TNodeId NextSibling = NNull;
-        TNodeId PrevSibling = NNull;
-        TNodeId FirstChild = NNull;
-    };
+	/// <summary> Node class from which the NTree is constructed - its members are Node IDs describing its relationships with adjacent Nodes. </summary>
+	struct Node
+	{
+		TNodeId Parent				= NNull;
+		TNodeId NextSibling			= NNull;
+		TNodeId PrevSibling			= NNull;
+		TNodeId FirstChild			= NNull;
+	};
 
-    NTree();
+	NTree();
 
-    NTree(const NTree& rhs);
+	NTree(NTree const& rhs);
 
-    /// <summary> Get the number of nodes in the tree. </summary>
-    size_t Size() const;
+	/// <summary> Get the number of nodes in the tree. </summary>
+	size_t Size() const;
 
-    /// <summary> Check if the given ID corresponds to a node in the tree. </summary>
-    /// <returns>True if there is a node in the tree with the given ID, otherwise false.</returns>
-    bool Has(TNodeId nodeId) const;
+	/// <summary> Check if the given ID corresponds to a node in the tree. </summary>
+	/// <returns>True if there is a node in the tree with the given ID, otherwise false.</returns>
+	bool Has(TNodeId const nodeId) const;
 
-    /// <summary>
-    /// Adds a new node to the tree. If the tree is empty, the new node is the root node, otherwise the new node is parented to the root node.
-    /// Re-uses a previously allocated Node object or, if none exists, constructs new.
-    /// </summary>
-    /// <returns>ID of the new node.</returns>
-    TNodeId New();
+	/// <summary>
+	/// Adds a new node to the tree. If the tree is empty, the new node is the root node, otherwise the new node is parented to the root node.
+	/// Re-uses a previously allocated Node object or, if none exists, constructs new.
+	/// </summary>
+	/// <returns>ID of the new node.</returns>
+	TNodeId New();
 
-    /// <summary>
-    /// Adds a new node to the tree, parented to the node with the given ID. Cannot be called on an empty tree.
-    /// Re-uses a previously allocated Node object or, if none exists, constructs new.
-    /// </summary>
-    /// <returns>ID of the new node.</returns>
-    TNodeId New(TNodeId parentId);
+	/// <summary>
+	/// Adds a new node to the tree parented to a given node. Cannot be called on an empty tree.
+	/// Re-uses a previously allocated Node object or, if none exists, constructs new.
+	/// </summary>
+	/// <param name="nodeId">The ID of the parent node to attach the new node to.</param>
+	/// <returns>ID of the new node.</returns>
+	TNodeId New(TNodeId const parentId);
 
-    Node const& Get(TNodeId nodeId) const
-    {
-        LV_ASSERT(Has(nodeId), "Invalid node ID!");
-        return m_Nodes.Get(nodeId);
-    }
+	/// <summary> Get a const reference to a node. </summary>
+	/// <param name="nodeId">The ID of the node.</param>
+	Node const& Get(TNodeId const nodeId) const;
 
-    int Height(TNodeId nodeId) const
-    {
-        LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
-        return m_Heights[nodeId];
-    }
+	/// <summary> Get the height of a node. </summary>
+	/// <param name="nodeId">The ID of the node.</param>
+	THeight Height(TNodeId const nodeId) const;
 
-    void Remove(TNodeId nodeId)
-    {
-        if (nodeId == 0) { Clear(); }
-        else {
-            Detach(nodeId);
-            RecycleSubtree(nodeId);
-        }
-    }
+	/// <summary>
+	/// Remove a node from the tree. Does not deallocate the node object - reserves it for subsequent calls to New.
+	/// Also removes all children (grandchildren, etc) attached to this node.
+	/// </summary>
+	/// <param name="nodeId">The ID of the node.</param>
+	void Remove(TNodeId const nodeId);
 
-    void Clear()
-    {
-        m_Nodes.Clear();
-        m_Heights.clear();
-    }
+	/// <summary> Clear the tree. Deallocates all used and unused node objects. </summary>
+	void Clear();
 
-    void Move(TNodeId nodeId, TNodeId newParentId)
-    {
-        Detach(nodeId);
-        Attach(nodeId, newParentId);
-    }
+	/// <summary> Move a node to a new parent (a.k.a. reparent, reattach, etc). </summary>
+	/// <param name="nodeId">The node to move.</param>
+	/// <param name="newParentId">The parent of the node after the move.</param>
+	void Move(TNodeId const nodeId, TNodeId const newParentId);
 
-    void SwapWithPrevSibling(TNodeId nodeId)
-    {
-        LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
-        LV_CORE_ASSERT(Has(m_Nodes[nodeId].PrevSibling), "Invalid node ID!");
-        auto& node = m_Nodes[nodeId];
-        auto& prev = m_Nodes[node.PrevSibling];
-        auto& parent = m_Nodes[node.Parent];
-        if (parent.FirstChild == node.PrevSibling) { parent.FirstChild = nodeId; }
-        if (prev.PrevSibling != NNull) { m_Nodes[prev.PrevSibling].NextSibling = nodeId; }
-        if (node.NextSibling != NNull) { m_Nodes[node.NextSibling].PrevSibling = node.PrevSibling; }
-        prev.NextSibling = node.NextSibling;
-        node.NextSibling = node.PrevSibling;
-        node.PrevSibling = prev.PrevSibling;
-        prev.PrevSibling = nodeId;
-    }
+	/// <summary>
+	/// Swap a node with its previous sibling in its ordered list of siblings.
+	/// If the previous sibling is the parent's first child, this node becomes the parent's first child.
+	/// </summary>
+	/// <param name="nodeId">The ID of the node.</param>
+	void SwapWithPrevSibling(TNodeId const nodeId);
 
-    void SwapWithNextSibling(TNodeId nodeId)
-    {
-        LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
-        LV_CORE_ASSERT(Has(m_Nodes[nodeId].NextSibling), "Invalid node ID!");
-        auto& node = m_Nodes[nodeId];
-        auto& next = m_Nodes[node.NextSibling];
-        auto& parent = m_Nodes[node.Parent];
-        if (parent.FirstChild == nodeId) { parent.FirstChild = node.NextSibling; }
-        if (next.NextSibling != NNull) { m_Nodes[next.NextSibling].PrevSibling = nodeId; }
-        if (node.PrevSibling != NNull) { m_Nodes[node.PrevSibling].NextSibling = node.NextSibling; }
-        next.PrevSibling = node.PrevSibling;
-        node.PrevSibling = node.NextSibling;
-        node.NextSibling = next.NextSibling;
-        next.NextSibling = nodeId;
-    }
+	/// <summary>
+	/// Swap a node with its next sibling in its ordered list of siblings.
+	/// If this node is the parent's first child, the next sibling becomes the parent's first child.
+	/// </summary>
+	/// <param name="nodeId">The ID of the node.</param>
+	void SwapWithNextSibling(TNodeId const nodeId);
 
-    size_t GetChildren(TNodeId nodeId, std::vector<TNodeId>& children) const
-    {
-        LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
-        size_t numChildren = 0;
+	/// <summary>
+	/// Get a node's children as an ordered list of IDs.
+	/// The list is added to the back of the given vector and ordered according to the childen's own sibling list:
+	/// first the parent node's first child is added to the back of the vector, followed by that child's next sibling, and so on.
+	/// The given parent node is not included in the final list.
+	/// </summary>
+	/// <param name="nodeId">The ID of the parent node.</param>
+	/// <param name="children">Storage for the list of children.</param>
+	/// <returns>The number of children added to the vector.</returns>
+	size_t GetChildren(TNodeId const nodeId, std::vector<TNodeId>& children) const;
 
-        TNodeId child = m_Nodes[nodeId].FirstChild;
-        while (child != NNull) {
-            numChildren++;
-            children.push_back(child);
-            child = m_Nodes[child].NextSibling;
-        }
-        return numChildren;
-    }
+	/// <summary>
+	/// Get a node's subtree as an ordered list of IDs.
+	/// The list is added to the back of the given vector.
+	/// It is ordered first by height, so all nodes on the same level of the subtree appear contiguously;
+	/// each level is then ordered by parent, so all nodes with the same parent appear contiguously and these groups of sibling nodes appear in the order of their parent's sibling list;
+	/// finally each group of sibling nodes is ordered according to its sibling list.
+	/// The given root node is not included in the final list.
+	/// </summary>
+	/// <param name="rootNodeId">The ID of the subtree's root node.</param>
+	/// <param name="subtree">Storage for the list of subtree nodes.</param>
+	/// <returns>The total number of nodes added to the vector.</returns>
+	size_t GetSubtree(TNodeId const rootNodeId, std::vector<TNodeId>& subtree) const;
 
-    size_t GetSubtree(TNodeId rootNodeId, std::vector<TNodeId>& subtree) const
-    {
-        size_t numAdded = GetChildren(rootNodeId, subtree);
-        size_t sizeSubtree = numAdded;
-        do {
-            size_t end = subtree.size();
-            size_t idx = end - numAdded;
-            numAdded = 0;
-            while (idx < end) {
-                numAdded += GetChildren(subtree[idx], subtree);
-                idx++;
-            }
-            sizeSubtree += numAdded;
-        } while (numAdded > 0);
-        return sizeSubtree;
-    }
+	/// <summary> Get a node's parent. Returns the Null ID if the given node has no parent - is the root node. </summary>
+	/// <param name="nodeId">The node's ID.</param>
+	/// <returns>ID of the parent, or Null if has no parent.</returns>
+	TNodeId GetParent(TNodeId const nodeId) const;
 
-    TNodeId GetParent(TNodeId nodeId)
-    {
-        LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
-        LV_CORE_ASSERT(m_Heights[nodeId] > 0, "Cannot get parent of root node!");
-        return m_Nodes[nodeId].Parent;
-    }
+	/// <summary> Get a node's grandparent. Returns the Null ID if the given node has no grandparent - is or is parented to the root node. </summary>
+	/// <param name="nodeId">The node's ID.</param>
+	/// <returns>ID of the grandparent, or Null if has no grandparent.</returns>
+	TNodeId GetGrandparent(TNodeId const nodeId) const;
 
-    TNodeId GetGrandparent(TNodeId nodeId)
-    {
-        LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
-        LV_CORE_ASSERT(m_Heights[nodeId] > 1, "Node height is too low - node does not have a grandparent!");
-        return m_Nodes[m_Nodes[nodeId].Parent].Parent;
-    }
-public:
-    Node const& operator[](TNodeId nodeId) const
-    {
-        LV_CORE_ASSERT(Has(nodeId), "Invalid node ID!");
-        return m_Nodes[nodeId];
-    }
+	/// <summary> Get a const reference to a node. </summary>
+	/// <param name="nodeId">The ID of the node.</param>
+	Node const& operator[](TNodeId nodeId) const;
 
 private:
-    TNodeId GetEmpty()
-    {
-        TNodeId emptyId = m_Nodes.New();
-        if (emptyId >= m_Heights.size()) { m_Heights.push_back(-1); }
-        return emptyId;
-    }
+	/// <summary> Get ID of an empty node (not attached to the tree and has no children) from internal node storage. </summary>
+	TNodeId GetEmpty();
 
-    void RecycleSubtree(TNodeId rootId)
-    {
-        LV_CORE_ASSERT(Has(rootId), "Invalid root node ID!");
-        TNodeId childId = m_Nodes[rootId].FirstChild;
-        while (childId != NNull) {
-            childId = m_Nodes[childId].NextSibling;
-            RecycleSubtree(m_Nodes[childId].PrevSibling);
-        }
-        m_Nodes.Erase(rootId);
-    }
+	/// <summary> Erase all nodes in a subtree, including the root. </summary>
+	/// <param name="rootId">The ID of the subtree's root node.</param>
+	void EraseSubtree(TNodeId const rootId);
 
-    void Attach(TNodeId nodeId, TNodeId parentId)
-    {
-        auto& node = m_Nodes[nodeId];
-        auto& parent = m_Nodes[parentId];
+	/// <summary>
+	/// Attach a node to a parent node. Node replaces the parent's first child, if one exists.
+	/// Does not detach the node if it is already attached - use only on an empty node, or call Detach before calling this function.
+	/// </summary>
+	/// <param name="nodeId">The ID of the node to attach.</param>
+	/// <param name="parentId">The ID of the node which will receive the new child node.</param>
+	void Attach(TNodeId const nodeId, TNodeId const parentId);
 
-        // Connect to parent
-        node.Parent = parentId;
-        if (parent.FirstChild != NNull) {
-            // Connect to siblings
-            node.NextSibling = parent.FirstChild;
-            m_Nodes[parent.FirstChild].PrevSibling = nodeId;
-        }
-        parent.FirstChild = nodeId;
+	/// <summary>
+	/// Detach a node from the tree.
+	/// All nodes attached to this node stay attached to it - i.e, this function detaches the subtree rooted in the specified node, and the subtree remains intact.
+	/// </summary>
+	/// <param name="nodeId"></param>
+	void Detach(TNodeId nodeId);
 
-        m_Heights[nodeId] = m_Heights[parentId] + 1;
-    }
-
-    void Detach(TNodeId nodeId)
-    {
-        auto& node = m_Nodes[nodeId];
-        auto& parent = m_Nodes[node.Parent];
-
-        // Disconnect from parent
-        if (parent.FirstChild == nodeId) {
-            parent.FirstChild = node.NextSibling;
-        }
-        node.Parent = NNull;
-
-        // Disconnect from siblings
-        if (node.NextSibling != NNull) {
-            m_Nodes[node.NextSibling].PrevSibling = node.PrevSibling;
-        }
-        if (node.PrevSibling != NNull) {
-            m_Nodes[node.PrevSibling].NextSibling = node.NextSibling;
-        }
-        node.NextSibling = node.PrevSibling = NNull;
-
-        m_Heights[nodeId] = -1;
-    }
-
-    Storage<Node> m_Nodes;
-    std::vector<int> m_Heights;
+	Storage<Node>					m_Nodes;								/// The node storage.
+	std::vector<THeight>			m_Heights;								/// The node heights.
 };
 
 }
