@@ -4,8 +4,8 @@
 #include <Renderer/Camera.h>
 #include <Scripting/ScriptEngine.h>
 
-#include <Math/Math.h>
-#include <OrbitalPhysics/OrbitalPhysics.h>
+#include "Math/LimnovaMath.h"
+#include "OrbitalPhysics/OrbitalPhysics.h"
 
 #include <entt.hpp>
 

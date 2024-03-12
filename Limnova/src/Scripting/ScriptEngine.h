@@ -6,7 +6,7 @@
 #include "Core/UUID.h"
 #include "Core/Timestep.h"
 
-#include "Math/Math.h"
+#include "Math/LimnovaMath.h"
 
 extern "C" {
     typedef struct _MonoAssembly MonoAssembly;

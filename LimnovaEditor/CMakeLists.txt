@@ -23,7 +23,7 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
         "${PROJECT_SOURCE_DIR}"
 
-        "${CMAKE_SOURCE_DIR}/OrbitalPhysics/include"
+        "C:/Dev/Limnovoid/include"
 
         "${CMAKE_SOURCE_DIR}/Limnova"
         "${CMAKE_SOURCE_DIR}/Limnova/src"
@@ -50,6 +50,7 @@ add_dependencies(${PROJECT_NAME}
 target_link_directories(${PROJECT_NAME}
     PRIVATE
         "${CMAKE_SOURCE_DIR}/Limnova/thirdparty/mono/lib/$<IF:$<CONFIG:Debug>,Debug,Release>"
+        "C:/Dev/Limnovoid/out/build/x64-$<IF:$<CONFIG:Debug>,Debug,Release>"
 )
 
 add_compile_definitions(

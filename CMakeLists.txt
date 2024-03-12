@@ -14,6 +14,5 @@ add_compile_definitions(
 # Projects
 add_subdirectory(Limnova)
 add_subdirectory(LimnovaScriptCore)
-add_subdirectory(OrbitalPhysics)
 add_subdirectory(LimnovaEditor)
 #add_subdirectory(PlayApp)

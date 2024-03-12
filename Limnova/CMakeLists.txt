@@ -86,7 +86,7 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
         "${PROJECT_SOURCE_DIR}/src"
 
-        "${CMAKE_SOURCE_DIR}/OrbitalPhysics/include"
+        "C:/Dev/Limnovoid/include"
 
         "${PROJECT_SOURCE_DIR}/thirdparty"
         "${PROJECT_SOURCE_DIR}/thirdparty/entt/include"

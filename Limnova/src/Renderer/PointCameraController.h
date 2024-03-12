@@ -6,7 +6,7 @@
 #include "Events/ApplicationEvent.h"
 #include "Events/MouseEvent.h"
 
-#include "Math/Math.h"
+#include "Math/LimnovaMath.h"
 
 
 namespace Limnova

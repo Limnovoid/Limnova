@@ -5,7 +5,7 @@
 #include <mono/metadata/object.h>
 #include <mono/metadata/reflection.h>
 
-#include <Math/Math.h>
+#include "Math/LimnovaMath.h"
 
 #include <Core/UUID.h>
 #include <Core/Input.h>
